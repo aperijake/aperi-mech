@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build and Run",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/../stk-crk_build/stk-crk.out",
+            "args": [],
+            "cwd": "${workspaceFolder}/../stk-crk_build",
+            "preLaunchTask": "make",
+        }
+    ]
+}
