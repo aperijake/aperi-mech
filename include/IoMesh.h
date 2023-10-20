@@ -16,71 +16,43 @@ class BulkData;
 
 class IoMesh {
    public:
-    explicit IoMesh(MPI_Comm comm)
-        : m_comm(comm) {
-        m_initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
-        m_maximum_bucket_capacity = stk::mesh::get_default_maximum_bucket_capacity();
-        SetOutputStreams();
-        EquilibrateMemoryBaseline();
-    }
+    IoMesh(MPI_Comm comm, bool add_edges, bool add_faces, bool upward_connectivity, bool aura_option, std::string parallel_io, std::string decomp_method,
+           bool compose_output, int compression_level, bool compression_shuffle, bool lower_case_variable_names, int integer_size,
+           int initial_bucket_capacity = 0, int max_bucket_capacity = 0);
 
-    void EquilibrateMemoryBaseline();
-
-    void SetOutputStreams();
-
-    void LogMeshCounts(const stk::mesh::BulkData &mesh) const;
-
-    void MeshRead(const std::string &type,
+    void ReadMesh(const std::string &type,
                   const std::string &working_directory,
                   const std::string &filename,
-                  stk::io::StkMeshIoBroker &ioBroker,
-                  stk::io::HeartbeatType hb_type,
-                  int interpolation_intervals) const;
+                  int interpolation_intervals);
 
-    void MeshWrite(const std::string &type,
-                   const std::string &working_directory,
-                   const std::string &filename,
-                   stk::io::StkMeshIoBroker &ioBroker,
-                   stk::io::HeartbeatType hb_type,
-                   int interpolation_intervals);
-
-    void Driver(const std::string &parallel_io,
-                const std::string &working_directory,
-                const std::string &filename,
-                const std::string &type,
-                const std::string &decomp_method,
-                bool compose_output,
-                int compression_level,
-                bool compression_shuffle,
-                bool lower_case_variable_names,
-                int integer_size,
-                stk::io::HeartbeatType hb_type,
-                int interpolation_intervals);
-
-    static void SetIoProperties(stk::io::StkMeshIoBroker &ioBroker,
-                                bool lower_case_variable_names,
-                                const std::string &decomp_method,
-                                bool compose_output,
-                                const std::string &parallel_io,
-                                int compression_level,
-                                bool compression_shuffle,
-                                int integer_size);
-
-    void SetAddEdges(bool trueOrFalse) { m_add_edges = trueOrFalse; }
-    void SetAddFaces(bool trueOrFalse) { m_add_faces = trueOrFalse; }
-    void SetUpwardConnectivity(bool trueOrFalse) { m_upward_connectivity = trueOrFalse; }
-    void SetAuraOption(bool trueOrFalse) { m_aura_option = trueOrFalse; }
-    void SetInitialBucketCapacity(int initialCapacity) { m_initial_bucket_capacity = initialCapacity; }
-    void SetMaximumBucketCapacity(int maximumCapacity) { m_maximum_bucket_capacity = maximumCapacity; }
+    void WriteFieldResults(const std::string &type,
+                           const std::string &working_directory,
+                           const std::string &filename,
+                           stk::io::HeartbeatType hb_type,
+                           int interpolation_intervals);
 
    private:
+    void EquilibrateMemoryBaseline();
+    void SetOutputStreams();
+    void LogMeshCounts(const stk::mesh::BulkData &mesh) const;
+    void SetIoProperties() const;
+
     MPI_Comm m_comm;
-    size_t m_current_avg_baseline = 0;
-    bool m_add_edges = false;
-    bool m_add_faces = false;
-    bool m_upward_connectivity = true;
-    bool m_aura_option = false;
+    bool m_add_edges;                  //  create all internal edges in the mesh
+    bool m_add_faces;                  //  create all internal faces in the mesh
+    bool m_upward_connectivity;        //  create upward connectivity/adjacency in the mesh
+    bool m_aura_option = false;        //  create aura ghosting around each MPI rank
+    std::string m_parallel_io;         // Method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
+    std::string m_decomp_method;       // Decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
+    bool m_compose_output;             // Create a single output file: true|false"
+    int m_compression_level;           // Compression level [1..9] to use
+    bool m_compression_shuffle;        // Use shuffle filter prior to compressing data: true|false
+    bool m_lower_case_variable_names;  // Convert variable names to lowercase and replace spaces in names with underscore
+    int m_integer_size;                // Use 4 or 8-byte integers for input and output
     int m_initial_bucket_capacity;
     int m_maximum_bucket_capacity;
+
+    size_t m_current_avg_baseline = 0;
     std::vector<double> m_baseline_buffer;
+    std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
 };

@@ -7,9 +7,9 @@
 #include <Ioss_VariableType.h>  // for Varia...
 #include <mpi.h>                // for MPI_Comm
 
-#include <cstring>   // for size_t
-#include <iostream>  // for opera...
-#include <sstream>
+#include <cstring>                     // for size_t
+#include <iostream>                    // for opera...
+#include <memory>                      // for shared_ptr
 #include <stk_io/DatabasePurpose.hpp>  // for READ_...
 #include <stk_io/Heartbeat.hpp>        // for NONE
 #include <stk_io/IossBridge.hpp>       // for get_f...
@@ -38,6 +38,49 @@
 #include <stk_util/util/human_bytes.hpp>     // for human...
 #include <string>                            // for string
 #include <vector>                            // for vector
+
+IoMesh::IoMesh(MPI_Comm comm, bool add_edges, bool add_faces, bool upward_connectivity, bool aura_option, std::string parallel_io, std::string decomp_method,
+               bool compose_output, int compression_level, bool compression_shuffle, bool lower_case_variable_names, int integer_size,
+               int initial_bucket_capacity, int max_bucket_capacity)
+    : m_comm(comm),
+      m_add_edges(add_edges),
+      m_add_faces(add_faces),
+      m_upward_connectivity(upward_connectivity),
+      m_aura_option(aura_option),
+      m_parallel_io(parallel_io),
+      m_decomp_method(decomp_method),
+      m_compose_output(compose_output),
+      m_compression_level(compression_level),
+      m_compression_shuffle(compression_shuffle),
+      m_lower_case_variable_names(lower_case_variable_names),
+      m_integer_size(integer_size),
+      m_initial_bucket_capacity(initial_bucket_capacity),
+      m_maximum_bucket_capacity(max_bucket_capacity) {
+    if (!m_initial_bucket_capacity) {
+        m_initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
+    }
+    if (!m_maximum_bucket_capacity) {
+        m_maximum_bucket_capacity = stk::mesh::get_default_maximum_bucket_capacity();
+    }
+
+    SetOutputStreams();
+    EquilibrateMemoryBaseline();
+
+    stk::mesh::BulkData::AutomaticAuraOption aura = m_aura_option ? stk::mesh::BulkData::AUTO_AURA : stk::mesh::BulkData::NO_AUTO_AURA;
+    stk::mesh::MeshBuilder builder(comm);
+    builder.set_aura_option(aura);
+    builder.set_upward_connectivity(m_upward_connectivity);
+    builder.set_initial_bucket_capacity(m_initial_bucket_capacity);
+    builder.set_maximum_bucket_capacity(m_maximum_bucket_capacity);
+    stk::log_with_time_and_memory(m_comm, "Creating MetaData/BulkData objects");
+    std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
+
+    stk::log_with_time_and_memory(m_comm, "Creating StkMeshIoBroker object");
+
+    mp_io_broker = std::make_shared<stk::io::StkMeshIoBroker>(comm);
+    SetIoProperties();
+    mp_io_broker->set_bulk_data(bulk);
+}
 
 void IoMesh::EquilibrateMemoryBaseline() {
     size_t now = 0;
@@ -142,28 +185,64 @@ void IoMesh::LogMeshCounts(const stk::mesh::BulkData &mesh) const {
 #endif
 }
 
-void IoMesh::MeshRead(const std::string &type,
+void IoMesh::SetIoProperties() const {
+    mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", m_lower_case_variable_names));
+
+    if (!m_decomp_method.empty()) {
+        mp_io_broker->property_add(Ioss::Property("DECOMPOSITION_METHOD", m_decomp_method));
+    }
+
+    if (m_compose_output) {
+        mp_io_broker->property_add(Ioss::Property("COMPOSE_RESULTS", true));
+    }
+
+    if (!m_parallel_io.empty()) {
+        mp_io_broker->property_add(Ioss::Property("PARALLEL_IO_MODE", m_parallel_io));
+    }
+
+    bool use_netcdf4 = false;
+    if (m_compression_level > 0) {
+        mp_io_broker->property_add(Ioss::Property("COMPRESSION_LEVEL", m_compression_level));
+        use_netcdf4 = true;
+    }
+    if (m_compression_shuffle) {
+        mp_io_broker->property_add(Ioss::Property("COMPRESSION_SHUFFLE", 1));
+        use_netcdf4 = true;
+    }
+    if (use_netcdf4) {
+        mp_io_broker->property_add(Ioss::Property("FILE_TYPE", "netcdf4"));
+    }
+
+    if (m_integer_size == 8) {
+        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_DB", m_integer_size));
+        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_API", m_integer_size));
+    }
+}
+
+void IoMesh::ReadMesh(const std::string &type,
                       const std::string &working_directory,
                       const std::string &filename,
-                      stk::io::StkMeshIoBroker &ioBroker,
-                      stk::io::HeartbeatType hb_type,
-                      int interpolation_intervals) const {
+                      int interpolation_intervals) {
+    stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
+    EquilibrateMemoryBaseline();
+    stk::log_with_time_and_memory(m_comm, "Finished setting memory baseline");
+
 #ifdef STK_MEMORY_TRACKING
     stk::reset_high_water_mark_in_bytes();
     stk::reset_high_water_mark_in_ptrs();
 #endif
 
-    //    constexpr unsigned N = 1000000;
-    //    std::vector<double> v(N, 0.0);
+    stk::log_with_time_and_memory(m_comm, "Reading input mesh: " + filename);
+
     if (interpolation_intervals == 0)
         interpolation_intervals = 1;
 
     std::string file = working_directory;
     file += filename;
 
-    size_t input_index = ioBroker.add_mesh_database(file, type, stk::io::READ_MESH);
-    ioBroker.set_active_mesh(input_index);
-    ioBroker.create_input_mesh();
+    size_t input_index = mp_io_broker->add_mesh_database(file, type, stk::io::READ_MESH);
+    mp_io_broker->set_active_mesh(input_index);
+    mp_io_broker->create_input_mesh();
 
     // This is done just to define some fields in stk
     // that can be used later for reading restart data.
@@ -171,75 +250,71 @@ void IoMesh::MeshRead(const std::string &type,
     if (interpolation_intervals > 1) {
         tmo = stk::io::MeshField::LINEAR_INTERPOLATION;
     }
-    ioBroker.add_all_mesh_fields_as_input_fields(tmo);
+    mp_io_broker->add_all_mesh_fields_as_input_fields(tmo);
 
-    ioBroker.populate_bulk_data();
+    mp_io_broker->populate_bulk_data();
 
     if (m_add_edges) {
-        stk::mesh::create_edges(ioBroker.bulk_data());
+        stk::mesh::create_edges(mp_io_broker->bulk_data());
     }
 
     if (m_add_faces) {
-        stk::mesh::create_faces(ioBroker.bulk_data());
+        stk::mesh::create_faces(mp_io_broker->bulk_data());
     }
+
+    stk::log_with_time_and_memory(m_comm, "Finished reading input mesh");
+    LogMeshCounts(mp_io_broker->bulk_data());
 }
 
-void IoMesh::MeshWrite(const std::string &type,
-                       const std::string &working_directory,
-                       const std::string &filename,
-                       stk::io::StkMeshIoBroker &ioBroker,
-                       stk::io::HeartbeatType hb_type,
-                       int interpolation_intervals) {
+void IoMesh::WriteFieldResults(const std::string &type,
+                               const std::string &working_directory,
+                               const std::string &filename,
+                               stk::io::HeartbeatType hb_type,
+                               int interpolation_intervals) {
     if (interpolation_intervals == 0)
         interpolation_intervals = 1;
 
     std::string file = working_directory;
     file += filename;
 
-    // ========================================================================
-    std::string output_filename = working_directory + type + "_out.exo";
+    std::string output_filename = working_directory + filename;
 
     // This call adds an output database for results data to ioBroker.
     // No data is written at this time other than verifying that the
     // file can be created on the disk.
-    size_t results_index = ioBroker.create_output_mesh(output_filename, stk::io::WRITE_RESULTS);
+    size_t results_index = mp_io_broker->create_output_mesh(output_filename, stk::io::WRITE_RESULTS);
 
-    std::string restart_filename = working_directory + type + "_restart.exo";
-
-    size_t restart_index = ioBroker.create_output_mesh(restart_filename, stk::io::WRITE_RESTART);
-
-    // Iterate all fields and set them as restart fields...
-    const stk::mesh::FieldVector &fields = ioBroker.meta_data().get_fields();
+    // Iterate all fields and set them as results fields...
+    const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
     for (size_t i = 0; i < fields.size(); i++) {
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*fields[i]);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            ioBroker.add_field(restart_index, *fields[i]);  // restart output
-            ioBroker.add_field(results_index, *fields[i]);  // results output
+            mp_io_broker->add_field(results_index, *fields[i]);  // results output
         }
     }
 
     // Determine the names of the global fields on the input
     // mesh. These will be used below to define the same fields on the
-    // restart and results output databases.
+    // result output database.
     std::vector<std::string> global_fields;
-    ioBroker.get_global_variable_names(global_fields);
+    mp_io_broker->get_global_variable_names(global_fields);
 
     // Create heartbeat file of the specified format...
     size_t heart = 0;
     if (hb_type != stk::io::NONE && !global_fields.empty()) {
         std::string heartbeat_filename = working_directory + type + ".hrt";
-        heart = ioBroker.add_heartbeat_output(heartbeat_filename, hb_type);
+        heart = mp_io_broker->add_heartbeat_output(heartbeat_filename, hb_type);
     }
 
     stk::util::ParameterList parameters;
 
     // For each global field name on the input database, determine the type of the field
-    // and define that same global field on the results, restart, history, and heartbeat outputs.
+    // and define that same global field on the results, history, and heartbeat outputs.
     if (!global_fields.empty()) {
         std::cout << "Adding " << global_fields.size() << " global fields:\n";
     }
 
-    auto io_region = ioBroker.get_input_ioss_region();
+    auto io_region = mp_io_broker->get_input_ioss_region();
 
     for (size_t i = 0; i < global_fields.size(); i++) {
         const Ioss::Field &input_field = io_region->get_fieldref(global_fields[i]);
@@ -254,25 +329,23 @@ void IoMesh::MeshWrite(const std::string &type,
         }
 
         // Define the global fields that will be written on each timestep.
-        ioBroker.add_global(restart_index, input_field.get_name(),
-                            input_field.raw_storage()->name(), input_field.get_type());
-        ioBroker.add_global(results_index, input_field.get_name(),
-                            input_field.raw_storage()->name(), input_field.get_type());
+        mp_io_broker->add_global(results_index, input_field.get_name(),
+                                 input_field.raw_storage()->name(), input_field.get_type());
         if (hb_type != stk::io::NONE) {
             stk::util::Parameter &param = parameters.get_param(input_field.get_name());
-            ioBroker.add_heartbeat_global(heart, input_field.get_name(), param);
+            mp_io_broker->add_heartbeat_global(heart, input_field.get_name(), param);
         }
     }
 
     // ========================================================================
     // Begin the transient loop...  All timesteps on the input database are transferred
-    // to the results and restart output databases...
+    // to the results output database...
 
     // Determine number of timesteps on input database...
     int timestep_count = io_region->get_property("state_count").get_int();
 
     if (timestep_count == 0) {
-        ioBroker.write_output_mesh(results_index);
+        mp_io_broker->write_output_mesh(results_index);
     } else {
         for (int step = 1; step <= timestep_count; step++) {
             double time = io_region->get_state_time(step);
@@ -291,126 +364,37 @@ void IoMesh::MeshWrite(const std::string &type,
                 // outputting that data to the restart and results output.
                 time = t_begin + delta * static_cast<double>(interval);
 
-                ioBroker.read_defined_input_fields(time);
-                ioBroker.begin_output_step(restart_index, time);
-                ioBroker.begin_output_step(results_index, time);
+                mp_io_broker->read_defined_input_fields(time);
+                mp_io_broker->begin_output_step(results_index, time);
 
-                ioBroker.write_defined_output_fields(restart_index);
-                ioBroker.write_defined_output_fields(results_index);
+                mp_io_broker->write_defined_output_fields(results_index);
 
-                // Transfer all global variables from the input mesh to the
-                // restart and results databases
+                // Transfer all global variables from the input mesh to the results database
                 stk::util::ParameterMapType::const_iterator i = parameters.begin();
                 stk::util::ParameterMapType::const_iterator iend = parameters.end();
                 for (; i != iend; ++i) {
                     const std::string parameter_name = (*i).first;
                     stk::util::Parameter &parameter = parameters.get_param(parameter_name);
-                    ioBroker.get_global(parameter_name, parameter);
+                    mp_io_broker->get_global(parameter_name, parameter);
                 }
 
                 for (i = parameters.begin(); i != iend; ++i) {
                     const std::string parameter_name = (*i).first;
                     stk::util::Parameter parameter = (*i).second;
-                    ioBroker.write_global(restart_index, parameter_name, parameter.value, parameter.type);
-                    ioBroker.write_global(results_index, parameter_name, parameter.value, parameter.type);
+                    mp_io_broker->write_global(results_index, parameter_name, parameter.value, parameter.type);
                 }
 
-                ioBroker.end_output_step(restart_index);
-                ioBroker.end_output_step(results_index);
+                mp_io_broker->end_output_step(results_index);
             }
             if (hb_type != stk::io::NONE && !global_fields.empty()) {
-                ioBroker.process_heartbeat_output(heart, step, time);
+                mp_io_broker->process_heartbeat_output(heart, step, time);
             }
 
             // Flush the data.  This is not necessary in a normal
             // application, Just being done here to verify that the
             // function exists and does not core dump.
-            ioBroker.flush_output();
+            mp_io_broker->flush_output();
         }
     }
     stk::log_with_time_and_memory(m_comm, "Finished writing output mesh.");
-}
-
-void IoMesh::Driver(const std::string &parallel_io,
-                    const std::string &working_directory,
-                    const std::string &filename,
-                    const std::string &type,
-                    const std::string &decomp_method,
-                    bool compose_output,
-                    int compression_level,
-                    bool compression_shuffle,
-                    bool lower_case_variable_names,
-                    int integer_size,
-                    stk::io::HeartbeatType hb_type,
-                    int interpolation_intervals) {
-    stk::mesh::BulkData::AutomaticAuraOption aura = m_aura_option ? stk::mesh::BulkData::AUTO_AURA : stk::mesh::BulkData::NO_AUTO_AURA;
-    stk::mesh::MeshBuilder builder(MPI_COMM_WORLD);
-    builder.set_aura_option(aura);
-    builder.set_upward_connectivity(m_upward_connectivity);
-    builder.set_initial_bucket_capacity(m_initial_bucket_capacity);
-    builder.set_maximum_bucket_capacity(m_maximum_bucket_capacity);
-    stk::log_with_time_and_memory(m_comm, "Creating MetaData/BulkData objects");
-    std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
-
-    stk::log_with_time_and_memory(m_comm, "Creating StkMeshIoBroker object");
-
-    stk::io::StkMeshIoBroker io_broker(MPI_COMM_WORLD);
-    SetIoProperties(io_broker, lower_case_variable_names, decomp_method, compose_output, parallel_io, compression_level, compression_shuffle, integer_size);
-
-    stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
-    EquilibrateMemoryBaseline();
-    stk::log_with_time_and_memory(m_comm, "Finished setting memory baseline");
-
-    stk::log_with_time_and_memory(m_comm, "Reading input mesh: " + filename);
-
-    io_broker.set_bulk_data(bulk);
-    MeshRead(type, working_directory, filename, io_broker, hb_type, interpolation_intervals);
-
-    stk::log_with_time_and_memory(m_comm, "Finished reading input mesh");
-
-    LogMeshCounts(*bulk);
-
-    MeshWrite(type, working_directory, filename, io_broker, hb_type, interpolation_intervals);
-}
-
-void IoMesh::SetIoProperties(stk::io::StkMeshIoBroker &ioBroker,
-                             bool lower_case_variable_names,
-                             const std::string &decomp_method,
-                             bool compose_output,
-                             const std::string &parallel_io,
-                             int compression_level,
-                             bool compression_shuffle,
-                             int integer_size) {
-    ioBroker.property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", lower_case_variable_names));
-
-    if (!decomp_method.empty()) {
-        ioBroker.property_add(Ioss::Property("DECOMPOSITION_METHOD", decomp_method));
-    }
-
-    if (compose_output) {
-        ioBroker.property_add(Ioss::Property("COMPOSE_RESULTS", true));
-        ioBroker.property_add(Ioss::Property("COMPOSE_RESTART", true));
-    }
-
-    if (!parallel_io.empty()) {
-        ioBroker.property_add(Ioss::Property("PARALLEL_IO_MODE", parallel_io));
-    }
-
-    bool use_netcdf4 = false;
-    if (compression_level > 0) {
-        ioBroker.property_add(Ioss::Property("COMPRESSION_LEVEL", compression_level));
-        use_netcdf4 = true;
-    }
-    if (compression_shuffle) {
-        ioBroker.property_add(Ioss::Property("COMPRESSION_SHUFFLE", 1));
-        use_netcdf4 = true;
-    }
-    if (use_netcdf4) {
-        ioBroker.property_add(Ioss::Property("FILE_TYPE", "netcdf4"));
-    }
-
-    if (integer_size == 8) {
-        ioBroker.property_add(Ioss::Property("INTEGER_SIZE_DB", integer_size));
-        ioBroker.property_add(Ioss::Property("INTEGER_SIZE_API", integer_size));
-    }
 }
