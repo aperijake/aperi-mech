@@ -1,12 +1,12 @@
 {
-    "configurations": [
-        {
-            "name": "stk-crk",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "/Users/jake//projects/spack/opt/spack/darwin-sonoma-m1/gcc-13.2.0/**/include/"
-            ]
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "stk-crk",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/Users/jake/projects/spack/opt/spack/darwin-sonoma-m1/gcc-13.2.0/**/include/"
+      ]
+    }
+  ],
+  "version": 4
 }

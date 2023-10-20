@@ -1,15 +1,23 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "make",
-            "type": "shell",
-            "command": "cd ../stk-crk_build; ./do_configure_debug; make",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "make",
+      "type": "shell",
+      "command": "cd ../stk-crk_build; ./do_configure; make",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "make_debug",
+      "type": "shell",
+      "command": "cd ../stk-crk_build; ./do_configure_debug; make",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
 }
-
