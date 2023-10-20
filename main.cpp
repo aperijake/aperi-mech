@@ -87,7 +87,7 @@ void ProcessBlocksAndSets(const stk::io::StkMeshIoBroker &ioBroker) {
     ProcessNodeBlocks(region, ioBroker.bulk_data());
 }
 
-void MeshRead(const std::string &filename, const stk::ParallelMachine &comm) {
+stk::io::StkMeshIoBroker MeshRead(const std::string &filename, const stk::ParallelMachine &comm) {
     stk::mesh::MeshBuilder builder(comm);
     std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
     stk::io::StkMeshIoBroker ioBroker(comm);
@@ -99,6 +99,8 @@ void MeshRead(const std::string &filename, const stk::ParallelMachine &comm) {
     ioBroker.populate_bulk_data();
 
     ProcessBlocksAndSets(ioBroker);
+
+    return ioBroker;
 }
 
 void PutFieldData(stk::mesh::BulkData &bulk, stk::mesh::Part &part, stk::mesh::EntityRank part_type, Ioss::GroupingEntity *io_entity, Ioss::Field::RoleType filter_role) {
@@ -277,7 +279,7 @@ int main(int argc, char *argv[]) {
     MeshRead(input_base_filename, comm);
 
     std::string output_base_filename = "cylinder_out.exo";
-    // mesh_write(Ioss::Region &region, stk::mesh::BulkData &bulk, int step)
+    // MeshWrite(Ioss::Region &region, stk::mesh::BulkData &bulk, int step)
 
     // Finalize MPI and clean up
     stk::parallel_machine_finalize();
