@@ -12,13 +12,15 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_util/parallel/Parallel.hpp>
 
+#include "../include/IoMesh.h"
+
 std::vector<int> GetElementBlockSizes(const Ioss::Region &region) {
     std::vector<int> element_block_sizes;
     const Ioss::ElementBlockContainer &elem_blocks = region.get_element_blocks();
     for (Ioss::ElementBlockContainer::const_iterator it = elem_blocks.begin(); it != elem_blocks.end(); ++it) {
-        Ioss::ElementBlock *entity = *it;
-        if (stk::io::include_entity(entity)) {
-            element_block_sizes.push_back(entity->get_property("entity_count").get_int());
+        Ioss::ElementBlock *p_entity = *it;
+        if (stk::io::include_entity(p_entity)) {
+            element_block_sizes.push_back(p_entity->get_property("entity_count").get_int());
         }
     }
     return element_block_sizes;
@@ -28,15 +30,15 @@ void ProcessNodeBlocks(const Ioss::Region &region, const stk::mesh::BulkData &bu
     const Ioss::NodeBlockContainer &node_blocks = region.get_node_blocks();
     assert(node_blocks.size() == 1);
 
-    Ioss::NodeBlock *nb = node_blocks[0];
+    Ioss::NodeBlock *p_node_block = node_blocks[0];
 
-    std::vector<stk::mesh::Entity> nodes = stk::io::get_input_entity_list(nb, stk::topology::NODE_RANK, bulk);
+    std::vector<stk::mesh::Entity> nodes = stk::io::get_input_entity_list(p_node_block, stk::topology::NODE_RANK, bulk);
     std::cout << "num nodes: " << nodes.size() << std::endl;
 
     const stk::mesh::MetaData &meta = bulk.mesh_meta_data();
     stk::mesh::Field<double> *coord_field = meta.get_field<double>(stk::topology::NODE_RANK, "coordinates");
 
-    stk::io::field_data_from_ioss(bulk, coord_field, nodes, nb, "mesh_model_coordinates");
+    stk::io::field_data_from_ioss(bulk, coord_field, nodes, p_node_block, "mesh_model_coordinates");
 }
 
 void ProcessBlocksAndSets(const stk::io::StkMeshIoBroker &ioBroker) {
@@ -52,13 +54,13 @@ void ProcessBlocksAndSets(const stk::io::StkMeshIoBroker &ioBroker) {
     int num_element_blocks = 0;
 
     for (stk::mesh::PartVector::const_iterator ip = all_parts.begin(); ip != all_parts.end(); ++ip) {
-        stk::mesh::Part *const part = *ip;
+        stk::mesh::Part *const kp_part = *ip;
 
-        if (!stk::mesh::is_auto_declared_part(*part)) {
-            if (part->primary_entity_rank() == stk::topology::ELEMENT_RANK) {
+        if (!stk::mesh::is_auto_declared_part(*kp_part)) {
+            if (kp_part->primary_entity_rank() == stk::topology::ELEMENT_RANK) {
                 //*out << "IOSS-STK: Element part \"" << part->name() << "\" found " << std::endl;
-                parts.push_back(part);
-                part_names.push_back(part->name());
+                parts.push_back(kp_part);
+                part_names.push_back(kp_part->name());
                 std::cout << "part name: " << part_names.back() << std::endl;
                 num_element_blocks++;
             }
@@ -87,7 +89,7 @@ void ProcessBlocksAndSets(const stk::io::StkMeshIoBroker &ioBroker) {
     ProcessNodeBlocks(region, ioBroker.bulk_data());
 }
 
-stk::io::StkMeshIoBroker MeshRead(const std::string &filename, const stk::ParallelMachine &comm) {
+void MeshRead(const std::string &filename, const stk::ParallelMachine &comm) {
     stk::mesh::MeshBuilder builder(comm);
     std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
     stk::io::StkMeshIoBroker ioBroker(comm);
@@ -99,8 +101,6 @@ stk::io::StkMeshIoBroker MeshRead(const std::string &filename, const stk::Parall
     ioBroker.populate_bulk_data();
 
     ProcessBlocksAndSets(ioBroker);
-
-    return ioBroker;
 }
 
 void PutFieldData(stk::mesh::BulkData &bulk, stk::mesh::Part &part, stk::mesh::EntityRank part_type, Ioss::GroupingEntity *io_entity, Ioss::Field::RoleType filter_role) {
@@ -113,10 +113,10 @@ void PutFieldData(stk::mesh::BulkData &bulk, stk::mesh::Part &part, stk::mesh::E
 
     std::vector<stk::mesh::FieldBase *>::const_iterator i = fields.begin();
     while (i != fields.end()) {
-        const stk::mesh::FieldBase *f = *i;
+        const stk::mesh::FieldBase *p_field = *i;
         ++i;
-        if (stk::io::is_valid_part_field(f, part_type, part, filter_role)) {
-            stk::io::field_data_to_ioss(bulk, f, entities, io_entity, f->name(), filter_role);
+        if (stk::io::is_valid_part_field(p_field, part_type, part, filter_role)) {
+            stk::io::field_data_to_ioss(bulk, p_field, entities, io_entity, p_field->name(), filter_role);
         }
     }
 }
@@ -131,16 +131,16 @@ void WriteStep(Ioss::Region &region, stk::mesh::BulkData &bulk, int step) {
 
     const stk::mesh::PartVector &all_parts = meta.get_parts();
     for (stk::mesh::PartVector::const_iterator ip = all_parts.begin(); ip != all_parts.end(); ++ip) {
-        stk::mesh::Part *const part = *ip;
+        stk::mesh::Part *const kp_part = *ip;
 
-        const stk::mesh::EntityRank part_rank = part->primary_entity_rank();
+        const stk::mesh::EntityRank part_rank = kp_part->primary_entity_rank();
 
         // Check whether this part should be output to results database.
-        if (stk::io::is_part_io_part(*part)) {
+        if (stk::io::is_part_io_part(*kp_part)) {
             // Get Ioss::GroupingEntity corresponding to this part...
-            Ioss::GroupingEntity *entity = region.get_entity(part->name());
-            if (entity != nullptr) {
-                if (entity->type() == Ioss::SIDESET) {
+            Ioss::GroupingEntity *p_entity = region.get_entity(kp_part->name());
+            if (p_entity != nullptr) {
+                if (p_entity->type() == Ioss::SIDESET) {
                     // Ioss::SideSet *sideset = dynamic_cast<Ioss::SideSet *>(entity);
                     // assert(sideset != nullptr);
                     // int block_count = sideset->block_count();
@@ -152,7 +152,7 @@ void WriteStep(Ioss::Region &region, stk::mesh::BulkData &bulk, int step) {
                     //     put_field_data(bulk, *part, part_rank, side_block, Ioss::Field::TRANSIENT);
                     // }
                 } else {
-                    PutFieldData(bulk, *part, part_rank, entity, Ioss::Field::TRANSIENT);
+                    PutFieldData(bulk, *kp_part, part_rank, p_entity, Ioss::Field::TRANSIENT);
                 }
             } else {
                 /// \todo IMPLEMENT handle error... Possibly an assert since
@@ -274,6 +274,8 @@ int main(int argc, char *argv[]) {
 
     // Print rank and number of processes
     std::cout << "Hello from process " << my_rank << " out of " << num_procs << " processes." << std::endl;
+
+    IoMesh io_mesh_driver(comm);
 
     std::string input_base_filename = "cylinder.exo";
     MeshRead(input_base_filename, comm);

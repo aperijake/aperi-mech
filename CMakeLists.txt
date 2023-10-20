@@ -45,10 +45,11 @@ ENDIF()
 project(stk-crk)
 
 set(SOURCES
-    main.cpp;
+    src/IoMesh.cpp;
+    src/main.cpp;
    )
 
-include_directories("${PROJECT_BINARY_DIR}")
+include_directories("${PROJECT_BINARY_DIR}/include/")
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(${Trilinos_INCLUDE_DIRS})
 
