@@ -6,18 +6,20 @@
 #include "mpi.h"  // for MPI_Comm
 
 namespace stk {
-    namespace io {
-        class StkMeshIoBroker;
-    }
-    namespace mesh {
-        class BulkData;
-    }
+namespace io {
+class StkMeshIoBroker;
 }
+namespace mesh {
+class BulkData;
+}
+}  // namespace stk
 
 class IoMesh {
    public:
     explicit IoMesh(MPI_Comm comm)
         : m_comm(comm) {
+        m_initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
+        m_maximum_bucket_capacity = stk::mesh::get_default_maximum_bucket_capacity();
         SetOutputStreams();
         EquilibrateMemoryBaseline();
     }
@@ -74,10 +76,10 @@ class IoMesh {
    private:
     MPI_Comm m_comm;
     size_t m_current_avg_baseline = 0;
-    bool m_add_edges;
-    bool m_add_faces;
-    bool m_upward_connectivity;
-    bool m_aura_option;
+    bool m_add_edges = false;
+    bool m_add_faces = false;
+    bool m_upward_connectivity = true;
+    bool m_aura_option = false;
     int m_initial_bucket_capacity;
     int m_maximum_bucket_capacity;
     std::vector<double> m_baseline_buffer;

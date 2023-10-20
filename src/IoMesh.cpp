@@ -197,16 +197,14 @@ void IoMesh::MeshWrite(const std::string &type,
     file += filename;
 
     // ========================================================================
-    // Create output mesh...  ("generated_mesh.out") ("exodus_mesh.out")
-    std::string output_filename = working_directory + type + "_mesh.out";
+    std::string output_filename = working_directory + type + "_out.exo";
 
     // This call adds an output database for results data to ioBroker.
     // No data is written at this time other than verifying that the
     // file can be created on the disk.
     size_t results_index = ioBroker.create_output_mesh(output_filename, stk::io::WRITE_RESULTS);
 
-    // Create restart output ...  ("generated_mesh.restart") ("exodus_mesh.restart")
-    std::string restart_filename = working_directory + type + "_mesh.restart";
+    std::string restart_filename = working_directory + type + "_restart.exo";
 
     size_t restart_index = ioBroker.create_output_mesh(restart_filename, stk::io::WRITE_RESTART);
 

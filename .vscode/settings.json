@@ -66,5 +66,15 @@
     "vector": "cpp",
     "algorithm": "cpp"
   },
-  "cSpell.words": ["cgns", "exodusii", "ioss", "pamgen", "SIDESET", "spyhis"]
+  "cSpell.words": [
+    "cgns",
+    "exodusii",
+    "ioss",
+    "mpiio",
+    "mpiposix",
+    "pamgen",
+    "pnetcdf",
+    "SIDESET",
+    "spyhis"
+  ]
 }
