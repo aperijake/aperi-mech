@@ -39,23 +39,21 @@
 #include <string>                            // for string
 #include <vector>                            // for vector
 
-IoMesh::IoMesh(MPI_Comm comm, bool add_edges, bool add_faces, bool upward_connectivity, bool aura_option, std::string parallel_io, std::string decomp_method,
-               bool compose_output, int compression_level, bool compression_shuffle, bool lower_case_variable_names, int integer_size,
-               int initial_bucket_capacity, int max_bucket_capacity)
+IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     : m_comm(comm),
-      m_add_edges(add_edges),
-      m_add_faces(add_faces),
-      m_upward_connectivity(upward_connectivity),
-      m_aura_option(aura_option),
-      m_parallel_io(parallel_io),
-      m_decomp_method(decomp_method),
-      m_compose_output(compose_output),
-      m_compression_level(compression_level),
-      m_compression_shuffle(compression_shuffle),
-      m_lower_case_variable_names(lower_case_variable_names),
-      m_integer_size(integer_size),
-      m_initial_bucket_capacity(initial_bucket_capacity),
-      m_maximum_bucket_capacity(max_bucket_capacity) {
+      m_add_edges(io_mesh_parameters.add_edges),
+      m_add_faces(io_mesh_parameters.add_faces),
+      m_upward_connectivity(io_mesh_parameters.upward_connectivity),
+      m_aura_option(io_mesh_parameters.aura_option),
+      m_parallel_io(io_mesh_parameters.parallel_io),
+      m_decomp_method(io_mesh_parameters.decomp_method),
+      m_compose_output(io_mesh_parameters.compose_output),
+      m_compression_level(io_mesh_parameters.compression_level),
+      m_compression_shuffle(io_mesh_parameters.compression_shuffle),
+      m_lower_case_variable_names(io_mesh_parameters.lower_case_variable_names),
+      m_integer_size(io_mesh_parameters.integer_size),
+      m_initial_bucket_capacity(io_mesh_parameters.initial_bucket_capacity),
+      m_maximum_bucket_capacity(io_mesh_parameters.maximum_bucket_capacity) {
     if (!m_initial_bucket_capacity) {
         m_initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
     }
@@ -220,7 +218,6 @@ void IoMesh::SetIoProperties() const {
 }
 
 void IoMesh::ReadMesh(const std::string &type,
-                      const std::string &working_directory,
                       const std::string &filename,
                       int interpolation_intervals) {
     stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
@@ -237,10 +234,7 @@ void IoMesh::ReadMesh(const std::string &type,
     if (interpolation_intervals == 0)
         interpolation_intervals = 1;
 
-    std::string file = working_directory;
-    file += filename;
-
-    size_t input_index = mp_io_broker->add_mesh_database(file, type, stk::io::READ_MESH);
+    size_t input_index = mp_io_broker->add_mesh_database(filename, type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(input_index);
     mp_io_broker->create_input_mesh();
 
@@ -267,22 +261,16 @@ void IoMesh::ReadMesh(const std::string &type,
 }
 
 void IoMesh::WriteFieldResults(const std::string &type,
-                               const std::string &working_directory,
                                const std::string &filename,
                                stk::io::HeartbeatType hb_type,
                                int interpolation_intervals) {
     if (interpolation_intervals == 0)
         interpolation_intervals = 1;
 
-    std::string file = working_directory;
-    file += filename;
-
-    std::string output_filename = working_directory + filename;
-
     // This call adds an output database for results data to ioBroker.
     // No data is written at this time other than verifying that the
     // file can be created on the disk.
-    size_t results_index = mp_io_broker->create_output_mesh(output_filename, stk::io::WRITE_RESULTS);
+    size_t results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 
     // Iterate all fields and set them as results fields...
     const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
@@ -302,7 +290,7 @@ void IoMesh::WriteFieldResults(const std::string &type,
     // Create heartbeat file of the specified format...
     size_t heart = 0;
     if (hb_type != stk::io::NONE && !global_fields.empty()) {
-        std::string heartbeat_filename = working_directory + type + ".hrt";
+        std::string heartbeat_filename = filename + ".hrt";
         heart = mp_io_broker->add_heartbeat_output(heartbeat_filename, hb_type);
     }
 

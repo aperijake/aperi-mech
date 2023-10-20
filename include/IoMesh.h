@@ -14,19 +14,31 @@ class BulkData;
 }
 }  // namespace stk
 
+struct IoMeshParameters {
+    bool add_edges = false;                 //  create all internal edges in the mesh
+    bool add_faces = false;                 //  create all internal faces in the mesh
+    bool upward_connectivity = true;        // create upward connectivity/adjacency in the mesh
+    bool aura_option = false;               //  create aura ghosting around each MPI rank
+    std::string parallel_io = "pnetcdf";    // Method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
+    std::string decomp_method = "rcb";      // Decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
+    bool compose_output = false;            // Create a single output file: true|false"
+    int compression_level = 0;              // Compression level [1..9] to use
+    bool compression_shuffle = false;       // Use shuffle filter prior to compressing data: true|false
+    bool lower_case_variable_names = true;  // Convert variable names to lowercase and replace spaces in names with underscore
+    int integer_size = 4;                   // Use 4 or 8-byte integers for input and output
+    int initial_bucket_capacity = 0;
+    int maximum_bucket_capacity = 0;
+};
+
 class IoMesh {
    public:
-    IoMesh(MPI_Comm comm, bool add_edges, bool add_faces, bool upward_connectivity, bool aura_option, std::string parallel_io, std::string decomp_method,
-           bool compose_output, int compression_level, bool compression_shuffle, bool lower_case_variable_names, int integer_size,
-           int initial_bucket_capacity = 0, int max_bucket_capacity = 0);
+    IoMesh(stk::ParallelMachine comm, IoMeshParameters io_mesh_parameters);
 
     void ReadMesh(const std::string &type,
-                  const std::string &working_directory,
                   const std::string &filename,
                   int interpolation_intervals);
 
     void WriteFieldResults(const std::string &type,
-                           const std::string &working_directory,
                            const std::string &filename,
                            stk::io::HeartbeatType hb_type,
                            int interpolation_intervals);
