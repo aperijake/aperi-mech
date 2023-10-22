@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.10)
 
 # Needed to stop shared library warnings.  If Trilinos
 # was compiled with shared libraries and cmake thinks the system
 # only works with static libraries then there could be an issue
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+
+MESSAGE("   TRILINOS_PATH = ${TRILINOS_PATH}")
 
 FIND_PACKAGE(Trilinos PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
 
@@ -67,7 +69,43 @@ target_link_libraries(stk-crk.out
 			${Trilinos_TPL_LIBRARIES}
 			)
 
-# # Unit tester
+############# TESTING ############# 
+
+enable_testing()
+
+MESSAGE("   GTEST_PATH = ${GTEST_PATH}")
+
+find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
+
+IF(GTest_FOUND)
+	MESSAGE("   GTest_DIR = ${GTest_DIR}")
+ELSE()
+	MESSAGE(FATAL_ERROR "Could not find GTest!")
+ENDIF()
+
+include(GoogleTest)
+
+# Add an executable for the unit tests
+add_executable(unit_tests
+    test/unit_tests.cpp  # Test runner file
+)
+
+target_link_libraries(
+  unit_tests
+  GTest::gtest_main
+)
+
+gtest_discover_tests(unit_tests)
+
+# Optionally, configure code coverage with tools like gcov/lcov
+# This is useful for tracking code coverage in your tests
+#if (CODE_COVERAGE)
+#    include(CodeCoverage)
+#    append_coverage_compiler_flags()
+#    setup_target_for_coverage(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
+#endif ()
+
+# # CTest unit tester
 # add_subdirectory( unit_test )
 # 
 # enable_testing()

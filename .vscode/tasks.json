@@ -4,7 +4,7 @@
     {
       "label": "make",
       "type": "shell",
-      "command": "cd ../stk-crk_build; ./do_configure; make",
+      "command": "cd ../stk-crk_build; eval `spack env activate --sh stk-crk`; ./do_configure; make",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -13,10 +13,10 @@
     {
       "label": "make_debug",
       "type": "shell",
-      "command": "cd ../stk-crk_build; ./do_configure_debug; make",
+      "command": "cd ../stk-crk_build; eval `spack env activate --sh stk-crk`; ./do_configure_debug; make",
       "group": {
         "kind": "build",
-        "isDefault": true
+        "isDefault": false
       }
     }
   ]

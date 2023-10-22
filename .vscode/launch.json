@@ -11,10 +11,28 @@
       "preLaunchTask": "make"
     },
     {
+      "name": "Release Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../stk-crk_build/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/../stk-crk_build",
+      "preLaunchTask": "make"
+    },
+    {
       "name": "Debug",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../stk-crk_build/stk-crk.out",
+      "args": [],
+      "cwd": "${workspaceFolder}/../stk-crk_build",
+      "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Debug Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../stk-crk_build/unit_tests",
       "args": [],
       "cwd": "${workspaceFolder}/../stk-crk_build",
       "preLaunchTask": "make_debug"
