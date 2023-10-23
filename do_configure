@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Default build type
+BUILD_TYPE="Release"
+
+# Parse command-line options
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -t|--build-type)
+      BUILD_TYPE="$2"
+      shift
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+# Activate Spack environment
+eval `spack env activate --sh stk-crk`
+
+# Create build directory
+mkdir -p ../stk-crk_build
+cd ../stk-crk_build
+
+# Remove CMakeCache if it exists
+rm -f CMakeCache.txt
+
+# Configure CMake with specified build type and other options
+cmake \
+  -D CMAKE_BUILD_TYPE:STRING="$BUILD_TYPE" \
+  -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos) \
+  -D GTEST_PATH:FILEPATH=$(spack location -i googletest) \
+  -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated" \
+  ../stk-crk

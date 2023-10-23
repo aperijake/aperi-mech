@@ -69,6 +69,13 @@ target_link_libraries(stk-crk.out
 			${Trilinos_TPL_LIBRARIES}
 			)
 
+# Check the build type and set different executable names
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set_target_properties(stk-crk.out PROPERTIES OUTPUT_NAME "stk-crk.out")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_target_properties(stk-crk.out PROPERTIES OUTPUT_NAME "stk-crk_debug.out")
+endif()
+
 ############# TESTING ############# 
 
 enable_testing()
@@ -96,6 +103,13 @@ target_link_libraries(
     ${Trilinos_TPL_LIBRARIES}
     GTest::gtest_main
 )
+
+# Check the build type and set different executable names
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests_debug")
+endif()
 
 gtest_discover_tests(unit_tests)
 
