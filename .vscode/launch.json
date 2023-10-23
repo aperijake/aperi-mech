@@ -5,7 +5,7 @@
       "name": "Release",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../stk-crk_build/stk-crk.out",
+      "program": "${workspaceFolder}/../stk-crk_build/stk-crk",
       "args": [],
       "cwd": "${workspaceFolder}/../stk-crk_build",
       "preLaunchTask": "make"
@@ -23,7 +23,7 @@
       "name": "Debug",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../stk-crk_build/stk-crk_debug.out",
+      "program": "${workspaceFolder}/../stk-crk_build/stk-crk_debug",
       "args": [],
       "cwd": "${workspaceFolder}/../stk-crk_build",
       "preLaunchTask": "make_debug"

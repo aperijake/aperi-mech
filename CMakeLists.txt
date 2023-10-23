@@ -5,6 +5,9 @@ cmake_minimum_required(VERSION 3.10)
 # only works with static libraries then there could be an issue
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 
+# Set the path to project-specific custom modules
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 MESSAGE("   TRILINOS_PATH = ${TRILINOS_PATH}")
 
 FIND_PACKAGE(Trilinos PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
@@ -58,22 +61,35 @@ include_directories(${Trilinos_INCLUDE_DIRS})
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-add_executable(stk-crk.out ${SOURCES})
-target_link_libraries( stk-crk.out ${EXTRA_LIBS} )
+add_executable(stk-crk ${SOURCES})
+target_link_libraries( stk-crk ${EXTRA_LIBS} )
 
-set_property( TARGET stk-crk.out PROPERTY CXX_STANDARD 11 )
-set_property( TARGET stk-crk.out PROPERTY CXX_STANDARD_REQUIRED ON )
+set_property( TARGET stk-crk PROPERTY CXX_STANDARD 11 )
+set_property( TARGET stk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
 
-target_link_libraries(stk-crk.out
+target_link_libraries(stk-crk
+			${Trilinos_LIBRARIES}
+			${Trilinos_TPL_LIBRARIES}
+			)
+
+add_library(libstk-crk ${SOURCES})
+target_link_libraries( libstk-crk ${EXTRA_LIBS} )
+
+set_property( TARGET libstk-crk PROPERTY CXX_STANDARD 11 )
+set_property( TARGET libstk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
+
+target_link_libraries(libstk-crk
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
 			)
 
 # Check the build type and set different executable names
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set_target_properties(stk-crk.out PROPERTIES OUTPUT_NAME "stk-crk.out")
+    set_target_properties(stk-crk PROPERTIES OUTPUT_NAME "stk-crk")
+    set_target_properties(libstk-crk PROPERTIES OUTPUT_NAME "libstk-crk")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set_target_properties(stk-crk.out PROPERTIES OUTPUT_NAME "stk-crk_debug.out")
+    set_target_properties(stk-crk PROPERTIES OUTPUT_NAME "stk-crk_debug")
+    set_target_properties(libstk-crk PROPERTIES OUTPUT_NAME "libstk-crk_debug")
 endif()
 
 ############# TESTING ############# 
@@ -99,27 +115,29 @@ add_executable(unit_tests
 
 target_link_libraries(
     unit_tests
+    libstk-crk
     ${Trilinos_LIBRARIES}
     ${Trilinos_TPL_LIBRARIES}
     GTest::gtest_main
 )
 
-# Check the build type and set different executable names
+# Check the build type and set different executable names, add code coverage for debug
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests_debug")
+    # Optionally, configure code coverage with tools like gcov/lcov
+    # This is useful for tracking code coverage in your tests
+    if (CODE_COVERAGE)
+        MESSAGE("   LCOV_BIN_DIR = ${LCOV_BIN_DIR}")
+        list(APPEND CMAKE_PREFIX_PATH "${LCOV_BIN_DIR}")
+        include(CodeCoverage)
+        append_coverage_compiler_flags()
+        setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
+    endif ()
 endif()
 
 gtest_discover_tests(unit_tests)
-
-# Optionally, configure code coverage with tools like gcov/lcov
-# This is useful for tracking code coverage in your tests
-#if (CODE_COVERAGE)
-#    include(CodeCoverage)
-#    append_coverage_compiler_flags()
-#    setup_target_for_coverage(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
-#endif ()
 
 # # CTest unit tester
 # add_subdirectory( unit_test )

@@ -34,5 +34,7 @@ cmake \
   -D CMAKE_BUILD_TYPE:STRING="$BUILD_TYPE" \
   -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos) \
   -D GTEST_PATH:FILEPATH=$(spack location -i googletest) \
+  -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin \
+  -D CODE_COVERAGE:BOOL=true\
   -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated" \
   ../stk-crk
