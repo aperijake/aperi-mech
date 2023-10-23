@@ -18,6 +18,15 @@
         "kind": "build",
         "isDefault": false
       }
+    },
+    {
+      "label": "make_coverage",
+      "type": "shell",
+      "command": "./do_configure --code-coverage; cd ../stk-crk_build; make coverage",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
     }
   ]
 }

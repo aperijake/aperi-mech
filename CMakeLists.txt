@@ -126,8 +126,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests_debug")
-    # Optionally, configure code coverage with tools like gcov/lcov
-    # This is useful for tracking code coverage in your tests
+    # Configure code coverage
     if (CODE_COVERAGE)
         MESSAGE("   LCOV_BIN_DIR = ${LCOV_BIN_DIR}")
         list(APPEND CMAKE_PREFIX_PATH "${LCOV_BIN_DIR}")
@@ -138,10 +137,3 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 gtest_discover_tests(unit_tests)
-
-# # CTest unit tester
-# add_subdirectory( unit_test )
-# 
-# enable_testing()
-# include(CTest)
-# add_test("elastic/tension_gauss_fem" rkpm_test -p -d ../test/regression/elastic/tension_gauss_fem)

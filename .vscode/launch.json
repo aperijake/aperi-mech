@@ -36,6 +36,15 @@
       "args": [],
       "cwd": "${workspaceFolder}/../stk-crk_build",
       "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Code Coverage",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../stk-crk_build/unit_tests_debug",
+      "args": [],
+      "cwd": "${workspaceFolder}/../stk-crk_build",
+      "preLaunchTask": "make_coverage"
     }
   ]
 }

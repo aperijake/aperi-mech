@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Default build type
+# Initialize variables with default values
 BUILD_TYPE="Release"
+CODE_COVERAGE=false
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
@@ -12,12 +13,19 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    -c|--code-coverage)
+      CODE_COVERAGE=true
+      BUILD_TYPE="Debug"
+      echo "Requested code coverage. Build type set to Debug"
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
       ;;
   esac
 done
+
 
 # Activate Spack environment
 eval `spack env activate --sh stk-crk`
@@ -35,6 +43,6 @@ cmake \
   -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos) \
   -D GTEST_PATH:FILEPATH=$(spack location -i googletest) \
   -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin \
-  -D CODE_COVERAGE:BOOL=true\
+  -D CODE_COVERAGE:BOOL=$CODE_COVERAGE\
   -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated" \
   ../stk-crk
