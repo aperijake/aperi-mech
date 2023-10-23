@@ -1,18 +1,11 @@
 #pragma once
 #include <stk_io/Heartbeat.hpp>
+#include <stk_io/StkMeshIoBroker.hpp>  // for StkMe...
+#include <stk_mesh/base/BulkData.hpp>
 #include <string>  // for string
 #include <vector>  // for vector
 
 #include "mpi.h"  // for MPI_Comm
-
-namespace stk {
-namespace io {
-class StkMeshIoBroker;
-}
-namespace mesh {
-class BulkData;
-}
-}  // namespace stk
 
 struct IoMeshParameters {
     bool add_edges = false;                 //  create all internal edges in the mesh
@@ -38,10 +31,11 @@ class IoMesh {
                   const std::string &filename,
                   int interpolation_intervals);
 
-    void WriteFieldResults(const std::string &type,
-                           const std::string &filename,
+    void WriteFieldResults(const std::string &filename,
                            stk::io::HeartbeatType hb_type,
                            int interpolation_intervals);
+
+    stk::mesh::BulkData &GetBulkData() { return mp_io_broker->bulk_data(); }
 
    private:
     void EquilibrateMemoryBaseline();

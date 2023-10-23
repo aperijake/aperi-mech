@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
     // Write results
     stk::io::HeartbeatType heartbeat_type = stk::io::NONE;  // Format of heartbeat output. One of binary = stk::io::NONE, stk::io::BINARY, stk::io::CSV, stk::io::TS_CSV, stk::io::TEXT, stk::io::TS_TEXT, stk::io::SPYHIS;
-    io_mesh.WriteFieldResults(type, output_filename, heartbeat_type, interpolation_intervals);
+    io_mesh.WriteFieldResults(output_filename, heartbeat_type, interpolation_intervals);
 
     // Finalize MPI and clean up
     stk::parallel_machine_finalize();

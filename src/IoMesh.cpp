@@ -260,8 +260,7 @@ void IoMesh::ReadMesh(const std::string &type,
     LogMeshCounts(mp_io_broker->bulk_data());
 }
 
-void IoMesh::WriteFieldResults(const std::string &type,
-                               const std::string &filename,
+void IoMesh::WriteFieldResults(const std::string &filename,
                                stk::io::HeartbeatType hb_type,
                                int interpolation_intervals) {
     if (interpolation_intervals == 0)
