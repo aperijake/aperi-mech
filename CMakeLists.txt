@@ -49,8 +49,22 @@ ENDIF()
 
 project(stk-crk)
 
-set(SOURCES
+set(LIB_SOURCES
     src/IoMesh.cpp;
+   )
+
+add_library(libstk-crk ${LIB_SOURCES})
+target_link_libraries( libstk-crk ${EXTRA_LIBS} )
+
+set_property( TARGET libstk-crk PROPERTY CXX_STANDARD 11 )
+set_property( TARGET libstk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
+
+target_link_libraries(libstk-crk
+			${Trilinos_LIBRARIES}
+			${Trilinos_TPL_LIBRARIES}
+			)
+
+set(MAIN_SOURCES
     src/main.cpp;
    )
 
@@ -61,24 +75,13 @@ include_directories(${Trilinos_INCLUDE_DIRS})
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-add_executable(stk-crk ${SOURCES})
-target_link_libraries( stk-crk ${EXTRA_LIBS} )
+add_executable(stk-crk ${MAIN_SOURCES})
+target_link_libraries( stk-crk libstk-crk ${EXTRA_LIBS} )
 
 set_property( TARGET stk-crk PROPERTY CXX_STANDARD 11 )
 set_property( TARGET stk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
 
 target_link_libraries(stk-crk
-			${Trilinos_LIBRARIES}
-			${Trilinos_TPL_LIBRARIES}
-			)
-
-add_library(libstk-crk ${SOURCES})
-target_link_libraries( libstk-crk ${EXTRA_LIBS} )
-
-set_property( TARGET libstk-crk PROPERTY CXX_STANDARD 11 )
-set_property( TARGET libstk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
-
-target_link_libraries(libstk-crk
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
 			)
@@ -126,14 +129,15 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_target_properties(unit_tests PROPERTIES OUTPUT_NAME "unit_tests_debug")
-    # Configure code coverage
-    if (CODE_COVERAGE)
-        MESSAGE("   LCOV_BIN_DIR = ${LCOV_BIN_DIR}")
-        list(APPEND CMAKE_PREFIX_PATH "${LCOV_BIN_DIR}")
-        include(CodeCoverage)
-        append_coverage_compiler_flags()
-        setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
-    endif ()
 endif()
 
 gtest_discover_tests(unit_tests)
+
+############# CODE COVERAGE #############
+if (CODE_COVERAGE)
+    MESSAGE("   LCOV_BIN_DIR = ${LCOV_BIN_DIR}")
+    list(APPEND CMAKE_PREFIX_PATH "${LCOV_BIN_DIR}")
+    include(CodeCoverage)
+    append_coverage_compiler_flags()
+    setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
+endif ()

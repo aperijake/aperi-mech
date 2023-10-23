@@ -38,11 +38,17 @@ cd ../stk-crk_build
 rm -f CMakeCache.txt
 
 # Configure CMake with specified build type and other options
-cmake \
-  -D CMAKE_BUILD_TYPE:STRING="$BUILD_TYPE" \
-  -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos) \
-  -D GTEST_PATH:FILEPATH=$(spack location -i googletest) \
-  -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin \
-  -D CODE_COVERAGE:BOOL=$CODE_COVERAGE\
-  -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated" \
-  ../stk-crk
+cmake_command="cmake"
+
+cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"$BUILD_TYPE\""
+cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
+cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
+if $CODE_COVERAGE; then
+    cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
+fi
+cmake_command+=" -D CODE_COVERAGE:BOOL=$CODE_COVERAGE"
+cmake_command+=" -D CMAKE_CXX_FLAGS:STRING=\"-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated\""
+cmake_command+=" ../stk-crk"
+
+echo "CMake Command: $cmake_command"
+eval "$cmake_command"
