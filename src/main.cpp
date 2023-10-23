@@ -6,7 +6,7 @@
 #include <stk_io/Heartbeat.hpp>
 #include <stk_util/parallel/Parallel.hpp>
 
-#include "../include/IoMesh.h"
+#include "IoMesh.h"
 
 int main(int argc, char* argv[]) {
     // Initialize MPI and get communicator for the current process

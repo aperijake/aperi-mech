@@ -51,7 +51,7 @@ set(SOURCES
     src/main.cpp;
    )
 
-include_directories("${PROJECT_BINARY_DIR}/include/")
+include_directories("${CMAKE_SOURCE_DIR}/include/")
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(${Trilinos_INCLUDE_DIRS})
 
@@ -91,8 +91,10 @@ add_executable(unit_tests
 )
 
 target_link_libraries(
-  unit_tests
-  GTest::gtest_main
+    unit_tests
+    ${Trilinos_LIBRARIES}
+    ${Trilinos_TPL_LIBRARIES}
+    GTest::gtest_main
 )
 
 gtest_discover_tests(unit_tests)

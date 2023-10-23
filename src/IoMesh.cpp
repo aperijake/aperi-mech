@@ -1,4 +1,4 @@
-#include "../include/IoMesh.h"
+#include "IoMesh.h"
 
 #include <Ioss_Field.h>         // for Field
 #include <Ioss_Property.h>      // for Property
