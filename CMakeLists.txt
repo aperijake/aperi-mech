@@ -49,19 +49,33 @@ ENDIF()
 
 project(stk-crk)
 
+### yaml-cpp ###
+MESSAGE("   YAML-CPP_PATH = ${YAML-CPP_PATH}")
+find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
+
+IF(yaml-cpp_FOUND)
+	MESSAGE("   yaml-cpp_DIR = ${yaml-cpp_DIR}")
+    MESSAGE("    yaml-cpp_INCLUDE_DIR = ${YAML_CPP_INCLUDE_DIR}")
+    MESSAGE("    yaml-cpp_LIBRARIES = ${YAML_CPP_LIBRARIES}")
+ELSE()
+	MESSAGE(FATAL_ERROR "Could not find yaml-cpp!")
+ENDIF()
+
 set(LIB_SOURCES
     src/IoMesh.cpp;
+    src/IoInputFile.cpp;
    )
 
 add_library(libstk-crk ${LIB_SOURCES})
-target_link_libraries( libstk-crk ${EXTRA_LIBS} )
 
 set_property( TARGET libstk-crk PROPERTY CXX_STANDARD 11 )
 set_property( TARGET libstk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
 
 target_link_libraries(libstk-crk
+            yaml-cpp
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
+            ${EXTRA_LIBS}
 			)
 
 set(MAIN_SOURCES
@@ -76,15 +90,10 @@ link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
 add_executable(stk-crk ${MAIN_SOURCES})
-target_link_libraries( stk-crk libstk-crk ${EXTRA_LIBS} )
+target_link_libraries( stk-crk libstk-crk )
 
 set_property( TARGET stk-crk PROPERTY CXX_STANDARD 11 )
 set_property( TARGET stk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
-
-target_link_libraries(stk-crk
-			${Trilinos_LIBRARIES}
-			${Trilinos_TPL_LIBRARIES}
-			)
 
 # Check the build type and set different executable names
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -119,8 +128,6 @@ add_executable(unit_tests
 target_link_libraries(
     unit_tests
     libstk-crk
-    ${Trilinos_LIBRARIES}
-    ${Trilinos_TPL_LIBRARIES}
     GTest::gtest_main
 )
 

@@ -51,13 +51,13 @@ TEST(IoMesh, ReadWrite) {
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    int interpolation_intervals = 0;  // Number of intervals to divide each input time step into
+    int interpolation_intervals = 0;
     io_mesh.ReadMesh("generated", "1x1x1", interpolation_intervals);
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     CheckCounts(io_mesh.GetBulkData(), expected_owned);
 
     // Write the generated mesh
-    stk::io::HeartbeatType heartbeat_type = stk::io::NONE;  // Format of heartbeat output. One of binary = stk::io::NONE, stk::io::BINARY, stk::io::CSV, stk::io::TS_CSV, stk::io::TEXT, stk::io::TS_TEXT, stk::io::SPYHIS;
+    stk::io::HeartbeatType heartbeat_type = stk::io::NONE;
     io_mesh.WriteFieldResults(output_f_name, heartbeat_type, interpolation_intervals);
     std::ifstream after_write_file(output_f_name);
     EXPECT_TRUE(after_write_file.good());

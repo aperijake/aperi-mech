@@ -41,6 +41,9 @@ spack add googletest@1.12.1%gcc@13.2.0
 
 # LCOV
 spack add lcov %gcc@13.2.0
+
+# yaml-cpp
+spack add yaml-cpp %gcc@13.2.0
 ```
 
 ### Install Packages

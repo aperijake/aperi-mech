@@ -2,6 +2,7 @@
 
 // Include test cases
 #include "IoMeshTest.cpp"
+#include "IoInputFileTest.cpp"
 
 int main(int argc, char** argv) {
     stk::parallel_machine_init(&argc, &argv);
