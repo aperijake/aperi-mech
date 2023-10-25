@@ -6,33 +6,32 @@ CODE_COVERAGE=false
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
-  key="$1"
-  case $key in
-    -t|--build-type)
-      BUILD_TYPE="$2"
-      shift
-      shift
-      ;;
-    -c|--code-coverage)
-      CODE_COVERAGE=true
-      BUILD_TYPE="Debug"
-      echo "Requested code coverage. Build type set to Debug"
-      shift
-      ;;
-    *)
-      echo "Unknown option: $1"
-      exit 1
-      ;;
-  esac
+	key="$1"
+	case ${key} in
+	-t | --build-type)
+		BUILD_TYPE="$2"
+		shift
+		shift
+		;;
+	-c | --code-coverage)
+		CODE_COVERAGE=true
+		BUILD_TYPE="Debug"
+		echo "Requested code coverage. Build type set to Debug"
+		shift
+		;;
+	*)
+		echo "Unknown option: $1"
+		exit 1
+		;;
+	esac
 done
 
-
 # Activate Spack environment
-eval `spack env activate --sh stk-crk`
+eval $(spack env activate --sh stk-crk)
 
 # Create build directory
 mkdir -p ../stk-crk_build
-cd ../stk-crk_build
+cd ../stk-crk_build || exit
 
 # Remove CMakeCache if it exists
 rm -f CMakeCache.txt
@@ -40,17 +39,17 @@ rm -f CMakeCache.txt
 # Configure CMake with specified build type and other options
 cmake_command="cmake"
 
-cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"$BUILD_TYPE\""
+cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
-if $CODE_COVERAGE; then
-    cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
-    cmake_command+=" -D KOKKOS_PATH:FILEPATH=$(spack location -i kokkos)"
+if ${CODE_COVERAGE}; then
+	cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
+	cmake_command+=" -D KOKKOS_PATH:FILEPATH=$(spack location -i kokkos)"
 fi
-cmake_command+=" -D CODE_COVERAGE:BOOL=$CODE_COVERAGE"
-cmake_command+=" -D CMAKE_CXX_FLAGS:STRING=\"-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated\""
+cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
+cmake_command+=' -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated"'
 cmake_command+=" ../stk-crk"
 
-echo "CMake Command: $cmake_command"
-eval "$cmake_command"
+echo "CMake Command: ${cmake_command}"
+eval "${cmake_command}"

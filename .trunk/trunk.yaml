@@ -10,10 +10,13 @@ plugins:
       uri: https://github.com/trunk-io/plugins
 runtimes:
   enabled:
+    - go@1.21.0
     - node@18.12.1
     - python@3.10.8
 lint:
   enabled:
+    - shellcheck@0.9.0
+    - shfmt@3.6.0
     - pragma-once
     - include-what-you-use@0.20
     - clang-tidy@16.0.3
@@ -24,7 +27,7 @@ lint:
     - git-diff-check
     - markdownlint@0.37.0
     - prettier@3.0.3
-    - trufflehog@3.60.0
+    - trufflehog@3.60.3
 actions:
   disabled:
     - trunk-announce

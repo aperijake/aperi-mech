@@ -7,16 +7,18 @@ A Trilinos STK-based version of CRK
 ### Preliminary
 
 Currently, has only been tested on one M1 Mac machine with:
+
 - `gcc@13.2.0` from Homebrew
 - `apple-clang@15.0.0` from Xcode
 - `cmake@3.26.4` from Conda
 
 For code coverage, be sure `gcov` is using from the same version of gcc. I had to:
+
 ```bash
 ln -s /opt/homebrew/bin/gcov-13 /opt/homebrew/bin/gcov
 ```
 
-Then setup with: 
+Then setup with:
 
 ```bash
 # Add Homebrew compilers

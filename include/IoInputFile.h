@@ -1,6 +1,6 @@
 #pragma once
-#include <string>  // for string
 #include <stdexcept>  // for runtime_error
+#include <string>     // for string
 
 namespace YAML {
 class Node;
@@ -17,6 +17,5 @@ class IoInputFile {
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
 
    private:
-
     std::string m_filename;
 };

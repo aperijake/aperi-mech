@@ -1,13 +1,12 @@
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <filesystem>
 #include <string>
-#include <yaml-cpp/yaml.h>
 
 #include "IoInputFile.h"
 
 void WriteTestFile(const std::string& filename) {
-
     YAML::Node yaml_data;
 
     // Mesh section
