@@ -89,15 +89,25 @@ int IoInputFile::CheckInput(bool verbose) const {
         if (GetScalarValue<std::string>(initial_condition, "name", verbose).second) return_code = 1;
         if (GetScalarValue<std::string>(initial_condition, "location", verbose).second) return_code = 1;
         if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
+
+        std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(initial_condition, "direction", verbose);
+        if (direction_pair.second) {
+            return_code = 1;
+        } else {
+            if (direction_pair.first.size() != 3) {
+                std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
+                return_code = 1;
+            } else {
+                bool has_value = false;
+                for (const auto& direction : direction_pair.first) {
+                    if (direction != 0) has_value = true;
+                }
+                if (!has_value) {
+                    std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
+                    return_code = 1;
+                }
+            }
+        }
     }
-// fixed_bc["direction"].push_back(1);
-// fixed_bc["direction"].push_back(0);
-// fixed_bc["direction"].push_back(0);
-
-
-
-    // Check if materials are valid
-    // Check if loads are valid
-    // Check if boundary conditions are valid
     return return_code;
 }

@@ -95,6 +95,37 @@ class IoInputFile {
         return std::make_pair(value, return_code);
     }
 
+    // Get a sequence of values, checking if it exists
+    template <typename T>
+    std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false) const {
+        std::vector<T> values;
+        int return_code = 0;
+        if (!node[name.c_str()].IsDefined()) {
+            std::cerr << "Error: " << name << " not found." << std::endl;
+            return_code = 1;
+        } else if (!node[name].IsSequence()) {
+            std::cerr << "Error: " << name << " must be a sequence." << std::endl;
+            return_code = 1;
+        }
+
+        try {
+            for (const auto& value : node[name]) {
+                values.push_back(value.as<T>());
+            }
+            if (verbose) {
+                std::cout << name << ": ";
+                for (const auto& value : values) {
+                    std::cout << value << " ";
+                }
+                std::cout << std::endl;
+            }
+        } catch (const YAML::Exception& e) {
+            std::cerr << "Error reading " << name << ". Not a sequence?: " << e.what() << std::endl;
+            return_code = 1;
+        }
+        return std::make_pair(values, return_code);
+    }
+
     std::string m_filename;
     YAML::Node yaml_file;
 
