@@ -64,6 +64,7 @@ ENDIF()
 set(LIB_SOURCES
     src/IoMesh.cpp;
     src/IoInputFile.cpp;
+    src/IoUtils.cpp;
    )
 
 add_library(libstk-crk ${LIB_SOURCES})
@@ -123,6 +124,7 @@ include(GoogleTest)
 # Add an executable for the unit tests
 add_executable(unit_tests
     test/unit_tests.cpp  # Test runner file
+    test/UnitTestUtils.cpp
 )
 
 target_link_libraries(

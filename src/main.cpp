@@ -6,7 +6,9 @@
 #include <stk_io/Heartbeat.hpp>
 #include <stk_util/parallel/Parallel.hpp>
 
+#include "IoInputFile.h"
 #include "IoMesh.h"
+#include "IoUtils.h"
 
 int main(int argc, char* argv[]) {
     // Initialize MPI and get communicator for the current process
@@ -29,20 +31,24 @@ int main(int argc, char* argv[]) {
        - Boundary conditions
        - Initial conditions
     */
-    std::string input_filename = "./cylinder.exo";  // Input mesh file
-    std::string output_filename = "./results.exo";  // Output results file
 
-    std::string type = "exodusii";    // File type.  One of: exodusii
-    int interpolation_intervals = 0;  // Number of intervals to divide each input time step into
+    // Check if input filename is provided as a command-line argument
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <input_filename>" << std::endl;
+        return 1;
+    }
+
+    // Get input filename from command-line argument
+    std::string input_filename = argv[1];
+
+    // Read input file
+    IoInputFile io_input_file = ReadInputFile(input_filename);
 
     // Read mesh
-    IoMeshParameters io_mesh_parameters;  // Default parameters
-    IoMesh io_mesh(comm, io_mesh_parameters);
-    io_mesh.ReadMesh(type, input_filename, interpolation_intervals);
+    IoMesh io_mesh = ReadMesh(comm, io_input_file.GetMeshFile());
 
     // Write results
-    stk::io::HeartbeatType heartbeat_type = stk::io::NONE;  // Format of heartbeat output. One of binary = stk::io::NONE, stk::io::BINARY, stk::io::CSV, stk::io::TS_CSV, stk::io::TEXT, stk::io::TS_TEXT, stk::io::SPYHIS;
-    io_mesh.WriteFieldResults(output_filename, heartbeat_type, interpolation_intervals);
+    WriteResults(io_mesh, io_input_file.GetOutputFile());
 
     // Finalize MPI and clean up
     stk::parallel_machine_finalize();
