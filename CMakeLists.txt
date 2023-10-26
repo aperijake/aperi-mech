@@ -151,6 +151,7 @@ if (CODE_COVERAGE)
     set(COVERAGE_EXCLUDES
             "${KOKKOS_PATH}/*"
             "${TRILINOS_PATH}/*"
+            "${YAML-CPP_PATH}/*"
             "/opt/homebrew/*")
     setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
 endif ()
