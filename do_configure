@@ -48,7 +48,11 @@ if ${CODE_COVERAGE}; then
 	cmake_command+=" -D KOKKOS_PATH:FILEPATH=$(spack location -i kokkos)"
 fi
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
-cmake_command+=' -D CMAKE_CXX_FLAGS:STRING="-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated"'
+if [[ "${BUILD_TYPE}" = "Debug" ]]; then
+    cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O0 -g -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+else
+    cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+fi
 cmake_command+=" ../stk-crk"
 
 echo "CMake Command: ${cmake_command}"

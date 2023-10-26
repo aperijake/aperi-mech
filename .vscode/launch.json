@@ -24,8 +24,8 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../stk-crk_build/stk-crk_debug",
-      "args": [],
-      "cwd": "${workspaceFolder}/../stk-crk_build",
+      "args": ["test.yaml"],
+      "cwd": "/Users/jake/workspace/meshes/cylinder/stk-crk",
       "preLaunchTask": "make_debug"
     },
     {

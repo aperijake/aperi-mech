@@ -51,6 +51,17 @@ void WriteTestFile(const std::string& filename) {
     fixed_bc["direction"].push_back(1);
     yaml_data["boundary_conditions"].push_back(fixed_bc);
 
+    // Initial Conditions section
+    YAML::Node initial_velocity;
+    fixed_bc["name"] = "initial_velocity";
+    fixed_bc["type"] = "velocity";
+    fixed_bc["location"] = "block_1";
+    fixed_bc["magnitude"] = 1.23;
+    fixed_bc["direction"].push_back(1);
+    fixed_bc["direction"].push_back(0);
+    fixed_bc["direction"].push_back(0);
+    yaml_data["initial_conditions"].push_back(initial_velocity);
+
     IoInputFile::Write(filename, yaml_data);
 }
 

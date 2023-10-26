@@ -21,17 +21,6 @@ int main(int argc, char* argv[]) {
     // Print rank and number of processes
     std::cout << "Process " << my_rank << " out of " << num_procs << " processes." << std::endl;
 
-    /* Create input file format. Replace with data from input file. To start, also need:
-       - Material:
-          - Density
-          - Young's Modulus
-          - Poisson's Ratio
-       - Timestep
-       - Output frequency
-       - Boundary conditions
-       - Initial conditions
-    */
-
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <input_filename>" << std::endl;

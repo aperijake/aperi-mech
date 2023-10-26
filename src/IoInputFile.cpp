@@ -2,49 +2,25 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <vector>
 
 int IoInputFile::Read(const std::string& filename) {
     try {
-        // Load and parse the YAML input file
-        YAML::Node config = YAML::LoadFile(filename);
-
-        m_mesh_file = config["mesh"]["file"].as<std::string>();      // Access mesh data
-        m_output_file = config["output"]["file"].as<std::string>();  // Access output data
-
-        //// Access material data
-        // std::string material_name = config["material"]["name"].as<std::string>();
-        // double density = config["material"]["density"].as<double>();
-        // double youngs_modulus = config["material"]["youngs_modulus"].as<double>();
-
-        //// Access loads
-        // for (const auto& load : config["loads"]) {
-        //     std::string load_type = load["type"].as<std::string>();
-        //     double load_magnitude = load["magnitude"].as<double>();
-        //     if (load_type == "point") {
-        //         int node_id = load["node_id"].as<int>();
-        //         // Process point load data
-        //     } else if (load_type == "distributed") {
-        //         // Process distributed load data
-        //         std::vector<double> direction = load["direction"].as<std::vector<double>>();
-        //         // ...
-        //     }
-        // }
-
-        //// Access boundary conditions
-        // for (const auto& bc : config["boundary_conditions"]) {
-        //     std::string bc_type = bc["type"].as<std::string>();
-        //     int node_id = bc["node_id"].as<int>();
-        //     // Process boundary condition data
-        // }
-
+        // Load and the YAML input file
+        yaml_file = YAML::LoadFile(filename);
     } catch (const YAML::Exception& e) {
         std::cerr << "Error reading YAML input file: " << e.what() << std::endl;
         return 1;
     }
 
-    return 0;
+    // Check if the input file is valid
+    int return_code = CheckInput();
+
+    return return_code;
 }
 
 int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data) {
@@ -67,4 +43,61 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
     }
 
     return 0;
+}
+
+// Make sure the input file is valid
+int IoInputFile::CheckInput(bool verbose) const {
+    int return_code = 0;
+    verbose = true;
+
+    // Check if mesh file exists
+    std::pair<std::string, int> mesh_file_pair= GetMeshFileWithCheck();
+    if (mesh_file_pair.second){
+        return_code = 1;
+    } else if (!std::filesystem::exists(mesh_file_pair.first)) {
+        std::cerr << "Error: Mesh file does not exist." << std::endl;
+        return_code = 1;
+    }
+    if (verbose) {
+        std::cout << "Mesh file: " << mesh_file_pair.first << std::endl;
+    }
+
+    // Check if output exists
+    std::pair<std::string, int> output_file_pair = GetOutputFileWithCheck();
+    if (output_file_pair.second){
+        return_code = 1;
+    } else if (std::filesystem::exists(output_file_pair.first)) {
+        std::cout << "Warning: Output file exists. Overwriting." << std::endl;
+    }
+    if (verbose) {
+        std::cout << "Output file: " << output_file_pair.first << std::endl;
+    }
+
+    // Check if initial conditions are valid
+    std::vector<YAML::Node> initial_conditions = GetInitialConditions();
+    if (verbose) {
+        std::cout << "Initial Conditions:" << std::endl;
+    }
+    for (const auto& initial_condition : initial_conditions) {
+        std::pair<std::string, int> type_pair = GetScalarValue<std::string>(initial_condition, "type", verbose);
+        if (type_pair.second) {
+            return_code = 1;
+        } else if (type_pair.first != "velocity") {
+            std::cerr << "Error: Initial condition type must be velocity." << std::endl;
+            return_code = 1;
+        }
+        if (GetScalarValue<std::string>(initial_condition, "name", verbose).second) return_code = 1;
+        if (GetScalarValue<std::string>(initial_condition, "location", verbose).second) return_code = 1;
+        if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
+    }
+// fixed_bc["direction"].push_back(1);
+// fixed_bc["direction"].push_back(0);
+// fixed_bc["direction"].push_back(0);
+
+
+
+    // Check if materials are valid
+    // Check if loads are valid
+    // Check if boundary conditions are valid
+    return return_code;
 }
