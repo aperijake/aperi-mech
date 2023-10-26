@@ -1,10 +1,11 @@
 #pragma once
+#include <yaml-cpp/yaml.h>
+
+#include <iostream>   // for cerr
 #include <stdexcept>  // for runtime_error
 #include <string>     // for string
+#include <utility>    // for pair
 #include <vector>     // for vector
-#include <yaml-cpp/yaml.h>
-#include <utility>  // for pair
-#include <iostream> // for cerr
 
 class IoInputFile {
    public:
@@ -20,33 +21,33 @@ class IoInputFile {
     // Accessors
     std::pair<std::string, int> GetMeshFileWithCheck() const {
         std::string mesh_file;
-        std::pair<YAML::Node, int> mesh_node_pair = GetNode(yaml_file, "mesh");
+        std::pair<YAML::Node, int> mesh_node_pair = GetNode(m_yaml_file, "mesh");
         if (mesh_node_pair.second) return std::make_pair(mesh_file, 1);
         YAML::Node mesh_node = mesh_node_pair.first;
         return GetScalarValue<std::string>(mesh_node, "file");
     }
     std::string GetMeshFile() const {
-        std::pair<YAML::Node, int> mesh_node_pair = GetNode(yaml_file, "mesh");
+        std::pair<YAML::Node, int> mesh_node_pair = GetNode(m_yaml_file, "mesh");
         YAML::Node mesh_node = mesh_node_pair.first;
-         return GetScalarValue<std::string>(mesh_node, "file").first;
+        return GetScalarValue<std::string>(mesh_node, "file").first;
     }
 
     std::pair<std::string, int> GetOutputFileWithCheck() const {
         std::string output_file;
-        std::pair<YAML::Node, int> output_node_pair = GetNode(yaml_file, "output");
+        std::pair<YAML::Node, int> output_node_pair = GetNode(m_yaml_file, "output");
         if (output_node_pair.second) return std::make_pair(output_file, 1);
         YAML::Node output_node = output_node_pair.first;
         return GetScalarValue<std::string>(output_node, "file");
     }
     std::string GetOutputFile() const {
-        std::pair<YAML::Node, int> output_node_pair = GetNode(yaml_file, "output");
+        std::pair<YAML::Node, int> output_node_pair = GetNode(m_yaml_file, "output");
         YAML::Node output_node = output_node_pair.first;
         return GetScalarValue<std::string>(output_node, "file").first;
     }
 
     std::vector<YAML::Node> GetInitialConditions() const {
         std::vector<YAML::Node> initial_conditions;
-        for (const auto& initial_condition : yaml_file["initial_conditions"]) {
+        for (const auto& initial_condition : m_yaml_file["initial_conditions"]) {
             initial_conditions.push_back(initial_condition);
         }
         return initial_conditions;
@@ -127,6 +128,5 @@ class IoInputFile {
     }
 
     std::string m_filename;
-    YAML::Node yaml_file;
-
+    YAML::Node m_yaml_file;
 };

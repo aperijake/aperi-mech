@@ -11,7 +11,7 @@
 int IoInputFile::Read(const std::string& filename) {
     try {
         // Load and the YAML input file
-        yaml_file = YAML::LoadFile(filename);
+        m_yaml_file = YAML::LoadFile(filename);
     } catch (const YAML::Exception& e) {
         std::cerr << "Error reading YAML input file: " << e.what() << std::endl;
         return 1;
@@ -51,26 +51,19 @@ int IoInputFile::CheckInput(bool verbose) const {
     verbose = true;
 
     // Check if mesh file exists
-    std::pair<std::string, int> mesh_file_pair= GetMeshFileWithCheck();
-    if (mesh_file_pair.second){
+    std::pair<YAML::Node, int> mesh_node_pair = GetNode(m_yaml_file, "mesh");
+    if (mesh_node_pair.second) {
         return_code = 1;
-    } else if (!std::filesystem::exists(mesh_file_pair.first)) {
-        std::cerr << "Error: Mesh file does not exist." << std::endl;
-        return_code = 1;
-    }
-    if (verbose) {
-        std::cout << "Mesh file: " << mesh_file_pair.first << std::endl;
+    } else {
+        if (GetScalarValue<std::string>(mesh_node_pair.first, "file", verbose).second) return_code = 1;
     }
 
-    // Check if output exists
-    std::pair<std::string, int> output_file_pair = GetOutputFileWithCheck();
-    if (output_file_pair.second){
+    // Check if output file exists
+    std::pair<YAML::Node, int> output_node_pair = GetNode(m_yaml_file, "output");
+    if (output_node_pair.second) {
         return_code = 1;
-    } else if (std::filesystem::exists(output_file_pair.first)) {
-        std::cout << "Warning: Output file exists. Overwriting." << std::endl;
-    }
-    if (verbose) {
-        std::cout << "Output file: " << output_file_pair.first << std::endl;
+    } else {
+        if (GetScalarValue<std::string>(output_node_pair.first, "file", verbose).second) return_code = 1;
     }
 
     // Check if initial conditions are valid
