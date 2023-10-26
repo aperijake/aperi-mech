@@ -12,7 +12,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 
-void WriteTestFile(const std::string& filename) {
+YAML::Node CreateTestYaml() {
     YAML::Node yaml_data;
 
     // Mesh section
@@ -62,7 +62,11 @@ void WriteTestFile(const std::string& filename) {
     initial_velocity["direction"].push_back(0);
     yaml_data["initial_conditions"].push_back(initial_velocity);
 
-    IoInputFile::Write(filename, yaml_data);
+    return yaml_data;
+}
+
+void WriteTestFile(const std::string& filename) {
+    IoInputFile::Write(filename, CreateTestYaml());
 }
 
 void WriteTestMesh(const std::string& filename, IoMesh& io_mesh) {

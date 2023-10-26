@@ -8,19 +8,15 @@
 #include <string>
 #include <vector>
 
-int IoInputFile::Read(const std::string& filename) {
+int IoInputFile::Read() {
     try {
         // Load and the YAML input file
-        m_yaml_file = YAML::LoadFile(filename);
+        m_yaml_file = YAML::LoadFile(m_filename);
     } catch (const YAML::Exception& e) {
         std::cerr << "Error reading YAML input file: " << e.what() << std::endl;
         return 1;
     }
-
-    // Check if the input file is valid
-    int return_code = CheckInput();
-
-    return return_code;
+    return 0;
 }
 
 int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data) {
@@ -48,7 +44,6 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
 // Make sure the input file is valid
 int IoInputFile::CheckInput(bool verbose) const {
     int return_code = 0;
-    verbose = true;
 
     // Check if mesh file exists
     std::pair<YAML::Node, int> mesh_node_pair = GetNode(m_yaml_file, "mesh");

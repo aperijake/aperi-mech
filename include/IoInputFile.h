@@ -9,12 +9,13 @@
 
 class IoInputFile {
    public:
-    IoInputFile(std::string filename) : m_filename(filename) {
-        int return_code = Read(m_filename);
+    IoInputFile(std::string filename, bool check_input = true) : m_filename(filename) {
+        int return_code = Read();
         if (return_code != 0) throw std::runtime_error("Error reading input file");
+        if (check_input && CheckInput() != 0) throw std::runtime_error("Error checking input file");
     };
 
-    int Read(const std::string& filename);
+    int Read();
     int CheckInput(bool verbose = false) const;
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
 

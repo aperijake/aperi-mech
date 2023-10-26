@@ -12,6 +12,7 @@ class BulkData;
 }
 }  // namespace stk
 
+YAML::Node CreateTestYaml();
 void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, IoMesh& io_mesh);
 void CleanUp(const std::filesystem::path& filePath);
