@@ -53,4 +53,7 @@ TEST(IoInputFile, Read) {
     WriteTestFile(filename);
     EXPECT_TRUE(std::filesystem::exists(filename));
     IoInputFile io_input_file(filename);
+
+    EXPECT_EQ(io_input_file.GetMeshFile(), "one_element.exo");
+    EXPECT_EQ(io_input_file.GetOutputFile(), "one_element_out.exo");
 }

@@ -10,11 +10,8 @@ int IoInputFile::Read(const std::string& filename) {
         // Load and parse the YAML input file
         YAML::Node config = YAML::LoadFile(filename);
 
-        // Access mesh data
-        std::string mesh_file = config["mesh"]["file"].as<std::string>();
-
-        // Access output data
-        std::string output_file = config["output"]["file"].as<std::string>();
+        m_mesh_file = config["mesh"]["file"].as<std::string>(); // Access mesh data
+        m_output_file = config["output"]["file"].as<std::string>(); // Access output data
 
         //// Access material data
         // std::string material_name = config["material"]["name"].as<std::string>();
