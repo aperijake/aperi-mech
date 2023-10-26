@@ -2,9 +2,9 @@
 #include "UnitTestUtils.h"
 #include "gtest/gtest.h"
 
+// Test that the input file is read correctly
 TEST(IoUtils, ReadInputFile) {
-    // Test that the input file is read correctly
-
+    // Create a temporary input file
     std::string filename = "test_ReadInputFile.yaml";
     WriteTestFile(filename);
 
@@ -19,9 +19,8 @@ TEST(IoUtils, ReadInputFile) {
     std::remove(filename.c_str());
 }
 
+// Test that the mesh file is read correctly
 TEST(IoUtils, ReadMesh) {
-    // Test that the mesh file is read correctly
-
     // Create a temporary mesh file
     stk::ParallelMachine comm = MPI_COMM_WORLD;
     IoMeshParameters io_mesh_parameters;  // Default parameters
@@ -34,13 +33,12 @@ TEST(IoUtils, ReadMesh) {
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
 
-    // Clean for next run
+    // Delete the temporary file
     CleanUp(output_f_name);
 }
 
+// Test that the results file is written correctly
 TEST(IoUtils, WriteResults) {
-    // Test that the results file is written correctly
-
     // Create a temporary mesh file
     stk::ParallelMachine comm = MPI_COMM_WORLD;
     IoMeshParameters io_mesh_parameters;  // Default parameters
@@ -48,6 +46,7 @@ TEST(IoUtils, WriteResults) {
     std::string output_f_name = "test_WriteResults.exo";
     WriteTestMesh(output_f_name, io_mesh);
 
+    // Write the results to a temporary file
     std::string output_f_name2 = "test_WriteResults2.exo";
     CleanUp(output_f_name2);  // Make sure output doesn't already exist to prevent false positives
     WriteResults(io_mesh, output_f_name2);
@@ -57,7 +56,7 @@ TEST(IoUtils, WriteResults) {
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
 
-    // Clean for next run
+    // Clean up the temporary files
     CleanUp(output_f_name);
     CleanUp(output_f_name2);
 }
