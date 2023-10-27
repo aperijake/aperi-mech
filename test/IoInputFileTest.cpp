@@ -100,3 +100,19 @@ TEST_F(IoInputFileTest, Read) {
     EXPECT_EQ(io_input_file.GetOutputFile(), "one_element_out.exo");
     EXPECT_EQ(io_input_file.GetInitialConditions().size(), 1);
 }
+
+// Test that reading a missing input file throws an exception
+TEST_F(IoInputFileTest, ReadMissingFile) {
+    std::string filename = "missing_file.yaml";  // Missing file
+
+    // Check that reading a missing input file throws an exception
+    EXPECT_THROW(IoInputFile io_input_file(filename), std::runtime_error);
+}
+
+// Test that IoInputFile::Write throws when the file cannot be opened for writing
+TEST_F(IoInputFileTest, WriteErrorCases) {
+    std::string m_filename = "nonexistent_directory/test.yaml";
+    IoInputFile io_input_file = GetIoInputFile();
+    int result = IoInputFile::Write(m_filename, m_yaml_data);
+    EXPECT_EQ(result, 1);
+}

@@ -20,6 +20,7 @@ int IoInputFile::Read() {
 }
 
 int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data) {
+    int return_code = 0;
     try {
         // Open a file for writing
         std::ofstream out_file(filename);
@@ -32,13 +33,13 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
             std::cout << "YAML file successfully written." << std::endl;
         } else {
             std::cerr << "Error: Unable to open the file for writing." << std::endl;
+            return_code = 1;
         }
     } catch (const YAML::Exception& e) {
         std::cerr << "Error writing YAML file: " << e.what() << std::endl;
-        return 1;
+        return_code = 1;
     }
-
-    return 0;
+    return return_code;
 }
 
 // Make sure the input file is valid
@@ -63,9 +64,7 @@ int IoInputFile::CheckInput(bool verbose) const {
 
     // Check if initial conditions are valid
     std::vector<YAML::Node> initial_conditions = GetInitialConditions();
-    if (verbose) {
-        std::cout << "Initial Conditions:" << std::endl;
-    }
+    if (verbose) std::cout << "Initial Conditions:" << std::endl;
     for (const auto& initial_condition : initial_conditions) {
         std::pair<std::string, int> type_pair = GetScalarValue<std::string>(initial_condition, "type", verbose);
         if (type_pair.second) {
