@@ -24,8 +24,7 @@ TEST(IoMesh, ReadWrite) {
     // Read in the written mesh and check that it matches the expected mesh
     IoMesh io_mesh_read(comm, io_mesh_parameters);
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
-    int interpolation_intervals = 0;
-    io_mesh_read.ReadMesh("exodusii", output_f_name, interpolation_intervals);
+    io_mesh_read.ReadMesh("exodusii", output_f_name);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
 
     // Clean up the temporary file

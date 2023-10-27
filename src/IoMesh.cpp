@@ -219,7 +219,7 @@ void IoMesh::SetIoProperties() const {
 
 void IoMesh::ReadMesh(const std::string &type,
                       const std::string &filename,
-                      int interpolation_intervals) {
+                      std::function<void(stk::mesh::MetaData &)> create_fields) {
     stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
     EquilibrateMemoryBaseline();
     stk::log_with_time_and_memory(m_comm, "Finished setting memory baseline");
@@ -231,30 +231,23 @@ void IoMesh::ReadMesh(const std::string &type,
 
     stk::log_with_time_and_memory(m_comm, "Reading input mesh: " + filename);
 
-    if (interpolation_intervals == 0)
-        interpolation_intervals = 1;
-
     size_t input_index = mp_io_broker->add_mesh_database(filename, type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(input_index);
     mp_io_broker->create_input_mesh();
 
-    // This is done just to define some fields in stk
-    // that can be used later for reading restart data.
-    stk::io::MeshField::TimeMatchOption tmo = stk::io::MeshField::CLOSEST;
-    if (interpolation_intervals > 1) {
-        tmo = stk::io::MeshField::LINEAR_INTERPOLATION;
-    }
-    mp_io_broker->add_all_mesh_fields_as_input_fields(tmo);
+    create_fields(mp_io_broker->meta_data());
 
-    mp_io_broker->populate_bulk_data();
+    // mp_io_broker->add_all_mesh_fields_as_input_fields();
 
-    if (m_add_edges) {
-        stk::mesh::create_edges(mp_io_broker->bulk_data());
-    }
+    mp_io_broker->populate_bulk_data();  // committing here
 
-    if (m_add_faces) {
-        stk::mesh::create_faces(mp_io_broker->bulk_data());
-    }
+    // if (m_add_edges) {
+    //     stk::mesh::create_edges(mp_io_broker->bulk_data());
+    // }
+
+    // if (m_add_faces) {
+    //     stk::mesh::create_faces(mp_io_broker->bulk_data());
+    // }
 
     stk::log_with_time_and_memory(m_comm, "Finished reading input mesh");
     LogMeshCounts(mp_io_broker->bulk_data());

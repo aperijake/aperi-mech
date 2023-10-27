@@ -77,13 +77,13 @@ void WriteTestMesh(const std::string& filename, IoMesh& io_mesh) {
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    int interpolation_intervals = 0;
-    io_mesh.ReadMesh("generated", "1x1x1", interpolation_intervals);
+    io_mesh.ReadMesh("generated", "1x1x1");
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 
     // Write the generated mesh
     stk::io::HeartbeatType heartbeat_type = stk::io::NONE;
+    int interpolation_intervals = 0;
     io_mesh.WriteFieldResults(filename, heartbeat_type, interpolation_intervals);
     std::ifstream after_write_file(filename);
     EXPECT_TRUE(after_write_file.good());

@@ -27,15 +27,17 @@ class IoMesh {
    public:
     IoMesh(stk::ParallelMachine comm, IoMeshParameters io_mesh_parameters);
 
-    void ReadMesh(const std::string &type,
-                  const std::string &filename,
-                  int interpolation_intervals);
+    void ReadMesh(
+        const std::string &type,
+        const std::string &filename,
+        std::function<void(stk::mesh::MetaData &)> create_fields = [](stk::mesh::MetaData &) {});
 
     void WriteFieldResults(const std::string &filename,
                            stk::io::HeartbeatType hb_type,
                            int interpolation_intervals);
 
     stk::mesh::BulkData &GetBulkData() { return mp_io_broker->bulk_data(); }
+    stk::mesh::MetaData &GetMetaData() { return mp_io_broker->meta_data(); }
 
    private:
     void EquilibrateMemoryBaseline();
