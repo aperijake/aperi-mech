@@ -43,7 +43,7 @@ TEST_F(IoInputFileTest, CheckInputValid) {
     IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
-    EXPECT_EQ(io_input_file.CheckInput(), 0);
+    EXPECT_EQ(io_input_file.CheckInput(true), 0);  // Verbose for coverage
 }
 
 // Create an input file with missing mesh node
@@ -89,6 +89,81 @@ TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsType) {
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with missing initial conditions direction
+TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
+    m_yaml_data["initial_conditions"][0].remove("direction");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with bad initial conditions type
+TEST_F(IoInputFileTest, CheckInputBadInitialConditionsType) {
+    m_yaml_data["initial_conditions"][0]["type"] = "bad_type";
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with bad initial conditions direction, too few items
+TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
+    m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[0, 0]");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with bad initial conditions direction, wrong data type
+TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
+    m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("['a', 'b', 'c']");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with bad initial conditions direction, all zero
+TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
+    m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[0, 0, 0]");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+}
+
+// Create an input file with a sequence where a scalar is expected
+TEST_F(IoInputFileTest, CheckInputScalarSequence) {
+    m_yaml_data["initial_conditions"][0]["magnitude"] = YAML::Load("[1, 2, 3]");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+
+    m_yaml_data["initial_conditions"][0]["magnitude"] = YAML::Load("1");
+    io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 0);
+}
+
+// Create an input file with a scalar where a sequence is expected
+TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
+    m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("1");
+    IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 1);
+
+    m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[1, 2, 3]");
+    io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(), 0);
 }
 
 // Test that the IoInputFile class can read input files correctly

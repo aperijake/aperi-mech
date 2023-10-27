@@ -28,12 +28,11 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
         // Check if the file is open
         if (out_file.is_open()) {
             // Write data to the file
-            out_file << yaml_data;
+            if (!(out_file << yaml_data)) throw YAML::Exception(YAML::Mark::null_mark(), "Error writing YAML file.");
             out_file.close();
             std::cout << "YAML file successfully written." << std::endl;
         } else {
-            std::cerr << "Error: Unable to open the file for writing." << std::endl;
-            return_code = 1;
+            throw YAML::Exception(YAML::Mark::null_mark(), "Unable to open the file for writing.");
         }
     } catch (const YAML::Exception& e) {
         std::cerr << "Error writing YAML file: " << e.what() << std::endl;
