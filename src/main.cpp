@@ -12,23 +12,38 @@
 #include "IoMesh.h"
 #include "IoUtils.h"
 
+// Enum for field data types
+enum class FieldDataType { SCALAR,
+                           VECTOR,
+                           TENSOR };
+
+struct FieldData {
+    std::string name;
+    FieldDataType data_type;
+    int number_of_states;
+    std::vector<double> initial_values;
+};
+
 void SetupFields(stk::mesh::MetaData& meta_data) {
-    // Define the field data type
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorFieldType;
+    std::vector<FieldData> field_data;
+    field_data.push_back({"velocity", FieldDataType::VECTOR, 2, {1.0, 2.0, 3.0}});
+    field_data.push_back({"displacement", FieldDataType::VECTOR, 2, {4.0, 5.0, 6.0}});
+    field_data.push_back({"acceleration", FieldDataType::VECTOR, 2, {-4.0, -5.0, -6.0}});
 
-    // Define the field name and number of states
-    std::string field_name = "velocity";
-    unsigned num_states = 1;
+    // Loop over fields
+    for (const auto& field : field_data) {
+        // Define the field data type
+        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorFieldType;
 
-    // Create the field
-    VectorFieldType& vector_field = meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, field_name, num_states);
+        // Create the field
+        VectorFieldType& vector_field = meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, field.name, field.number_of_states);
 
-    // Set the field properties
-    const double initial_value[3] = {1.0, 2.0, 3.0};
-    stk::mesh::put_field_on_entire_mesh_with_initial_value(vector_field, initial_value);
+        // Set the field properties
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(vector_field, field.initial_values.data());
 
-    // Set the field role to TRANSIENT
-    stk::io::set_field_role(vector_field, Ioss::Field::TRANSIENT);
+        // Set the field role to TRANSIENT
+        stk::io::set_field_role(vector_field, Ioss::Field::TRANSIENT);
+    }
 }
 
 int main(int argc, char* argv[]) {
