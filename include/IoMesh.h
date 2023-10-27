@@ -7,6 +7,10 @@
 
 #include "mpi.h"  // for MPI_Comm
 
+namespace acm {
+class FieldManager;
+};
+
 struct IoMeshParameters {
     bool add_edges = false;                 // create all internal edges in the mesh
     bool add_faces = false;                 // create all internal faces in the mesh
@@ -30,7 +34,7 @@ class IoMesh {
     void ReadMesh(
         const std::string &type,
         const std::string &filename,
-        std::function<void(stk::mesh::MetaData &)> create_fields = [](stk::mesh::MetaData &) {});
+        std::shared_ptr<acm::FieldManager> field_manager = nullptr);
 
     void WriteFieldResults(const std::string &filename,
                            stk::io::HeartbeatType hb_type,

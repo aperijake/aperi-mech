@@ -39,6 +39,8 @@
 #include <string>                            // for string
 #include <vector>                            // for vector
 
+#include "FieldManager.h"
+
 IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     : m_comm(comm),
       m_add_edges(io_mesh_parameters.add_edges),
@@ -219,7 +221,7 @@ void IoMesh::SetIoProperties() const {
 
 void IoMesh::ReadMesh(const std::string &type,
                       const std::string &filename,
-                      std::function<void(stk::mesh::MetaData &)> create_fields) {
+                      std::shared_ptr<acm::FieldManager> field_manager) {
     stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
     EquilibrateMemoryBaseline();
     stk::log_with_time_and_memory(m_comm, "Finished setting memory baseline");
@@ -235,8 +237,9 @@ void IoMesh::ReadMesh(const std::string &type,
     mp_io_broker->set_active_mesh(input_index);
     mp_io_broker->create_input_mesh();
 
-    create_fields(mp_io_broker->meta_data());
-
+    if (field_manager) {
+        field_manager->SetupFields(mp_io_broker->meta_data());
+    }
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
 
     mp_io_broker->populate_bulk_data();  // committing here

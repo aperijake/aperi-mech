@@ -65,6 +65,7 @@ set(LIB_SOURCES
     src/IoMesh.cpp;
     src/IoInputFile.cpp;
     src/IoUtils.cpp;
+    src/InitialConditionManager.cpp;
    )
 
 add_library(libstk-crk ${LIB_SOURCES})

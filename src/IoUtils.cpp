@@ -5,14 +5,14 @@ IoInputFile ReadInputFile(const std::string& filename) {
     return io_input_file;
 }
 
-IoMesh ReadMesh(stk::ParallelMachine comm, const std::string& filename, std::function<void(stk::mesh::MetaData&)> create_fields) {
+IoMesh ReadMesh(stk::ParallelMachine comm, const std::string& filename, std::shared_ptr<acm::FieldManager> field_manager) {
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
     IoMesh io_mesh(comm, io_mesh_parameters);
 
     // Read the mesh
     std::string type = "exodusii";  // File type.  One of: exodusii
-    io_mesh.ReadMesh(type, filename, create_fields);
+    io_mesh.ReadMesh(type, filename, field_manager);
 
     return io_mesh;
 }
