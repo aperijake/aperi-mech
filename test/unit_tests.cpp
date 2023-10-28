@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 // Include test cases
+#include "ApplicationTest.cpp"
 #include "IoInputFileTest.cpp"
 #include "IoMeshTest.cpp"
 

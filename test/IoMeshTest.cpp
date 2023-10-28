@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
-#include <stk_mesh/base/bulkdata.hpp>
+#include <stk_mesh/base/BulkData.hpp>
 #include <stk_topology/topology.hpp>
 #include <string>
 #include <system_error>

@@ -65,10 +65,6 @@ YAML::Node CreateTestYaml() {
     return yaml_data;
 }
 
-void WriteTestFile(const std::string& filename) {
-    IoInputFile::Write(filename, CreateTestYaml());
-}
-
 void WriteTestMesh(const std::string& filename, IoMesh& io_mesh) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
