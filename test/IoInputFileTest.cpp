@@ -5,7 +5,6 @@
 #include <string>
 
 #include "IoInputFile.h"
-#include "IoUtils.h"
 #include "UnitTestUtils.h"
 
 // Fixture for testing the IoInputFile class

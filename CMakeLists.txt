@@ -64,7 +64,7 @@ ENDIF()
 set(LIB_SOURCES
     src/IoMesh.cpp;
     src/IoInputFile.cpp;
-    src/IoUtils.cpp;
+    src/Application.cpp;
     src/InitialConditionManager.cpp;
    )
 

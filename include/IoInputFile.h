@@ -131,3 +131,8 @@ class IoInputFile {
     std::string m_filename;
     YAML::Node m_yaml_file;
 };
+
+// IoInputFile factory function
+inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {
+    return std::make_unique<IoInputFile>(filename, check_input);
+}

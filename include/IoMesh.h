@@ -18,6 +18,7 @@ struct IoMeshParameters {
     bool aura_option = false;               // create aura ghosting around each MPI rank
     std::string parallel_io = "pnetcdf";    // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
     std::string decomp_method = "rcb";      // decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
+    std::string mesh_type = "exodusII";     // mesh type. One of: exodusii, generated
     bool compose_output = false;            // create a single output file: true|false"
     int compression_level = 0;              // compression level [1..9] to use
     bool compression_shuffle = false;       // use shuffle filter prior to compressing data: true|false
@@ -32,7 +33,6 @@ class IoMesh {
     IoMesh(stk::ParallelMachine comm, IoMeshParameters io_mesh_parameters);
 
     void ReadMesh(
-        const std::string &type,
         const std::string &filename,
         std::shared_ptr<acm::FieldManager> field_manager = nullptr);
 
@@ -56,6 +56,7 @@ class IoMesh {
     bool m_aura_option = false;        // create aura ghosting around each MPI rank
     std::string m_parallel_io;         // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
     std::string m_decomp_method;       // decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
+    std::string m_mesh_type;           // mesh type. One of: exodusii, generated
     bool m_compose_output;             // create a single output file: true|false"
     int m_compression_level;           // compression level [1..9] to use
     bool m_compression_shuffle;        // use shuffle filter prior to compressing data: true|false
@@ -68,3 +69,6 @@ class IoMesh {
     std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
 };
+
+// IoMesh factory function
+std::unique_ptr<IoMesh> CreateIoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters);

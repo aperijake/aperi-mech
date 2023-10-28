@@ -77,7 +77,7 @@ void WriteTestMesh(const std::string& filename, IoMesh& io_mesh) {
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    io_mesh.ReadMesh("generated", "1x1x1");
+    io_mesh.ReadMesh("1x1x1");
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 

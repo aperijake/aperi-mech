@@ -49,6 +49,7 @@ IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
       m_aura_option(io_mesh_parameters.aura_option),
       m_parallel_io(io_mesh_parameters.parallel_io),
       m_decomp_method(io_mesh_parameters.decomp_method),
+      m_mesh_type(io_mesh_parameters.mesh_type),
       m_compose_output(io_mesh_parameters.compose_output),
       m_compression_level(io_mesh_parameters.compression_level),
       m_compression_shuffle(io_mesh_parameters.compression_shuffle),
@@ -219,8 +220,7 @@ void IoMesh::SetIoProperties() const {
     }
 }
 
-void IoMesh::ReadMesh(const std::string &type,
-                      const std::string &filename,
+void IoMesh::ReadMesh(const std::string &filename,
                       std::shared_ptr<acm::FieldManager> field_manager) {
     stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
     EquilibrateMemoryBaseline();
@@ -233,7 +233,7 @@ void IoMesh::ReadMesh(const std::string &type,
 
     stk::log_with_time_and_memory(m_comm, "Reading input mesh: " + filename);
 
-    size_t input_index = mp_io_broker->add_mesh_database(filename, type, stk::io::READ_MESH);
+    size_t input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(input_index);
     mp_io_broker->create_input_mesh();
 
@@ -380,4 +380,9 @@ void IoMesh::WriteFieldResults(const std::string &filename,
         }
     }
     stk::log_with_time_and_memory(m_comm, "Finished writing output mesh.");
+}
+
+// IoMesh factory function
+std::unique_ptr<IoMesh> CreateIoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters) {
+    return std::make_unique<IoMesh>(comm, io_mesh_parameters);
 }
