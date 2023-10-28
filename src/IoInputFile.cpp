@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+namespace acm {
 int IoInputFile::Read() {
     try {
         // Load and the YAML input file
@@ -97,3 +98,5 @@ int IoInputFile::CheckInput(bool verbose) const {
     }
     return return_code;
 }
+
+}  // namespace acm

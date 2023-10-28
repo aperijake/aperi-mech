@@ -27,12 +27,12 @@ class ApplicationTest : public ::testing::Test {
         m_yaml_data = CreateTestYaml();
         m_yaml_data["mesh"]["file"] = m_mesh_filename;
         m_yaml_data["output"]["file"] = m_results_filename;
-        IoInputFile::Write(m_filename, m_yaml_data);
+        acm::IoInputFile::Write(m_filename, m_yaml_data);
 
         // Write the mesh to a temporary file and check that it is written correctly
-        IoMeshParameters io_mesh_parameters;
+        acm::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
-        IoMesh io_mesh(m_comm, io_mesh_parameters);
+        acm::IoMesh io_mesh(m_comm, io_mesh_parameters);
         WriteTestMesh(m_mesh_filename, io_mesh);
     }
 
@@ -63,8 +63,8 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     app.Run(m_filename);
 
     // Read in the written mesh and check that it matches the expected mesh
-    IoMeshParameters io_mesh_read_parameters;
-    IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
+    acm::IoMeshParameters io_mesh_read_parameters;
+    acm::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
     std::vector<size_t> expected_owned = {8, 0, 0, 1};
     io_mesh_read.ReadMesh(m_results_filename);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);

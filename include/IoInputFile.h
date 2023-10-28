@@ -7,6 +7,7 @@
 #include <utility>    // for pair
 #include <vector>     // for vector
 
+namespace acm {
 class IoInputFile {
    public:
     IoInputFile(std::string filename, bool check_input = true) : m_filename(filename) {
@@ -136,3 +137,5 @@ class IoInputFile {
 inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {
     return std::make_unique<IoInputFile>(filename, check_input);
 }
+
+}  // namespace acm

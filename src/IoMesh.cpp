@@ -41,6 +41,8 @@
 
 #include "FieldManager.h"
 
+namespace acm {
+
 IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     : m_comm(comm),
       m_add_edges(io_mesh_parameters.add_edges),
@@ -383,6 +385,8 @@ void IoMesh::WriteFieldResults(const std::string &filename,
 }
 
 // IoMesh factory function
-std::unique_ptr<IoMesh> CreateIoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters) {
-    return std::make_unique<IoMesh>(comm, io_mesh_parameters);
+std::unique_ptr<acm::IoMesh> CreateIoMesh(const MPI_Comm &comm, const acm::IoMeshParameters &io_mesh_parameters) {
+    return std::make_unique<acm::IoMesh>(comm, io_mesh_parameters);
 }
+
+}  // namespace acm

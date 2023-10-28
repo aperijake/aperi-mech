@@ -8,8 +8,8 @@
 #include "mpi.h"  // for MPI_Comm
 
 namespace acm {
+
 class FieldManager;
-};
 
 struct IoMeshParameters {
     bool add_edges = false;                 // create all internal edges in the mesh
@@ -30,7 +30,7 @@ struct IoMeshParameters {
 
 class IoMesh {
    public:
-    IoMesh(stk::ParallelMachine comm, IoMeshParameters io_mesh_parameters);
+    IoMesh(stk::ParallelMachine comm, acm::IoMeshParameters io_mesh_parameters);
 
     void ReadMesh(
         const std::string &filename,
@@ -72,3 +72,5 @@ class IoMesh {
 
 // IoMesh factory function
 std::unique_ptr<IoMesh> CreateIoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters);
+
+}  // namespace acm

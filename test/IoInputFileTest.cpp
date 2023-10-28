@@ -7,7 +7,7 @@
 #include "IoInputFile.h"
 #include "UnitTestUtils.h"
 
-// Fixture for testing the IoInputFile class
+// Fixture for testing the acm::IoInputFile class
 class IoInputFileTest : public ::testing::Test {
    protected:
     void SetUp() override {
@@ -18,13 +18,13 @@ class IoInputFileTest : public ::testing::Test {
         m_filename = test_suite_name + "_" + test_name + ".yaml";
     }
 
-    IoInputFile GetIoInputFile(bool check_input = true) {
+    acm::IoInputFile GetIoInputFile(bool check_input = true) {
         // Create a temporary input file
-        IoInputFile::Write(m_filename, m_yaml_data);
+        acm::IoInputFile::Write(m_filename, m_yaml_data);
         EXPECT_TRUE(std::filesystem::exists(m_filename));
 
         // Read the input file
-        IoInputFile io_input_file(m_filename, check_input);
+        acm::IoInputFile io_input_file(m_filename, check_input);
         return io_input_file;
     }
 
@@ -39,7 +39,7 @@ class IoInputFileTest : public ::testing::Test {
 
 // Test that the IoInputFile class can check input files correctly
 TEST_F(IoInputFileTest, CheckInputValid) {
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(true), 0);  // Verbose for coverage
@@ -48,7 +48,7 @@ TEST_F(IoInputFileTest, CheckInputValid) {
 // Create an input file with missing mesh node
 TEST_F(IoInputFileTest, CheckInputMissingMeshNode) {
     m_yaml_data.remove("mesh");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -57,7 +57,7 @@ TEST_F(IoInputFileTest, CheckInputMissingMeshNode) {
 // Create an input file with missing mesh file
 TEST_F(IoInputFileTest, CheckInputMissingMeshFile) {
     m_yaml_data["mesh"].remove("file");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -66,7 +66,7 @@ TEST_F(IoInputFileTest, CheckInputMissingMeshFile) {
 // Create an input file with missing output node
 TEST_F(IoInputFileTest, CheckInputMissingOutputNode) {
     m_yaml_data.remove("output");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -75,7 +75,7 @@ TEST_F(IoInputFileTest, CheckInputMissingOutputNode) {
 // Create an input file with missing output file
 TEST_F(IoInputFileTest, CheckInputMissingOutputFile) {
     m_yaml_data["output"].remove("file");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -84,7 +84,7 @@ TEST_F(IoInputFileTest, CheckInputMissingOutputFile) {
 // Create an input file with missing initial conditions type
 TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsType) {
     m_yaml_data["initial_conditions"][0].remove("type");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -93,7 +93,7 @@ TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsType) {
 // Create an input file with missing initial conditions direction
 TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
     m_yaml_data["initial_conditions"][0].remove("direction");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -102,7 +102,7 @@ TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
 // Create an input file with bad initial conditions type
 TEST_F(IoInputFileTest, CheckInputBadInitialConditionsType) {
     m_yaml_data["initial_conditions"][0]["type"] = "bad_type";
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -111,7 +111,7 @@ TEST_F(IoInputFileTest, CheckInputBadInitialConditionsType) {
 // Create an input file with bad initial conditions direction, too few items
 TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
     m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[0, 0]");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -120,7 +120,7 @@ TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
 // Create an input file with bad initial conditions direction, wrong data type
 TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
     m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("['a', 'b', 'c']");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -129,7 +129,7 @@ TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
 // Create an input file with bad initial conditions direction, all zero
 TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[0, 0, 0]");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -138,7 +138,7 @@ TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
     m_yaml_data["initial_conditions"][0]["magnitude"] = YAML::Load("[1, 2, 3]");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -153,7 +153,7 @@ TEST_F(IoInputFileTest, CheckInputScalarSequence) {
 // Create an input file with a scalar where a sequence is expected
 TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
     m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("1");
-    IoInputFile io_input_file = GetIoInputFile(false);
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
@@ -167,7 +167,7 @@ TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
 
 // Test that the IoInputFile class can read input files correctly
 TEST_F(IoInputFileTest, Read) {
-    IoInputFile io_input_file = GetIoInputFile();
+    acm::IoInputFile io_input_file = GetIoInputFile();
 
     // Check that the data read from the file matches the expected data
     EXPECT_EQ(io_input_file.GetMeshFile(), "one_element.exo");
@@ -180,13 +180,13 @@ TEST_F(IoInputFileTest, ReadMissingFile) {
     std::string filename = "missing_file.yaml";  // Missing file
 
     // Check that reading a missing input file throws an exception
-    EXPECT_THROW(IoInputFile io_input_file(filename), std::runtime_error);
+    EXPECT_THROW(acm::IoInputFile io_input_file(filename), std::runtime_error);
 }
 
 // Test that IoInputFile::Write throws when the file cannot be opened for writing
 TEST_F(IoInputFileTest, WriteErrorCases) {
     std::string m_filename = "nonexistent_directory/test.yaml";
-    IoInputFile io_input_file = GetIoInputFile();
-    int result = IoInputFile::Write(m_filename, m_yaml_data);
+    acm::IoInputFile io_input_file = GetIoInputFile();
+    int result = acm::IoInputFile::Write(m_filename, m_yaml_data);
     EXPECT_EQ(result, 1);
 }

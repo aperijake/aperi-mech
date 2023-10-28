@@ -5,10 +5,9 @@
 #include <memory>
 #include <string>
 
+namespace acm {
 class IoInputFile;
 class IoMesh;
-
-namespace acm {
 class FieldManager;
 class Solver;
 
@@ -21,8 +20,8 @@ class Application {
 
    private:
     MPI_Comm m_comm;
-    std::shared_ptr<IoInputFile> m_io_input_file;
-    std::shared_ptr<IoMesh> m_io_mesh;
+    std::shared_ptr<acm::IoInputFile> m_io_input_file;
+    std::shared_ptr<acm::IoMesh> m_io_mesh;
     std::shared_ptr<acm::FieldManager> m_field_manager;
     std::shared_ptr<acm::Solver> m_solver;
 };

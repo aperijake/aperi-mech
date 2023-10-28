@@ -65,7 +65,7 @@ YAML::Node CreateTestYaml() {
     return yaml_data;
 }
 
-void WriteTestMesh(const std::string& filename, IoMesh& io_mesh) {
+void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
     // Make sure output doesn't already exist to prevent false positives
