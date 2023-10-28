@@ -2,6 +2,7 @@
 
 // Include test cases
 #include "ApplicationTest.cpp"
+#include "InitialConditionManagerTest.cpp"
 #include "IoInputFileTest.cpp"
 #include "IoMeshTest.cpp"
 
