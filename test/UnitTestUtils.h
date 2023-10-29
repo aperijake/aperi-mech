@@ -16,6 +16,6 @@ class BulkData;
 
 YAML::Node CreateTestYaml();
 void WriteTestFile(const std::string& filename);
-void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh);
+void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string = "1x1x1");
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>& expected_owned);

@@ -13,7 +13,9 @@ int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
     // Run all the tests
-    return RUN_ALL_TESTS();
+    int return_code = RUN_ALL_TESTS();
 
     stk::parallel_machine_finalize();
+
+    return return_code;
 }

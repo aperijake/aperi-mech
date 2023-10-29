@@ -26,6 +26,7 @@ void Application::Run(std::string& input_filename) {
 
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
+    io_mesh_parameters.compose_output = true;
     m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
     // Read the mesh

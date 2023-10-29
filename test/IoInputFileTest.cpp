@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
@@ -19,8 +20,12 @@ class IoInputFileTest : public ::testing::Test {
     }
 
     acm::IoInputFile GetIoInputFile(bool check_input = true) {
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         // Create a temporary input file
-        acm::IoInputFile::Write(m_filename, m_yaml_data);
+        if (rank == 0) acm::IoInputFile::Write(m_filename, m_yaml_data);
+        MPI_Barrier(MPI_COMM_WORLD);
+
         EXPECT_TRUE(std::filesystem::exists(m_filename));
 
         // Read the input file

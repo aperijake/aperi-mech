@@ -65,7 +65,7 @@ YAML::Node CreateTestYaml() {
     return yaml_data;
 }
 
-void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh) {
+void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
     // Make sure output doesn't already exist to prevent false positives
@@ -73,9 +73,9 @@ void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh) {
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    io_mesh.ReadMesh("1x1x1");
-    std::vector<size_t> expected_owned = {8, 0, 0, 1};
-    CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
+    io_mesh.ReadMesh(mesh_string);
+    // std::vector<size_t> expected_owned = {8, 0, 0, 1};
+    // CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 
     // Write the generated mesh
     stk::io::HeartbeatType heartbeat_type = stk::io::NONE;

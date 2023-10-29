@@ -38,6 +38,20 @@
       "preLaunchTask": "make_debug"
     },
     {
+      "name": "MPI Debug Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "/Users/jake/projects/spack/var/spack/environments/stk-crk/.spack-env/view/bin/mpirun",
+      "args": [
+        "-np",
+        "1",
+        "${workspaceFolder}/../stk-crk_build/unit_tests_debug",
+        "--gtest_filter=ApplicationTest.RunValidInputFile"
+      ],
+      "cwd": "${workspaceFolder}/../stk-crk_build",
+      "preLaunchTask": "make_debug"
+    },
+    {
       "name": "Code Coverage",
       "type": "lldb",
       "request": "launch",

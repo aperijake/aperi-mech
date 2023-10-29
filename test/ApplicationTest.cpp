@@ -32,8 +32,15 @@ class ApplicationTest : public ::testing::Test {
         // Write the mesh to a temporary file and check that it is written correctly
         acm::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
+        io_mesh_parameters.compose_output = true;
         acm::IoMesh io_mesh(m_comm, io_mesh_parameters);
-        WriteTestMesh(m_mesh_filename, io_mesh);
+
+        // Get number of mpi processes
+        m_num_procs = stk::parallel_machine_size(m_comm);
+
+        // Make a 1x1xnum_procs mesh
+        std::string mesh_string = "1x1x" + std::to_string(m_num_procs);
+        WriteTestMesh(m_mesh_filename, io_mesh, mesh_string);
     }
 
     void TearDown() override {
@@ -52,6 +59,7 @@ class ApplicationTest : public ::testing::Test {
     std::string m_mesh_filename;
     std::string m_results_filename;
     stk::ParallelMachine m_comm;
+    size_t m_num_procs;
 };
 
 // Test Run function with valid input file
@@ -65,7 +73,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     // Read in the written mesh and check that it matches the expected mesh
     acm::IoMeshParameters io_mesh_read_parameters;
     acm::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
-    std::vector<size_t> expected_owned = {8, 0, 0, 1};
+    std::vector<size_t> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs};
     io_mesh_read.ReadMesh(m_results_filename);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
 

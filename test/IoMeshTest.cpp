@@ -15,16 +15,23 @@ TEST(IoMesh, ReadWrite) {
     stk::ParallelMachine comm = MPI_COMM_WORLD;
     acm::IoMeshParameters io_mesh_parameters;
     io_mesh_parameters.mesh_type = "generated";
+    io_mesh_parameters.compose_output = true;
     acm::IoMesh io_mesh(comm, io_mesh_parameters);
 
     // Write the mesh to a temporary file and check that it is written correctly
     std::string output_f_name = "test_IoMesh_ReadWrite.exo";
-    WriteTestMesh(output_f_name, io_mesh);
+
+    // Get number of mpi processes
+    size_t num_procs = stk::parallel_machine_size(comm);
+
+    // Make a 1x1xnum_procs mesh
+    std::string mesh_string = "1x1x" + std::to_string(num_procs);
+    WriteTestMesh(output_f_name, io_mesh, mesh_string);
 
     // Read in the written mesh and check that it matches the expected mesh
     acm::IoMeshParameters io_mesh_read_parameters;
     acm::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
-    std::vector<size_t> expected_owned = {8, 0, 0, 1};
+    std::vector<size_t> expected_owned = {4 * (num_procs + 1), 0, 0, num_procs};
     io_mesh_read.ReadMesh(output_f_name);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
 
