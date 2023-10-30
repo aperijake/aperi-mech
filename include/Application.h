@@ -17,6 +17,7 @@ class Application {
     ~Application() {}
 
     void Run(std::string& input_filename);
+    void Finalize();
 
    private:
     MPI_Comm m_comm;

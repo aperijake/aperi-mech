@@ -32,6 +32,8 @@ class IoMesh {
    public:
     IoMesh(stk::ParallelMachine comm, acm::IoMeshParameters io_mesh_parameters);
 
+    void Finalize();
+
     void ReadMesh(
         const std::string &filename,
         std::shared_ptr<acm::FieldManager> field_manager = nullptr);
@@ -68,6 +70,9 @@ class IoMesh {
     size_t m_current_avg_baseline = 0;
     std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
+    std::shared_ptr<acm::FieldManager> mp_field_manager;
+    int m_input_index = -1;
+    int m_results_index = -1;
 };
 
 // IoMesh factory function

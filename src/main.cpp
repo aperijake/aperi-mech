@@ -31,6 +31,9 @@ int main(int argc, char* argv[]) {
     // Run the application
     application.Run(input_filename);
 
+    // Finalize the application
+    application.Finalize();
+
     // Finalize MPI and clean up
     stk::parallel_machine_finalize();
 

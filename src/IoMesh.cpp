@@ -85,6 +85,12 @@ IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     mp_io_broker->set_bulk_data(bulk);
 }
 
+void IoMesh::Finalize() {
+    // remove databases (or get "The MPI_File_sync() function was called after MPI_FINALIZE was invoked.")
+    mp_io_broker->remove_mesh_database(m_input_index);
+    mp_io_broker->close_output_mesh(m_results_index);
+}
+
 void IoMesh::EquilibrateMemoryBaseline() {
     size_t now = 0;
     size_t high_water_mark = 0;
@@ -235,8 +241,14 @@ void IoMesh::ReadMesh(const std::string &filename,
 
     stk::log_with_time_and_memory(m_comm, "Reading input mesh: " + filename);
 
-    size_t input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
-    mp_io_broker->set_active_mesh(input_index);
+    // Make sure this is the first call to ReadMesh
+    if (m_input_index != -1) {
+        throw std::runtime_error("ReadMesh called twice");
+    }
+
+    mp_field_manager = field_manager;
+    m_input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
+    mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();
 
     if (field_manager) {
@@ -267,14 +279,14 @@ void IoMesh::WriteFieldResults(const std::string &filename,
     // This call adds an output database for results data to ioBroker.
     // No data is written at this time other than verifying that the
     // file can be created on the disk.
-    size_t results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
+    m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 
     // Iterate all fields and set them as results fields...
     const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
     for (size_t i = 0; i < fields.size(); i++) {
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*fields[i]);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            mp_io_broker->add_field(results_index, *fields[i]);  // results output
+            mp_io_broker->add_field(m_results_index, *fields[i]);  // results output
         }
     }
 
@@ -314,7 +326,7 @@ void IoMesh::WriteFieldResults(const std::string &filename,
         }
 
         // Define the global fields that will be written on each timestep.
-        mp_io_broker->add_global(results_index, input_field.get_name(),
+        mp_io_broker->add_global(m_results_index, input_field.get_name(),
                                  input_field.raw_storage()->name(), input_field.get_type());
         if (hb_type != stk::io::NONE) {
             stk::util::Parameter &param = parameters.get_param(input_field.get_name());
@@ -330,7 +342,7 @@ void IoMesh::WriteFieldResults(const std::string &filename,
     int timestep_count = io_region->get_property("state_count").get_int();
 
     if (timestep_count == 0) {
-        mp_io_broker->write_output_mesh(results_index);
+        mp_io_broker->write_output_mesh(m_results_index);
     } else {
         for (int step = 1; step <= timestep_count; step++) {
             double time = io_region->get_state_time(step);
@@ -350,9 +362,9 @@ void IoMesh::WriteFieldResults(const std::string &filename,
                 time = t_begin + delta * static_cast<double>(interval);
 
                 mp_io_broker->read_defined_input_fields(time);
-                mp_io_broker->begin_output_step(results_index, time);
+                mp_io_broker->begin_output_step(m_results_index, time);
 
-                mp_io_broker->write_defined_output_fields(results_index);
+                mp_io_broker->write_defined_output_fields(m_results_index);
 
                 // Transfer all global variables from the input mesh to the results database
                 stk::util::ParameterMapType::const_iterator i = parameters.begin();
@@ -366,10 +378,10 @@ void IoMesh::WriteFieldResults(const std::string &filename,
                 for (i = parameters.begin(); i != iend; ++i) {
                     const std::string parameter_name = (*i).first;
                     stk::util::Parameter parameter = (*i).second;
-                    mp_io_broker->write_global(results_index, parameter_name, parameter.value, parameter.type);
+                    mp_io_broker->write_global(m_results_index, parameter_name, parameter.value, parameter.type);
                 }
 
-                mp_io_broker->end_output_step(results_index);
+                mp_io_broker->end_output_step(m_results_index);
             }
             if (hb_type != stk::io::NONE && !global_fields.empty()) {
                 mp_io_broker->process_heartbeat_output(heart, step, time);
