@@ -62,10 +62,11 @@ ELSE()
 ENDIF()
 
 set(LIB_SOURCES
-    src/IoMesh.cpp;
-    src/IoInputFile.cpp;
     src/Application.cpp;
     src/InitialConditionManager.cpp;
+    src/IoInputFile.cpp;
+    src/IoMesh.cpp;
+    src/Solver.cpp;
    )
 
 add_library(libstk-crk ${LIB_SOURCES})

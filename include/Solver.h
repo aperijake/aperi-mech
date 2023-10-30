@@ -18,7 +18,7 @@ class ExplicitSolver : public Solver {
     ExplicitSolver() {}
     ~ExplicitSolver() {}
 
-    void Solve() override{};
+    void Solve() override;
 };
 
 // Solver factory
