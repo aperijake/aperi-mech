@@ -122,10 +122,18 @@ ENDIF()
 
 include(GoogleTest)
 
+set(TEST_SOURCES
+    test/ApplicationTest.cpp;
+    test/InitialConditionManagerTest.cpp;
+    test/IoInputFileTest.cpp;
+    test/IoMeshTest.cpp;
+    test/UnitTestUtils.cpp
+   )
+
 # Add an executable for the unit tests
 add_executable(unit_tests
     test/unit_tests.cpp  # Test runner file
-    test/UnitTestUtils.cpp
+    ${TEST_SOURCES}
 )
 
 target_link_libraries(

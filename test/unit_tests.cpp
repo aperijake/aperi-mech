@@ -1,13 +1,8 @@
 #include <gtest/gtest.h>
-
-// Include test cases
-#include "ApplicationTest.cpp"
-#include "InitialConditionManagerTest.cpp"
-#include "IoInputFileTest.cpp"
-#include "IoMeshTest.cpp"
+#include <mpi.h>
 
 int main(int argc, char** argv) {
-    stk::parallel_machine_init(&argc, &argv);
+    MPI_Init(&argc, &argv);  // in lieu of: stk::parallel_machine_init(&argc, &argv);
 
     // Initialize Google Test
     ::testing::InitGoogleTest(&argc, argv);
@@ -15,7 +10,7 @@ int main(int argc, char** argv) {
     // Run all the tests
     int return_code = RUN_ALL_TESTS();
 
-    stk::parallel_machine_finalize();
+    MPI_Finalize();  // in lieu of stk::parallel_machine_finalize();
 
     return return_code;
 }
