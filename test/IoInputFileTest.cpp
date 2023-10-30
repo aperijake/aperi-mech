@@ -12,6 +12,7 @@
 class IoInputFileTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
         // Create a temporary input file
         m_yaml_data = CreateTestYaml();
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
@@ -20,11 +21,9 @@ class IoInputFileTest : public ::testing::Test {
     }
 
     acm::IoInputFile GetIoInputFile(bool check_input = true) {
-        int rank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        // Create a temporary input file
-        if (rank == 0) acm::IoInputFile::Write(m_filename, m_yaml_data);
-        MPI_Barrier(MPI_COMM_WORLD);
+        // Create a temporary input file, only rank 0 writes the file
+        if (m_rank == 0) acm::IoInputFile::Write(m_filename, m_yaml_data);
+        MPI_Barrier(MPI_COMM_WORLD);  // Make sure it's written before reading on other ranks
 
         EXPECT_TRUE(std::filesystem::exists(m_filename));
 
@@ -35,9 +34,11 @@ class IoInputFileTest : public ::testing::Test {
 
     void TearDown() override {
         // Delete the temporary input file
-        std::remove(m_filename.c_str());
+        MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have completed before deleting
+        if (m_rank == 0) std::remove(m_filename.c_str());
     }
 
+    int m_rank;
     YAML::Node m_yaml_data;
     std::string m_filename;
 };
@@ -147,6 +148,7 @@ TEST_F(IoInputFileTest, CheckInputScalarSequence) {
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
+    MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have done the check before modifying the file
 
     m_yaml_data["initial_conditions"][0]["magnitude"] = YAML::Load("1");
     io_input_file = GetIoInputFile(false);
@@ -162,6 +164,7 @@ TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInput(), 1);
+    MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have done the check before modifying the file
 
     m_yaml_data["initial_conditions"][0]["direction"] = YAML::Load("[1, 2, 3]");
     io_input_file = GetIoInputFile(false);
