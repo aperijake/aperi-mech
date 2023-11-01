@@ -38,9 +38,9 @@ class IoMesh {
         const std::string &filename,
         std::shared_ptr<acm::FieldManager> field_manager = nullptr);
 
-    void WriteFieldResults(const std::string &filename,
-                           stk::io::HeartbeatType hb_type,
-                           int interpolation_intervals);
+    void CreateFieldResultsFile(const std::string &filename);
+
+    void WriteFieldResults(double time) const;
 
     stk::mesh::BulkData &GetBulkData() { return mp_io_broker->bulk_data(); }
     stk::mesh::MetaData &GetMetaData() { return mp_io_broker->meta_data(); }

@@ -11,7 +11,6 @@
 #include <iostream>                    // for opera...
 #include <memory>                      // for shared_ptr
 #include <stk_io/DatabasePurpose.hpp>  // for READ_...
-#include <stk_io/Heartbeat.hpp>        // for NONE
 #include <stk_io/IossBridge.hpp>       // for get_f...
 #include <stk_io/MeshField.hpp>        // for MeshF...
 #include <stk_io/StkMeshIoBroker.hpp>  // for StkMe...
@@ -270,15 +269,7 @@ void IoMesh::ReadMesh(const std::string &filename,
     LogMeshCounts(mp_io_broker->bulk_data());
 }
 
-void IoMesh::WriteFieldResults(const std::string &filename,
-                               stk::io::HeartbeatType hb_type,
-                               int interpolation_intervals) {
-    if (interpolation_intervals == 0)
-        interpolation_intervals = 1;
-
-    // This call adds an output database for results data to ioBroker.
-    // No data is written at this time other than verifying that the
-    // file can be created on the disk.
+void IoMesh::CreateFieldResultsFile(const std::string &filename) {
     m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 
     // Iterate all fields and set them as results fields...
@@ -289,111 +280,12 @@ void IoMesh::WriteFieldResults(const std::string &filename,
             mp_io_broker->add_field(m_results_index, *fields[i]);  // results output
         }
     }
+}
 
-    // Determine the names of the global fields on the input
-    // mesh. These will be used below to define the same fields on the
-    // result output database.
-    std::vector<std::string> global_fields;
-    mp_io_broker->get_global_variable_names(global_fields);
-
-    // Create heartbeat file of the specified format...
-    size_t heart = 0;
-    if (hb_type != stk::io::NONE && !global_fields.empty()) {
-        std::string heartbeat_filename = filename + ".hrt";
-        heart = mp_io_broker->add_heartbeat_output(heartbeat_filename, hb_type);
-    }
-
-    stk::util::ParameterList parameters;
-
-    // For each global field name on the input database, determine the type of the field
-    // and define that same global field on the results, history, and heartbeat outputs.
-    if (!global_fields.empty()) {
-        std::cout << "Adding " << global_fields.size() << " global fields:\n";
-    }
-
-    auto io_region = mp_io_broker->get_input_ioss_region();
-
-    for (size_t i = 0; i < global_fields.size(); i++) {
-        const Ioss::Field &input_field = io_region->get_fieldref(global_fields[i]);
-        std::cout << "\t" << input_field.get_name() << " of type " << input_field.raw_storage()->name() << "\n";
-
-        if (input_field.raw_storage()->component_count() == 1) {
-            double val = 0.0;
-            parameters.set_param(input_field.get_name(), val);
-        } else {
-            std::vector<double> vals(input_field.raw_storage()->component_count());
-            parameters.set_param(input_field.get_name(), vals);
-        }
-
-        // Define the global fields that will be written on each timestep.
-        mp_io_broker->add_global(m_results_index, input_field.get_name(),
-                                 input_field.raw_storage()->name(), input_field.get_type());
-        if (hb_type != stk::io::NONE) {
-            stk::util::Parameter &param = parameters.get_param(input_field.get_name());
-            mp_io_broker->add_heartbeat_global(heart, input_field.get_name(), param);
-        }
-    }
-
-    // ========================================================================
-    // Begin the transient loop...  All timesteps on the input database are transferred
-    // to the results output database...
-
-    // Determine number of timesteps on input database...
-    int timestep_count = io_region->get_property("state_count").get_int();
-
-    if (timestep_count == 0) {
-        mp_io_broker->write_output_mesh(m_results_index);
-    } else {
-        for (int step = 1; step <= timestep_count; step++) {
-            double time = io_region->get_state_time(step);
-            if (step == timestep_count)
-                interpolation_intervals = 1;
-
-            int step_end = step < timestep_count ? step + 1 : step;
-            double t_end = io_region->get_state_time(step_end);
-            double t_begin = time;
-            double delta = (t_end - t_begin) / static_cast<double>(interpolation_intervals);
-
-            for (int interval = 0; interval < interpolation_intervals; interval++) {
-                // Normally, an app would only process the restart input at a single step and
-                // then continue with execution at that point.  Here just for testing, we are
-                // reading restart data at each step on the input restart file/mesh and then
-                // outputting that data to the restart and results output.
-                time = t_begin + delta * static_cast<double>(interval);
-
-                mp_io_broker->read_defined_input_fields(time);
-                mp_io_broker->begin_output_step(m_results_index, time);
-
-                mp_io_broker->write_defined_output_fields(m_results_index);
-
-                // Transfer all global variables from the input mesh to the results database
-                stk::util::ParameterMapType::const_iterator i = parameters.begin();
-                stk::util::ParameterMapType::const_iterator iend = parameters.end();
-                for (; i != iend; ++i) {
-                    const std::string parameter_name = (*i).first;
-                    stk::util::Parameter &parameter = parameters.get_param(parameter_name);
-                    mp_io_broker->get_global(parameter_name, parameter);
-                }
-
-                for (i = parameters.begin(); i != iend; ++i) {
-                    const std::string parameter_name = (*i).first;
-                    stk::util::Parameter parameter = (*i).second;
-                    mp_io_broker->write_global(m_results_index, parameter_name, parameter.value, parameter.type);
-                }
-
-                mp_io_broker->end_output_step(m_results_index);
-            }
-            if (hb_type != stk::io::NONE && !global_fields.empty()) {
-                mp_io_broker->process_heartbeat_output(heart, step, time);
-            }
-
-            // Flush the data.  This is not necessary in a normal
-            // application, Just being done here to verify that the
-            // function exists and does not core dump.
-            mp_io_broker->flush_output();
-        }
-    }
-    stk::log_with_time_and_memory(m_comm, "Finished writing output mesh.");
+void IoMesh::WriteFieldResults(double time) const {
+    mp_io_broker->begin_output_step(m_results_index, time);
+    mp_io_broker->write_defined_output_fields(m_results_index);
+    mp_io_broker->end_output_step(m_results_index);
 }
 
 // IoMesh factory function

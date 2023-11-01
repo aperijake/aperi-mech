@@ -2,7 +2,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <stk_io/Heartbeat.hpp>
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "FieldManager.h"
@@ -33,6 +32,9 @@ void Application::Run(std::string& input_filename) {
     // Read the mesh
     m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(), m_field_manager);
 
+    // Create the field results file
+    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile());
+
     // Create solver
     m_solver = acm::CreateSolver(m_io_mesh);
 
@@ -41,12 +43,8 @@ void Application::Run(std::string& input_filename) {
     m_solver->Solve();
     sierra::Env::outputP0() << "Finished Solver" << std::endl;
 
-    // Write results
-    sierra::Env::outputP0() << "Writing Results" << std::endl;
-    stk::io::HeartbeatType heartbeat_type = stk::io::NONE;  // Format of heartbeat output. One of binary = stk::io::NONE, stk::io::BINARY, stk::io::CSV, stk::io::TS_CSV, stk::io::TEXT, stk::io::TS_TEXT, stk::io::SPYHIS;
-    int interpolation_intervals = 0;                        // Number of intervals to divide each input time step into
-    m_io_mesh->WriteFieldResults(m_io_input_file->GetOutputFile(), heartbeat_type, interpolation_intervals);
-    sierra::Env::outputP0() << "Finished Results" << std::endl;
+    // Finalize
+    Finalize();
 }
 
 void Application::Finalize() {

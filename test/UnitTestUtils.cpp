@@ -78,9 +78,8 @@ void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std:
     // CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 
     // Write the generated mesh
-    stk::io::HeartbeatType heartbeat_type = stk::io::NONE;
-    int interpolation_intervals = 0;
-    io_mesh.WriteFieldResults(filename, heartbeat_type, interpolation_intervals);
+    io_mesh.CreateFieldResultsFile(filename);
+    io_mesh.WriteFieldResults(0);
     std::ifstream after_write_file(filename);
     EXPECT_TRUE(after_write_file.good());
 }

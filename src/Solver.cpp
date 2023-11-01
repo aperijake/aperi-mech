@@ -1,6 +1,7 @@
 #include "Solver.h"
 
 #include <stk_topology/topology.hpp>
+#include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "FieldManager.h"
 #include "IoMesh.h"
@@ -71,8 +72,14 @@ void ExplicitSolver::Solve() {
     // Set the initial increment, n = 0
     size_t n = 0;
 
+    // Output initial state
+    sierra::Env::outputP0() << "Writing Results" << std::endl;
+    m_io_mesh->WriteFieldResults(time);
+
     // Loop over time steps
     while (time < time_final) {
+        sierra::Env::outputP0() << "Time: " << time << std::endl;
+
         // Move state n+1 to state n
         bulk_data.update_field_data_states();
 
@@ -141,7 +148,8 @@ void ExplicitSolver::Solve() {
         n = n + 1;
 
         // Output
-        // HERE
+        sierra::Env::outputP0() << "Writing Results" << std::endl;
+        m_io_mesh->WriteFieldResults(time);
     }
 }
 
