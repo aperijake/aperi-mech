@@ -21,13 +21,13 @@ lint:
     - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.46.0
+    - trivy@0.46.1
     - yamllint@1.32.0
-    - checkov@2.5.9
+    - checkov@3.0.15
     - git-diff-check
     - markdownlint@0.37.0
     - prettier@3.0.3
-    - trufflehog@3.60.3
+    - trufflehog@3.62.1
 actions:
   disabled:
     - trunk-announce

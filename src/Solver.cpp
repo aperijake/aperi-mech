@@ -64,7 +64,7 @@ void ExplicitSolver::Solve() {
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     // Compute mass matrix
-    // TODO: Compute mass matrix
+    // TODO(jake): Compute mass matrix
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -90,10 +90,10 @@ void ExplicitSolver::Solve() {
         double time_mid = 0.5 * (time + time_next);
 
         // Get the force, f^n = getforce()
-        // TODO: Write getforce
+        // TODO(jake): Write getforce
 
         // Compute acceleration: a^n = M^{–1}(f^n – C^{damp} v^{n–½})
-        // TODO: Compute acceleration
+        // TODO(jake): Compute acceleration
 
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
@@ -116,7 +116,7 @@ void ExplicitSolver::Solve() {
                 }
 
                 // Enforce velocity boundary conditions
-                // TODO: Enforce velocity boundary conditions
+                // TODO(jake): Enforce velocity boundary conditions
 
                 // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
                 for (unsigned i = 0; i < num_values_per_node; i++) {
@@ -125,10 +125,10 @@ void ExplicitSolver::Solve() {
                 }
 
                 // Get the force, f^{n+1} = getforce()
-                // TODO: Write getforce
+                // TODO(jake): Write getforce
 
                 // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1} – C^{damp} v^{n+½})
-                // TODO: Compute acceleration
+                // TODO(jake): Compute acceleration
 
                 // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
                 for (unsigned i = 0; i < num_values_per_node; i++) {
@@ -139,7 +139,7 @@ void ExplicitSolver::Solve() {
         }
 
         // Compute the energy balance
-        // TODO: Compute energy balance
+        // TODO(jake): Compute energy balance
 
         // Update the time, t = t^{n+1}
         time = time_next;
