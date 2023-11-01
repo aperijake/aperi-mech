@@ -48,9 +48,19 @@ void ExplicitSolver::Solve() {
     stk::mesh::MetaData &meta_data = m_io_mesh->GetMetaData();
 
     // Get the displacement, velocity, and acceleration fields
-    stk::mesh::Field<double> *displacement_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "displacement");
-    stk::mesh::Field<double> *velocity_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "velocity");
-    stk::mesh::Field<double> *acceleration_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "acceleration");
+    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+    VectorField *displacement_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
+    VectorField *velocity_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
+    VectorField *acceleration_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "acceleration");
+
+    VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
+    VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
+
+    VectorField &velocity_field_n = velocity_field->field_of_state(stk::mesh::StateN);
+    VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
+
+    VectorField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
+    VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     // Compute mass matrix
     // TODO: Compute mass matrix
@@ -64,13 +74,7 @@ void ExplicitSolver::Solve() {
     // Loop over time steps
     while (time < time_final) {
         // Move state n+1 to state n
-        // HERE
-
-        // Get the force, f^n = getforce()
-        // TODO: Write getforce
-
-        // Compute acceleration: a^n = M^{–1}(f^n – C^{damp} v^{n–½})
-        // TODO: Compute acceleration
+        bulk_data.update_field_data_states();
 
         // Compute the time at the end of the time step, t^{n+1} = t^n + Δt^{n+½}
         double time_next = time + time_step;
@@ -78,22 +82,40 @@ void ExplicitSolver::Solve() {
         // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
         double time_mid = 0.5 * (time + time_next);
 
+        // Get the force, f^n = getforce()
+        // TODO: Write getforce
+
+        // Compute acceleration: a^n = M^{–1}(f^n – C^{damp} v^{n–½})
+        // TODO: Compute acceleration
+
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
-            double *displacement_data_for_bucket = stk::mesh::field_data(*displacement_field, *bucket);
-            double *velocity_data_for_bucket = stk::mesh::field_data(*velocity_field, *bucket);
-            double *acceleration_data_for_bucket = stk::mesh::field_data(*acceleration_field, *bucket);
+            double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
+            double *velocity_data_n_for_bucket = stk::mesh::field_data(velocity_field_n, *bucket);
+            double *acceleration_data_n_for_bucket = stk::mesh::field_data(acceleration_field_n, *bucket);
+
+            double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
+            double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
+            double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
+
+            unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
             for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
                 // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-                // HERE
+                for (unsigned i = 0; i < num_values_per_node; i++) {
+                    int iI = i_node * num_values_per_node + i;
+                    velocity_data_np1_for_bucket[iI] = velocity_data_n_for_bucket[iI] + (time_mid - time) * acceleration_data_n_for_bucket[iI];
+                }
 
                 // Enforce velocity boundary conditions
                 // TODO: Enforce velocity boundary conditions
 
                 // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-                // HERE
+                for (unsigned i = 0; i < num_values_per_node; i++) {
+                    int iI = i_node * num_values_per_node + i;
+                    displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_step * velocity_data_np1_for_bucket[iI];
+                }
 
                 // Get the force, f^{n+1} = getforce()
                 // TODO: Write getforce
@@ -102,12 +124,10 @@ void ExplicitSolver::Solve() {
                 // TODO: Compute acceleration
 
                 // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-                // HERE
-
-                // unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
-                // for (unsigned i = 0; i < num_values_per_node; i++) {
-                //     displacement_data_for_bucket[i_node * num_values_per_node + i] = 99.9;
-                // }
+                for (unsigned i = 0; i < num_values_per_node; i++) {
+                    int iI = i_node * num_values_per_node + i;
+                    velocity_data_np1_for_bucket[iI] = velocity_data_np1_for_bucket[iI] + (time_next - time_mid) * acceleration_data_np1_for_bucket[iI];
+                }
             }
         }
 
