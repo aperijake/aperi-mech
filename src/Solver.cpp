@@ -85,8 +85,10 @@ void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data) {
 
     double density = 1.0;  // TODO: Get from input file
     double mass_sum = 0.0;
+    int elem_count = 0;
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::ELEMENT_RANK)) {
+        bool owned = bucket->owned();
         for (auto &&elem : *bucket) {
             // Get the number of nodes in the element
             unsigned num_nodes = bulk_data.num_nodes(elem);
@@ -103,7 +105,10 @@ void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data) {
                 coordinates.push_back(std::vector<double>(coordinate_values, coordinate_values + 3));
             }
             double mass = density * TetVolume(coordinates) / num_nodes;
-            mass_sum += mass * num_nodes;
+            if (owned) {
+                mass_sum += mass * num_nodes;
+                elem_count++;
+            }
 
             for (unsigned i = 0; i < num_nodes; ++i) {
                 stk::mesh::Entity node = elem_nodes[i];
@@ -117,8 +122,11 @@ void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data) {
     }
     // Parallel sum
     double mass_sum_global = 0.0;
+    int elem_count_global = 0;
     stk::all_reduce_sum(bulk_data.parallel(), &mass_sum, &mass_sum_global, 1);
+    stk::all_reduce_sum(bulk_data.parallel(), &elem_count, &elem_count_global, 1);
     sierra::Env::outputP0() << "Total Mass: " << mass_sum_global << std::endl;
+    sierra::Env::outputP0() << "Element Count: " << elem_count_global << std::endl;
 }
 
 void ExplicitSolver::Solve() {
