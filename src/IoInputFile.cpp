@@ -62,6 +62,28 @@ int IoInputFile::CheckInput(bool verbose) const {
         if (GetScalarValue<std::string>(output_node_pair.first, "file", verbose).second) return_code = 1;
     }
 
+    // Check if parts are valid
+    std::pair<std::vector<YAML::Node>, int> parts_pair = GetValueSequence<YAML::Node>(m_yaml_file, "parts", verbose);
+    if (parts_pair.second){
+        return_code = 1;
+    } else {
+        std::vector<YAML::Node> parts = parts_pair.first;
+        for (const auto& part : parts) {
+            if (GetScalarValue<std::string>(part, "name", verbose).second) return_code = 1;
+            if (GetScalarValue<std::string>(part, "location", verbose).second) return_code = 1;
+            std::pair<YAML::Node, int> material_model_pair = GetNode(part, "material_model");
+            if (material_model_pair.second) {
+                return_code = 1;
+            } else {
+                YAML::Node material_model = material_model_pair.first;
+                if (GetScalarValue<std::string>(material_model, "type", verbose).second) return_code = 1;
+                if (GetScalarValue<double>(material_model, "density", verbose).second) return_code = 1;
+                if (GetScalarValue<double>(material_model, "youngs_modulus", verbose).second) return_code = 1;
+                if (GetScalarValue<double>(material_model, "poissons_ratio", verbose).second) return_code = 1;
+            }
+        }
+    }
+
     // Check if initial conditions are valid
     std::pair<std::vector<YAML::Node>, int> initial_conditions_pair = GetValueSequence<YAML::Node>(m_yaml_file, "initial_conditions", verbose);
     if (initial_conditions_pair.second) {
