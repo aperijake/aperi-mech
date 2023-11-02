@@ -30,7 +30,7 @@ YAML::Node CreateTestYaml() {
     steel_model["density"] = 7850;
     steel_model["youngs_modulus"] = 2.1e11;
     steel_model["poissons_ratio"] = 0.3;
-    block_1["material_model"] = steel_model;
+    block_1["material"] = steel_model;
     yaml_data["parts"].push_back(block_1);
 
     // Loads section

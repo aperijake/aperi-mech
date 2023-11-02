@@ -49,6 +49,12 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = false) {
+        std::pair<YAML::Node, int> node_pair = GetNode(part, "material");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting material");
+        return node_pair.first;
+    }
+
    private:
     std::string m_filename;
     YAML::Node m_yaml_file;

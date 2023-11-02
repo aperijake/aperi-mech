@@ -5,6 +5,7 @@
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "FieldManager.h"
+#include "ForceContribution.h"
 #include "InitialConditionManager.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
@@ -36,8 +37,20 @@ void Application::Run(std::string& input_filename) {
     // Create the field results file
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile());
 
+    // Get parts
+    std::vector<YAML::Node> parts = m_io_input_file->GetParts();
+
+    // Loop over parts, create materials, and add parts to force contributions
+    for (auto part : parts) {
+        YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
+        std::shared_ptr<acm::Material> material = CreateMaterial(material_node);
+        std::string part_location = part["location"].as<std::string>();
+        // TODO(jake): add part to ForceContribution
+        m_force_contributions.push_back(CreateForceContribution(material));
+    }
+
     // Create solver
-    m_solver = acm::CreateSolver(m_io_mesh);
+    m_solver = acm::CreateSolver(m_io_mesh, m_force_contributions);
 
     // Run solver
     sierra::Env::outputP0() << "Starting Solver" << std::endl;
