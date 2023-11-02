@@ -60,6 +60,8 @@ inline std::vector<FieldData> GetFieldData() {
     field_data.push_back({"velocity", FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
     field_data.push_back({"displacement", FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
     field_data.push_back({"acceleration", FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+    field_data.push_back({"force", FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+    field_data.push_back({"mass", FieldDataType::VECTOR, 1, {0.0, 0.0, 0.0}});
     return field_data;
 }
 
