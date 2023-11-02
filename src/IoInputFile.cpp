@@ -63,35 +63,39 @@ int IoInputFile::CheckInput(bool verbose) const {
     }
 
     // Check if initial conditions are valid
-    std::vector<YAML::Node> initial_conditions = GetInitialConditions();
-    if (verbose) std::cout << "Initial Conditions:" << std::endl;
-    for (const auto& initial_condition : initial_conditions) {
-        std::pair<std::string, int> type_pair = GetScalarValue<std::string>(initial_condition, "type", verbose);
-        if (type_pair.second) {
-            return_code = 1;
-        } else if (type_pair.first != "velocity") {
-            std::cerr << "Error: Initial condition type must be velocity." << std::endl;
-            return_code = 1;
-        }
-        if (GetScalarValue<std::string>(initial_condition, "name", verbose).second) return_code = 1;
-        if (GetScalarValue<std::string>(initial_condition, "location", verbose).second) return_code = 1;
-        if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
+    std::pair<std::vector<YAML::Node>, int> initial_conditions_pair = GetValueSequence<YAML::Node>(m_yaml_file, "initial_conditions", verbose);
+    if (initial_conditions_pair.second) {
+        return_code = 1;
+    } else {
+        std::vector<YAML::Node> initial_conditions = initial_conditions_pair.first;
+        for (const auto& initial_condition : initial_conditions) {
+            std::pair<std::string, int> type_pair = GetScalarValue<std::string>(initial_condition, "type", verbose);
+            if (type_pair.second) {
+                return_code = 1;
+            } else if (type_pair.first != "velocity") {
+                std::cerr << "Error: Initial condition type must be velocity." << std::endl;
+                return_code = 1;
+            }
+            if (GetScalarValue<std::string>(initial_condition, "name", verbose).second) return_code = 1;
+            if (GetScalarValue<std::string>(initial_condition, "location", verbose).second) return_code = 1;
+            if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
 
-        std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(initial_condition, "direction", verbose);
-        if (direction_pair.second) {
-            return_code = 1;
-        } else {
-            if (direction_pair.first.size() != 3) {
-                std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
+            std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(initial_condition, "direction", verbose);
+            if (direction_pair.second) {
                 return_code = 1;
             } else {
-                bool has_value = false;
-                for (const auto& direction : direction_pair.first) {
-                    if (direction != 0) has_value = true;
-                }
-                if (!has_value) {
-                    std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
+                if (direction_pair.first.size() != 3) {
+                    std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
                     return_code = 1;
+                } else {
+                    bool has_value = false;
+                    for (const auto& direction : direction_pair.first) {
+                        if (direction != 0) has_value = true;
+                    }
+                    if (!has_value) {
+                        std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
+                        return_code = 1;
+                    }
                 }
             }
         }

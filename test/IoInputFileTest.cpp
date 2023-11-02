@@ -181,6 +181,9 @@ TEST_F(IoInputFileTest, Read) {
     EXPECT_EQ(io_input_file.GetMeshFile(), "one_element.exo");
     EXPECT_EQ(io_input_file.GetOutputFile(), "one_element_out.exo");
     EXPECT_EQ(io_input_file.GetInitialConditions().size(), 1);
+    EXPECT_EQ(acm::GetValueSequence<YAML::Node>(m_yaml_data, "initial_conditions", false).first.size(), 1);  // another way to get initial conditions
+    EXPECT_EQ(io_input_file.GetParts().size(), 1);
+    EXPECT_EQ(acm::GetValueSequence<YAML::Node>(m_yaml_data, "parts", false).first.size(), 1);  // another way to get parts conditions
 }
 
 // Test that reading a missing input file throws an exception

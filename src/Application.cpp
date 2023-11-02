@@ -9,6 +9,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "Solver.h"
+#include "YamlUtils.h"
 
 namespace acm {
 

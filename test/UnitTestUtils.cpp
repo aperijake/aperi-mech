@@ -21,13 +21,17 @@ YAML::Node CreateTestYaml() {
     // Output section
     yaml_data["output"]["file"] = "one_element_out.exo";
 
-    // Materials section
-    YAML::Node steel_material;
-    steel_material["name"] = "steel";
-    steel_material["type"] = "elastic";
-    steel_material["density"] = 7850;
-    steel_material["youngs_modulus"] = 2.1e11;
-    yaml_data["materials"].push_back(steel_material);
+    // Parts
+    YAML::Node block_1;
+    block_1["location"] = "block_1";
+    block_1["name"] = "test_block";
+    YAML::Node steel_model;
+    steel_model["type"] = "elastic";
+    steel_model["density"] = 7850;
+    steel_model["youngs_modulus"] = 2.1e11;
+    steel_model["poissons_ratio"] = 0.3;
+    block_1["material_model"] = steel_model;
+    yaml_data["parts"].push_back(block_1);
 
     // Loads section
     YAML::Node load_node;
