@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-
 namespace stk {
 namespace mesh {
 class BulkData;
@@ -9,12 +7,6 @@ class BulkData;
 }  // namespace stk
 
 namespace acm {
-
-// Compute the cross product of two vectors
-std::vector<double> CrossProduct(const std::vector<double> &v1, const std::vector<double> &v2);
-
-// Compute the volume of a tetrahedron
-double TetVolume(const std::vector<std::vector<double>> &tet);
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density);

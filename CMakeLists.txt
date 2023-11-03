@@ -147,6 +147,7 @@ if (CODE_COVERAGE)
     include(CodeCoverage)
     append_coverage_compiler_flags()
     set(COVERAGE_EXCLUDES
+            "src/main.cpp"
             "${KOKKOS_PATH}/*"
             "${TRILINOS_PATH}/*"
             "${YAML-CPP_PATH}/*"

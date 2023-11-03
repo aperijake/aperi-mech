@@ -12,31 +12,6 @@
 #include "stk_topology/topology.hpp"
 #include "stk_util/parallel/Parallel.hpp"
 
-// Test the cross product of two vectors
-TEST(MassUtilsTest, CrossProduct) {
-    std::vector<double> v1 = {1.0, 0.0, 0.0};
-    std::vector<double> v2 = {0.0, 1.0, 0.0};
-
-    std::vector<double> result = acm::CrossProduct(v1, v2);
-    std::vector<double> expected = {0.0, 0.0, 1.0};
-
-    EXPECT_EQ(result, expected);
-}
-
-// Test the volume of a tetrahedron
-TEST(MassUtilsTest, TetVolume) {
-    std::vector<std::vector<double>> tet = {
-        {0.0, 0.0, 0.0},
-        {1.0, 0.0, 0.0},
-        {0.0, 1.0, 0.0},
-        {0.0, 0.0, 1.0}};
-
-    double result = acm::TetVolume(tet);
-    double expected = 1.0 / 6.0;  // The volume of the unit tetrahedron is 1/6
-
-    EXPECT_DOUBLE_EQ(result, expected);
-}
-
 // Fixture for mass matrix tests
 class MassMatrixTest : public ::testing::Test {
    protected:
