@@ -61,13 +61,7 @@ ELSE()
 	MESSAGE(FATAL_ERROR "Could not find yaml-cpp!")
 ENDIF()
 
-set(LIB_SOURCES
-    src/Application.cpp;
-    src/InitialConditionManager.cpp;
-    src/IoInputFile.cpp;
-    src/IoMesh.cpp;
-    src/Solver.cpp;
-   )
+file(GLOB LIB_SOURCES "src/*.cpp")
 
 add_library(libstk-crk ${LIB_SOURCES})
 
