@@ -42,6 +42,27 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
     return return_code;
 }
 
+bool IsValidDirection(const std::pair<std::vector<double>, int>& direction_pair) {
+    if (direction_pair.second) {
+        return false;
+    } else {
+        if (direction_pair.first.size() != 3) {
+            std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
+            return false;
+        } else {
+            bool has_value = false;
+            for (const auto& direction : direction_pair.first) {
+                if (direction != 0) has_value = true;
+            }
+            if (!has_value) {
+                std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 // Make sure the input file is valid
 int IoInputFile::CheckInput(bool verbose) const {
     int return_code = 0;
@@ -103,21 +124,34 @@ int IoInputFile::CheckInput(bool verbose) const {
             if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
 
             std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(initial_condition, "direction", verbose);
-            if (direction_pair.second) {
+            if (!IsValidDirection(direction_pair)) {
                 return_code = 1;
-            } else {
-                if (direction_pair.first.size() != 3) {
-                    std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
+            }
+        }
+    }
+
+    // Check if loads are valid
+    if (m_yaml_file["loads"].IsDefined()) { // loads are optional
+        std::pair<std::vector<YAML::Node>, int> loads_pair = GetValueSequence<YAML::Node>(m_yaml_file, "loads", verbose);
+        if (loads_pair.second) {
+            return_code = 1;
+        } else {
+            std::vector<YAML::Node> loads = loads_pair.first;
+            for (const auto& load : loads) {
+                std::pair<std::string, int> type_pair = GetScalarValue<std::string>(load, "type", verbose);
+                if (type_pair.second) {
                     return_code = 1;
-                } else {
-                    bool has_value = false;
-                    for (const auto& direction : direction_pair.first) {
-                        if (direction != 0) has_value = true;
-                    }
-                    if (!has_value) {
-                        std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
-                        return_code = 1;
-                    }
+                } else if (type_pair.first != "traction" && type_pair.first != "gravity") {
+                    std::cerr << "Error: Load type must be traction or gravity." << std::endl;
+                    return_code = 1;
+                }
+                if (GetScalarValue<std::string>(load, "name", verbose).second) return_code = 1;
+                if (GetScalarValue<std::string>(load, "location", verbose).second) return_code = 1;
+                if (GetScalarValue<double>(load, "magnitude", verbose).second) return_code = 1;
+
+                std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(load, "direction", verbose);
+                if (!IsValidDirection(direction_pair)) {
+                    return_code = 1;
                 }
             }
         }

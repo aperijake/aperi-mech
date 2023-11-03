@@ -141,6 +141,69 @@ TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     EXPECT_EQ(io_input_file.CheckInput(), 1);
 }
 
+// Create an input file with missing parts material
+TEST_F(IoInputFileTest, CheckInputMissingPartsMaterial) {
+    m_yaml_data["parts"][0].remove("material");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with missing parts location
+TEST_F(IoInputFileTest, CheckInputMissingPartsLocation) {
+    m_yaml_data["parts"][0].remove("location");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with missing loads type
+TEST_F(IoInputFileTest, CheckInputMissingLoadsType) {
+    m_yaml_data["loads"][0].remove("type");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with missing loads location
+TEST_F(IoInputFileTest, CheckInputMissingLoadsLocation) {
+    m_yaml_data["loads"][0].remove("location");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with missing loads magnitude
+TEST_F(IoInputFileTest, CheckInputMissingLoadsMagnitude) {
+    m_yaml_data["loads"][0].remove("magnitude");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with missing loads direction
+TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
+    m_yaml_data["loads"][0].remove("direction");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
+// Create an input file with bad loads type
+TEST_F(IoInputFileTest, CheckInputBadLoadsType) {
+    m_yaml_data["loads"][0]["type"] = "bad_type";
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInput(true), 1);
+}
+
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
     m_yaml_data["initial_conditions"][0]["magnitude"] = YAML::Load("[1, 2, 3]");

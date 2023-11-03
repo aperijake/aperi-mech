@@ -34,15 +34,28 @@ YAML::Node CreateTestYaml() {
     yaml_data["parts"].push_back(block_1);
 
     // Loads section
-    YAML::Node load_node;
-    load_node["name"] = "load";
-    load_node["type"] = "traction";
-    load_node["location"] = "surface_1";
-    load_node["magnitude"] = 500;
-    load_node["direction"].push_back(1);
-    load_node["direction"].push_back(0);
-    load_node["direction"].push_back(0);
-    yaml_data["loads"].push_back(load_node);
+    // Add a traction load
+    // Note: this is not implemented yet
+    //YAML::Node traction_node;
+    //traction_node["name"] = "load";
+    //traction_node["type"] = "traction";
+    //traction_node["location"] = "surface_1";
+    //traction_node["magnitude"] = 500;
+    //traction_node["direction"].push_back(1);
+    //traction_node["direction"].push_back(0);
+    //traction_node["direction"].push_back(0);
+    //yaml_data["loads"].push_back(traction_node);
+
+    // Add a gravity load
+    YAML::Node gravity_node;
+    gravity_node["name"] = "gravity";
+    gravity_node["type"] = "gravity";
+    gravity_node["location"] = "block_1";
+    gravity_node["magnitude"] = 9.81;
+    gravity_node["direction"].push_back(0);
+    gravity_node["direction"].push_back(0);
+    gravity_node["direction"].push_back(-1);
+    yaml_data["loads"].push_back(gravity_node);
 
     // Boundary Conditions section
     YAML::Node fixed_bc;

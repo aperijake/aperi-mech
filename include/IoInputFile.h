@@ -49,6 +49,12 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    std::vector<YAML::Node> GetLoads(bool exit_on_error = false) const {
+        std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(m_yaml_file, "loads");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting loads");
+        return node_pair.first;
+    }
+
     static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = false) {
         std::pair<YAML::Node, int> node_pair = GetNode(part, "material");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting material");

@@ -46,11 +46,19 @@ void Application::Run(std::string& input_filename) {
         std::shared_ptr<acm::Material> material = CreateMaterial(material_node);
         std::string part_location = part["location"].as<std::string>();
         // TODO(jake): add part to ForceContribution
-        m_force_contributions.push_back(CreateForceContribution(material));
+        m_force_contributions.push_back(CreateInternalForceContribution(material));
+    }
+
+    // Get loads
+    std::vector<YAML::Node> loads = m_io_input_file->GetLoads();
+
+    // Loop over loads and add them to force contributions
+    for (auto load : loads) {
+        m_external_force_contributions.push_back(CreateExternalForceContribution(load));
     }
 
     // Create solver
-    m_solver = acm::CreateSolver(m_io_mesh, m_force_contributions);
+    m_solver = acm::CreateSolver(m_io_mesh, m_force_contributions, m_external_force_contributions);
 
     // Run solver
     sierra::Env::outputP0() << "Starting Solver" << std::endl;
