@@ -1,12 +1,11 @@
 #pragma once
 
-#include <string>   // for string
-#include <utility>  // for pair
-#include <vector>   // for vector
+#include <yaml-cpp/yaml.h>
 
-namespace YAML {
-class Node;
-}  // namespace YAML
+#include <iostream>  // for cerr, cout, endl
+#include <string>    // for string
+#include <utility>   // for pair
+#include <vector>    // for vector
 
 namespace acm {
 

@@ -123,13 +123,7 @@ ENDIF()
 
 include(GoogleTest)
 
-set(TEST_SOURCES
-    test/ApplicationTest.cpp;
-    test/InitialConditionManagerTest.cpp;
-    test/IoInputFileTest.cpp;
-    test/IoMeshTest.cpp;
-    test/UnitTestUtils.cpp
-   )
+file(GLOB TEST_SOURCES "test/*.cpp")
 
 # Add an executable for the unit tests
 add_executable(unit_tests
