@@ -5,6 +5,7 @@
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "FieldManager.h"
+#include "ForceContribution.h"
 #include "IoMesh.h"
 
 namespace acm {
@@ -75,15 +76,14 @@ double TetVolume(const std::vector<std::vector<double>> &tet) {
 }
 
 // Compute the diagonal mass matrix
-// TODO: Move to a utility file, make more efficient
-void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data) {
+// TODO(jake): Move to a utility file, make more efficient
+void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
     // get mesh meta data
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
     VectorField *mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
     VectorField *coordinates_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
-    double density = 1.0;  // TODO: Get from input file
     double mass_sum = 0.0;
     int elem_count = 0;
     // Loop over all the buckets
@@ -158,7 +158,8 @@ void ExplicitSolver::Solve() {
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     // Compute mass matrix
-    ComputeMassMatrix(bulk_data);
+    // TODO(jake): Do part-by-part
+    ComputeMassMatrix(bulk_data, m_force_contributions[0]->GetMaterial()->GetDensity());
 
     // Set the initial time, t = 0
     double time = 0.0;

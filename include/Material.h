@@ -19,38 +19,38 @@ enum MaterialType {
 struct MaterialProperties {
     MaterialType material_type = MaterialType::NONE;
     double density;
-};
-
-struct ElasticMaterialProperties : public MaterialProperties {
-    ElasticMaterialProperties() {
-        material_type = MaterialType::ELASTIC;
-    }
-    double youngs_modulus;
-    double poissons_ratio;
+    std::map<std::string, double> properties;
 };
 
 class Material {
    public:
-    Material() = default;
+    Material(std::shared_ptr<MaterialProperties> material_properties) : m_material_properties(material_properties) {}
+    // Get density
+    double GetDensity() const {
+        return m_material_properties->density;
+    }
     virtual ~Material() = default;
+
+   private:
+    std::shared_ptr<MaterialProperties> m_material_properties;
 };
 
 class ElasticMaterial : public Material {
    public:
-    ElasticMaterial(std::shared_ptr<ElasticMaterialProperties> elastic_material_properties) : m_elastic_material_properties(elastic_material_properties) {}
+    ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {}
     virtual ~ElasticMaterial() = default;
-
-   private:
-    std::shared_ptr<ElasticMaterialProperties> m_elastic_material_properties;
 };
 
-std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
+inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
     std::string material_type_string = material_node["type"].as<std::string>();
+    auto material_properties = std::make_shared<MaterialProperties>();
+    material_properties->density = material_node["density"].as<double>();
+
     if (material_type_string == "elastic") {
-        auto elastic_material_properties = std::make_shared<ElasticMaterialProperties>();
-        elastic_material_properties->density = material_node["density"].as<double>();
-        elastic_material_properties->youngs_modulus = material_node["youngs_modulus"].as<double>();
-        return std::make_shared<ElasticMaterial>(elastic_material_properties);
+        material_properties->material_type = MaterialType::ELASTIC;
+        material_properties->properties.emplace("poissons_ratio", material_node["poissons_ratio"].as<double>());
+        material_properties->properties.emplace("youngs_modulus", material_node["youngs_modulus"].as<double>());
+        return std::make_shared<ElasticMaterial>(material_properties);
     } else {
         return nullptr;
     }
