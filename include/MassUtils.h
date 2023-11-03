@@ -17,6 +17,6 @@ std::vector<double> CrossProduct(const std::vector<double> &v1, const std::vecto
 double TetVolume(const std::vector<std::vector<double>> &tet);
 
 // Compute the diagonal mass matrix
-void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density);
+double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density);
 
 }  // namespace acm

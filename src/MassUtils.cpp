@@ -51,7 +51,7 @@ double TetVolume(const std::vector<std::vector<double>> &tet) {
 
 // Compute the diagonal mass matrix
 // TODO(jake): Move to a utility file, make more efficient
-void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
+double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
     VectorField *mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
@@ -93,6 +93,7 @@ void ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
     double mass_sum_global = 0.0;
     stk::all_reduce_sum(bulk_data.parallel(), &mass_sum, &mass_sum_global, 1);
     sierra::Env::outputP0() << "Total Mass: " << mass_sum_global << std::endl;
+    return mass_sum_global;
 }
 
 }  // namespace acm

@@ -69,7 +69,7 @@ YAML::Node CreateTestYaml() {
     return yaml_data;
 }
 
-void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string) {
+void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<acm::FieldManager>& field_manager) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
     // Make sure output doesn't already exist to prevent false positives
@@ -77,7 +77,7 @@ void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std:
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    io_mesh.ReadMesh(mesh_string);
+    io_mesh.ReadMesh(mesh_string, field_manager);
     // std::vector<size_t> expected_owned = {8, 0, 0, 1};
     // CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 
