@@ -57,10 +57,10 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
         VectorField *force_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "force");
         VectorField *mass_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
 
-        VectorField &force_field_n = force_field->field_of_state(stk::mesh::StateN);
-        // VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1); // TODO(jake): Do we need this? Pass in state?
+        // VectorField &force_field_n = force_field->field_of_state(stk::mesh::StateN); // TODO(jake): Do we need this? Pass in state?
+        VectorField &force_field_at_state = force_field->field_of_state(stk::mesh::StateNP1);
 
-        VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
+        // VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
         stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 
         // Gravity vector
@@ -73,8 +73,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
         // TODO(jake): Do for specific part
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
-            double *force_data_n_for_bucket = stk::mesh::field_data(force_field_n, *bucket);
-            double *mass_data_n_for_bucket = stk::mesh::field_data(mass_field_n, *bucket);
+            double *force_data_at_state_for_bucket = stk::mesh::field_data(force_field_at_state, *bucket);
+            double *mass_data_for_bucket = stk::mesh::field_data(*mass_field, *bucket);
 
             unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*force_field, *bucket);
 
@@ -82,7 +82,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
                 // Compute the gravity force
                 for (unsigned i = 0; i < num_values_per_node; ++i) {
                     int iI = i_node * num_values_per_node + i;
-                    force_data_n_for_bucket[iI] = gravity[i] * mass_data_n_for_bucket[iI];  // TODO: this should be +=, but we need to zero out the force field first
+                    force_data_at_state_for_bucket[iI] = gravity[i] * mass_data_for_bucket[iI];  // TODO(jake): this should be +=, but we need to zero out the force field first
                 }
             }
         }
