@@ -70,13 +70,13 @@ void ExplicitSolver::Solve() {
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     VectorField &force_field_n = force_field->field_of_state(stk::mesh::StateN);
-    VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
+    // VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
 
     VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
 
     // Compute mass matrix
     // TODO(jake): Do part-by-part
-    ComputeMassMatrix(bulk_data, m_force_contributions[0]->GetMaterial()->GetDensity());
+    ComputeMassMatrix(bulk_data, m_internal_force_contributions[0]->GetMaterial()->GetDensity());
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -101,8 +101,15 @@ void ExplicitSolver::Solve() {
         // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
         double time_mid = 0.5 * (time + time_next);
 
-        // Get the force, f^n = getforce()
-        // TODO(jake): Write getforce
+        // Loop over internal force contributions
+        for (const auto &internal_force_contribution : m_internal_force_contributions) {
+            internal_force_contribution->ComputeForce();  // TODO(jake): Fill out ComputeForce
+        }
+
+        // Loop over external force contributions
+        for (const auto &external_force_contribution : m_external_force_contributions) {
+            external_force_contribution->ComputeForce();
+        }
 
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
@@ -116,7 +123,7 @@ void ExplicitSolver::Solve() {
             double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
             double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
             double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
-            double *force_data_np1_for_bucket = stk::mesh::field_data(force_field_np1, *bucket);
+            // double *force_data_np1_for_bucket = stk::mesh::field_data(force_field_np1, *bucket);
 
             unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 

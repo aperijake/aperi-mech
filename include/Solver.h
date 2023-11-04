@@ -12,14 +12,14 @@ class ExternalForceContribution;
 class Solver {
    public:
     Solver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions)
-        : m_io_mesh(io_mesh), m_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions) {}
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions) {}
     virtual ~Solver() = default;
 
     virtual void Solve() = 0;
 
    protected:
     std::shared_ptr<acm::IoMesh> m_io_mesh;
-    std::vector<std::shared_ptr<acm::InternalForceContribution>> m_force_contributions;
+    std::vector<std::shared_ptr<acm::InternalForceContribution>> m_internal_force_contributions;
     std::vector<std::shared_ptr<acm::ExternalForceContribution>> m_external_force_contributions;
 };
 
