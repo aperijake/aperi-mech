@@ -57,17 +57,15 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
         VectorField *force_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "force");
         VectorField *mass_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
 
-        // VectorField &force_field_n = force_field->field_of_state(stk::mesh::StateN); // TODO(jake): Do we need this? Pass in state?
         VectorField &force_field_at_state = force_field->field_of_state(stk::mesh::StateNP1);
-
-        // VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
-        stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 
         // Gravity vector
         std::array<double, 3> gravity;
         for (unsigned i = 0; i < 3; ++i) {
             gravity[i] = m_magnitude * m_direction[i];
         }
+
+        stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 
         // Loop over all the buckets
         // TODO(jake): Do for specific part

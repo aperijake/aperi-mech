@@ -51,15 +51,13 @@ void ExplicitSolver::ComputeForce() {
 void ExplicitSolver::ComputeAcceleration() {
     // Compute initial accelerations: a^{n} = M^{–1}(f^{n})
 
-    // Get the bulk data
-    stk::mesh::BulkData &bulk_data = m_io_mesh->GetBulkData();
     // Get the field data
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
     VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
     VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
 
     // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
         // Get the field data for the bucket
         double *mass_data_n_for_bucket = stk::mesh::field_data(mass_field_n, *bucket);
         double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
@@ -84,9 +82,6 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_step) {
     // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
     double time_mid = 0.5 * (time + time_next);
 
-    // Get the bulk data
-    stk::mesh::BulkData &bulk_data = m_io_mesh->GetBulkData();
-
     // Get the displacement, velocity, and acceleration fields
     VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
     VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
@@ -97,7 +92,7 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_step) {
     VectorField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
 
     // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
         // Get the field data for the bucket
         double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
         double *velocity_data_n_for_bucket = stk::mesh::field_data(velocity_field_n, *bucket);
@@ -134,15 +129,12 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_step) {
     // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
     double time_mid = 0.5 * (time + time_next);
 
-    // Get the bulk data
-    stk::mesh::BulkData &bulk_data = m_io_mesh->GetBulkData();
-
     // Get the field data
     VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
         // Get the field data for the bucket
         double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
         double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
@@ -166,15 +158,9 @@ void ExplicitSolver::Solve() {
     // Get the time step, Δt^{n+½}. TODO: Get from input file
     double time_step = 0.1;  // m_io_input_file->GetTimeStep();
 
-    // Get the bulk data
-    stk::mesh::BulkData &bulk_data = m_io_mesh->GetBulkData();
-
-    // Get the meta data
-    stk::mesh::MetaData &meta_data = m_io_mesh->GetMetaData();
-
     // Compute mass matrix
     // TODO(jake): Do part-by-part
-    ComputeMassMatrix(bulk_data, m_internal_force_contributions[0]->GetMaterial()->GetDensity());
+    ComputeMassMatrix(*bulk_data, m_internal_force_contributions[0]->GetMaterial()->GetDensity());
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -197,7 +183,7 @@ void ExplicitSolver::Solve() {
         sierra::Env::outputP0() << "Time: " << time << std::endl;
 
         // Move state n+1 to state n
-        bulk_data.update_field_data_states();
+        bulk_data->update_field_data_states();
 
         // Compute first partial update
         ComputeFirstPartialUpdate(time, time_step);
