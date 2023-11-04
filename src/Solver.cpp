@@ -57,6 +57,8 @@ void ExplicitSolver::Solve() {
     VectorField *displacement_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
     VectorField *velocity_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
     VectorField *acceleration_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "acceleration");
+    VectorField *force_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "force");
+    VectorField *mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
 
     VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
     VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
@@ -66,6 +68,11 @@ void ExplicitSolver::Solve() {
 
     VectorField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
+
+    VectorField &force_field_n = force_field->field_of_state(stk::mesh::StateN);
+    VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
+
+    VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
 
     // Compute mass matrix
     // TODO(jake): Do part-by-part
@@ -97,23 +104,29 @@ void ExplicitSolver::Solve() {
         // Get the force, f^n = getforce()
         // TODO(jake): Write getforce
 
-        // Compute acceleration: a^n = M^{–1}(f^n – C^{damp} v^{n–½})
-        // TODO(jake): Compute acceleration
-
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
             double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
             double *velocity_data_n_for_bucket = stk::mesh::field_data(velocity_field_n, *bucket);
             double *acceleration_data_n_for_bucket = stk::mesh::field_data(acceleration_field_n, *bucket);
+            double *force_data_n_for_bucket = stk::mesh::field_data(force_field_n, *bucket);
+            double *mass_data_n_for_bucket = stk::mesh::field_data(mass_field_n, *bucket);
 
             double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
             double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
             double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
+            double *force_data_np1_for_bucket = stk::mesh::field_data(force_field_np1, *bucket);
 
             unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
             for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                // Compute acceleration: a^{n} = M^{–1}(f^{n})
+                for (unsigned i = 0; i < num_values_per_node; i++) {
+                    int iI = i_node * num_values_per_node + i;
+                    acceleration_data_n_for_bucket[iI] = force_data_n_for_bucket[iI] / mass_data_n_for_bucket[iI];
+                }
+
                 // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
                 for (unsigned i = 0; i < num_values_per_node; i++) {
                     int iI = i_node * num_values_per_node + i;
@@ -128,12 +141,6 @@ void ExplicitSolver::Solve() {
                     int iI = i_node * num_values_per_node + i;
                     displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_step * velocity_data_np1_for_bucket[iI];
                 }
-
-                // Get the force, f^{n+1} = getforce()
-                // TODO(jake): Write getforce
-
-                // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1} – C^{damp} v^{n+½})
-                // TODO(jake): Compute acceleration
 
                 // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
                 for (unsigned i = 0; i < num_values_per_node; i++) {
