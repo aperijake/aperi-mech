@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 
-#include "Application.h"
 #include "CaptureOutputTestFixture.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
@@ -20,6 +19,9 @@ class ApplicationTest : public CaptureOutputTest {
         CaptureOutputTest::SetUp();
         m_comm = MPI_COMM_WORLD;
 
+        // Get number of mpi processes
+        m_num_procs = stk::parallel_machine_size(m_comm);
+
         // Test file names
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
         std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
@@ -27,24 +29,22 @@ class ApplicationTest : public CaptureOutputTest {
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
         m_results_filename = test_suite_name + "_" + test_name + "_results.exo";
 
-        // Create a temporary input file
-        m_yaml_data = CreateTestYaml();
-        m_yaml_data["mesh"]["file"] = m_mesh_filename;
-        m_yaml_data["output"]["file"] = m_results_filename;
-        acm::IoInputFile::Write(m_filename, m_yaml_data);
-
         // Write the mesh to a temporary file and check that it is written correctly
         acm::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         acm::IoMesh io_mesh(m_comm, io_mesh_parameters);
 
-        // Get number of mpi processes
-        m_num_procs = stk::parallel_machine_size(m_comm);
-
         // Make a 1x1xnum_procs mesh
-        std::string mesh_string = "1x1x" + std::to_string(m_num_procs);
+        std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
         WriteTestMesh(m_mesh_filename, io_mesh, mesh_string);
+    }
+
+    void CreateInputFile() {
+        // Create a temporary input file
+        m_yaml_data["mesh"]["file"] = m_mesh_filename;
+        m_yaml_data["output"]["file"] = m_results_filename;
+        acm::IoInputFile::Write(m_filename, m_yaml_data);
     }
 
     void TearDown() override {

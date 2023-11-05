@@ -131,3 +131,31 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
         EXPECT_EQ(global_counts[i], expected_owned[i]);
     }
 }
+
+// Check that the nodal field values match the expected values
+// Expects a uniform field, values for every node are the same
+void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    typedef stk::mesh::Field<double, stk::mesh::Cartesian3d> VectorField;
+    // Get the field
+    VectorField* p_field = bulk.mesh_meta_data().get_field<VectorField>(stk::topology::NODE_RANK, field_name);
+    EXPECT_TRUE(p_field != nullptr) << "Field " << field_name << " not found";
+
+    // Get the field data
+    VectorField& field_n = p_field->field_of_state(stk::mesh::StateN);
+
+    // Loop over all the buckets
+    for (stk::mesh::Bucket* bucket : bulk.buckets(stk::topology::NODE_RANK)) {
+        // Get the field data for the bucket
+        double* p_field_data_n_for_bucket = stk::mesh::field_data(field_n, *bucket);
+
+        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(field_n, *bucket);
+        EXPECT_EQ(num_values_per_node, 3);
+
+        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+            for (unsigned i = 0; i < num_values_per_node; i++) {
+                int iI = i_node * num_values_per_node + i;
+                EXPECT_EQ(p_field_data_n_for_bucket[iI], expected_values[i]) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+            }
+        }
+    }
+}

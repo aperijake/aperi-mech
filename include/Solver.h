@@ -18,10 +18,16 @@ class ExternalForceContribution;
 class Solver {
    public:
     Solver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions)
-        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions) {}
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions) {
+        meta_data = &m_io_mesh->GetMetaData();
+        bulk_data = &m_io_mesh->GetBulkData();
+    }
     virtual ~Solver() = default;
 
     virtual void Solve() = 0;
+
+    // Get bulk data
+    stk::mesh::BulkData *GetBulkData() { return bulk_data; }
 
    protected:
     virtual void ComputeForce() = 0;
@@ -29,6 +35,8 @@ class Solver {
     std::shared_ptr<acm::IoMesh> m_io_mesh;
     std::vector<std::shared_ptr<acm::InternalForceContribution>> m_internal_force_contributions;
     std::vector<std::shared_ptr<acm::ExternalForceContribution>> m_external_force_contributions;
+    stk::mesh::MetaData *meta_data;
+    stk::mesh::BulkData *bulk_data;
 };
 
 // Explicit dynamic solver
@@ -38,9 +46,6 @@ class ExplicitSolver : public Solver {
    public:
     ExplicitSolver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions)
         : Solver(io_mesh, force_contributions, external_force_contributions) {
-        meta_data = &m_io_mesh->GetMetaData();
-        bulk_data = &m_io_mesh->GetBulkData();
-
         // Get the displacement, velocity, and acceleration fields
         displacement_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
         velocity_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
@@ -50,6 +55,7 @@ class ExplicitSolver : public Solver {
     }
     ~ExplicitSolver() {}
 
+    // Solve
     void Solve() override;
 
    protected:
@@ -58,8 +64,6 @@ class ExplicitSolver : public Solver {
     void ComputeFirstPartialUpdate(double time, double time_step);
     void ComputeSecondPartialUpdate(double time, double time_step);
 
-    stk::mesh::MetaData *meta_data;
-    stk::mesh::BulkData *bulk_data;
     VectorField *displacement_field;
     VectorField *velocity_field;
     VectorField *acceleration_field;

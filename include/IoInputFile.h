@@ -18,6 +18,10 @@ class IoInputFile {
         if (check_input && CheckInput() != 0) throw std::runtime_error("Error checking input file");
     };
 
+    IoInputFile(const YAML::Node& yaml_data, bool check_input = true) : m_yaml_file(yaml_data) {
+        if (CheckInput() != 0) throw std::runtime_error("Error checking input file");
+    };
+
     int Read();
     int CheckInput(bool verbose = false) const;
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
@@ -69,6 +73,10 @@ class IoInputFile {
 // IoInputFile factory function
 inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {
     return std::make_unique<IoInputFile>(filename, check_input);
+}
+
+inline std::unique_ptr<IoInputFile> CreateIoInputFile(const YAML::Node& yaml_data, bool check_input = true) {
+    return std::make_unique<IoInputFile>(yaml_data, check_input);
 }
 
 }  // namespace acm

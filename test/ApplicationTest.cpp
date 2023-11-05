@@ -5,16 +5,15 @@
 
 #include "Application.h"
 #include "ApplicationTestFixture.h"
-#include "IoInputFile.h"
-#include "IoMesh.h"
 #include "UnitTestUtils.h"
-#include "mpi.h"
-#include "stk_util/parallel/Parallel.hpp"
 
 // Test Run function with valid input file
 TEST_F(ApplicationTest, RunValidInputFile) {
     // Create application object
     acm::Application app(m_comm);
+
+    m_yaml_data = CreateTestYaml();
+    CreateInputFile();
 
     // Run application
     app.Run(m_filename);
@@ -22,11 +21,9 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     // Read in the written mesh and check that it matches the expected mesh
     acm::IoMeshParameters io_mesh_read_parameters;
     acm::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
-    std::vector<size_t> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs};
+    std::vector<size_t> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs * 6};  // tet4
     io_mesh_read.ReadMesh(m_results_filename);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
-
-    // TODO(jake): Check that the results are correct
 }
 
 // Test Run function with invalid input file
