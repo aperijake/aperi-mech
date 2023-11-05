@@ -12,10 +12,14 @@
 #include "stk_topology/topology.hpp"
 #include "stk_util/parallel/Parallel.hpp"
 
+#include "CaptureOutputTestFixture.h"
+
 // Fixture for mass matrix tests
-class MassMatrixTest : public ::testing::Test {
+class MassMatrixTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
         m_comm = MPI_COMM_WORLD;
 
         // Test file names
@@ -44,6 +48,9 @@ class MassMatrixTest : public ::testing::Test {
     void TearDown() override {
         // Delete the temporary mesh file
         CleanUp(m_mesh_filename);
+
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     std::string m_mesh_filename;

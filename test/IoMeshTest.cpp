@@ -9,8 +9,24 @@
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 
+#include "CaptureOutputTestFixture.h"
+
+// IoMeshTest fixture
+class IoMeshTest : public CaptureOutputTest {
+   protected:
+    void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
+    }
+};
+
 // Test that the IoMesh class can read and write mesh files correctly
-TEST(IoMesh, ReadWrite) {
+TEST_F(IoMeshTest, ReadWrite) {
     // Create an IoMesh object with default parameters
     stk::ParallelMachine comm = MPI_COMM_WORLD;
     acm::IoMeshParameters io_mesh_parameters;

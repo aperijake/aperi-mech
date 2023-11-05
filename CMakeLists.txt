@@ -119,6 +119,8 @@ include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
 
+include_directories("${CMAKE_SOURCE_DIR}/test/")
+
 # Add an executable for the unit tests
 add_executable(unit_tests
     test/unit_tests.cpp  # Test runner file

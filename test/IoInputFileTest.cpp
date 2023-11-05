@@ -5,13 +5,17 @@
 #include <filesystem>
 #include <string>
 
+#include "CaptureOutputTestFixture.h"
 #include "IoInputFile.h"
 #include "UnitTestUtils.h"
 
 // Fixture for testing the acm::IoInputFile class
-class IoInputFileTest : public ::testing::Test {
+class IoInputFileTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
+
         MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
         // Create a temporary input file
         m_yaml_data = CreateTestYaml();
@@ -36,6 +40,9 @@ class IoInputFileTest : public ::testing::Test {
         // Delete the temporary input file
         MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have completed before deleting
         if (m_rank == 0) std::remove(m_filename.c_str());
+
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     int m_rank;

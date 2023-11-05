@@ -6,8 +6,24 @@
 #include <string>
 #include <vector>
 
+#include "CaptureOutputTestFixture.h"
+
+// YamlUtilsTest fixture
+class YamlUtilsTest : public CaptureOutputTest {
+   protected:
+    void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
+    }
+};
+
 // Test GetNode
-TEST(YamlUtilsTest, GetNode) {
+TEST_F(YamlUtilsTest, GetNode) {
     YAML::Node node;
     node["test"] = "value";
 
@@ -20,7 +36,7 @@ TEST(YamlUtilsTest, GetNode) {
 }
 
 // Test GetScalarValue
-TEST(YamlUtilsTest, GetScalarValue) {
+TEST_F(YamlUtilsTest, GetScalarValue) {
     YAML::Node node;
     node["test"] = "value";
 
@@ -33,7 +49,7 @@ TEST(YamlUtilsTest, GetScalarValue) {
 }
 
 // Test GetValueSequence
-TEST(YamlUtilsTest, GetValueSequence) {
+TEST_F(YamlUtilsTest, GetValueSequence) {
     YAML::Node node;
     node["test"] = YAML::Load("[1, 2, 3]");
 

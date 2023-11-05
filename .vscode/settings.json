@@ -65,8 +65,11 @@
     "variant": "cpp",
     "vector": "cpp",
     "algorithm": "cpp",
-    "numeric": "cpp"
-  },
+    "numeric": "cpp",
+    "codecvt": "cpp",
+    "condition_variable": "cpp",
+    "source_location": "cpp"
+},
   "cSpell.words": [
     "cgns",
     "exodusii",
