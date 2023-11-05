@@ -107,3 +107,30 @@ TEST_F(SolverTest, Explicit) {
     CheckNodeFieldValues(*m_solver->GetBulkData(), "velocity", expected_velocity);
     CheckNodeFieldValues(*m_solver->GetBulkData(), "acceleration", expected_acceleration);
 }
+
+// Test that a basic explicit problem with gravity can be solved
+TEST_F(SolverTest, ExplicitGravity) {
+    m_yaml_data = CreateTestYaml();
+    m_yaml_data.remove("boundary_conditions");
+    CreateInputFile();
+    RunSolver();
+    double final_time = 1.0;
+    double magnitude = m_yaml_data["initial_conditions"][0]["magnitude"].as<double>();
+    std::array<double, 3> direction = m_yaml_data["initial_conditions"][0]["direction"].as<std::array<double, 3>>();
+    double gravity_magnitude = m_yaml_data["loads"][0]["magnitude"].as<double>();
+    std::array<double, 3> gravity_direction = m_yaml_data["loads"][0]["direction"].as<std::array<double, 3>>();
+
+    std::array<double, 3> expected_acceleration = {gravity_magnitude * gravity_direction[0], gravity_magnitude * gravity_direction[1], gravity_magnitude * gravity_direction[2]};
+    std::array<double, 3> expected_velocity = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
+    std::array<double, 3> expected_displacement = {magnitude * direction[0] * final_time, magnitude * direction[1] * final_time, magnitude * direction[2] * final_time};
+    for (int i = 0; i < 3; ++i) {
+        expected_velocity[i] += expected_acceleration[i] * final_time;
+        expected_displacement[i] += 0.5 * expected_acceleration[i] * final_time * final_time;
+    }
+
+    CheckNodeFieldValues(*m_solver->GetBulkData(), "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), "acceleration", expected_acceleration);
+
+    // TODO(jake): make a specific test for ExternalForceContributionGravity
+}

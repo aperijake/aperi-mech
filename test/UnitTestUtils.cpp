@@ -135,6 +135,8 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
 // Check that the nodal field values match the expected values
 // Expects a uniform field, values for every node are the same
 void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    double absolute_tolerance = 1e-12;
+    double relative_tolerance = 1e-12;
     typedef stk::mesh::Field<double, stk::mesh::Cartesian3d> VectorField;
     // Get the field
     VectorField* p_field = bulk.mesh_meta_data().get_field<VectorField>(stk::topology::NODE_RANK, field_name);
@@ -154,7 +156,11 @@ void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& fi
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                EXPECT_EQ(p_field_data_n_for_bucket[iI], expected_values[i]) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                if (expected_values[i] == 0) {
+                    EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                } else {
+                    EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                }
             }
         }
     }
