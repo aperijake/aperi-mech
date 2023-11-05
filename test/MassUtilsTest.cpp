@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "CaptureOutputTestFixture.h"
 #include "FieldManager.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
@@ -11,8 +12,6 @@
 #include "stk_mesh/base/MetaData.hpp"
 #include "stk_topology/topology.hpp"
 #include "stk_util/parallel/Parallel.hpp"
-
-#include "CaptureOutputTestFixture.h"
 
 // Fixture for mass matrix tests
 class MassMatrixTest : public CaptureOutputTest {

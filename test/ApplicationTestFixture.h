@@ -1,16 +1,16 @@
+#pragma once
 #include <gtest/gtest.h>
 
 #include <memory>
 #include <string>
 
 #include "Application.h"
+#include "CaptureOutputTestFixture.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 #include "mpi.h"
 #include "stk_util/parallel/Parallel.hpp"
-
-#include "CaptureOutputTestFixture.h"
 
 // Fixture for Application tests
 class ApplicationTest : public CaptureOutputTest {

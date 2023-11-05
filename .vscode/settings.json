@@ -69,7 +69,7 @@
     "codecvt": "cpp",
     "condition_variable": "cpp",
     "source_location": "cpp"
-},
+  },
   "cSpell.words": [
     "cgns",
     "exodusii",

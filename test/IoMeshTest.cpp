@@ -6,10 +6,9 @@
 #include <string>
 #include <system_error>
 
+#include "CaptureOutputTestFixture.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
-
-#include "CaptureOutputTestFixture.h"
 
 // IoMeshTest fixture
 class IoMeshTest : public CaptureOutputTest {

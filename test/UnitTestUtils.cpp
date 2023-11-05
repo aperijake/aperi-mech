@@ -36,15 +36,15 @@ YAML::Node CreateTestYaml() {
     // Loads section
     // Add a traction load
     // Note: this is not implemented yet
-    //YAML::Node traction_node;
-    //traction_node["name"] = "load";
-    //traction_node["type"] = "traction";
-    //traction_node["location"] = "surface_1";
-    //traction_node["magnitude"] = 500;
-    //traction_node["direction"].push_back(1);
-    //traction_node["direction"].push_back(0);
-    //traction_node["direction"].push_back(0);
-    //yaml_data["loads"].push_back(traction_node);
+    // YAML::Node traction_node;
+    // traction_node["name"] = "load";
+    // traction_node["type"] = "traction";
+    // traction_node["location"] = "surface_1";
+    // traction_node["magnitude"] = 500;
+    // traction_node["direction"].push_back(1);
+    // traction_node["direction"].push_back(0);
+    // traction_node["direction"].push_back(0);
+    // yaml_data["loads"].push_back(traction_node);
 
     // Add a gravity load
     YAML::Node gravity_node;

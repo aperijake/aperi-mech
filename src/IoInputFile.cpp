@@ -131,7 +131,7 @@ int IoInputFile::CheckInput(bool verbose) const {
     }
 
     // Check if loads are valid
-    if (m_yaml_file["loads"].IsDefined()) { // loads are optional
+    if (m_yaml_file["loads"].IsDefined()) {  // loads are optional
         std::pair<std::vector<YAML::Node>, int> loads_pair = GetValueSequence<YAML::Node>(m_yaml_file, "loads", verbose);
         if (loads_pair.second) {
             return_code = 1;
