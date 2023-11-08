@@ -18,7 +18,7 @@ class IoInputFileTest : public CaptureOutputTest {
 
         MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
         // Create a temporary input file
-        m_yaml_data = CreateUpdatedTestYaml();
+        m_yaml_data = CreateTestYaml();
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
         std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
         m_filename = test_suite_name + "_" + test_name + ".yaml";

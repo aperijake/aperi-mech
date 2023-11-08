@@ -16,7 +16,6 @@ class BulkData;
 }  // namespace stk
 
 YAML::Node CreateTestYaml();
-YAML::Node CreateUpdatedTestYaml();
 void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<acm::FieldManager>& field_manager = nullptr);
 void CleanUp(const std::filesystem::path& filePath);

@@ -91,7 +91,7 @@ class SolverTest : public ApplicationTest {
 
 // Test that a basic explicit problem can be solved
 TEST_F(SolverTest, Explicit) {
-    m_yaml_data = CreateUpdatedTestYaml();
+    m_yaml_data = CreateTestYaml();
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     CreateInputFile();
     RunSolver();
@@ -110,7 +110,7 @@ TEST_F(SolverTest, Explicit) {
 
 // Test that a basic explicit problem with gravity can be solved
 TEST_F(SolverTest, ExplicitGravity) {
-    m_yaml_data = CreateUpdatedTestYaml();
+    m_yaml_data = CreateTestYaml();
     CreateInputFile();
     RunSolver();
     const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
