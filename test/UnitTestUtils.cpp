@@ -18,7 +18,7 @@ YAML::Node CreateUpdatedTestYaml() {
         procedures:
           - explicit_dynamics_procedure:
                 geometry:
-                    mesh: ../cylinder.exo
+                    mesh: one_element.exo
                     parts:
                       - part:
                             set: block_10
@@ -42,7 +42,7 @@ YAML::Node CreateUpdatedTestYaml() {
                         time_increment: 0.1
                         time_end: 1.0
                 output:
-                    file: output.exo
+                    file: one_element_out.exo
                     time_start: 0.0
                     time_end: 1.0
                     time_increment: 0.1
@@ -55,7 +55,7 @@ YAML::Node CreateUpdatedTestYaml() {
 
     // Create the first procedure
     YAML::Node explicit_dynamics_procedure;
-    explicit_dynamics_procedure["explicit_dynamics_procedure"]["geometry"]["mesh"] = "../cylinder.exo";
+    explicit_dynamics_procedure["explicit_dynamics_procedure"]["geometry"]["mesh"] = "one_element.exo";
 
     // Create the parts list
     YAML::Node parts(YAML::NodeType::Sequence);
@@ -116,7 +116,7 @@ YAML::Node CreateUpdatedTestYaml() {
 
     // Create the output section
     YAML::Node output;
-    output["file"] = "output.exo";
+    output["file"] = "one_element_out.exo";
     output["time_start"] = 0.0;
     output["time_end"] = 1.0;
     output["time_increment"] = 0.1;

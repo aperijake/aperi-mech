@@ -12,7 +12,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     // Create application object
     acm::Application app(m_comm);
 
-    m_yaml_data = CreateTestYaml();
+    m_yaml_data = CreateUpdatedTestYaml();
     CreateInputFile();
 
     // Run application

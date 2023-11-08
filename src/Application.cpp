@@ -15,12 +15,15 @@
 namespace acm {
 
 void Application::Run(std::string& input_filename) {
+    // TODO(jake): hard coding to 1 procedure for now. Fix this.
+    int procedure_id = 0;
+
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
     // Get field data and initial conditions
     std::vector<acm::FieldData> field_data = acm::GetFieldData();
-    std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions();
+    std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(procedure_id);
     AddInitialConditions(initial_conditions, field_data);
 
     // Create field manager
@@ -32,25 +35,25 @@ void Application::Run(std::string& input_filename) {
     m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
     // Read the mesh
-    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(), m_field_manager);
+    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), m_field_manager);
 
     // Create the field results file
-    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile());
+    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
 
     // Get parts
-    std::vector<YAML::Node> parts = m_io_input_file->GetParts();
+    std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
 
     // Loop over parts, create materials, and add parts to force contributions
     for (auto part : parts) {
         YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
         std::shared_ptr<acm::Material> material = CreateMaterial(material_node);
-        std::string part_location = part["location"].as<std::string>();
+        // std::string part_location = part["set"].as<std::string>();
         // TODO(jake): add part to ForceContribution
         m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
     }
 
     // Get loads
-    std::vector<YAML::Node> loads = m_io_input_file->GetLoads();
+    std::vector<YAML::Node> loads = m_io_input_file->GetLoads(procedure_id);
 
     // Loop over loads and add them to force contributions
     for (auto load : loads) {

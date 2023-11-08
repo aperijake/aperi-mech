@@ -22,12 +22,13 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vect
     // TODO(jake) add location, assuming everywhere for now
     // TODO(jake) do something with name?
     for (const auto& initial_condition : initial_conditions) {
-        std::string type = initial_condition["type"].as<std::string>();
+        const std::string type = initial_condition.begin()->first.as<std::string>();
+        const YAML::Node initial_condition_node = initial_condition.begin()->second;
         bool found = false;
         for (auto& field : field_data) {
             if (type == field.name) {
-                double magnitude = initial_condition["magnitude"].as<double>();
-                std::vector<double> vector = initial_condition["direction"].as<std::vector<double>>();
+                const double magnitude = initial_condition_node["magnitude"].as<double>();
+                std::vector<double> vector = initial_condition_node["direction"].as<std::vector<double>>();
                 ChangeLength(vector, magnitude);
                 // Set initial values
                 field.initial_values = vector;

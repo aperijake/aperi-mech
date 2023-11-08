@@ -15,52 +15,119 @@ class IoInputFile {
     IoInputFile(std::string filename, bool check_input = true) : m_filename(filename) {
         int return_code = Read();
         if (return_code != 0) throw std::runtime_error("Error reading input file");
-        if (check_input && CheckInput() != 0) throw std::runtime_error("Error checking input file");
+        if (check_input && CheckInputWithSchema() != 0) throw std::runtime_error("Error checking input file");
     };
 
     IoInputFile(const YAML::Node& yaml_data, bool check_input = true) : m_yaml_file(yaml_data) {
-        if (CheckInput() != 0) throw std::runtime_error("Error checking input file");
+        if (CheckInputWithSchema() != 0) throw std::runtime_error("Error checking input file");
     };
 
     int Read();
-    int CheckInputWithSchema(bool verbose);
-    int CheckInput(bool verbose = false) const;
+    int CheckInputWithSchema(bool verbose = false);
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
 
     // Accessors
-    std::string GetMeshFile(bool exit_on_error = false) const {
+    std::string GetMeshFile(bool exit_on_error = true) const {
         std::pair<YAML::Node, int> node_pair = GetNode(m_yaml_file, "mesh");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting mesh file");
         YAML::Node node = node_pair.first;
         return GetScalarValue<std::string>(node, "file").first;
     }
 
-    std::string GetOutputFile(bool exit_on_error = false) const {
+    // Get mesh file for a specific procedure
+    std::string GetMeshFile(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node geometry_node = procedures_node_pair.first[procedure_id].begin()->second["geometry"];
+        std::pair<std::string, int> string_pair = GetScalarValue<std::string>(geometry_node, "mesh");
+        if (exit_on_error && string_pair.second != 0) throw std::runtime_error("Error getting mesh file");
+        return string_pair.first;
+    }
+
+    std::string GetOutputFile(bool exit_on_error = true) const {
         std::pair<YAML::Node, int> node_pair = GetNode(m_yaml_file, "output");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting output file");
         YAML::Node node = node_pair.first;
         return GetScalarValue<std::string>(node, "file").first;
     }
 
-    std::vector<YAML::Node> GetInitialConditions(bool exit_on_error = false) const {
+    // Get output file for a specific procedure
+    std::string GetOutputFile(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        std::pair<YAML::Node, int> node_pair = GetNode(procedure_node, "output");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting output file");
+        YAML::Node node = node_pair.first;
+        return GetScalarValue<std::string>(node, "file").first;
+    }
+
+    std::vector<YAML::Node> GetInitialConditions(bool exit_on_error = true) const {
         std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(m_yaml_file, "initial_conditions");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting initial conditions");
         return node_pair.first;
     }
 
-    std::vector<YAML::Node> GetParts(bool exit_on_error = false) const {
+    // Get initial conditions for a specific procedure
+    std::vector<YAML::Node> GetInitialConditions(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(procedure_node, "initial_conditions");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting initial conditions");
+        return node_pair.first;
+    }
+
+    std::vector<YAML::Node> GetParts(bool exit_on_error = true) const {
         std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(m_yaml_file, "parts");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting parts");
         return node_pair.first;
     }
 
-    std::vector<YAML::Node> GetLoads(bool exit_on_error = false) const {
+    // Get parts for a specific procedure
+    std::vector<YAML::Node> GetParts(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node geometry_node = procedures_node_pair.first[procedure_id].begin()->second["geometry"];
+        std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(geometry_node, "parts");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting parts");
+        std::vector<YAML::Node> parts;
+        // Strip off outer part node
+        for (const auto& part : node_pair.first) {
+            std::pair<YAML::Node, int> part_pair = GetNode(part, "part");
+            if (exit_on_error && part_pair.second != 0) throw std::runtime_error("Error getting part");
+            parts.push_back(part_pair.first);
+        }
+        return parts;
+    }
+
+    std::vector<YAML::Node> GetLoads(bool exit_on_error = true) const {
         std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(m_yaml_file, "loads");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting loads");
         return node_pair.first;
     }
 
-    static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = false) {
+    // Get loads for a specific procedure
+    std::vector<YAML::Node> GetLoads(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        // Check if loads are defined, if not return empty vector
+        // TODO(jake): this is a hack, fix this. Should use schema to check if loads are optional
+        if (!procedure_node["loads"].IsDefined()) {
+            return std::vector<YAML::Node>();
+        }
+        std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(procedure_node, "loads");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting loads");
+        return node_pair.first;
+    }
+
+    static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = true) {
         std::pair<YAML::Node, int> node_pair = GetNode(part, "material");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting material");
         return node_pair.first;

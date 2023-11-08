@@ -8,6 +8,11 @@
 class CaptureOutputTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        // Redirect cout and cerr to a stringstream buffer
+        CaptureOutput();
+    }
+
+    void CaptureOutput() {
         // Redirect cout to a stringstream buffer
         m_cout_streambuf = std::cout.rdbuf();
         std::cout.rdbuf(m_cout_stream.rdbuf());
@@ -15,6 +20,12 @@ class CaptureOutputTest : public ::testing::Test {
         // Redirect cerr to a stringstream buffer
         m_cerr_streambuf = std::cerr.rdbuf();
         std::cerr.rdbuf(m_cerr_stream.rdbuf());
+    }
+
+    void StopCapturingOutput() {
+        // Redirect cout and cerr to their old selves
+        std::cout.rdbuf(m_cout_streambuf);
+        std::cerr.rdbuf(m_cerr_streambuf);
     }
 
     void PrintCapturedOutput() {
@@ -33,8 +44,7 @@ class CaptureOutputTest : public ::testing::Test {
 
     void TearDown() override {
         // Redirect cout and cerr to their old selves
-        std::cout.rdbuf(m_cout_streambuf);
-        std::cerr.rdbuf(m_cerr_streambuf);
+        StopCapturingOutput();
 
         // If the test has failed, print the captured output
         if (::testing::Test::HasFailure()) {

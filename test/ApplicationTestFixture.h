@@ -42,8 +42,8 @@ class ApplicationTest : public CaptureOutputTest {
 
     void CreateInputFile() {
         // Create a temporary input file
-        m_yaml_data["mesh"]["file"] = m_mesh_filename;
-        m_yaml_data["output"]["file"] = m_results_filename;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["mesh"] = m_mesh_filename;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["output"]["file"] = m_results_filename;
         acm::IoInputFile::Write(m_filename, m_yaml_data);
     }
 

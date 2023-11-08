@@ -24,13 +24,11 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
     // Create initial conditions
     std::vector<YAML::Node> initial_conditions;
     YAML::Node initial_velocity;
-    initial_velocity["name"] = "initial_velocity";
-    initial_velocity["type"] = "velocity";
-    initial_velocity["location"] = "block_1";
-    initial_velocity["magnitude"] = 1.23;
-    initial_velocity["direction"].push_back(1);
-    initial_velocity["direction"].push_back(0);
-    initial_velocity["direction"].push_back(0);
+    initial_velocity["velocity"]["set"] = "block_1";
+    initial_velocity["velocity"]["magnitude"] = 1.23;
+    initial_velocity["velocity"]["direction"].push_back(1);
+    initial_velocity["velocity"]["direction"].push_back(0);
+    initial_velocity["velocity"]["direction"].push_back(0);
     initial_conditions.push_back(initial_velocity);
 
     // Add initial conditions to field data
@@ -50,15 +48,13 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
 TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidType) {
     // Create initial conditions with invalid type
     std::vector<YAML::Node> initial_conditions;
-    YAML::Node initial_velocity;
-    initial_velocity["name"] = "initial_velocity";
-    initial_velocity["type"] = "invalid_type";
-    initial_velocity["location"] = "block_1";
-    initial_velocity["magnitude"] = 1.23;
-    initial_velocity["direction"].push_back(1);
-    initial_velocity["direction"].push_back(0);
-    initial_velocity["direction"].push_back(0);
-    initial_conditions.push_back(initial_velocity);
+    YAML::Node bad_type;
+    bad_type["bad_type"]["set"] = "block_1";
+    bad_type["bad_type"]["magnitude"] = 1.23;
+    bad_type["bad_type"]["direction"].push_back(1);
+    bad_type["bad_type"]["direction"].push_back(0);
+    bad_type["bad_type"]["direction"].push_back(0);
+    initial_conditions.push_back(bad_type);
 
     // Add initial conditions to field data and expect an exception to be thrown
     EXPECT_THROW(AddInitialConditions(initial_conditions, m_field_data), std::exception);

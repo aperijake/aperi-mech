@@ -28,7 +28,7 @@ class SolverTest : public ApplicationTest {
 
         // Get field data and initial conditions
         std::vector<acm::FieldData> field_data = acm::GetFieldData();
-        std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions();
+        std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
         AddInitialConditions(initial_conditions, field_data);
 
         // Create field manager
@@ -40,25 +40,25 @@ class SolverTest : public ApplicationTest {
         m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
         // Read the mesh
-        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(), m_field_manager);
+        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), m_field_manager);
 
         // Create the field results file
-        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile());
+        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0));
 
         // Get parts
-        std::vector<YAML::Node> parts = m_io_input_file->GetParts();
+        std::vector<YAML::Node> parts = m_io_input_file->GetParts(0);
 
         // Loop over parts, create materials, and add parts to force contributions
         for (auto part : parts) {
             YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
             std::shared_ptr<acm::Material> material = acm::CreateMaterial(material_node);
-            std::string part_location = part["location"].as<std::string>();
+            std::string part_location = part["set"].as<std::string>();
             // TODO(jake): add part to ForceContribution
             m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
         }
 
         // Get loads
-        std::vector<YAML::Node> loads = m_io_input_file->GetLoads();
+        std::vector<YAML::Node> loads = m_io_input_file->GetLoads(0);
 
         // Loop over loads and add them to force contributions
         for (auto load : loads) {
@@ -91,14 +91,14 @@ class SolverTest : public ApplicationTest {
 
 // Test that a basic explicit problem can be solved
 TEST_F(SolverTest, Explicit) {
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data.remove("boundary_conditions");
-    m_yaml_data.remove("loads");
+    m_yaml_data = CreateUpdatedTestYaml();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     CreateInputFile();
     RunSolver();
+    const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
     double final_time = 1.0;
-    double magnitude = m_yaml_data["initial_conditions"][0]["magnitude"].as<double>();
-    std::array<double, 3> direction = m_yaml_data["initial_conditions"][0]["direction"].as<std::array<double, 3>>();
+    double magnitude = velocity_node["magnitude"].as<double>();
+    std::array<double, 3> direction = velocity_node["direction"].as<std::array<double, 3>>();
     std::array<double, 3> expected_velocity = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
     std::array<double, 3> expected_displacement = {expected_velocity[0] * final_time, expected_velocity[1] * final_time, expected_velocity[2] * final_time};
     std::array<double, 3> expected_acceleration = {0, 0, 0};
@@ -110,15 +110,16 @@ TEST_F(SolverTest, Explicit) {
 
 // Test that a basic explicit problem with gravity can be solved
 TEST_F(SolverTest, ExplicitGravity) {
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data.remove("boundary_conditions");
+    m_yaml_data = CreateUpdatedTestYaml();
     CreateInputFile();
     RunSolver();
+    const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
     double final_time = 1.0;
-    double magnitude = m_yaml_data["initial_conditions"][0]["magnitude"].as<double>();
-    std::array<double, 3> direction = m_yaml_data["initial_conditions"][0]["direction"].as<std::array<double, 3>>();
-    double gravity_magnitude = m_yaml_data["loads"][0]["magnitude"].as<double>();
-    std::array<double, 3> gravity_direction = m_yaml_data["loads"][0]["direction"].as<std::array<double, 3>>();
+    double magnitude = velocity_node["magnitude"].as<double>();
+    std::array<double, 3> direction = velocity_node["direction"].as<std::array<double, 3>>();
+    const YAML::Node gravity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"];
+    double gravity_magnitude = gravity_node["magnitude"].as<double>();
+    std::array<double, 3> gravity_direction = gravity_node["direction"].as<std::array<double, 3>>();
 
     std::array<double, 3> expected_acceleration = {gravity_magnitude * gravity_direction[0], gravity_magnitude * gravity_direction[1], gravity_magnitude * gravity_direction[2]};
     std::array<double, 3> expected_velocity = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};

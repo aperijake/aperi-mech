@@ -42,14 +42,14 @@ class ElasticMaterial : public Material {
 };
 
 inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
-    std::string material_type_string = material_node["type"].as<std::string>();
     auto material_properties = std::make_shared<MaterialProperties>();
-    material_properties->density = material_node["density"].as<double>();
 
-    if (material_type_string == "elastic") {
+    if (material_node["elastic"].IsDefined()) {
+        YAML::Node elastic_node = material_node["elastic"];
         material_properties->material_type = MaterialType::ELASTIC;
-        material_properties->properties.emplace("poissons_ratio", material_node["poissons_ratio"].as<double>());
-        material_properties->properties.emplace("youngs_modulus", material_node["youngs_modulus"].as<double>());
+        material_properties->density = elastic_node["density"].as<double>();
+        material_properties->properties.emplace("poissons_ratio", elastic_node["poissons_ratio"].as<double>());
+        material_properties->properties.emplace("youngs_modulus", elastic_node["youngs_modulus"].as<double>());
         return std::make_shared<ElasticMaterial>(material_properties);
     } else {
         return nullptr;

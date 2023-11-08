@@ -281,6 +281,7 @@ int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAM
     return return_code;
 }
 
+// Check the input file against the schema
 int IoInputFile::CheckInputWithSchema(bool verbose) {
     try {
         // Load and the YAML input file
@@ -309,102 +310,6 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     std::vector<YAML::Node> input_nodes = input_nodes_pair.first;  // Example: vector of one explicit_dynamic_procedure
 
     return RecursiveCheckSubitems(input_nodes, schema_sub_node, verbose);
-}
-
-// Make sure the input file is valid
-int IoInputFile::CheckInput(bool verbose) const {
-    int return_code = 0;
-
-    // Check if mesh file exists
-    std::pair<YAML::Node, int> mesh_node_pair = GetNode(m_yaml_file, "mesh");
-    if (mesh_node_pair.second) {
-        return_code = 1;
-    } else {
-        if (GetScalarValue<std::string>(mesh_node_pair.first, "file", verbose).second) return_code = 1;
-    }
-
-    // Check if output file exists
-    std::pair<YAML::Node, int> output_node_pair = GetNode(m_yaml_file, "output");
-    if (output_node_pair.second) {
-        return_code = 1;
-    } else {
-        if (GetScalarValue<std::string>(output_node_pair.first, "file", verbose).second) return_code = 1;
-    }
-
-    // Check if parts are valid
-    std::pair<std::vector<YAML::Node>, int> parts_pair = GetValueSequence<YAML::Node>(m_yaml_file, "parts", verbose);
-    if (parts_pair.second) {
-        return_code = 1;
-    } else {
-        std::vector<YAML::Node> parts = parts_pair.first;
-        for (const auto& part : parts) {
-            if (GetScalarValue<std::string>(part, "name", verbose).second) return_code = 1;
-            if (GetScalarValue<std::string>(part, "location", verbose).second) return_code = 1;
-            std::pair<YAML::Node, int> material_model_pair = GetNode(part, "material");
-            if (material_model_pair.second) {
-                return_code = 1;
-            } else {
-                YAML::Node material_model = material_model_pair.first;
-                if (GetScalarValue<std::string>(material_model, "type", verbose).second) return_code = 1;
-                if (GetScalarValue<double>(material_model, "density", verbose).second) return_code = 1;
-                if (GetScalarValue<double>(material_model, "youngs_modulus", verbose).second) return_code = 1;
-                if (GetScalarValue<double>(material_model, "poissons_ratio", verbose).second) return_code = 1;
-            }
-        }
-    }
-
-    // Check if initial conditions are valid
-    std::pair<std::vector<YAML::Node>, int> initial_conditions_pair = GetValueSequence<YAML::Node>(m_yaml_file, "initial_conditions", verbose);
-    if (initial_conditions_pair.second) {
-        return_code = 1;
-    } else {
-        std::vector<YAML::Node> initial_conditions = initial_conditions_pair.first;
-        for (const auto& initial_condition : initial_conditions) {
-            std::pair<std::string, int> type_pair = GetScalarValue<std::string>(initial_condition, "type", verbose);
-            if (type_pair.second) {
-                return_code = 1;
-            } else if (type_pair.first != "velocity") {
-                std::cerr << "Error: Initial condition type must be velocity." << std::endl;
-                return_code = 1;
-            }
-            if (GetScalarValue<std::string>(initial_condition, "name", verbose).second) return_code = 1;
-            if (GetScalarValue<std::string>(initial_condition, "location", verbose).second) return_code = 1;
-            if (GetScalarValue<double>(initial_condition, "magnitude", verbose).second) return_code = 1;
-
-            std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(initial_condition, "direction", verbose);
-            if (!IsValidDirection(direction_pair)) {
-                return_code = 1;
-            }
-        }
-    }
-
-    // Check if loads are valid
-    if (m_yaml_file["loads"].IsDefined()) {  // loads are optional
-        std::pair<std::vector<YAML::Node>, int> loads_pair = GetValueSequence<YAML::Node>(m_yaml_file, "loads", verbose);
-        if (loads_pair.second) {
-            return_code = 1;
-        } else {
-            std::vector<YAML::Node> loads = loads_pair.first;
-            for (const auto& load : loads) {
-                std::pair<std::string, int> type_pair = GetScalarValue<std::string>(load, "type", verbose);
-                if (type_pair.second) {
-                    return_code = 1;
-                } else if (type_pair.first != "traction" && type_pair.first != "gravity") {
-                    std::cerr << "Error: Load type must be traction or gravity." << std::endl;
-                    return_code = 1;
-                }
-                if (GetScalarValue<std::string>(load, "name", verbose).second) return_code = 1;
-                if (GetScalarValue<std::string>(load, "location", verbose).second) return_code = 1;
-                if (GetScalarValue<double>(load, "magnitude", verbose).second) return_code = 1;
-
-                std::pair<std::vector<double>, int> direction_pair = GetValueSequence<double>(load, "direction", verbose);
-                if (!IsValidDirection(direction_pair)) {
-                    return_code = 1;
-                }
-            }
-        }
-    }
-    return return_code;
 }
 
 }  // namespace acm
