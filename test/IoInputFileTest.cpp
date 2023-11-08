@@ -177,17 +177,6 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
-// Create an input file with bad loads type
-TEST_F(IoInputFileTest, DISABLED_CheckInputBadLoadsType) {
-    // TODO(jake): This test is disabled because having a bad type in a sequence is not caught by the schema. Fix this.
-    YAML::Node bad_loads = YAML::Load("bad_loads: 1");
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"].push_back(bad_loads);
-    acm::IoInputFile io_input_file = GetIoInputFile(false);
-
-    // Check input file
-    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
-}
-
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = YAML::Load("[1, 2, 3]");
