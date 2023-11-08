@@ -26,7 +26,7 @@ class IoInputFile {
     int CheckInputWithSchema(bool verbose = false);
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
 
-    // Get mesh file for a specific procedure
+    // Get mesh file for a specific procedure id
     std::string GetMeshFile(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
@@ -37,7 +37,7 @@ class IoInputFile {
         return string_pair.first;
     }
 
-    // Get output file for a specific procedure
+    // Get output file for a specific procedure id
     std::string GetOutputFile(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
@@ -49,7 +49,7 @@ class IoInputFile {
         return GetScalarValue<std::string>(node, "file").first;
     }
 
-    // Get initial conditions for a specific procedure
+    // Get initial conditions for a specific procedure id
     std::vector<YAML::Node> GetInitialConditions(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
@@ -60,7 +60,7 @@ class IoInputFile {
         return node_pair.first;
     }
 
-    // Get parts for a specific procedure
+    // Get parts for a specific procedure id
     std::vector<YAML::Node> GetParts(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
@@ -78,7 +78,7 @@ class IoInputFile {
         return parts;
     }
 
-    // Get loads for a specific procedure
+    // Get loads for a specific procedure id
     std::vector<YAML::Node> GetLoads(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");

@@ -37,7 +37,7 @@ magnitude: &magnitude
 
 direction: &direction
   direction:
-    type: double_list
+    type: direction_vector
     description: the direction of the velocity
     subitems: null
 

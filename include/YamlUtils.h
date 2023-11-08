@@ -96,6 +96,26 @@ inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, c
     return std::make_pair(values, return_code);
 }
 
+// Get a value sequence and check that it is a valid direction vector
+inline std::pair<std::vector<double>, int> GetDirectionVector(const YAML::Node& node, const std::string& name, bool verbose = false) {
+    std::pair<std::vector<double>, int> values_pair = GetValueSequence<double>(node, name, verbose);
+    std::vector<double> values = values_pair.first;
+    int return_code = values_pair.second;
+    if (values.size() != 3) {
+        std::cerr << "Error: direction vector '" << name << "' must be a vector of length 3. Found: " << values.size() << "." << std::endl;
+        return_code = 1;
+    }
+    bool has_value = false;
+    for (const auto& value : values) {
+        if (value != 0) has_value = true;
+    }
+    if (!has_value) {
+        std::cerr << "Error: direction vector '" << name << "' must have at least one non-zero value." << std::endl;
+        return_code = 1;
+    }
+    return std::make_pair(values, return_code);
+}
+
 // Get a value or sequence of values, checking if it exists
 inline std::pair<std::vector<YAML::Node>, int> GetValueOrValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false) {
     std::vector<YAML::Node> values;

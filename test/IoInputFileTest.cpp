@@ -104,7 +104,7 @@ TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
 }
 
 // Create an input file with bad initial conditions direction, too few items
-TEST_F(IoInputFileTest, DISABLED_CheckInputShortInitialConditionsDirection) {
+TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
     // TODO(jake): This test is disabled because the schema does not catch this error. Fix this.
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[1, 2]");
     acm::IoInputFile io_input_file = GetIoInputFile(false);
@@ -123,7 +123,7 @@ TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
 }
 
 // Create an input file with bad initial conditions direction, all zero
-TEST_F(IoInputFileTest, DISABLED_CheckInputZeroInitialConditionsDirection) {
+TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     // TODO(jake): This test is disabled because the schema does not catch this error. Fix this.
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[0,0,0]");
     acm::IoInputFile io_input_file = GetIoInputFile(false);

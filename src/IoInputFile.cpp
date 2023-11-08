@@ -42,25 +42,6 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
     return return_code;
 }
 
-bool IsValidDirection(const std::pair<std::vector<double>, int>& direction_pair) {
-    if (direction_pair.second) {
-        return false;
-    }
-    if (direction_pair.first.size() != 3) {
-        std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
-        return false;
-    }
-    bool has_value = false;
-    for (const auto& direction : direction_pair.first) {
-        if (direction != 0) has_value = true;
-    }
-    if (!has_value) {
-        std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
-        return false;
-    }
-    return true;
-}
-
 std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node& input_node, const std::map<std::string, std::string>& names_types, bool verbose = false) {
     // Loop through one_or_more_of_names_types
     std::map<std::string, YAML::Node> found_names_and_nodes;
@@ -85,8 +66,8 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
             if (!scalar_pair.second) {
                 ++found_count;
             }
-        } else if (type == "double_list") {
-            std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose);
+        } else if (type == "direction_vector") {
+            std::pair<std::vector<double>, int> scalar_pair = GetDirectionVector(input_node, name, verbose);
             if (!scalar_pair.second) {
                 ++found_count;
             }
