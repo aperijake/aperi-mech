@@ -44,14 +44,14 @@ direction: &direction
 ##### Time Stepper #####
 direct_time_stepper: &direct_time_stepper
   direct_time_stepper:
-    type: node
+    type: map
     description: the direct time stepper
     subitems:
       - all_of: [*time_increment, *time_end]
 
 time_stepper: &time_stepper
   time_stepper:
-    type: node
+    type: map
     description: the time stepper
     subitems:
       - one_of: [*direct_time_stepper]
@@ -59,7 +59,7 @@ time_stepper: &time_stepper
 ##### Output #####
 output: &output
   output:
-    type: node
+    type: map
     description: the output
     subitems:
       - all_of: [*file, *time_end, *time_increment]
@@ -68,14 +68,14 @@ output: &output
 ##### Loads #####
 gravity_load: &gravity_load
   gravity_load:
-    type: node
+    type: map
     description: the gravity load
     subitems:
       - all_of: [*set, *magnitude, *direction]
 
 loads: &loads
   loads:
-    type: node
+    type: sequence
     description: the loads
     subitems:
       - optional: [*gravity_load]
@@ -83,14 +83,14 @@ loads: &loads
 ##### Initial Conditions #####
 velocity: &velocity
   velocity:
-    type: node
+    type: map
     description: the velocity
     subitems:
       - all_of: [*set, *magnitude, *direction]
 
 initial_conditions: &initial_conditions
   initial_conditions:
-    type: node
+    type: sequence
     description: the initial conditions
     subitems:
       - optional: [*velocity]
@@ -116,14 +116,14 @@ poissons_ratio: &poissons_ratio
 
 elastic: &elastic
   elastic:
-    type: node
+    type: map
     description: the elastic material properties
     subitems:
       - all_of: [*density, *youngs_modulus, *poissons_ratio]
 
 material: &material
   material:
-    type: node
+    type: map
     description: the material
     subitems:
       - one_of: [*elastic]
@@ -131,14 +131,14 @@ material: &material
 ##### Geometry #####
 part: &part
   part:
-    type: node
+    type: map
     description: a part
     subitems:
       - all_of: [*set, *material]
 
 parts: &parts
   parts:
-    type: node
+    type: sequence
     description: the list of parts
     subitems:
       - one_or_more_of: [*part]
@@ -151,7 +151,7 @@ mesh: &mesh
 
 geometry: &geometry
   geometry:
-    type: node
+    type: map
     description: the section describing the geometry
     subitems:
       - all_of: [*mesh, *parts]
@@ -159,14 +159,14 @@ geometry: &geometry
 ##### Procedures #####
 explicit_dynamics_procedure: &explicit_dynamics_procedure
   explicit_dynamics_procedure:
-    type: node
+    type: map
     description: an explicit dynamics procedure
     subitems:
       - all_of: [*geometry, *time_stepper, *output]
       - optional: [*initial_conditions, *loads]
 
 procedures:
-  type: node
+  type: sequence
   description: list of procedure to complete in the analysis
   subitems:
     - one_or_more_of: [*explicit_dynamics_procedure]

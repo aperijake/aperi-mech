@@ -69,7 +69,7 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
         std::string type = name_type.second;
         std::string name = name_type.first;
         // Look for schema info in input file
-        if (type == "node") {
+        if (type == "map" || type == "sequence") {
             std::pair<YAML::Node, int> node_pair = GetNode(input_node, name);
             if (!node_pair.second) {
                 found_names_and_nodes.emplace(name, node_pair.first);
