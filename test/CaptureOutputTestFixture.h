@@ -17,6 +17,20 @@ class CaptureOutputTest : public ::testing::Test {
         std::cerr.rdbuf(m_cerr_stream.rdbuf());
     }
 
+    void PrintCapturedOutput() {
+        // Redirect cout and cerr to their old selves
+        std::cout.rdbuf(m_cout_streambuf);
+        std::cerr.rdbuf(m_cerr_streambuf);
+
+        // Print the captured stdout and stderr
+        std::cout << m_cout_stream.str();
+        std::cerr << m_cerr_stream.str();
+
+        // Redirect cout and cerr to a stringstream buffer
+        std::cout.rdbuf(m_cout_stream.rdbuf());
+        std::cerr.rdbuf(m_cerr_stream.rdbuf());
+    }
+
     void TearDown() override {
         // Redirect cout and cerr to their old selves
         std::cout.rdbuf(m_cout_streambuf);

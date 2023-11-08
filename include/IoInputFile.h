@@ -23,6 +23,7 @@ class IoInputFile {
     };
 
     int Read();
+    int CheckInputWithSchema(bool verbose);
     int CheckInput(bool verbose = false) const;
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
 
@@ -68,6 +69,8 @@ class IoInputFile {
    private:
     std::string m_filename;
     YAML::Node m_yaml_file;
+    std::string m_schema_filename = "../stk-crk/input/input_schema.yaml";  // TODO(jake): fix this to be relative to the executable
+    YAML::Node m_yaml_schema_file;
 };
 
 // IoInputFile factory function

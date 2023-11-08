@@ -45,22 +45,270 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
 bool IsValidDirection(const std::pair<std::vector<double>, int>& direction_pair) {
     if (direction_pair.second) {
         return false;
-    } else {
-        if (direction_pair.first.size() != 3) {
-            std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
-            return false;
-        } else {
-            bool has_value = false;
-            for (const auto& direction : direction_pair.first) {
-                if (direction != 0) has_value = true;
+    }
+    if (direction_pair.first.size() != 3) {
+        std::cout << "Error: Direction should have three items. Has: " << direction_pair.first.size() << std::endl;
+        return false;
+    }
+    bool has_value = false;
+    for (const auto& direction : direction_pair.first) {
+        if (direction != 0) has_value = true;
+    }
+    if (!has_value) {
+        std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
+        return false;
+    }
+    return true;
+}
+
+std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node& input_node, const std::map<std::string, std::string>& names_types, bool verbose = false) {
+    // Loop through one_or_more_of_names_types
+    std::map<std::string, YAML::Node> found_names_and_nodes;
+    int found_count = 0;
+    for (const auto& name_type : names_types) {
+        std::string type = name_type.second;
+        std::string name = name_type.first;
+        // Look for schema info in input file
+        if (type == "node") {
+            std::pair<YAML::Node, int> node_pair = GetNode(input_node, name);
+            if (!node_pair.second) {
+                found_names_and_nodes.emplace(name, node_pair.first);
+                ++found_count;
             }
-            if (!has_value) {
-                std::cout << "Error: Direction must have at least one non-zero value." << std::endl;
-                return false;
+        } else if (type == "float") {
+            std::pair<double, int> scalar_pair = GetScalarValue<double>(input_node, name, verbose);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
+        } else if (type == "string") {
+            std::pair<std::string, int> scalar_pair = GetScalarValue<std::string>(input_node, name, verbose);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
+        } else if (type == "double_list") {
+            std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
+        } else {
+            throw std::runtime_error("Schema Error: 'one_or_more_of' subitems must be of type 'node', 'float', 'string', or 'double_list'.");
+        }
+    }
+    return std::make_pair(found_names_and_nodes, found_count);
+}
+
+std::map<std::string, std::string> ParseSubitemSchema(const YAML::Node& schema_item_node, const std::string& subitem_string, bool verbose = false) {
+    std::pair<std::vector<YAML::Node>, int> schema_subitems_pair = GetValueSequence<YAML::Node>(schema_item_node, subitem_string, verbose);
+    std::vector<YAML::Node> schema_subitems = schema_subitems_pair.first;
+    std::map<std::string, std::string> schema_subitems_names_types;
+    for (const auto& schema_item : schema_subitems) {
+        // Get schema info
+        std::string node_name = schema_item.begin()->first.as<std::string>();
+        std::pair<YAML::Node, int> node_pair = GetNode(schema_item, node_name);
+        if (node_pair.second) {
+            throw std::runtime_error("Schema Error: items node '" + node_name + "' not found.");
+        }
+        std::pair<std::string, int> type_pair = GetScalarValue<std::string>(node_pair.first, "type", verbose);
+        if (type_pair.second) {
+            throw std::runtime_error("Schema Error: 'type' node not found for item '" + node_name + "'.");
+        }
+        schema_subitems_names_types.emplace(node_name, type_pair.first);
+    }
+    // Check schema correctness
+    if (schema_subitems_names_types.size() == 0) {
+        throw std::runtime_error("Schema Error: '" + subitem_string + "' node must have at least one item.");
+    }
+    return schema_subitems_names_types;
+}
+
+std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(const YAML::Node& input_node, const std::vector<YAML::Node>& schema_subitems, bool verbose = false) {
+    // Debugging
+    bool debug = false;
+    if (debug) {
+        std::cout << "\n\n#############################" << std::endl;
+        std::cout << "Parsing subitems." << std::endl;
+        std::cout << "\nSchema:" << std::endl;
+        for (const auto& schema_subitem : schema_subitems) {
+            std::cout << schema_subitem << " " << std::endl;
+        }
+        std::cout << "\nInput:\n"
+                  << input_node << std::endl;
+        std::cout << "-----------------------------\n\n"
+                  << std::endl;
+    }
+    std::vector<std::pair<YAML::Node, YAML::Node>> found_nodes_and_associated_schema;
+    int return_code = 0;
+    // Loop over schema_subitems
+    for (const auto& schema_subitem : schema_subitems) {
+        // Handle one_or_more_of
+        if (schema_subitem["one_or_more_of"].IsDefined()) {
+            // Map from schema_subitem name to type
+            std::map<std::string, std::string> one_or_more_of_names_types = ParseSubitemSchema(schema_subitem, "one_or_more_of", verbose);
+
+            // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
+            std::pair<std::map<std::string, YAML::Node>, int> found_one_or_more_of_pair = GetInputNodes(input_node, one_or_more_of_names_types, verbose);
+
+            // Make sure at least one schema_subitem is found
+            if (found_one_or_more_of_pair.second == 0) {
+                std::cerr << "Error: 'one_or_more_of' subitems must have at least one schema_subitem." << std::endl;
+                return_code = 1;
+            }
+
+            // Map found nodes to associated schema
+            for (const auto& found_node : found_one_or_more_of_pair.first) {
+                std::string name = found_node.first;
+                std::pair<YAML::Node, int> node_pair = GetNode(schema_subitem["one_or_more_of"], name);
+                if (node_pair.second) {
+                    throw std::runtime_error("Schema Error: items node '" + name + "' not found.");
+                }
+                found_nodes_and_associated_schema.push_back(std::make_pair(found_node.second, node_pair.first));
+                // Debugging
+                if (debug) {
+                    std::cout << "#####################" << std::endl;
+                    std::cout << "\nFound in ParseSubitems:" << std::endl;
+                    std::cout << "\nName: " << name << std::endl;
+                    std::cout << "\nFound node:" << std::endl;
+                    std::cout << found_node.second << std::endl;
+                    std::cout << "\nAssociated schema:" << std::endl;
+                    std::cout << node_pair.first << std::endl;
+                    std::cout << "----------------------" << std::endl;
+                }
+            }
+        }
+
+        // Handle one_of
+        if (schema_subitem["one_of"].IsDefined()) {
+            std::map<std::string, std::string> one_of_names_types = ParseSubitemSchema(schema_subitem, "one_of", verbose);
+            std::pair<std::map<std::string, YAML::Node>, int> found_one_of_pair = GetInputNodes(input_node, one_of_names_types, verbose);
+
+            // Make sure only one schema_subitem is found
+            if (found_one_of_pair.second != 1) {
+                std::cerr << "Error: 'one_of' subitems must have one and only one schema_subitem." << std::endl;
+                return_code = 1;
+            }
+
+            // Map found nodes to associated schema
+            for (const auto& found_node : found_one_of_pair.first) {
+                std::string name = found_node.first;
+                std::pair<YAML::Node, int> node_pair = GetNode(schema_subitem["one_of"], name);
+                if (node_pair.second) {
+                    throw std::runtime_error("Schema Error: items node '" + name + "' not found.");
+                }
+                found_nodes_and_associated_schema.push_back(std::make_pair(found_node.second, node_pair.first));
+            }
+        }
+
+        // Handle all_of
+        if (schema_subitem["all_of"].IsDefined()) {
+            std::map<std::string, std::string> all_of_names_types = ParseSubitemSchema(schema_subitem, "all_of", verbose);
+            std::pair<std::map<std::string, YAML::Node>, int> found_all_of_pair = GetInputNodes(input_node, all_of_names_types, verbose);
+
+            // Make sure all subitems are found
+            if (found_all_of_pair.second != (int)all_of_names_types.size()) {
+                std::cerr << "Error: 'all_of' subitems must have all subitems." << std::endl;
+                return_code = 1;
+            }
+
+            // Map found nodes to associated schema
+            for (const auto& found_node : found_all_of_pair.first) {
+                std::string name = found_node.first;
+                std::pair<YAML::Node, int> node_pair = GetNode(schema_subitem["all_of"], name);
+                if (node_pair.second) {
+                    throw std::runtime_error("Schema Error: items node '" + name + "' not found.");
+                }
+                found_nodes_and_associated_schema.push_back(std::make_pair(found_node.second, node_pair.first));
+            }
+        }
+
+        // Handle optional
+        if (schema_subitem["optional"].IsDefined()) {
+            std::map<std::string, std::string> optional_names_types = ParseSubitemSchema(schema_subitem, "optional", verbose);
+            std::pair<std::map<std::string, YAML::Node>, int> found_optional_pair = GetInputNodes(input_node, optional_names_types, verbose);
+
+            // Map found nodes to associated schema
+            for (const auto& found_node : found_optional_pair.first) {
+                std::string name = found_node.first;
+                std::pair<YAML::Node, int> node_pair = GetNode(schema_subitem["optional"], name);
+                if (node_pair.second) {
+                    throw std::runtime_error("Schema Error: items node '" + name + "' not found.");
+                }
+                found_nodes_and_associated_schema.push_back(std::make_pair(found_node.second, node_pair.first));
             }
         }
     }
-    return true;
+    return std::make_pair(found_nodes_and_associated_schema, return_code);
+}
+
+int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAML::Node& schema_sub_node, bool verbose) {
+    bool debug = false;
+
+    if (debug) {
+        static int count = 0;
+        std::cout << "\n\n#############################" << std::endl;
+        std::cout << "Recursive check subitems: " << count << std::endl;
+        count++;
+        std::cout << "-----------------------------\n\n"
+                  << std::endl;
+    }
+
+    std::pair<std::vector<YAML::Node>, int> schema_sub_node_subitems_pair = GetValueOrValueSequence(schema_sub_node, "subitems", verbose);
+    if (schema_sub_node_subitems_pair.second) {
+        std::string sub_node_name = schema_sub_node.begin()->first.as<std::string>();
+        throw std::runtime_error("Schema Error: 'subitems' node not found in '" + sub_node_name + "'.");
+    }
+    std::vector<YAML::Node> schema_sub_node_subitems = schema_sub_node_subitems_pair.first;
+
+    // Read input node
+    int return_code = 0;
+    // Loop over input_nodes
+    for (const auto& input_node : input_nodes) {
+        // Get nodes in next level of schema, check input on this level
+        std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> found_input_nodes_and_associated_schema_pair = ParseSubitems(input_node, schema_sub_node_subitems, verbose);
+        if (found_input_nodes_and_associated_schema_pair.second) {
+            return_code = 1;
+        }
+        std::vector<std::pair<YAML::Node, YAML::Node>> found_input_nodes_and_associated_schema = found_input_nodes_and_associated_schema_pair.first;  // Example: vector of pairs of explicit_dynamic_procedure and schema for explicit_dynamic_procedure
+
+        // Recursively check the found_nodes
+        for (const auto& found_input_node_and_associated_schema : found_input_nodes_and_associated_schema) {
+            int recursive_return_code = RecursiveCheckSubitems({found_input_node_and_associated_schema.first}, found_input_node_and_associated_schema.second, verbose);
+            if (recursive_return_code) {
+                return_code = 1;
+            }
+        }
+    }
+
+    return return_code;
+}
+
+int IoInputFile::CheckInputWithSchema(bool verbose) {
+    try {
+        // Load and the YAML input file
+        m_yaml_schema_file = YAML::LoadFile(m_schema_filename);
+    } catch (const YAML::Exception& e) {
+        std::cerr << "Schema Error reading YAML schema file: " << e.what() << std::endl;
+        return 1;
+    }
+
+    // Want to hand it the procedures node in the input file, and the procedures node in the schema file
+    // Get schema subitems
+    std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(m_yaml_schema_file, "procedures");
+    // Throw error if parent node is not found
+    if (schema_sub_node_pair.second) {
+        std::cerr << "Schema Error: 'procedures' node not found." << std::endl;
+        throw std::runtime_error("Schema Error: 'procedures' node not found.");
+    }
+    YAML::Node schema_sub_node = schema_sub_node_pair.first;
+
+    // Get input parent nodes subsequence
+    std::pair<std::vector<YAML::Node>, int> input_nodes_pair = GetValueOrValueSequence(m_yaml_file, "procedures", verbose);
+    if (input_nodes_pair.second) {
+        std::cerr << "Input Error: 'procedures' node not found." << std::endl;
+        throw std::runtime_error("Input Error: 'procedures' node not found.");
+    }
+    std::vector<YAML::Node> input_nodes = input_nodes_pair.first;  // Example: vector of one explicit_dynamic_procedure
+
+    return RecursiveCheckSubitems(input_nodes, schema_sub_node, verbose);
 }
 
 // Make sure the input file is valid

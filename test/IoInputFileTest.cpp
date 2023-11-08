@@ -271,3 +271,13 @@ TEST_F(IoInputFileTest, WriteErrorCases) {
     int result = acm::IoInputFile::Write(m_filename, m_yaml_data);
     EXPECT_EQ(result, 1);
 }
+
+// Check input schema
+TEST_F(IoInputFileTest, CheckInputWithSchema) {
+    m_yaml_data = CreateUpdatedTestYaml();
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);  // Verbose for coverage
+    PrintCapturedOutput();
+}
