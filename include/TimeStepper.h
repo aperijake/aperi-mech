@@ -20,7 +20,16 @@ class TimeStepper {
 class DirectTimeStepper : public TimeStepper {
    public:
     DirectTimeStepper(double time_increment, double time_end) : TimeStepper(time_end), m_time_increment(time_increment){};
-    double GetTimeIncrement(double time) const override { return m_time_increment; };
+    double GetTimeIncrement(double time) const override {
+        if (time + m_time_increment <= GetTimeEnd()) {
+            return m_time_increment;
+        } else if (time > GetTimeEnd()) {
+            return 0.0;
+        } else {
+            return GetTimeEnd() - time;
+        }
+        return m_time_increment;
+    };
 
    private:
     double m_time_increment;
