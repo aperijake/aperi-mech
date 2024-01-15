@@ -9,6 +9,7 @@
 #include "IoMesh.h"
 #include "MassUtils.h"
 #include "Material.h"
+#include "TimeStepper.h"
 
 namespace acm {
 
@@ -75,9 +76,9 @@ void ExplicitSolver::ComputeAcceleration() {
     }
 }
 
-void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_step) {
+void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_increment) {
     // Compute the time at the end of the time step, t^{n+1} = t^n + Δt^{n+½}
-    double time_next = time + time_step;
+    double time_next = time + time_increment;
 
     // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
     double time_mid = 0.5 * (time + time_next);
@@ -116,15 +117,15 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_step) {
             // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_step * velocity_data_np1_for_bucket[iI];
+                displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_increment * velocity_data_np1_for_bucket[iI];
             }
         }
     }
 }
 
-void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_step) {
+void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increment) {
     // Compute the time at the end of the time step, t^{n+1} = t^n + Δt^{n+½}
-    double time_next = time + time_step;
+    double time_next = time + time_increment;
 
     // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
     double time_mid = 0.5 * (time + time_next);
@@ -152,11 +153,8 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_step) {
 }
 
 void ExplicitSolver::Solve() {
-    // Get the final time, t_{final}. TODO: Get from input file
-    double time_final = 1.0;  // m_io_input_file->GetTimeFinal();
-
-    // Get the time step, Δt^{n+½}. TODO: Get from input file
-    double time_step = 0.1;  // m_io_input_file->GetTimeStep();
+    // Get the final time, t_{final}
+    double time_end = m_time_stepper->GetTimeEnd();
 
     // Compute mass matrix
     // TODO(jake): Do part-by-part
@@ -179,14 +177,17 @@ void ExplicitSolver::Solve() {
     m_io_mesh->WriteFieldResults(time);
 
     // Loop over time steps
-    while (time < time_final) {
+    while (time < time_end) {
         sierra::Env::outputP0() << "Time: " << time << std::endl;
+
+        // Get the time step, Δt^{n+½}
+        double time_increment = m_time_stepper->GetTimeIncrement(time);
 
         // Move state n+1 to state n
         bulk_data->update_field_data_states();
 
         // Compute first partial update
-        ComputeFirstPartialUpdate(time, time_step);
+        ComputeFirstPartialUpdate(time, time_increment);
 
         // Compute the force, f^{n+1}
         ComputeForce();
@@ -195,13 +196,13 @@ void ExplicitSolver::Solve() {
         ComputeAcceleration();
 
         // Compute the second partial update
-        ComputeSecondPartialUpdate(time, time_step);
+        ComputeSecondPartialUpdate(time, time_increment);
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
 
         // Update the time, t = t^{n+1}
-        time += time_step;
+        time += time_increment;
 
         // Update the increment, n = n + 1
         n = n + 1;

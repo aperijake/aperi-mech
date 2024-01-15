@@ -12,6 +12,7 @@
 #include "IoMesh.h"
 #include "Material.h"
 #include "Solver.h"
+#include "TimeStepper.h"
 #include "UnitTestUtils.h"
 
 // Solver test fixture
@@ -65,8 +66,11 @@ class SolverTest : public ApplicationTest {
             m_external_force_contributions.push_back(acm::CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
         }
 
+        // Get the time stepper
+        std::shared_ptr<acm::TimeStepper> time_stepper = acm::CreateTimeStepper(m_io_input_file->GetTimeStepper(0));
+
         // Create solver
-        m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions);
+        m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, time_stepper);
 
         //// Run solver
         m_solver->Solve();

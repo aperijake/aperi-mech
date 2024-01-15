@@ -65,7 +65,7 @@ void Application::Run(std::string& input_filename) {
     std::shared_ptr<acm::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
     // Create solver
-    m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions);
+    m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, time_stepper);
 
     // Run solver
     sierra::Env::outputP0() << "Starting Solver" << std::endl;
