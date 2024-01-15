@@ -10,6 +10,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "Solver.h"
+#include "TimeStepper.h"
 #include "YamlUtils.h"
 
 namespace acm {
@@ -59,6 +60,9 @@ void Application::Run(std::string& input_filename) {
     for (auto load : loads) {
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
     }
+
+    // Get the time stepper
+    std::shared_ptr<acm::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
     // Create solver
     m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions);

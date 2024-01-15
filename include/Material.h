@@ -5,10 +5,6 @@
 #include <memory>
 #include <string>
 
-namespace YAML {
-class Node;
-}  // namespace YAML
-
 namespace acm {
 
 enum MaterialType {
