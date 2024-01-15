@@ -177,6 +177,33 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// Create an input file with missing time stepper
+TEST_F(IoInputFileTest, CheckInputMissingTimeStepper) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("time_stepper");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with direct time stepper and missing time increment
+TEST_F(IoInputFileTest, CheckInputMissingTimeIncrementDirect) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"].remove("time_increment");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with direct time stepper and missing time end
+TEST_F(IoInputFileTest, CheckInputMissingTimeEndDirect) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"].remove("time_end");
+    acm::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = YAML::Load("[1, 2, 3]");
