@@ -27,11 +27,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Activate Spack environment
-eval $(spack env activate --sh stk-crk)
+eval $(spack env activate --sh aperi-mech)
 
 # Create build directory
-mkdir -p ../stk-crk_build
-cd ../stk-crk_build || exit
+mkdir -p ../aperi-mech_build
+cd ../aperi-mech_build || exit
 
 # Remove CMakeCache if it exists
 rm -f CMakeCache.txt
@@ -53,7 +53,7 @@ if [[ ${BUILD_TYPE} == "Debug" ]]; then
 else
 	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
 fi
-cmake_command+=" ../stk-crk"
+cmake_command+=" ../aperi-mech"
 
 echo "CMake Command: ${cmake_command}"
 eval "${cmake_command}"

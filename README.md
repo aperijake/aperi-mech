@@ -1,6 +1,6 @@
-# stk-crk
+# aperi-mech
 
-A Trilinos STK-based version of CRK
+An open-source platform for computational mechanics.
 
 ## Building with Spack
 
@@ -28,8 +28,8 @@ spack compiler find
 spack external find
 
 # Create and activate a spack environment for the project
-spack env create stk-crk
-spacktivate stk-crk
+spack env create aperi-mech
+spacktivate aperi-mech
 ```
 
 ### Add Required Packages

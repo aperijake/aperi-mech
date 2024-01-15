@@ -115,7 +115,7 @@ class IoInputFile {
    private:
     std::string m_filename;
     YAML::Node m_yaml_file;
-    std::string m_schema_filename = "../stk-crk/input/input_schema.yaml";  // TODO(jake): fix this to be relative to the executable
+    std::string m_schema_filename = "../aperi-mech/input/input_schema.yaml";  // TODO(jake): fix this to be relative to the executable
     YAML::Node m_yaml_schema_file;
 };
 

@@ -4,7 +4,7 @@
     {
       "label": "make",
       "type": "shell",
-      "command": "./do_configure; cd ../stk-crk_build; make",
+      "command": "./do_configure; cd ../aperi-mech_build; make",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -13,7 +13,7 @@
     {
       "label": "make_debug",
       "type": "shell",
-      "command": "./do_configure --build-type Debug; cd ../stk-crk_build; make",
+      "command": "./do_configure --build-type Debug; cd ../aperi-mech_build; make",
       "group": {
         "kind": "build",
         "isDefault": false
@@ -22,7 +22,7 @@
     {
       "label": "make_coverage",
       "type": "shell",
-      "command": "./do_configure --code-coverage; cd ../stk-crk_build; make coverage",
+      "command": "./do_configure --code-coverage; cd ../aperi-mech_build; make coverage",
       "group": {
         "kind": "build",
         "isDefault": false

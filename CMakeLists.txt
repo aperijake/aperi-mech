@@ -47,7 +47,7 @@ IF(NOT CMAKE_C_COMPILER)
 SET(CMAKE_C_COMPILER ${Trilinos_C_COMPILER})
 ENDIF()
 
-project(stk-crk)
+project(aperi-mech)
 
 ### yaml-cpp ###
 MESSAGE("   YAML-CPP_PATH = ${YAML-CPP_PATH}")
@@ -63,12 +63,12 @@ ENDIF()
 
 file(GLOB LIB_SOURCES "src/*.cpp")
 
-add_library(libstk-crk ${LIB_SOURCES})
+add_library(libaperi-mech ${LIB_SOURCES})
 
-set_property( TARGET libstk-crk PROPERTY CXX_STANDARD 11 )
-set_property( TARGET libstk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
+set_property( TARGET libaperi-mech PROPERTY CXX_STANDARD 11 )
+set_property( TARGET libaperi-mech PROPERTY CXX_STANDARD_REQUIRED ON )
 
-target_link_libraries(libstk-crk
+target_link_libraries(libaperi-mech
             yaml-cpp
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
@@ -86,19 +86,19 @@ include_directories(${Trilinos_INCLUDE_DIRS})
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-add_executable(stk-crk ${MAIN_SOURCES})
-target_link_libraries( stk-crk libstk-crk )
+add_executable(aperi-mech ${MAIN_SOURCES})
+target_link_libraries( aperi-mech libaperi-mech )
 
-set_property( TARGET stk-crk PROPERTY CXX_STANDARD 11 )
-set_property( TARGET stk-crk PROPERTY CXX_STANDARD_REQUIRED ON )
+set_property( TARGET aperi-mech PROPERTY CXX_STANDARD 11 )
+set_property( TARGET aperi-mech PROPERTY CXX_STANDARD_REQUIRED ON )
 
 # Check the build type and set different executable names
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set_target_properties(stk-crk PROPERTIES OUTPUT_NAME "stk-crk")
-    set_target_properties(libstk-crk PROPERTIES OUTPUT_NAME "libstk-crk")
+    set_target_properties(aperi-mech PROPERTIES OUTPUT_NAME "aperi-mech")
+    set_target_properties(libaperi-mech PROPERTIES OUTPUT_NAME "libaperi-mech")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set_target_properties(stk-crk PROPERTIES OUTPUT_NAME "stk-crk_debug")
-    set_target_properties(libstk-crk PROPERTIES OUTPUT_NAME "libstk-crk_debug")
+    set_target_properties(aperi-mech PROPERTIES OUTPUT_NAME "aperi-mech_debug")
+    set_target_properties(libaperi-mech PROPERTIES OUTPUT_NAME "libaperi-mech_debug")
 endif()
 
 ############# TESTING ############# 
@@ -129,7 +129,7 @@ add_executable(unit_tests
 
 target_link_libraries(
     unit_tests
-    libstk-crk
+    libaperi-mech
     GTest::gtest_main
 )
 
