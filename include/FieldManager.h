@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace acm {
+namespace aperi {
 
 // Enum for field data types
 enum class FieldDataType { SCALAR,
@@ -65,4 +65,4 @@ inline std::vector<FieldData> GetFieldData() {
     return field_data;
 }
 
-}  // namespace acm
+}  // namespace aperi

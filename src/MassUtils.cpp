@@ -10,7 +10,7 @@
 
 #include "MathUtils.h"
 
-namespace acm {
+namespace aperi {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
@@ -59,4 +59,4 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
     return mass_sum_global;
 }
 
-}  // namespace acm
+}  // namespace aperi

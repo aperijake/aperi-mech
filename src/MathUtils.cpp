@@ -3,7 +3,7 @@
 #include <array>
 #include <cmath>
 
-namespace acm {
+namespace aperi {
 // Compute the cross product of two vectors
 std::array<double, 3> Cross(const std::array<double, 3> &v1, const std::array<double, 3> &v2) {
     std::array<double, 3> cross;
@@ -50,4 +50,4 @@ double TetVolume(const std::array<std::array<double, 3>, 4> &tet) {
     return std::abs(Dot(v1, Cross(v2, v3))) / 6.0;
 }
 
-}  // namespace acm
+}  // namespace aperi

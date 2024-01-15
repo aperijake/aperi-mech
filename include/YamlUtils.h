@@ -7,7 +7,7 @@
 #include <utility>   // for pair
 #include <vector>    // for vector
 
-namespace acm {
+namespace aperi {
 
 // Get a YAML node, checking if it exists
 inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::string& name) {
@@ -139,4 +139,4 @@ inline std::pair<std::vector<YAML::Node>, int> GetValueOrValueSequence(const YAM
     return std::make_pair(values, return_code);
 }
 
-}  // namespace acm
+}  // namespace aperi

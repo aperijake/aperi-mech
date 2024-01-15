@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace acm {
+namespace aperi {
 class IoInputFile;
 class IoMesh;
 class FieldManager;
@@ -24,12 +24,12 @@ class Application {
 
    private:
     MPI_Comm m_comm;
-    std::shared_ptr<acm::IoInputFile> m_io_input_file;
-    std::shared_ptr<acm::IoMesh> m_io_mesh;
-    std::vector<std::shared_ptr<acm::InternalForceContribution>> m_internal_force_contributions;
-    std::vector<std::shared_ptr<acm::ExternalForceContribution>> m_external_force_contributions;
-    std::shared_ptr<acm::FieldManager> m_field_manager;
-    std::shared_ptr<acm::Solver> m_solver;
+    std::shared_ptr<aperi::IoInputFile> m_io_input_file;
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;
+    std::shared_ptr<aperi::FieldManager> m_field_manager;
+    std::shared_ptr<aperi::Solver> m_solver;
 };
 
-}  // namespace acm
+}  // namespace aperi

@@ -6,9 +6,9 @@ class BulkData;
 }
 }  // namespace stk
 
-namespace acm {
+namespace aperi {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density);
 
-}  // namespace acm
+}  // namespace aperi

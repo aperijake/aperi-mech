@@ -17,7 +17,7 @@ void ChangeLength(std::vector<double>& vector, double new_magnitude) {
     }
 }
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<acm::FieldData>& field_data) {
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<aperi::FieldData>& field_data) {
     // Add initial condition to field data
     // TODO(jake) add location, assuming everywhere for now
     // TODO(jake) do something with name?

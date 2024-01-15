@@ -30,10 +30,10 @@ class ApplicationTest : public CaptureOutputTest {
         m_results_filename = test_suite_name + "_" + test_name + "_results.exo";
 
         // Write the mesh to a temporary file and check that it is written correctly
-        acm::IoMeshParameters io_mesh_parameters;
+        aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
-        acm::IoMesh io_mesh(m_comm, io_mesh_parameters);
+        aperi::IoMesh io_mesh(m_comm, io_mesh_parameters);
 
         // Make a 1x1xnum_procs mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
@@ -44,7 +44,7 @@ class ApplicationTest : public CaptureOutputTest {
         // Create a temporary input file
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["mesh"] = m_mesh_filename;
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["output"]["file"] = m_results_filename;
-        acm::IoInputFile::Write(m_filename, m_yaml_data);
+        aperi::IoInputFile::Write(m_filename, m_yaml_data);
     }
 
     void TearDown() override {

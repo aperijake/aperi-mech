@@ -7,7 +7,7 @@
 
 #include "mpi.h"  // for MPI_Comm
 
-namespace acm {
+namespace aperi {
 
 class FieldManager;
 
@@ -30,13 +30,13 @@ struct IoMeshParameters {
 
 class IoMesh {
    public:
-    IoMesh(stk::ParallelMachine comm, acm::IoMeshParameters io_mesh_parameters);
+    IoMesh(stk::ParallelMachine comm, aperi::IoMeshParameters io_mesh_parameters);
 
     void Finalize();
 
     void ReadMesh(
         const std::string &filename,
-        std::shared_ptr<acm::FieldManager> field_manager = nullptr);
+        std::shared_ptr<aperi::FieldManager> field_manager = nullptr);
 
     void CreateFieldResultsFile(const std::string &filename);
 
@@ -70,7 +70,7 @@ class IoMesh {
     size_t m_current_avg_baseline = 0;
     std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
-    std::shared_ptr<acm::FieldManager> mp_field_manager;
+    std::shared_ptr<aperi::FieldManager> mp_field_manager;
     int m_input_index = -1;
     int m_results_index = -1;
 };
@@ -78,4 +78,4 @@ class IoMesh {
 // IoMesh factory function
 std::unique_ptr<IoMesh> CreateIoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters);
 
-}  // namespace acm
+}  // namespace aperi

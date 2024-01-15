@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     std::string input_filename = argv[1];
 
     // Create an application object
-    acm::Application application(comm);
+    aperi::Application application(comm);
 
     // Run the application
     application.Run(input_filename);

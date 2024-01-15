@@ -10,7 +10,7 @@
 // Test Run function with valid input file
 TEST_F(ApplicationTest, RunValidInputFile) {
     // Create application object
-    acm::Application app(m_comm);
+    aperi::Application app(m_comm);
 
     m_yaml_data = CreateTestYaml();
     CreateInputFile();
@@ -19,8 +19,8 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     app.Run(m_filename);
 
     // Read in the written mesh and check that it matches the expected mesh
-    acm::IoMeshParameters io_mesh_read_parameters;
-    acm::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
+    aperi::IoMeshParameters io_mesh_read_parameters;
+    aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
     std::vector<size_t> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs * 6};  // tet4
     io_mesh_read.ReadMesh(m_results_filename);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
@@ -29,7 +29,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
 // Test Run function with invalid input file
 TEST_F(ApplicationTest, RunInvalidInputFile) {
     // Create application object
-    acm::Application app(m_comm);
+    aperi::Application app(m_comm);
 
     // Run application
     std::string invalid_filename = "invalid_filename.yaml";

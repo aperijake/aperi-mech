@@ -9,7 +9,7 @@
 
 #include "YamlUtils.h"
 
-namespace acm {
+namespace aperi {
 class IoInputFile {
    public:
     IoInputFile(std::string filename, bool check_input = true) : m_filename(filename) {
@@ -128,4 +128,4 @@ inline std::unique_ptr<IoInputFile> CreateIoInputFile(const YAML::Node& yaml_dat
     return std::make_unique<IoInputFile>(yaml_data, check_input);
 }
 
-}  // namespace acm
+}  // namespace aperi

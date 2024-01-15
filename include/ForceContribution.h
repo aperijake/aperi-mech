@@ -9,7 +9,7 @@ namespace YAML {
 class Node;
 }  // namespace YAML
 
-namespace acm {
+namespace aperi {
 class ForceContribution {
    public:
     ForceContribution() = default;
@@ -105,4 +105,4 @@ inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContributio
     }
 }
 
-}  // namespace acm
+}  // namespace aperi

@@ -9,7 +9,7 @@
 
 #include "IoMesh.h"
 
-namespace acm {
+namespace aperi {
 
 class IoMesh;
 class InternalForceContribution;
@@ -18,7 +18,7 @@ class TimeStepper;
 
 class Solver {
    public:
-    Solver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions, std::shared_ptr<acm::TimeStepper> time_stepper)
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper)
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_time_stepper(time_stepper) {
         meta_data = &m_io_mesh->GetMetaData();
         bulk_data = &m_io_mesh->GetBulkData();
@@ -33,10 +33,10 @@ class Solver {
    protected:
     virtual void ComputeForce() = 0;
 
-    std::shared_ptr<acm::IoMesh> m_io_mesh;
-    std::vector<std::shared_ptr<acm::InternalForceContribution>> m_internal_force_contributions;
-    std::vector<std::shared_ptr<acm::ExternalForceContribution>> m_external_force_contributions;
-    std::shared_ptr<acm::TimeStepper> m_time_stepper;
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;
+    std::shared_ptr<aperi::TimeStepper> m_time_stepper;
     stk::mesh::MetaData *meta_data;
     stk::mesh::BulkData *bulk_data;
 };
@@ -46,7 +46,7 @@ class ExplicitSolver : public Solver {
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
 
    public:
-    ExplicitSolver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions, std::shared_ptr<acm::TimeStepper> time_stepper)
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper)
         : Solver(io_mesh, force_contributions, external_force_contributions, time_stepper) {
         // Get the displacement, velocity, and acceleration fields
         displacement_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
@@ -74,8 +74,8 @@ class ExplicitSolver : public Solver {
 };
 
 // Solver factory
-inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<acm::IoMesh> io_mesh, std::vector<std::shared_ptr<acm::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<acm::ExternalForceContribution>> external_force_contributions, std::shared_ptr<acm::TimeStepper> time_stepper) {
+inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper) {
     return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, time_stepper);
 }
 
-}  // namespace acm
+}  // namespace aperi

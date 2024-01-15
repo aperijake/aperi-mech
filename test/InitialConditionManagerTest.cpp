@@ -11,12 +11,12 @@ class InitialConditionManagerTest : public ::testing::Test {
    protected:
     void SetUp() override {
         // Initialize field data
-        m_field_data.push_back({"velocity", acm::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"displacement", acm::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"acceleration", acm::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+        m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+        m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+        m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
     }
 
-    std::vector<acm::FieldData> m_field_data;
+    std::vector<aperi::FieldData> m_field_data;
 };
 
 // Test AddInitialConditions function with valid input
@@ -35,7 +35,7 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
     AddInitialConditions(initial_conditions, m_field_data);
 
     // Check that initial conditions were added correctly
-    EXPECT_EQ(m_field_data[0].data_type, acm::FieldDataType::VECTOR);
+    EXPECT_EQ(m_field_data[0].data_type, aperi::FieldDataType::VECTOR);
     EXPECT_EQ(m_field_data[0].name, "velocity");
     EXPECT_EQ(m_field_data[0].number_of_states, 2);
     EXPECT_EQ(m_field_data[0].initial_values.size(), 3);

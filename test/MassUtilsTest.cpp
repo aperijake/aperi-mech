@@ -27,17 +27,17 @@ class MassMatrixTest : public CaptureOutputTest {
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
 
         // Write the mesh to a temporary file and check that it is written correctly
-        acm::IoMeshParameters io_mesh_parameters;
+        aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
-        m_io_mesh = std::make_shared<acm::IoMesh>(m_comm, io_mesh_parameters);
+        m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
 
         // Get number of mpi processes
         m_num_procs = stk::parallel_machine_size(m_comm);
 
         // Create a FieldManager
-        std::vector<acm::FieldData> field_data = acm::GetFieldData();
-        std::shared_ptr<acm::FieldManager> field_manager = acm::CreateFieldManager(field_data);
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+        std::shared_ptr<aperi::FieldManager> field_manager = aperi::CreateFieldManager(field_data);
 
         // Make a 1x1xnum_procs mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
@@ -53,7 +53,7 @@ class MassMatrixTest : public CaptureOutputTest {
     }
 
     std::string m_mesh_filename;
-    std::shared_ptr<acm::IoMesh> m_io_mesh;
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
     stk::ParallelMachine m_comm;
     size_t m_num_procs;
 };
@@ -65,7 +65,7 @@ TEST_F(MassMatrixTest, ComputeMassMatrix) {
 
     // Compute mass matrix
     double density = 1.23;
-    double total_mass = acm::ComputeMassMatrix(bulk_data, density);
+    double total_mass = aperi::ComputeMassMatrix(bulk_data, density);
 
     // Check that the total mass is correct
     double expected_total_mass = 1.23 * m_num_procs;  // Multiply by m_num_procs because there is one unit cube per processor

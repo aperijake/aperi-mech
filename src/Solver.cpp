@@ -11,7 +11,7 @@
 #include "Material.h"
 #include "TimeStepper.h"
 
-namespace acm {
+namespace aperi {
 
 /*
 # Explicit time integration algorithm for nonlinear problems
@@ -213,4 +213,4 @@ void ExplicitSolver::Solve() {
     }
 }
 
-}  // namespace acm
+}  // namespace aperi

@@ -5,7 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
-namespace acm {
+namespace aperi {
 class TimeStepper {
    public:
     TimeStepper(double time_end) : m_time_end(time_end){};
@@ -47,4 +47,4 @@ inline std::shared_ptr<TimeStepper> CreateTimeStepper(const YAML::Node &time_ste
     }
 }
 
-}  // namespace acm
+}  // namespace aperi

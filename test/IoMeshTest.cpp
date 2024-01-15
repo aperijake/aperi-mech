@@ -28,10 +28,10 @@ class IoMeshTest : public CaptureOutputTest {
 TEST_F(IoMeshTest, ReadWrite) {
     // Create an IoMesh object with default parameters
     stk::ParallelMachine comm = MPI_COMM_WORLD;
-    acm::IoMeshParameters io_mesh_parameters;
+    aperi::IoMeshParameters io_mesh_parameters;
     io_mesh_parameters.mesh_type = "generated";
     io_mesh_parameters.compose_output = true;
-    acm::IoMesh io_mesh(comm, io_mesh_parameters);
+    aperi::IoMesh io_mesh(comm, io_mesh_parameters);
 
     // Write the mesh to a temporary file and check that it is written correctly
     std::string output_f_name = "test_IoMesh_ReadWrite.exo";
@@ -44,8 +44,8 @@ TEST_F(IoMeshTest, ReadWrite) {
     WriteTestMesh(output_f_name, io_mesh, mesh_string);
 
     // Read in the written mesh and check that it matches the expected mesh
-    acm::IoMeshParameters io_mesh_read_parameters;
-    acm::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
+    aperi::IoMeshParameters io_mesh_read_parameters;
+    aperi::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
     std::vector<size_t> expected_owned = {4 * (num_procs + 1), 0, 0, num_procs};
     io_mesh_read.ReadMesh(output_f_name);
     CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);

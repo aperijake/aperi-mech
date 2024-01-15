@@ -132,7 +132,7 @@ YAML::Node CreateTestYaml() {
     return root;
 }
 
-void WriteTestMesh(const std::string& filename, acm::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<acm::FieldManager>& field_manager) {
+void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
     // Make sure output doesn't already exist to prevent false positives

@@ -5,8 +5,8 @@
 namespace YAML {
 class Node;
 }  // namespace YAML
-namespace acm {
+namespace aperi {
 class FieldData;
-}  // namespace acm
+}  // namespace aperi
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<acm::FieldData>& field_data);
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<aperi::FieldData>& field_data);

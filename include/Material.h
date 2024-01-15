@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace acm {
+namespace aperi {
 
 enum MaterialType {
     ELASTIC,
@@ -52,4 +52,4 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
     }
 }
 
-}  // namespace acm
+}  // namespace aperi

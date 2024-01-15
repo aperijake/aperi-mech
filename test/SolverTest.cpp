@@ -25,10 +25,10 @@ class SolverTest : public ApplicationTest {
 
     void RunSolver() {
         // Create an IO input file object and read the input file
-        m_io_input_file = acm::CreateIoInputFile(m_yaml_data);
+        m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
 
         // Get field data and initial conditions
-        std::vector<acm::FieldData> field_data = acm::GetFieldData();
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
         std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
         AddInitialConditions(initial_conditions, field_data);
 
@@ -36,7 +36,7 @@ class SolverTest : public ApplicationTest {
         m_field_manager = CreateFieldManager(field_data);
 
         // Create an IO mesh object
-        acm::IoMeshParameters io_mesh_parameters;  // Default parameters
+        aperi::IoMeshParameters io_mesh_parameters;  // Default parameters
         io_mesh_parameters.compose_output = true;
         m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
@@ -52,7 +52,7 @@ class SolverTest : public ApplicationTest {
         // Loop over parts, create materials, and add parts to force contributions
         for (auto part : parts) {
             YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
-            std::shared_ptr<acm::Material> material = acm::CreateMaterial(material_node);
+            std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
             std::string part_location = part["set"].as<std::string>();
             // TODO(jake): add part to ForceContribution
             m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
@@ -63,14 +63,14 @@ class SolverTest : public ApplicationTest {
 
         // Loop over loads and add them to force contributions
         for (auto load : loads) {
-            m_external_force_contributions.push_back(acm::CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
+            m_external_force_contributions.push_back(aperi::CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
         }
 
         // Get the time stepper
-        std::shared_ptr<acm::TimeStepper> time_stepper = acm::CreateTimeStepper(m_io_input_file->GetTimeStepper(0));
+        std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(0));
 
         // Create solver
-        m_solver = acm::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, time_stepper);
+        m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, time_stepper);
 
         //// Run solver
         m_solver->Solve();
@@ -85,12 +85,12 @@ class SolverTest : public ApplicationTest {
     }
 
    protected:
-    std::shared_ptr<acm::IoInputFile> m_io_input_file;
-    std::shared_ptr<acm::IoMesh> m_io_mesh;
-    std::vector<std::shared_ptr<acm::InternalForceContribution>> m_internal_force_contributions;
-    std::vector<std::shared_ptr<acm::ExternalForceContribution>> m_external_force_contributions;
-    std::shared_ptr<acm::FieldManager> m_field_manager;
-    std::shared_ptr<acm::Solver> m_solver;
+    std::shared_ptr<aperi::IoInputFile> m_io_input_file;
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;
+    std::shared_ptr<aperi::FieldManager> m_field_manager;
+    std::shared_ptr<aperi::Solver> m_solver;
 };
 
 // Test that a basic explicit problem can be solved

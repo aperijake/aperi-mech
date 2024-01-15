@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace acm {
+namespace aperi {
 int IoInputFile::Read() {
     try {
         // Load and the YAML input file
@@ -257,4 +257,4 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     return RecursiveCheckSubitems(input_nodes, schema_sub_node, verbose);
 }
 
-}  // namespace acm
+}  // namespace aperi

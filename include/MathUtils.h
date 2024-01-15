@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace acm {
+namespace aperi {
 
 // Compute the cross product of two vectors
 std::array<double, 3> Cross(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
@@ -19,4 +19,4 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 // Compute the volume of a tetrahedron
 double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
 
-}  // namespace acm
+}  // namespace aperi

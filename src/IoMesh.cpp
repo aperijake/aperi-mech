@@ -40,7 +40,7 @@
 
 #include "FieldManager.h"
 
-namespace acm {
+namespace aperi {
 
 IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     : m_comm(comm),
@@ -228,7 +228,7 @@ void IoMesh::SetIoProperties() const {
 }
 
 void IoMesh::ReadMesh(const std::string &filename,
-                      std::shared_ptr<acm::FieldManager> field_manager) {
+                      std::shared_ptr<aperi::FieldManager> field_manager) {
     stk::log_with_time_and_memory(m_comm, "Setting memory baseline");
     EquilibrateMemoryBaseline();
     stk::log_with_time_and_memory(m_comm, "Finished setting memory baseline");
@@ -289,8 +289,8 @@ void IoMesh::WriteFieldResults(double time) const {
 }
 
 // IoMesh factory function
-std::unique_ptr<acm::IoMesh> CreateIoMesh(const MPI_Comm &comm, const acm::IoMeshParameters &io_mesh_parameters) {
-    return std::make_unique<acm::IoMesh>(comm, io_mesh_parameters);
+std::unique_ptr<aperi::IoMesh> CreateIoMesh(const MPI_Comm &comm, const aperi::IoMeshParameters &io_mesh_parameters) {
+    return std::make_unique<aperi::IoMesh>(comm, io_mesh_parameters);
 }
 
-}  // namespace acm
+}  // namespace aperi
