@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "IoInputSchema.h"
+
 namespace aperi {
 int IoInputFile::Read() {
     try {
@@ -228,18 +230,10 @@ int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAM
 
 // Check the input file against the schema
 int IoInputFile::CheckInputWithSchema(bool verbose) {
-    // Load and the YAML input file
-    try {
-        m_yaml_schema_file = YAML::LoadFile(m_schema_filename);
-    } catch (const YAML::Exception& e) {
-        std::cerr << "Schema Error reading YAML schema file: " << e.what() << std::endl;
-        return 1;
-    }
-
     // As of now, there is one main node in the schema and input files: procedures
     // Want to hand it the procedures node from the schema and the procedures node from the input file
     // Get schema procedures node
-    std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(m_yaml_schema_file, "procedures");
+    std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(GetInputSchema(), "procedures");
     if (schema_sub_node_pair.second) {
         std::cerr << "Schema Error: 'procedures' node not found." << std::endl;
         throw std::runtime_error("Schema Error: 'procedures' node not found.");

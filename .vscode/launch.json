@@ -25,7 +25,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_debug",
       "args": ["test.yaml"],
-      "cwd": "/Users/jake/workspace/meshes/cylinder/aperi-mech",
+      "cwd": "/Users/jake/workspace/meshes/cylinder_tet/aperi-mech",
       "preLaunchTask": "make_debug"
     },
     {

@@ -48,7 +48,8 @@ void Application::Run(std::string& input_filename) {
     for (auto part : parts) {
         YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
-        // std::string part_location = part["set"].as<std::string>();
+        std::string part_location = part["set"].as<std::string>();
+        std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
         // TODO(jake): add part to ForceContribution
         m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
     }
