@@ -54,8 +54,10 @@ class SolverTest : public ApplicationTest {
             YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
             std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
             std::string part_location = part["set"].as<std::string>();
-            // TODO(jake): add part to ForceContribution
-            m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
+            std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
+            // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
+            stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
+            m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
         }
 
         // Get loads

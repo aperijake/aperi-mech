@@ -4,6 +4,8 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/Part.hpp>
+#include <stk_mesh/base/Selector.hpp>
 #include <stk_topology/topology.hpp>
 #include <stk_util/environment/Env.hpp>  // for outputP0
 #include <stk_util/parallel/ParallelReduce.hpp>
@@ -13,15 +15,16 @@
 namespace aperi {
 
 // Compute the diagonal mass matrix
-double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
+double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::Part *part, double density) {
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
+    stk::mesh::Selector part_selector(*part);
     VectorField *mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
     VectorField *coordinates_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
     double mass_sum = 0.0;
     // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::ELEMENT_RANK)) {
+    for (stk::mesh::Bucket *bucket : part_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
         bool owned = bucket->owned();
         for (auto &&elem : *bucket) {
             // Get the number of nodes in the element
@@ -55,7 +58,7 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, double density) {
     // Parallel sum
     double mass_sum_global = 0.0;
     stk::all_reduce_sum(bulk_data.parallel(), &mass_sum, &mass_sum_global, 1);
-    sierra::Env::outputP0() << "Total Mass: " << mass_sum_global << std::endl;
+    sierra::Env::outputP0() << "Total Mass for Part " << part->name() << ": " << mass_sum_global << std::endl;
     return mass_sum_global;
 }
 

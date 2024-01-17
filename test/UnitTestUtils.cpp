@@ -21,7 +21,7 @@ YAML::Node CreateTestYaml() {
                     mesh: one_element.exo
                     parts:
                       - part:
-                            set: block_10
+                            set: block_1
                             material:
                                 elastic:
                                     density: 7850
@@ -62,7 +62,7 @@ YAML::Node CreateTestYaml() {
 
     // Create the first part
     YAML::Node part;
-    part["part"]["set"] = "block_10";
+    part["part"]["set"] = "block_1";
 
     // Create the material
     YAML::Node material;

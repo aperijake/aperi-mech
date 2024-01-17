@@ -61,11 +61,12 @@ class MassMatrixTest : public CaptureOutputTest {
 // Test ComputeMassMatrix
 TEST_F(MassMatrixTest, ComputeMassMatrix) {
     // Create a bulk data object
-    stk::mesh::BulkData &bulk_data = m_io_mesh->GetBulkData();
+    stk::mesh::BulkData& bulk_data = m_io_mesh->GetBulkData();
 
     // Compute mass matrix
     double density = 1.23;
-    double total_mass = aperi::ComputeMassMatrix(bulk_data, density);
+    stk::mesh::Part* p_part = &bulk_data.mesh_meta_data().universal_part();
+    double total_mass = aperi::ComputeMassMatrix(bulk_data, p_part, density);
 
     // Check that the total mass is correct
     double expected_total_mass = 1.23 * m_num_procs;  // Multiply by m_num_procs because there is one unit cube per processor

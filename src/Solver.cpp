@@ -157,8 +157,10 @@ void ExplicitSolver::Solve() {
     double time_end = m_time_stepper->GetTimeEnd();
 
     // Compute mass matrix
-    // TODO(jake): Do part-by-part
-    ComputeMassMatrix(*bulk_data, m_internal_force_contributions[0]->GetMaterial()->GetDensity());
+    for (const auto &internal_force_contribution : m_internal_force_contributions) {
+        stk::mesh::Part *p_part = internal_force_contribution->GetPart();
+        ComputeMassMatrix(*bulk_data, p_part, internal_force_contribution->GetMaterial()->GetDensity());
+    }
 
     // Set the initial time, t = 0
     double time = 0.0;

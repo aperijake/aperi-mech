@@ -50,8 +50,11 @@ void Application::Run(std::string& input_filename) {
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
         std::string part_location = part["set"].as<std::string>();
         std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
-        // TODO(jake): add part to ForceContribution
-        m_internal_force_contributions.push_back(CreateInternalForceContribution(material));
+        // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
+        // STK QUESTION: How do I check if a part exists?
+        // STK QUESTION: Is declaring a part here the right thing to do?
+        stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
+        m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
     }
 
     // Get loads

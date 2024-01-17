@@ -2,6 +2,13 @@
 
 #include <memory>
 #include <stdexcept>
+#include <stk_mesh/base/BulkData.hpp>
+#include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/FieldBase.hpp>
+#include <stk_mesh/base/FieldState.hpp>
+#include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/Part.hpp>
+#include <stk_topology/topology.hpp>
 
 #include "Material.h"
 
@@ -19,14 +26,18 @@ class ForceContribution {
 
 class InternalForceContribution : public ForceContribution {
    public:
-    InternalForceContribution(std::shared_ptr<Material> material) : m_material(material) {}
+    InternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part) : m_material(material), m_part(part) {}
     std::shared_ptr<Material> GetMaterial() const {
         return m_material;
+    }
+    stk::mesh::Part *GetPart() const {
+        return m_part;
     }
     void ComputeForce() override {}
 
    private:
     std::shared_ptr<Material> m_material;
+    stk::mesh::Part *m_part;
 };
 
 class ExternalForceContribution : public ForceContribution {
@@ -87,8 +98,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
     }
 };
 
-inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material) {
-    return std::make_shared<InternalForceContribution>(material);
+inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part) {
+    return std::make_shared<InternalForceContribution>(material, part);
 }
 
 inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContribution(YAML::Node &load, stk::mesh::MetaData &meta_data) {
