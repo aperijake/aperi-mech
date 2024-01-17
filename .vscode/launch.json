@@ -6,8 +6,8 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech",
-      "args": [],
-      "cwd": "${workspaceFolder}/../aperi-mech_build",
+      "args": ["test.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
       "preLaunchTask": "make"
     },
     {
@@ -25,7 +25,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_debug",
       "args": ["test.yaml"],
-      "cwd": "/Users/jake/workspace/meshes/cylinder_tet/aperi-mech",
+      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
       "preLaunchTask": "make_debug"
     },
     {

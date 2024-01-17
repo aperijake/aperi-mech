@@ -29,12 +29,12 @@ YAML::Node CreateTestYaml() {
                                     poissons_ratio: 0.3
                 initial_conditions:
                   - velocity:
-                        set: block_1
+                        sets: [block_1]
                         magnitude: 1.23
                         direction: [1,0,0]
                 loads:
                   - gravity_load:
-                        set: block_1
+                        sets: [block_1]
                         magnitude: -9.81
                         direction: [0,0,1]
                 time_stepper:
@@ -84,7 +84,7 @@ YAML::Node CreateTestYaml() {
 
     // Create the first initial condition
     YAML::Node velocity;
-    velocity["velocity"]["set"] = "block_1";
+    velocity["velocity"]["sets"] = std::vector<std::string>{"block_1"};
     velocity["velocity"]["magnitude"] = 1.23;
     velocity["velocity"]["direction"] = std::vector<double>{1.0, 0.0, 0.0};
 
@@ -98,7 +98,7 @@ YAML::Node CreateTestYaml() {
 
     // Create the first load
     YAML::Node gravity_load;
-    gravity_load["gravity_load"]["set"] = "block_1";
+    gravity_load["gravity_load"]["sets"] = std::vector<std::string>{"block_1"};
     gravity_load["gravity_load"]["magnitude"] = -9.81;
     gravity_load["gravity_load"]["direction"] = std::vector<double>{0.0, 0.0, 1.0};
 

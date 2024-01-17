@@ -49,6 +49,14 @@ YAML::Node GetInputSchema() {
     YAML::Node set_wrapper_node;
     set_wrapper_node["set"] = set_node;
 
+    YAML::Node sets_node;
+    sets_node["type"] = "sequence";
+    sets_node["description"] = "the name of the sets";
+    YAML::Node sets_subitems_node;
+    sets_node["subitems"] = YAML::Node(YAML::NodeType::Null);
+    YAML::Node sets_wrapper_node;
+    sets_wrapper_node["sets"] = sets_node;
+
     YAML::Node magnitude_node;
     magnitude_node["type"] = "float";
     magnitude_node["description"] = "the magnitude of the velocity";
@@ -105,7 +113,7 @@ YAML::Node GetInputSchema() {
     gravity_load_node["description"] = "the gravity load";
     YAML::Node gravity_load_subitems_node;
     gravity_load_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    gravity_load_subitems_node["all_of"].push_back(set_wrapper_node);
+    gravity_load_subitems_node["all_of"].push_back(sets_wrapper_node);
     gravity_load_subitems_node["all_of"].push_back(magnitude_wrapper_node);
     gravity_load_subitems_node["all_of"].push_back(direction_wrapper_node);
     gravity_load_node["subitems"] = gravity_load_subitems_node;
@@ -127,7 +135,7 @@ YAML::Node GetInputSchema() {
     velocity_node["description"] = "the velocity";
     YAML::Node velocity_subitems_node;
     velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    velocity_subitems_node["all_of"].push_back(set_wrapper_node);
+    velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
     velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
     velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
     velocity_node["subitems"] = velocity_subitems_node;

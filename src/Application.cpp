@@ -59,6 +59,8 @@ void Application::Run(std::string& input_filename) {
 
     // Loop over loads and add them to force contributions
     for (auto load : loads) {
+        std::string name = load.begin()->first.as<std::string>();
+        std::cout << "Adding load " << name << " to force contributions" << std::endl;
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
     }
 

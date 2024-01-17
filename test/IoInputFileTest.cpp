@@ -152,7 +152,7 @@ TEST_F(IoInputFileTest, CheckInputMissingPartsSet) {
 
 // Create an input file with missing loads set
 TEST_F(IoInputFileTest, CheckInputMissingLoadsSet) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("set");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("sets");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
