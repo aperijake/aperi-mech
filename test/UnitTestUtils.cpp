@@ -183,8 +183,9 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
 }
 
 // Check that the nodal field values match the expected values
-// Expects a uniform field, values for every node are the same
-void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+// Checks either individual values or the sum of the values, depending on the check_sum flag
+// For checking individual values, expects a uniform field, values for every node are the same
+void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values, bool check_sum = false) {
     double absolute_tolerance = 1e-12;
     double relative_tolerance = 1e-12;
     typedef stk::mesh::Field<double, stk::mesh::Cartesian3d> VectorField;
@@ -193,25 +194,56 @@ void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& fi
     EXPECT_TRUE(p_field != nullptr) << "Field " << field_name << " not found";
 
     // Get the field data
-    VectorField& field_n = p_field->field_of_state(stk::mesh::StateN);
+    VectorField* p_field_n = p_field;
+    if (field_name != "mass") {  // mass is not stated
+        p_field_n = &p_field->field_of_state(stk::mesh::StateN);
+    }
+
+    // Sum of the values
+    std::array<double, 3> sum_values = {0.0, 0.0, 0.0};
 
     // Loop over all the buckets
     for (stk::mesh::Bucket* bucket : bulk.buckets(stk::topology::NODE_RANK)) {
         // Get the field data for the bucket
-        double* p_field_data_n_for_bucket = stk::mesh::field_data(field_n, *bucket);
+        double* p_field_data_n_for_bucket = stk::mesh::field_data(*p_field_n, *bucket);
 
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(field_n, *bucket);
+        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*p_field, *bucket);
         EXPECT_EQ(num_values_per_node, 3);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                if (expected_values[i] == 0) {
-                    EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
-                } else {
-                    EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                sum_values[i] += p_field_data_n_for_bucket[iI];
+                if (!check_sum) {  // Check individual values
+                    if (expected_values[i] == 0) {
+                        EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                    } else {
+                        EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
+                    }
                 }
             }
         }
     }
+    if (check_sum) {  // Check the sum of the values
+        for (unsigned i = 0; i < 3; i++) {
+            if (expected_values[i] == 0) {
+                EXPECT_NEAR(sum_values[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect";
+            } else {
+                EXPECT_NEAR(sum_values[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect";
+            }
+        }
+    }
+}
+
+// Check that the nodal field values match the expected values
+// Expects a uniform field, values for every node are the same
+void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    bool check_sum = false;
+    CheckFieldValues(bulk, field_name, expected_values, check_sum);
+}
+
+// Check that the sum of the nodal field values match the expected values
+void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    bool check_sum = true;
+    CheckFieldValues(bulk, field_name, expected_values, check_sum);
 }

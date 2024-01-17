@@ -21,3 +21,4 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>& expected_owned);
 void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values);
+void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values);

@@ -37,6 +37,7 @@
       "cwd": "${workspaceFolder}/../aperi-mech_build",
       "preLaunchTask": "make_debug"
     },
+    // TODO(jake): Fix the path to mpirun
     {
       "name": "MPI Debug Test",
       "type": "lldb",
