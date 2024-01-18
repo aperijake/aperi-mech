@@ -29,14 +29,20 @@ class ApplicationTest : public CaptureOutputTest {
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
         m_results_filename = test_suite_name + "_" + test_name + "_results.exo";
 
+        // Set to 1 block by default
+        m_num_blocks = 1;
+    }
+
+    // Write the test mesh to a file
+    void CreateTestMesh() {
         // Write the mesh to a temporary file and check that it is written correctly
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         aperi::IoMesh io_mesh(m_comm, io_mesh_parameters);
 
-        // Make a 1x1xnum_procs mesh
-        std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
+        // Make a 1x1x(num_procs*num_blocks) mesh
+        std::string mesh_string = "1x1x" + std::to_string(m_num_procs * m_num_blocks) + "|tets";
         WriteTestMesh(m_mesh_filename, io_mesh, mesh_string);
     }
 
@@ -67,4 +73,5 @@ class ApplicationTest : public CaptureOutputTest {
     std::string m_results_filename;
     stk::ParallelMachine m_comm;
     size_t m_num_procs;
+    size_t m_num_blocks;
 };

@@ -100,6 +100,7 @@ TEST_F(SolverTest, Explicit) {
     m_yaml_data = CreateTestYaml();
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     CreateInputFile();
+    CreateTestMesh();
     RunSolver();
     const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
     double final_time = 1.0;
@@ -114,16 +115,13 @@ TEST_F(SolverTest, Explicit) {
     CheckNodeFieldValues(*m_solver->GetBulkData(), "acceleration", expected_acceleration);
 }
 
-// Test that a basic explicit problem with gravity can be solved
-TEST_F(SolverTest, ExplicitGravity) {
-    m_yaml_data = CreateTestYaml();
-    CreateInputFile();
-    RunSolver();
-    const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
+// Driver function for gravity tests
+void TestGravity(const YAML::Node& yaml_data, std::shared_ptr<aperi::Solver> solver, int num_procs, int num_blocks) {
+    const YAML::Node velocity_node = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
     double final_time = 1.0;
     double magnitude = velocity_node["magnitude"].as<double>();
     std::array<double, 3> direction = velocity_node["direction"].as<std::array<double, 3>>();
-    const YAML::Node gravity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"];
+    const YAML::Node gravity_node = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"];
     double gravity_magnitude = gravity_node["magnitude"].as<double>();
     std::array<double, 3> gravity_direction = gravity_node["direction"].as<std::array<double, 3>>();
 
@@ -135,14 +133,53 @@ TEST_F(SolverTest, ExplicitGravity) {
         expected_displacement[i] += 0.5 * expected_acceleration[i] * final_time * final_time;
     }
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), "acceleration", expected_acceleration);
+    CheckNodeFieldValues(*solver->GetBulkData(), "displacement", expected_displacement);
+    CheckNodeFieldValues(*solver->GetBulkData(), "velocity", expected_velocity);
+    CheckNodeFieldValues(*solver->GetBulkData(), "acceleration", expected_acceleration);
 
-    double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
-    double mass = density * m_num_procs; // 1x1xnum_procs mesh
+    double density = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+    double mass = density * num_procs * num_blocks;  // 1x1x(num_procs * num_blocks) mesh
     std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckNodeFieldSum(*m_solver->GetBulkData(), "mass", expected_mass);
-
-    // TODO(jake): make a specific test for ExternalForceContributionGravity
+    CheckNodeFieldSum(*solver->GetBulkData(), "mass", expected_mass);
 }
+
+// Test that a basic explicit problem with gravity can be solved
+TEST_F(SolverTest, ExplicitGravity) {
+    m_yaml_data = CreateTestYaml();
+    m_num_blocks = 1;
+    CreateInputFile();
+    CreateTestMesh();
+    RunSolver();
+    TestGravity(m_yaml_data, m_solver, m_num_procs, m_num_blocks);
+}
+
+// Test that a basic explicit problem with gravity can be solved with multiple blocks
+TEST_F(SolverTest, ExplicitGravityMultipleBlocks) {
+    // TODO(jake): add the ability to generate a mesh with multiple blocks and specify the number of blocks in the input file
+    // STK QUESTION: How do I generate a mesh with multiple blocks?
+    // Want something like this:
+    /*
+        Joined blocks:
+         -------------------
+        |         |         |
+        | block_1 | block_2 |
+        |         |         |
+         --------------------
+    */
+    // Also, want something like this:
+    /*
+        Separated blocks:
+         ---------    ---------
+        |         |  |         |
+        | block_1 |  | block_2 |
+        |         |  |         |
+         ---------    ----------
+    */
+    m_yaml_data = CreateTestYaml();
+    m_num_blocks = 2;
+    CreateInputFile();
+    CreateTestMesh();
+    RunSolver();
+    TestGravity(m_yaml_data, m_solver, m_num_procs, m_num_blocks);
+}
+// TODO(jake): make a specific test for ExternalForceContributionGravity

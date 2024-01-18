@@ -14,6 +14,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
 
     m_yaml_data = CreateTestYaml();
     CreateInputFile();
+    CreateTestMesh();
 
     // Run application
     app.Run(m_filename);
