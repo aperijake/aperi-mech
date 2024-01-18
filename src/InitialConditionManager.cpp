@@ -17,26 +17,31 @@ void ChangeLength(std::vector<double>& vector, double new_magnitude) {
     }
 }
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<aperi::FieldData>& field_data) {
-    // Add initial condition to field data
-    // TODO(jake) add location, assuming everywhere for now
-    // TODO(jake) do something with name?
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta) {
+    // Loop over initial conditions
     for (const auto& initial_condition : initial_conditions) {
-        const std::string type = initial_condition.begin()->first.as<std::string>();
+        // Get this initial condition node
         const YAML::Node initial_condition_node = initial_condition.begin()->second;
-        bool found = false;
-        for (auto& field : field_data) {
-            if (type == field.name) {
-                const double magnitude = initial_condition_node["magnitude"].as<double>();
-                std::vector<double> vector = initial_condition_node["direction"].as<std::vector<double>>();
-                ChangeLength(vector, magnitude);
-                // Set initial values
-                field.initial_values = vector;
-                found = true;
-            }
+
+        // Get the magnitude and direction, and change the length to match the magnitude
+        const double magnitude = initial_condition_node["magnitude"].as<double>();
+        std::vector<double> vector = initial_condition_node["direction"].as<std::vector<double>>();
+        ChangeLength(vector, magnitude);
+
+        // Get the type of initial condition
+        const std::string type = initial_condition.begin()->first.as<std::string>();
+
+        // Loop over sets from initial condition
+        std::vector<std::string> sets;
+        if (initial_condition_node["sets"]) {
+            sets = initial_condition_node["sets"].as<std::vector<std::string>>();
         }
-        if (!found) {
-            throw std::runtime_error("Initial condition type not found in field data");
+
+        // Loop over sets
+        for (const auto& set : sets) {
+            if (field_manager->SetInitialFieldValues(meta, set, type, vector) == 1) {
+                throw std::runtime_error("Initial condition field type " + type + " not found.");
+            }
         }
     }
 }

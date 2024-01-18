@@ -22,17 +22,15 @@ void Application::Run(std::string& input_filename) {
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
-    // Get field data and initial conditions
+    // Get field data
     // STK QUESTION: Thoughts on how I am doing this.
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-    std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(procedure_id);
-    AddInitialConditions(initial_conditions, field_data);
 
     // Create field manager
     m_field_manager = CreateFieldManager(field_data);
 
     // Create an IO mesh object
-    // STK QUESTION: Most of the next few sections are from /stk/stk_io/example
+    // STK QUESTION: Most of IoMesh is from /stk/stk_io/example
     // STK QUESTION: Should that example be elsewhere in the repo?
     // STK QUESTION: Is this the best way to do this?
     IoMeshParameters io_mesh_parameters;  // Default parameters
@@ -71,6 +69,10 @@ void Application::Run(std::string& input_filename) {
         std::cout << "Adding load " << name << " to force contributions" << std::endl;
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
     }
+
+    // Set initial conditions
+    std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(procedure_id);
+    AddInitialConditions(initial_conditions, m_field_manager, m_io_mesh->GetMetaData());
 
     // Get the time stepper
     std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));

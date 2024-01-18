@@ -27,10 +27,8 @@ class SolverTest : public ApplicationTest {
         // Create an IO input file object and read the input file
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
 
-        // Get field data and initial conditions
+        // Get field data
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-        std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
-        AddInitialConditions(initial_conditions, field_data);
 
         // Create field manager
         m_field_manager = CreateFieldManager(field_data);
@@ -67,6 +65,10 @@ class SolverTest : public ApplicationTest {
         for (auto load : loads) {
             m_external_force_contributions.push_back(aperi::CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
         }
+
+        // Set initial conditions
+        std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
+        AddInitialConditions(initial_conditions, m_field_manager, m_io_mesh->GetMetaData());
 
         // Get the time stepper
         std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(0));

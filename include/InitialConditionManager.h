@@ -1,12 +1,20 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 namespace YAML {
 class Node;
 }  // namespace YAML
+
+namespace stk {
+namespace mesh {
+class MetaData;
+}  // namespace mesh
+}  // namespace stk
+
 namespace aperi {
-class FieldData;
+class FieldManager;
 }  // namespace aperi
 
 /**
@@ -17,6 +25,7 @@ class FieldData;
  * the initial conditions.
  *
  * @param initial_conditions A vector of YAML nodes representing the initial conditions.
- * @param field_data A vector of FieldData objects to add the initial conditions to.
+ * @param field_manager A shared pointer to a FieldManager object to which the initial conditions are added.
+ * @param meta_data The meta data to add the initial conditions to.
  */
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::vector<aperi::FieldData>& field_data);
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta_data);

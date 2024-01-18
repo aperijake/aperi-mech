@@ -18,13 +18,13 @@ enum class FieldDataType { SCALAR,
 
 /**
  * @struct FieldData
- * @brief Struct for field data.
+ * @brief Represents the data of a field.
  */
 struct FieldData {
-    std::string name;
-    FieldDataType data_type;
-    int number_of_states;
-    std::vector<double> initial_values;
+    std::string name;                    ///< The name of the field.
+    FieldDataType data_type;             ///< The data type of the field.
+    int number_of_states;                ///< The number of states of the field.
+    std::vector<double> initial_values;  ///< The initial values of the field. Only used to apply to entire mesh. Not used for individual sets.
 };
 
 /**
@@ -69,6 +69,45 @@ class FieldManager {
         for (const auto& field : m_field_data) {
             AddField(meta_data, field);
         }
+    }
+
+    /**
+     * @brief Sets the initial field values for a set.
+     * @param meta_data The meta data to set the initial field values in.
+     * @param set_name The name of the set to set the initial field values for.
+     * @param field_name The name of the field to set the initial field values for.
+     * @param values The values to set the initial field values to.
+     * @return 0 for success, 1 for failure.
+     * @note This function is hard coded to a vector field. Fix this.
+     * @note This function is hard coded to a node rank. Fix this.
+     */
+    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<double>& values) {
+        // TODO(jake) This is hard coded to a vector field on node field. Fix this.
+        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+
+        // Get the field
+        VectorField* field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, field_name.c_str());
+        // Return 1 for failure if the field is not found
+        if (field == nullptr) {
+            return 1;
+        }
+
+        stk::mesh::Part* set_part = meta_data.get_part(set_name);
+        stk::mesh::Selector set_selector(*set_part);
+
+        // Loop over all the buckets
+        for (stk::mesh::Bucket* bucket : set_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (auto&& node : *bucket) {
+                // Get the field values for the node
+                double* field_values = stk::mesh::field_data(*field, node);
+
+                // Set the field values for the node
+                for (size_t i = 0; i < field->number_of_states(); ++i) {
+                    field_values[i] = values[i];
+                }
+            }
+        }
+        return 0;
     }
 
    private:
