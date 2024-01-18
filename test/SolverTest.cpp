@@ -140,7 +140,8 @@ TEST_F(SolverTest, ExplicitGravity) {
     CheckNodeFieldValues(*m_solver->GetBulkData(), "acceleration", expected_acceleration);
 
     double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
-    std::array<double, 3> expected_mass = {density, density, density};
+    double mass = density * m_num_procs; // 1x1xnum_procs mesh
+    std::array<double, 3> expected_mass = {mass, mass, mass};
     CheckNodeFieldSum(*m_solver->GetBulkData(), "mass", expected_mass);
 
     // TODO(jake): make a specific test for ExternalForceContributionGravity

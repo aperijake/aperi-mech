@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_topology/topology.hpp>
+#include <stk_util/parallel/Parallel.hpp>
 #include <string>
 #include <system_error>
 
@@ -204,6 +205,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
 
     // Loop over all the buckets
     for (stk::mesh::Bucket* bucket : bulk.buckets(stk::topology::NODE_RANK)) {
+        bool owned = bucket->owned();
         // Get the field data for the bucket
         double* p_field_data_n_for_bucket = stk::mesh::field_data(*p_field_n, *bucket);
 
@@ -213,7 +215,9 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                sum_values[i] += p_field_data_n_for_bucket[iI];
+                if (owned){
+                    sum_values[i] += p_field_data_n_for_bucket[iI];
+                }
                 if (!check_sum) {  // Check individual values
                     if (expected_values[i] == 0) {
                         EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
@@ -225,11 +229,13 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
         }
     }
     if (check_sum) {  // Check the sum of the values
+        std::array<double, 3> sum_values_global = {0.0, 0.0, 0.0};
+        stk::all_reduce_sum(bulk.parallel(), sum_values.data(), sum_values_global.data(), 3);
         for (unsigned i = 0; i < 3; i++) {
             if (expected_values[i] == 0) {
-                EXPECT_NEAR(sum_values[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect";
+                EXPECT_NEAR(sum_values_global[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect";
             } else {
-                EXPECT_NEAR(sum_values[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect";
+                EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect";
             }
         }
     }
