@@ -10,6 +10,14 @@
 #include "YamlUtils.h"
 
 namespace aperi {
+
+/**
+ * @class IoInputFile
+ * @brief Class for handling input files in YAML format.
+ *
+ * This class provides methods for reading from and writing to YAML files,
+ * as well as accessing specific data within the files.
+ */
 class IoInputFile {
    public:
     IoInputFile(std::string filename, bool check_input = true) : m_filename(filename) {

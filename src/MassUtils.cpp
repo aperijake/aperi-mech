@@ -16,6 +16,7 @@ namespace aperi {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::Part *part, double density) {
+    // STK QUESTION: Just a general review of how I am using STK here would be helpful
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
     stk::mesh::Selector part_selector(*part);

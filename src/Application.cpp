@@ -16,13 +16,14 @@
 namespace aperi {
 
 void Application::Run(std::string& input_filename) {
-    // TODO(jake): hard coding to 1 procedure for now. Fix this.
+    // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
 
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
     // Get field data and initial conditions
+    // STK QUESTION: Thoughts on how I am doing this.
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
     std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(procedure_id);
     AddInitialConditions(initial_conditions, field_data);
@@ -31,6 +32,9 @@ void Application::Run(std::string& input_filename) {
     m_field_manager = CreateFieldManager(field_data);
 
     // Create an IO mesh object
+    // STK QUESTION: Most of the next few sections are from /stk/stk_io/example
+    // STK QUESTION: Should that example be elsewhere in the repo?
+    // STK QUESTION: Is this the best way to do this?
     IoMeshParameters io_mesh_parameters;  // Default parameters
     io_mesh_parameters.compose_output = true;
     m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
@@ -51,8 +55,9 @@ void Application::Run(std::string& input_filename) {
         std::string part_location = part["set"].as<std::string>();
         std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
         // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
-        // STK QUESTION: How do I check if a part exists?
-        // STK QUESTION: Is declaring a part here the right thing to do?
+        // STK QUESTION: How do I check if a part exists? I could probably RTFM this one.
+        // STK QUESTION: Is declaring a part here the right thing to do? Is there a more appropriate way?
+        // STK QUESTION: Would it be better to pass a selector here instead of a part?
         stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
         m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
     }

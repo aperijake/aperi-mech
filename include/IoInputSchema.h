@@ -6,8 +6,12 @@
 
 namespace aperi {
 
+/**
+ * Retrieves the input schema as a YAML node.
+ *
+ * @return The YAML node representing the input schema.
+ */
 YAML::Node GetInputSchema() {
-    // Create the input schema
     // TODO(jake): Refactor this to be more readable. Maybe create a function for each node type.
 
     YAML::Node file_node;
