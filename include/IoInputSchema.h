@@ -158,40 +158,29 @@ YAML::Node GetInputSchema() {
 
     // Abscissa values node
     YAML::Node abscissa_values_node;
-    abscissa_values_node["type"] = "sequence";
+    abscissa_values_node["type"] = "float_vector";
     abscissa_values_node["description"] = "the abscissa values";
-    YAML::Node abscissa_values_subitems_node;
-    abscissa_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    abscissa_values_node["subitems"] = YAML::Node(YAML::NodeType::Null);
     YAML::Node abscissa_values_wrapper_node;
     abscissa_values_wrapper_node["abscissa_values"] = abscissa_values_node;
 
     // Ordinate values node
     YAML::Node ordinate_values_node;
-    ordinate_values_node["type"] = "sequence";
+    ordinate_values_node["type"] = "float_vector";
     ordinate_values_node["description"] = "the ordinate values";
-    YAML::Node ordinate_values_subitems_node;
-    ordinate_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    ordinate_values_node["subitems"] = YAML::Node(YAML::NodeType::Null);
     YAML::Node ordinate_values_wrapper_node;
     ordinate_values_wrapper_node["ordinate_values"] = ordinate_values_node;
 
-    // Sequence of values node, each sequence is a pair of abscissa and ordinate
-    YAML::Node sequence_of_values_node;
-    sequence_of_values_node["type"] = "sequence";
-    sequence_of_values_node["description"] = "a sequence of values";
-    YAML::Node sequence_of_values_subitems_node;
-    sequence_of_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    sequence_of_values_subitems_node["all_of"].push_back(abscissa_values_wrapper_node);
-    sequence_of_values_subitems_node["all_of"].push_back(ordinate_values_wrapper_node);
-    YAML::Node sequence_of_values_wrapper_node;
-    sequence_of_values_wrapper_node["sequence_of_values"] = sequence_of_values_node;
-
-    // Time ramp_function node
+    // Time ramp function node
     YAML::Node time_ramp_function_node;
-    time_ramp_function_node["type"] = "string";
+    time_ramp_function_node["type"] = "map";
     time_ramp_function_node["description"] = "a piecewise linear function of time";
     YAML::Node time_ramp_function_subitems_node;
     time_ramp_function_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    time_ramp_function_subitems_node["all_of"].push_back(sequence_of_values_wrapper_node);
+    time_ramp_function_subitems_node["all_of"].push_back(abscissa_values_wrapper_node);
+    time_ramp_function_subitems_node["all_of"].push_back(ordinate_values_wrapper_node);
+    time_ramp_function_node["subitems"] = time_ramp_function_subitems_node;
     YAML::Node time_ramp_function_wrapper_node;
     time_ramp_function_wrapper_node["time_ramp_function"] = time_ramp_function_node;
 
@@ -230,9 +219,9 @@ YAML::Node GetInputSchema() {
     boundary_conditions_node["type"] = "sequence";
     boundary_conditions_node["description"] = "the boundary conditions";
     YAML::Node boundary_conditions_subitems_node;
-    boundary_conditions_subitems_node["one_or_more_of"] = YAML::Node(YAML::NodeType::Sequence);
-    boundary_conditions_subitems_node["one_or_more_of"].push_back(specified_velocity_wrapper_node);
-    boundary_conditions_subitems_node["one_or_more_of"].push_back(specified_displacement_wrapper_node);
+    boundary_conditions_subitems_node["optional"] = YAML::Node(YAML::NodeType::Sequence);
+    boundary_conditions_subitems_node["optional"].push_back(specified_velocity_wrapper_node);
+    boundary_conditions_subitems_node["optional"].push_back(specified_displacement_wrapper_node);
     boundary_conditions_node["subitems"] = boundary_conditions_subitems_node;
     YAML::Node boundary_conditions_wrapper_node;
     boundary_conditions_wrapper_node["boundary_conditions"] = boundary_conditions_node;

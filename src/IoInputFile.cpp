@@ -63,6 +63,11 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
             if (!scalar_pair.second) {
                 ++found_count;
             }
+        } else if (type == "float_vector") {
+            std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
         } else if (type == "string") {
             std::pair<std::string, int> scalar_pair = GetScalarValue<std::string>(input_node, name, verbose);
             if (!scalar_pair.second) {
@@ -106,7 +111,7 @@ std::map<std::string, std::string> ParseSubitemSchema(const YAML::Node& schema_i
     }
     // Check schema correctness
     if (schema_subitems_names_types.size() == 0) {
-        throw std::runtime_error("Schema Error: '" + subitem_string + "' node must have at least one item.");
+        throw std::runtime_error("Schema Error: '" + subitem_string + "' node must have at least one item. Schema item: " + schema_item_node.begin()->first.as<std::string>());
     }
     return schema_subitems_names_types;
 }
@@ -124,7 +129,7 @@ void AddFoundNodesToMap(const std::map<std::string, YAML::Node>& found_nodes, co
 }
 
 // Parse subitems, check input against schema, and return the found nodes and associated schema
-// This is where the subitems (on_of, one_or_more_of, all_of, optional) are defined and handled
+// This is where the subitems (one_of, one_or_more_of, all_of, optional) are defined and handled
 std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(const YAML::Node& input_node, const std::vector<YAML::Node>& schema_subitems, bool verbose = false) {
     std::vector<std::pair<YAML::Node, YAML::Node>> found_nodes_and_associated_schema;
     int return_code = 0;

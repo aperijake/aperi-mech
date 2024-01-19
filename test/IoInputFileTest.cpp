@@ -58,6 +58,7 @@ TEST_F(IoInputFileTest, CheckInputValid) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);  // Verbose for coverage
 }
 
+// -------- Procedures Level --------
 // Create an input file with missing mesh
 TEST_F(IoInputFileTest, CheckInputMissingMeshNode) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"].remove("mesh");
@@ -94,6 +95,7 @@ TEST_F(IoInputFileTest, CheckInputMissingOutputFile) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
 }
 
+// -------- Initial Conditions --------
 // Create an input file with missing initial conditions direction
 TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("direction");
@@ -132,6 +134,57 @@ TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
 }
 
+// -------- Boundary Conditions --------
+// Test adding boundary conditions to the input file
+TEST_F(IoInputFileTest, AddBoundaryConditions) {
+    AddBoundaryConditions(m_yaml_data);
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 0);
+}
+
+// Create an input file with missing boundary condition direction
+TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionDirection) {
+    AddBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("direction");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with missing boundary condition magnitude
+TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionMagnitude) {
+    AddBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("magnitude");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with missing boundary condition sets
+TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionSet) {
+    AddBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("sets");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with missing boundary condition time function
+TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionTimeFunction) {
+    AddBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("time_ramp_function");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// -------- Parts --------
 // Create an input file with missing parts material
 TEST_F(IoInputFileTest, CheckInputMissingPartsMaterial) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"].remove("material");
@@ -150,6 +203,7 @@ TEST_F(IoInputFileTest, CheckInputMissingPartsSet) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// -------- Loads --------
 // Create an input file with missing loads set
 TEST_F(IoInputFileTest, CheckInputMissingLoadsSet) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("sets");
@@ -177,6 +231,7 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// -------- Time Stepper --------
 // Create an input file with missing time stepper
 TEST_F(IoInputFileTest, CheckInputMissingTimeStepper) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("time_stepper");
@@ -204,6 +259,7 @@ TEST_F(IoInputFileTest, CheckInputMissingTimeEndDirect) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// -------- Basic Checks --------
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = YAML::Load("[1, 2, 3]");
@@ -236,6 +292,7 @@ TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 0);
 }
 
+// -------- IO --------
 // Test that the IoInputFile class can read input files correctly
 TEST_F(IoInputFileTest, Read) {
     aperi::IoInputFile io_input_file = GetIoInputFile();
@@ -265,12 +322,4 @@ TEST_F(IoInputFileTest, WriteErrorCases) {
     aperi::IoInputFile io_input_file = GetIoInputFile();
     int result = aperi::IoInputFile::Write(m_filename, m_yaml_data);
     EXPECT_EQ(result, 1);
-}
-
-// Check input schema
-TEST_F(IoInputFileTest, CheckInputWithSchema) {
-    aperi::IoInputFile io_input_file = GetIoInputFile(false);
-
-    // Check input file
-    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);  // Verbose for coverage
 }

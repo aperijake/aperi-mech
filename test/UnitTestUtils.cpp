@@ -133,6 +133,29 @@ YAML::Node CreateTestYaml() {
     return root;
 }
 
+void AddBoundaryConditions(YAML::Node& root) {
+    // Create the boundary conditions list
+    YAML::Node boundary_conditions(YAML::NodeType::Sequence);
+
+    // Create the first boundary condition
+    YAML::Node displacement;
+    displacement["displacement"]["sets"] = std::vector<std::string>{"block_1"};
+    displacement["displacement"]["direction"] = std::vector<double>{0.0, 0.0, -1.0};
+    displacement["displacement"]["magnitude"] = 4.56;
+
+    // Add the ramp function to the boundary condition
+    YAML::Node ramp_function;
+    ramp_function["abscissa_values"] = std::vector<double>{0.0, 1.0};
+    ramp_function["ordinate_values"] = std::vector<double>{0.0, 1.0};
+    displacement["displacement"]["time_ramp_function"] = ramp_function;
+
+    // Add the boundary condition to the list
+    boundary_conditions.push_back(displacement);
+
+    // Add the boundary conditions list to the root node
+    root["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"] = boundary_conditions;
+}
+
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
