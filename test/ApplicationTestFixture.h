@@ -29,6 +29,9 @@ class ApplicationTest : public CaptureOutputTest {
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
         m_results_filename = test_suite_name + "_" + test_name + "_results.exo";
 
+        // No sidesets by default
+        m_mesh_sidesets = "";
+
         // Set to 1 block by default
         m_num_blocks = 1;
     }
@@ -42,7 +45,7 @@ class ApplicationTest : public CaptureOutputTest {
         m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
         // Make a 1x1x(num_procs*num_blocks) mesh
-        std::string mesh_string = "1x1x" + std::to_string(m_num_procs * m_num_blocks) + "|tets";
+        std::string mesh_string = "1x1x" + std::to_string(m_num_procs * m_num_blocks) + m_mesh_sidesets + "|tets";
         WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_manager);
     }
 
@@ -71,6 +74,7 @@ class ApplicationTest : public CaptureOutputTest {
     std::string m_filename;
     std::string m_mesh_filename;
     std::string m_results_filename;
+    std::string m_mesh_sidesets;
     stk::ParallelMachine m_comm;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
     size_t m_num_procs;

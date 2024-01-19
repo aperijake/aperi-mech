@@ -167,6 +167,7 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
     std::vector<size_t> max_global_counts(k_num_ranks, 0);
     std::vector<size_t> aura_global_counts(k_num_ranks, 0);
     std::vector<size_t> shared_not_owned_counts(k_num_ranks, 0);
+    // STK QUESTION: It is not super clear what this is returning.
     stk::mesh::comm_mesh_counts(bulk, global_counts, min_global_counts, max_global_counts);
     stk::mesh::Selector shared_not_owned = bulk.mesh_meta_data().globally_shared_part() & !bulk.mesh_meta_data().locally_owned_part();
     stk::mesh::count_entities(shared_not_owned, bulk, shared_not_owned_counts);
@@ -215,7 +216,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                if (owned){
+                if (owned) {
                     sum_values[i] += p_field_data_n_for_bucket[iI];
                 }
                 if (!check_sum) {  // Check individual values
