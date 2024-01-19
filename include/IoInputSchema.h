@@ -134,27 +134,108 @@ YAML::Node GetInputSchema() {
     YAML::Node loads_wrapper_node;
     loads_wrapper_node["loads"] = loads_node;
 
-    YAML::Node velocity_node;
-    velocity_node["type"] = "map";
-    velocity_node["description"] = "the velocity";
-    YAML::Node velocity_subitems_node;
-    velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
-    velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
-    velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
-    velocity_node["subitems"] = velocity_subitems_node;
-    YAML::Node velocity_wrapper_node;
-    velocity_wrapper_node["velocity"] = velocity_node;
+    YAML::Node initial_velocity_node;
+    initial_velocity_node["type"] = "map";
+    initial_velocity_node["description"] = "the initial velocity";
+    YAML::Node initial_velocity_subitems_node;
+    initial_velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    initial_velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
+    initial_velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
+    initial_velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
+    initial_velocity_node["subitems"] = initial_velocity_subitems_node;
+    YAML::Node initial_velocity_wrapper_node;
+    initial_velocity_wrapper_node["velocity"] = initial_velocity_node;
 
     YAML::Node initial_conditions_node;
     initial_conditions_node["type"] = "sequence";
     initial_conditions_node["description"] = "the initial conditions";
     YAML::Node initial_conditions_subitems_node;
     initial_conditions_subitems_node["optional"] = YAML::Node(YAML::NodeType::Sequence);
-    initial_conditions_subitems_node["optional"].push_back(velocity_wrapper_node);
+    initial_conditions_subitems_node["optional"].push_back(initial_velocity_wrapper_node);
     initial_conditions_node["subitems"] = initial_conditions_subitems_node;
     YAML::Node initial_conditions_wrapper_node;
     initial_conditions_wrapper_node["initial_conditions"] = initial_conditions_node;
+
+    // Abscissa values node
+    YAML::Node abscissa_values_node;
+    abscissa_values_node["type"] = "sequence";
+    abscissa_values_node["description"] = "the abscissa values";
+    YAML::Node abscissa_values_subitems_node;
+    abscissa_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    YAML::Node abscissa_values_wrapper_node;
+    abscissa_values_wrapper_node["abscissa_values"] = abscissa_values_node;
+
+    // Ordinate values node
+    YAML::Node ordinate_values_node;
+    ordinate_values_node["type"] = "sequence";
+    ordinate_values_node["description"] = "the ordinate values";
+    YAML::Node ordinate_values_subitems_node;
+    ordinate_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    YAML::Node ordinate_values_wrapper_node;
+    ordinate_values_wrapper_node["ordinate_values"] = ordinate_values_node;
+
+    // Sequence of values node, each sequence is a pair of abscissa and ordinate
+    YAML::Node sequence_of_values_node;
+    sequence_of_values_node["type"] = "sequence";
+    sequence_of_values_node["description"] = "a sequence of values";
+    YAML::Node sequence_of_values_subitems_node;
+    sequence_of_values_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    sequence_of_values_subitems_node["all_of"].push_back(abscissa_values_wrapper_node);
+    sequence_of_values_subitems_node["all_of"].push_back(ordinate_values_wrapper_node);
+    YAML::Node sequence_of_values_wrapper_node;
+    sequence_of_values_wrapper_node["sequence_of_values"] = sequence_of_values_node;
+
+    // Time ramp_function node
+    YAML::Node time_ramp_function_node;
+    time_ramp_function_node["type"] = "string";
+    time_ramp_function_node["description"] = "a piecewise linear function of time";
+    YAML::Node time_ramp_function_subitems_node;
+    time_ramp_function_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    time_ramp_function_subitems_node["all_of"].push_back(sequence_of_values_wrapper_node);
+    YAML::Node time_ramp_function_wrapper_node;
+    time_ramp_function_wrapper_node["time_ramp_function"] = time_ramp_function_node;
+
+    // Specified velocity node
+    YAML::Node specified_velocity_node;
+    specified_velocity_node["type"] = "map";
+    specified_velocity_node["description"] = "a velocity boundary condition";
+    YAML::Node specified_velocity_subitems_node;
+    specified_velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    specified_velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
+    specified_velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
+    specified_velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
+    specified_velocity_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
+    specified_velocity_subitems_node["one_of"].push_back(time_ramp_function_wrapper_node);
+    specified_velocity_node["subitems"] = specified_velocity_subitems_node;
+    YAML::Node specified_velocity_wrapper_node;
+    specified_velocity_wrapper_node["velocity"] = specified_velocity_node;
+
+    // Specified displacement node
+    YAML::Node specified_displacement_node;
+    specified_displacement_node["type"] = "map";
+    specified_displacement_node["description"] = "a displacement boundary condition";
+    YAML::Node specified_displacement_subitems_node;
+    specified_displacement_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    specified_displacement_subitems_node["all_of"].push_back(sets_wrapper_node);
+    specified_displacement_subitems_node["all_of"].push_back(magnitude_wrapper_node);
+    specified_displacement_subitems_node["all_of"].push_back(direction_wrapper_node);
+    specified_displacement_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
+    specified_displacement_subitems_node["one_of"].push_back(time_ramp_function_wrapper_node);
+    specified_displacement_node["subitems"] = specified_displacement_subitems_node;
+    YAML::Node specified_displacement_wrapper_node;
+    specified_displacement_wrapper_node["displacement"] = specified_displacement_node;
+
+    // Boundary conditions node
+    YAML::Node boundary_conditions_node;
+    boundary_conditions_node["type"] = "sequence";
+    boundary_conditions_node["description"] = "the boundary conditions";
+    YAML::Node boundary_conditions_subitems_node;
+    boundary_conditions_subitems_node["one_or_more_of"] = YAML::Node(YAML::NodeType::Sequence);
+    boundary_conditions_subitems_node["one_or_more_of"].push_back(specified_velocity_wrapper_node);
+    boundary_conditions_subitems_node["one_or_more_of"].push_back(specified_displacement_wrapper_node);
+    boundary_conditions_node["subitems"] = boundary_conditions_subitems_node;
+    YAML::Node boundary_conditions_wrapper_node;
+    boundary_conditions_wrapper_node["boundary_conditions"] = boundary_conditions_node;
 
     YAML::Node density_node;
     density_node["type"] = "float";
@@ -252,6 +333,7 @@ YAML::Node GetInputSchema() {
     explicit_dynamics_procedure_subitems_node["all_of"].push_back(output_wrapper_node);
     explicit_dynamics_procedure_subitems_node["optional"] = YAML::Node(YAML::NodeType::Sequence);
     explicit_dynamics_procedure_subitems_node["optional"].push_back(initial_conditions_wrapper_node);
+    explicit_dynamics_procedure_subitems_node["optional"].push_back(boundary_conditions_wrapper_node);
     explicit_dynamics_procedure_subitems_node["optional"].push_back(loads_wrapper_node);
     explicit_dynamics_procedure_node["subitems"] = explicit_dynamics_procedure_subitems_node;
     YAML::Node explicit_dynamics_procedure_wrapper_node;

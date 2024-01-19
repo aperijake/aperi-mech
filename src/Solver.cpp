@@ -191,6 +191,11 @@ void ExplicitSolver::Solve() {
         // Compute first partial update
         ComputeFirstPartialUpdate(time, time_increment);
 
+        // Enforce essential boundary conditions
+        // 6. Enforce velocity boundary conditions:
+        //    a: if node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
+        // 7. Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+
         // Compute the force, f^{n+1}
         ComputeForce();
 
