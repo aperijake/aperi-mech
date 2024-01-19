@@ -77,7 +77,7 @@ class FieldManager {
      * @param set_name The name of the set to set the initial field values for.
      * @param field_name The name of the field to set the initial field values for.
      * @param values The values to set the initial field values to.
-     * @return 0 for success, 1 for failure.
+     * @return 0 for success, 1 for failure to find the field, 2 for failure to find the part.
      * @note This function is hard coded to a vector field. Fix this.
      * @note This function is hard coded to a node rank. Fix this.
      */
@@ -93,6 +93,10 @@ class FieldManager {
         }
 
         stk::mesh::Part* set_part = meta_data.get_part(set_name);
+        // Return 1 for failure if the part is not found
+        if (set_part == nullptr) {
+            return 2;
+        }
         stk::mesh::Selector set_selector(*set_part);
 
         // Loop over all the buckets

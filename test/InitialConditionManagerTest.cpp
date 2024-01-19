@@ -84,18 +84,31 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
     EXPECT_TRUE(found);
 }
 
-//// Test AddInitialConditions function with invalid type
-// TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidType) {
-//     // Create initial conditions with invalid type
-//     std::vector<YAML::Node> initial_conditions;
-//     YAML::Node bad_type;
-//     bad_type["bad_type"]["set"] = "block_1";
-//     bad_type["bad_type"]["magnitude"] = 1.23;
-//     bad_type["bad_type"]["direction"].push_back(1);
-//     bad_type["bad_type"]["direction"].push_back(0);
-//     bad_type["bad_type"]["direction"].push_back(0);
-//     initial_conditions.push_back(bad_type);
-//
-//     // Add initial conditions to field data and expect an exception to be thrown
-//     EXPECT_THROW(AddInitialConditions(initial_conditions, m_field_data), std::exception);
-// }
+// Test AddInitialConditions function with invalid type
+TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidType) {
+    // Create input file
+    m_yaml_data = CreateTestYaml();
+
+    // Create an invalid type
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["invalid_type"] = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"];
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0].remove("velocity");
+
+    CreateInputFile();
+
+    // Add initial conditions to field data and expect an exception to be thrown
+    EXPECT_THROW(AddTestInitialConditions(), std::exception);
+}
+
+// Test AddInitialConditions function with invalid set
+TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidSet) {
+    // Create input file
+    m_yaml_data = CreateTestYaml();
+
+    // Create an invalid set
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["sets"][0] = "invalid_set";
+
+    CreateInputFile();
+
+    // Add initial conditions to field data and expect an exception to be thrown
+    EXPECT_THROW(AddTestInitialConditions(), std::exception);
+}

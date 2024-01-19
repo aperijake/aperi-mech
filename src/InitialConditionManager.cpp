@@ -39,8 +39,11 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
 
         // Loop over sets
         for (const auto& set : sets) {
-            if (field_manager->SetInitialFieldValues(meta, set, type, vector) == 1) {
+            int return_code = field_manager->SetInitialFieldValues(meta, set, type, vector);
+            if (return_code == 1) {
                 throw std::runtime_error("Initial condition field type " + type + " not found.");
+            } else if (return_code == 2) {
+                throw std::runtime_error("Initial condition set " + set + " not found.");
             }
         }
     }
