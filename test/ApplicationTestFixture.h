@@ -34,16 +34,16 @@ class ApplicationTest : public CaptureOutputTest {
     }
 
     // Write the test mesh to a file
-    void CreateTestMesh() {
+    void CreateTestMesh(const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr) {
         // Write the mesh to a temporary file and check that it is written correctly
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
-        aperi::IoMesh io_mesh(m_comm, io_mesh_parameters);
+        m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
         // Make a 1x1x(num_procs*num_blocks) mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs * m_num_blocks) + "|tets";
-        WriteTestMesh(m_mesh_filename, io_mesh, mesh_string);
+        WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_manager);
     }
 
     void CreateInputFile() {
@@ -72,6 +72,7 @@ class ApplicationTest : public CaptureOutputTest {
     std::string m_mesh_filename;
     std::string m_results_filename;
     stk::ParallelMachine m_comm;
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
     size_t m_num_procs;
     size_t m_num_blocks;
 };
