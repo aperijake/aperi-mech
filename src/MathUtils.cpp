@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cmath>
+#include <stdexcept>
+#include <vector>
 
 namespace aperi {
 // Compute the cross product of two vectors
@@ -61,6 +63,32 @@ void ChangeLength(std::vector<double> &vector, double new_magnitude) {
     for (auto &component : vector) {
         component *= scale_factor;
     }
+}
+
+// Linear interpolation
+double LinearInterpolation(double x, const std::vector<double> &abscissa, const std::vector<double> &ordinate) {
+    if (abscissa.size() != ordinate.size()) {
+        throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
+    }
+    if (abscissa.size() == 0) {
+        throw std::runtime_error("Abscissa and ordinate vectors must have at least one element.");
+    }
+    if (abscissa.size() == 1) {
+        return ordinate[0];
+    }
+    if (x < abscissa[0]) {
+        return ordinate[0];
+    }
+    if (x > abscissa[abscissa.size() - 1]) {
+        return ordinate[abscissa.size() - 1];
+    }
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x >= abscissa[i] && x <= abscissa[i + 1]) {
+            double slope = (ordinate[i + 1] - ordinate[i]) / (abscissa[i + 1] - abscissa[i]);
+            return ordinate[i] + slope * (x - abscissa[i]);
+        }
+    }
+    throw std::runtime_error("Linear interpolation failed.");
 }
 
 }  // namespace aperi

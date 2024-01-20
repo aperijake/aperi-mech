@@ -31,40 +31,33 @@ void BoundaryCondition::Apply(double time, double delta_time) {
 }
 
 // Set the time function
-std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& value_vector) {
+std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& component_value_vector) {
     // Get the time function node
-    const YAML::Node time_function_node = boundary_condition["time_function"];
+    const YAML::Node time_function_node = boundary_condition["time_function"].begin()->second;
 
     // Get the type of time function
-    std::string type = time_function_node.begin()->first.as<std::string>();
-
-    // Get the abscissa and ordinate
-    std::vector<double> abscissa = time_function_node["abscissa"].as<std::vector<double>>();
-    std::vector<double> ordinate = time_function_node["ordinate"].as<std::vector<double>>();
+    std::string type = boundary_condition["time_function"].begin()->first.as<std::string>();
 
     // Create a time function
     std::function<std::vector<double>(double, double)> time_function;
 
-    //// Set the time function
-    // if (type == "constant") {
-    //     time_function = [&time_function_node](double time, double delta_time) {
-    //         std::vector<double> result;
-    //         for (const auto& value : time_function_node) {
-    //             result.push_back(value.as<double>());
-    //         }
-    //         return
-    //     };
-    // } else if (type == "linear") {
-    //     m_time_function = [&time_function_node](double time) {
-    //         std::vector<double> result = time_function_node.as<std::vector<double>>();
-    //         for (auto& value : result) {
-    //             value *= time;
-    //         }
-    //         return result;
-    //     };
-    // } else {
-    //     throw std::runtime_error("Time function type " + type + " not found.");
-    // }
+    // Set the time function
+    if (type == "ramp_function") {
+        // Get the abscissa and ordinate
+        std::vector<double> abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
+        std::vector<double> ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
+
+        time_function = [&abscissa, &ordinate, &component_value_vector](double time, double delta_time) {
+            double time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
+            std::vector<double> result(0, component_value_vector.size());
+            for (size_t i = 0; i < component_value_vector.size(); ++i) {
+                result[i] = component_value_vector[i] * time_scale_factor;
+            }
+            return result;
+        };
+    } else {
+        throw std::runtime_error("Time function type " + type + " not found.");
+    }
     return time_function;
 }
 

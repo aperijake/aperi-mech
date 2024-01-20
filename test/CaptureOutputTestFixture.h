@@ -8,6 +8,9 @@
 class CaptureOutputTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        if (!m_capture_output) {
+            return;
+        }
         // Redirect cout and cerr to a stringstream buffer
         CaptureOutput();
     }
@@ -43,6 +46,9 @@ class CaptureOutputTest : public ::testing::Test {
     }
 
     void TearDown() override {
+        if (!m_capture_output) {
+            return;
+        }
         // Redirect cout and cerr to their old selves
         StopCapturingOutput();
 
@@ -58,4 +64,5 @@ class CaptureOutputTest : public ::testing::Test {
     std::streambuf *m_cout_streambuf;
     std::stringstream m_cerr_stream;
     std::streambuf *m_cerr_streambuf;
+    bool m_capture_output = true;
 };

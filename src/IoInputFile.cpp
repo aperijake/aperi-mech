@@ -44,42 +44,44 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
     return return_code;
 }
 // Get the next level down, if the next level is a map or sequence, return the map or sequence for recursive checking. Otherwise, this is the end of the recursion.
-std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node& input_node, const std::map<std::string, std::string>& names_types, bool verbose = false) {
+std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node& input_node, const std::map<std::string, std::string>& names_types, bool verbose = false, bool optional = false) {
     // Loop through one_or_more_of_names_types
     std::map<std::string, YAML::Node> found_names_and_nodes;
     int found_count = 0;
     for (const auto& name_type : names_types) {
         std::string type = name_type.second;
         std::string name = name_type.first;
+
         // Look for schema info in input file
-        if (type == "map" || type == "sequence") {
-            std::pair<YAML::Node, int> node_pair = GetNode(input_node, name);
+        if (type == "sequence" || type == "map") {
+            std::pair<YAML::Node, int> node_pair = GetNode(input_node, name, verbose, optional);
             if (!node_pair.second) {
                 found_names_and_nodes.emplace(name, node_pair.first);
                 ++found_count;
             }
+            continue;
         } else if (type == "float") {
-            std::pair<double, int> scalar_pair = GetScalarValue<double>(input_node, name, verbose);
+            std::pair<double, int> scalar_pair = GetScalarValue<double>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
             }
         } else if (type == "float_vector") {
-            std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose);
+            std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
             }
         } else if (type == "string") {
-            std::pair<std::string, int> scalar_pair = GetScalarValue<std::string>(input_node, name, verbose);
+            std::pair<std::string, int> scalar_pair = GetScalarValue<std::string>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
             }
         } else if (type == "direction_vector") {
-            std::pair<std::vector<double>, int> scalar_pair = GetDirectionVector(input_node, name, verbose);
+            std::pair<std::vector<double>, int> scalar_pair = GetDirectionVector(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
             }
         } else {
-            throw std::runtime_error("Schema Error: 'one_or_more_of' subitems must be of type 'node', 'float', 'string', or 'double_list'.");
+            throw std::runtime_error("Schema Error: 'one_or_more_of' subitems must be of type 'node', 'float', 'float_vector', 'string', or 'double_list'.");
         }
     }
     return std::make_pair(found_names_and_nodes, found_count);
@@ -195,7 +197,7 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
             std::map<std::string, std::string> optional_names_types = ParseSubitemSchema(schema_subitem, "optional", verbose);
 
             // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
-            std::pair<std::map<std::string, YAML::Node>, int> found_optional_pair = GetInputNodes(input_node, optional_names_types, verbose);
+            std::pair<std::map<std::string, YAML::Node>, int> found_optional_pair = GetInputNodes(input_node, optional_names_types, verbose, true /*optional*/);
 
             // Map found nodes to associated schema
             AddFoundNodesToMap(found_optional_pair.first, schema_subitem["optional"], found_nodes_and_associated_schema);

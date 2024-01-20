@@ -23,4 +23,7 @@ double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
 // Change the length of a vector
 void ChangeLength(std::vector<double> &vector, double new_magnitude);
 
+// Linear interpolation
+double LinearInterpolation(double x, const std::vector<double> &abscissa, const std::vector<double> &ordinate);
+
 }  // namespace aperi

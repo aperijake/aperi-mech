@@ -10,7 +10,7 @@
 namespace aperi {
 
 // Get a YAML node, checking if it exists
-inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::string& name) {
+inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     YAML::Node value;
     int return_code = 0;
     if (node.Type() == YAML::NodeType::Sequence) {
@@ -22,17 +22,27 @@ inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::str
                     return std::make_pair(value, return_code);
                 }
             }
+            return_code = 1;
+            if (optional) {
+                return std::make_pair(value, return_code);
+            }
         } catch (const YAML::Exception& e) {
             std::cerr << "Error reading '" << name << "' as a sequence. " << e.what() << std::endl;
             return_code = 1;
         }
     }
     if (!node[name.c_str()].IsDefined()) {
-        std::cerr << "Error: '" << name << "' not found in:\n " << node << ". Of type: " << node.Type() << "." << std::endl;
         return_code = 1;
+        if (optional) {
+            return std::make_pair(value, return_code);
+        }
+        std::cerr << "Error: In GetNode. '" << name << "' not found in:\n " << node << ". Of type: " << node.Type() << "." << std::endl;
     }
     try {
         value = node[name].as<YAML::Node>();
+        if (verbose) {
+            std::cout << name << ": " << value << std::endl;
+        }
     } catch (const YAML::Exception& e) {
         std::cerr << "Error reading '" << name << "'. " << e.what() << std::endl;
         return_code = 1;
@@ -42,14 +52,17 @@ inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::str
 
 // Get a scalar string, checking if it exists
 template <typename T>
-inline std::pair<T, int> GetScalarValue(const YAML::Node& node, const std::string& name, bool verbose = false) {
+inline std::pair<T, int> GetScalarValue(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     T value;
     int return_code = 0;
     if (!node[name.c_str()].IsDefined()) {
-        std::cerr << "Error: " << name << " not found in:\n " << node << "." << std::endl;
         return_code = 1;
+        if (optional) {
+            return std::make_pair(value, return_code);
+        }
+        std::cerr << "Error: In GetScalarValue. '" << name << "' not found in:\n " << node << "." << std::endl;
     } else if (!node[name].IsScalar()) {
-        std::cerr << "Error: " << name << " must be a scalar value. Found: " << node[name].Type() << "." << std::endl;
+        std::cerr << "Error: In GetScalarValue. '" << name << "' must be a scalar value. Found: " << node[name].Type() << "." << std::endl;
         return_code = 1;
     }
 
@@ -67,14 +80,17 @@ inline std::pair<T, int> GetScalarValue(const YAML::Node& node, const std::strin
 
 // Get a sequence of values, checking if it exists
 template <typename T>
-inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false) {
+inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     std::vector<T> values;
     int return_code = 0;
     if (!node[name.c_str()].IsDefined()) {
-        std::cerr << "Error: '" << name << "' not found in:\n " << node << "." << std::endl;
         return_code = 1;
+        if (optional) {
+            return std::make_pair(values, return_code);
+        }
+        std::cerr << "Error: In GetValueSequence. '" << name << "' not found in:\n " << node << "." << std::endl;
     } else if (!node[name].IsSequence()) {
-        std::cerr << "Error: '" << name << "' must be a sequence. Found: " << node[name].Type() << "." << std::endl;
+        std::cerr << "Error: In GetValueSequence. '" << name << "' must be a sequence. Found: " << node[name].Type() << "." << std::endl;
         return_code = 1;
     }
 
@@ -97,8 +113,11 @@ inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, c
 }
 
 // Get a value sequence and check that it is a valid direction vector
-inline std::pair<std::vector<double>, int> GetDirectionVector(const YAML::Node& node, const std::string& name, bool verbose = false) {
+inline std::pair<std::vector<double>, int> GetDirectionVector(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     std::pair<std::vector<double>, int> values_pair = GetValueSequence<double>(node, name, verbose);
+    if (values_pair.second != 0 && optional) {
+        return values_pair;
+    }
     std::vector<double> values = values_pair.first;
     int return_code = values_pair.second;
     if (values.size() != 3) {
@@ -117,12 +136,15 @@ inline std::pair<std::vector<double>, int> GetDirectionVector(const YAML::Node& 
 }
 
 // Get a value or sequence of values, checking if it exists
-inline std::pair<std::vector<YAML::Node>, int> GetValueOrValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false) {
+inline std::pair<std::vector<YAML::Node>, int> GetValueOrValueSequence(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     std::vector<YAML::Node> values;
     int return_code = 0;
     if (!node[name.c_str()].IsDefined()) {
-        std::cerr << "Error: " << name << " not found in:\n " << node << "." << std::endl;
         return_code = 1;
+        if (optional) {
+            return std::make_pair(values, return_code);
+        }
+        std::cerr << "Error: In GetValueOrValueSequence. " << name << " not found in:\n " << node << "." << std::endl;
     } else if (node[name].IsSequence()) {
         return GetValueSequence<YAML::Node>(node, name, verbose);
     } else {

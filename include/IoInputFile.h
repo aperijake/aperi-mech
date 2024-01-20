@@ -63,6 +63,11 @@ class IoInputFile {
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
 
         YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        // Check if initial_conditions are defined, if not return empty vector
+        // TODO(jake): this is a hack, fix this. Should use schema to check if initial_conditions are optional
+        if (!procedure_node["initial_conditions"].IsDefined()) {
+            return std::vector<YAML::Node>();
+        }
         std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(procedure_node, "initial_conditions");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting initial conditions");
         return node_pair.first;

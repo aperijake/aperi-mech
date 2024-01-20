@@ -197,3 +197,16 @@ TEST_F(SolverTest, ExplicitGravityMultipleBlocks) {
     TestGravity(m_yaml_data, m_solver, m_num_procs, m_num_blocks);
 }
 // TODO(jake): make a specific test for ExternalForceContributionGravity
+
+// Test that a basic explicit problem with boundary conditions can be solved
+TEST_F(SolverTest, ExplicitBoundaryConditions) {
+    m_yaml_data = CreateTestYaml();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
+    AddBoundaryConditions(m_yaml_data);
+    CreateInputFile();
+    CreateTestMesh();
+    RunSolver();
+
+    // TODO(jake): add checks for boundary conditions
+}
