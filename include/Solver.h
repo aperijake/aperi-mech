@@ -11,6 +11,7 @@
 
 namespace aperi {
 
+class BoundaryCondition;
 class IoMesh;
 class InternalForceContribution;
 class ExternalForceContribution;
@@ -33,8 +34,8 @@ class Solver {
      * @param external_force_contributions The vector of external force contributions.
      * @param time_stepper The time stepper object.
      */
-    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper)
-        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_time_stepper(time_stepper) {
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper)
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper) {
         meta_data = &m_io_mesh->GetMetaData();
         bulk_data = &m_io_mesh->GetBulkData();
     }
@@ -68,6 +69,7 @@ class Solver {
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                       ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;  ///< The vector of internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The vector of external force contributions.
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
     stk::mesh::MetaData *meta_data;                                                                 ///< The meta data object.
     stk::mesh::BulkData *bulk_data;                                                                 ///< The bulk data object.
@@ -92,8 +94,8 @@ class ExplicitSolver : public Solver {
      * @param external_force_contributions A vector of external force contributions applied to the mechanical system.
      * @param time_stepper The time stepper used to advance the simulation over time.
      */
-    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper)
-        : Solver(io_mesh, force_contributions, external_force_contributions, time_stepper) {
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper)
+        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper) {
         // Get the displacement, velocity, and acceleration fields
         displacement_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
         velocity_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
@@ -157,11 +159,12 @@ class ExplicitSolver : public Solver {
  * @param io_mesh The input/output mesh object.
  * @param force_contributions The vector of internal force contributions.
  * @param external_force_contributions The vector of external force contributions.
+ * @param boundary_conditions The vector of boundary conditions.
  * @param time_stepper The time stepper object.
  * @return A unique pointer to the created solver object.
  */
-inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::shared_ptr<aperi::TimeStepper> time_stepper) {
-    return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, time_stepper);
+inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper) {
+    return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper);
 }
 
 }  // namespace aperi

@@ -50,4 +50,17 @@ double TetVolume(const std::array<std::array<double, 3>, 4> &tet) {
     return std::abs(Dot(v1, Cross(v2, v3))) / 6.0;
 }
 
+// Change the length of a vector
+// TODO (jake) get rid of this for a more general function
+void ChangeLength(std::vector<double> &vector, double new_magnitude) {
+    double magnitude = 0.0;
+    for (const auto &component : vector) {
+        magnitude += component * component;
+    }
+    double scale_factor = new_magnitude / std::sqrt(magnitude);
+    for (auto &component : vector) {
+        component *= scale_factor;
+    }
+}
+
 }  // namespace aperi

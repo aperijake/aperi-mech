@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 
 namespace aperi {
 
@@ -18,5 +19,8 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 
 // Compute the volume of a tetrahedron
 double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
+
+// Change the length of a vector
+void ChangeLength(std::vector<double> &vector, double new_magnitude);
 
 }  // namespace aperi

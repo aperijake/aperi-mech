@@ -4,11 +4,11 @@
 
 #include "ApplicationTestFixture.h"
 #include "FieldManager.h"
-#include "InitialConditionManager.h"
+#include "InitialConditionUtil.h"
 #include "yaml-cpp/yaml.h"
 
-// Fixture for InitialConditionManager tests
-class InitialConditionManagerTest : public ApplicationTest {
+// Fixture for InitialConditionUtil tests
+class InitialConditionUtilTest : public ApplicationTest {
    protected:
     void SetUp() override {
         // Run ApplicationTest::SetUp first
@@ -66,7 +66,7 @@ void CheckFieldValues(stk::mesh::Field<double, stk::mesh::Cartesian>* p_field, s
 }
 
 // Test AddInitialConditions function with valid input
-TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
+TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     // Create input file
     m_yaml_data = CreateTestYaml();
     CreateInputFile();
@@ -91,7 +91,7 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsValidInput) {
 }
 
 // Test initial conditions on multiple sets
-TEST_F(InitialConditionManagerTest, AddInitialConditionsMultipleSets) {
+TEST_F(InitialConditionUtilTest, AddInitialConditionsMultipleSets) {
     // Create input file
     m_yaml_data = CreateTestYaml();
 
@@ -131,7 +131,7 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsMultipleSets) {
 }
 
 // Test Adding two initial conditions
-TEST_F(InitialConditionManagerTest, AddInitialConditionsTwoInitialConditions) {
+TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     // Create input file
     m_yaml_data = CreateTestYaml();
 
@@ -187,7 +187,7 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsTwoInitialConditions) {
 }
 
 // Test AddInitialConditions function with invalid type
-TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidType) {
+TEST_F(InitialConditionUtilTest, AddInitialConditionsInvalidType) {
     // Create input file
     m_yaml_data = CreateTestYaml();
 
@@ -202,7 +202,7 @@ TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidType) {
 }
 
 // Test AddInitialConditions function with invalid set
-TEST_F(InitialConditionManagerTest, AddInitialConditionsInvalidSet) {
+TEST_F(InitialConditionUtilTest, AddInitialConditionsInvalidSet) {
     // Create input file
     m_yaml_data = CreateTestYaml();
 

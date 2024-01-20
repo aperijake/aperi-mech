@@ -15,7 +15,6 @@ class MetaData;
 
 namespace aperi {
 class FieldManager;
-}  // namespace aperi
 
 /**
  * @brief Adds initial conditions to field data.
@@ -29,3 +28,5 @@ class FieldManager;
  * @param meta_data The meta data to add the initial conditions to.
  */
 void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta_data);
+
+}  // namespace aperi

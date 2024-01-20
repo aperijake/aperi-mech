@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace aperi {
+class BoundaryCondition;
 class IoInputFile;
 class IoMesh;
 class FieldManager;
@@ -59,6 +60,7 @@ class Application {
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                       ///< The IO mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;  ///< The internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The external force contributions.
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The boundary conditions.
     std::shared_ptr<aperi::FieldManager> m_field_manager;                                           ///< The field manager.
     std::shared_ptr<aperi::Solver> m_solver;                                                        ///< The solver.
 };

@@ -1,21 +1,11 @@
-#include "InitialConditionManager.h"
+#include "InitialConditionUtil.h"
 
 #include <yaml-cpp/yaml.h>
 
 #include "FieldManager.h"
+#include "MathUtils.h"
 
-// Change the length of a vector
-// TODO (jake) get rid of this for a more general function
-void ChangeLength(std::vector<double>& vector, double new_magnitude) {
-    double magnitude = 0.0;
-    for (const auto& component : vector) {
-        magnitude += component * component;
-    }
-    double scale_factor = new_magnitude / std::sqrt(magnitude);
-    for (auto& component : vector) {
-        component *= scale_factor;
-    }
-}
+namespace aperi {
 
 void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta) {
     // Loop over initial conditions
@@ -26,7 +16,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         // Get the magnitude and direction, and change the length to match the magnitude
         const double magnitude = initial_condition_node["magnitude"].as<double>();
         std::vector<double> vector = initial_condition_node["direction"].as<std::vector<double>>();
-        ChangeLength(vector, magnitude);
+        aperi::ChangeLength(vector, magnitude);
 
         // Get the type of initial condition
         const std::string type = initial_condition.begin()->first.as<std::string>();
@@ -48,3 +38,5 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         }
     }
 }
+
+}  // namespace aperi
