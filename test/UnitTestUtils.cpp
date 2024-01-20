@@ -143,11 +143,15 @@ void AddBoundaryConditions(YAML::Node& root) {
     displacement["displacement"]["direction"] = std::vector<double>{0.0, 0.0, -1.0};
     displacement["displacement"]["magnitude"] = 4.56;
 
+    // Create the time function
+    YAML::Node time_function;
+
     // Add the ramp function to the boundary condition
     YAML::Node ramp_function;
     ramp_function["abscissa_values"] = std::vector<double>{0.0, 1.0};
     ramp_function["ordinate_values"] = std::vector<double>{0.0, 1.0};
-    displacement["displacement"]["time_ramp_function"] = ramp_function;
+    time_function["ramp_function"] = ramp_function;
+    displacement["displacement"]["time_function"] = time_function;
 
     // Add the boundary condition to the list
     boundary_conditions.push_back(displacement);

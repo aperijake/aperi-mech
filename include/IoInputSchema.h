@@ -172,17 +172,28 @@ YAML::Node GetInputSchema() {
     YAML::Node ordinate_values_wrapper_node;
     ordinate_values_wrapper_node["ordinate_values"] = ordinate_values_node;
 
-    // Time ramp function node
-    YAML::Node time_ramp_function_node;
-    time_ramp_function_node["type"] = "map";
-    time_ramp_function_node["description"] = "a piecewise linear function of time";
-    YAML::Node time_ramp_function_subitems_node;
-    time_ramp_function_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
-    time_ramp_function_subitems_node["all_of"].push_back(abscissa_values_wrapper_node);
-    time_ramp_function_subitems_node["all_of"].push_back(ordinate_values_wrapper_node);
-    time_ramp_function_node["subitems"] = time_ramp_function_subitems_node;
-    YAML::Node time_ramp_function_wrapper_node;
-    time_ramp_function_wrapper_node["time_ramp_function"] = time_ramp_function_node;
+    // Ramp function node
+    YAML::Node ramp_function_node;
+    ramp_function_node["type"] = "map";
+    ramp_function_node["description"] = "a piecewise linear function";
+    YAML::Node ramp_function_subitems_node;
+    ramp_function_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    ramp_function_subitems_node["all_of"].push_back(abscissa_values_wrapper_node);
+    ramp_function_subitems_node["all_of"].push_back(ordinate_values_wrapper_node);
+    ramp_function_node["subitems"] = ramp_function_subitems_node;
+    YAML::Node ramp_function_wrapper_node;
+    ramp_function_wrapper_node["ramp_function"] = ramp_function_node;
+
+    // Time function node
+    YAML::Node time_function_node;
+    time_function_node["type"] = "map";
+    time_function_node["description"] = "a time function";
+    YAML::Node time_function_subitems_node;
+    time_function_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
+    time_function_subitems_node["one_of"].push_back(ramp_function_wrapper_node);
+    time_function_node["subitems"] = time_function_subitems_node;
+    YAML::Node time_function_wrapper_node;
+    time_function_wrapper_node["time_function"] = time_function_node;
 
     // Specified velocity node
     YAML::Node specified_velocity_node;
@@ -194,7 +205,7 @@ YAML::Node GetInputSchema() {
     specified_velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
     specified_velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
     specified_velocity_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
-    specified_velocity_subitems_node["one_of"].push_back(time_ramp_function_wrapper_node);
+    specified_velocity_subitems_node["one_of"].push_back(time_function_wrapper_node);
     specified_velocity_node["subitems"] = specified_velocity_subitems_node;
     YAML::Node specified_velocity_wrapper_node;
     specified_velocity_wrapper_node["velocity"] = specified_velocity_node;
@@ -209,7 +220,7 @@ YAML::Node GetInputSchema() {
     specified_displacement_subitems_node["all_of"].push_back(magnitude_wrapper_node);
     specified_displacement_subitems_node["all_of"].push_back(direction_wrapper_node);
     specified_displacement_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
-    specified_displacement_subitems_node["one_of"].push_back(time_ramp_function_wrapper_node);
+    specified_displacement_subitems_node["one_of"].push_back(time_function_wrapper_node);
     specified_displacement_node["subitems"] = specified_displacement_subitems_node;
     YAML::Node specified_displacement_wrapper_node;
     specified_displacement_wrapper_node["displacement"] = specified_displacement_node;

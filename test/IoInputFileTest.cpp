@@ -177,7 +177,7 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionSet) {
 // Create an input file with missing boundary condition time function
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionTimeFunction) {
     AddBoundaryConditions(m_yaml_data);
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("time_ramp_function");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("time_function");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
