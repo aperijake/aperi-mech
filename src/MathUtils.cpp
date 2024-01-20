@@ -65,6 +65,31 @@ void ChangeLength(std::vector<double> &vector, double new_magnitude) {
     }
 }
 
+// Constant interpolation
+double ConstantInterpolation(double x, const std::vector<double> &abscissa, const std::vector<double> &ordinate) {
+    if (abscissa.size() != ordinate.size()) {
+        throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
+    }
+    if (abscissa.size() == 0) {
+        throw std::runtime_error("Abscissa and ordinate vectors must have at least one element.");
+    }
+    if (abscissa.size() == 1) {
+        return ordinate[0];
+    }
+    if (x < abscissa[0]) {
+        return 0.0;
+    }
+    if (x > abscissa[abscissa.size() - 1]) {
+        return ordinate[abscissa.size() - 1];
+    }
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x >= abscissa[i] && x <= abscissa[i + 1]) {
+            return ordinate[i];
+        }
+    }
+    throw std::runtime_error("Constant interpolation failed.");
+}
+
 // Linear interpolation
 double LinearInterpolation(double x, const std::vector<double> &abscissa, const std::vector<double> &ordinate) {
     if (abscissa.size() != ordinate.size()) {
