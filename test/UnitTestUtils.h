@@ -17,7 +17,8 @@ class Selector;
 }  // namespace stk
 
 YAML::Node CreateTestYaml();
-void AddBoundaryConditions(YAML::Node& root);
+void AddDisplacementBoundaryConditions(YAML::Node& root);
+void AddVelocityBoundaryConditions(YAML::Node& root);
 void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr);
 void CleanUp(const std::filesystem::path& filePath);

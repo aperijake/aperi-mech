@@ -136,8 +136,8 @@ TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
 
 // -------- Boundary Conditions --------
 // Test adding boundary conditions to the input file
-TEST_F(IoInputFileTest, AddBoundaryConditions) {
-    AddBoundaryConditions(m_yaml_data);
+TEST_F(IoInputFileTest, AddDisplacementBoundaryConditions) {
+    AddDisplacementBoundaryConditions(m_yaml_data);
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -146,7 +146,7 @@ TEST_F(IoInputFileTest, AddBoundaryConditions) {
 
 // Create an input file with missing boundary condition direction
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionDirection) {
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("direction");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
@@ -156,7 +156,7 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionDirection) {
 
 // Create an input file with missing boundary condition magnitude
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionMagnitude) {
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("magnitude");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
@@ -166,7 +166,7 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionMagnitude) {
 
 // Create an input file with missing boundary condition sets
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionSet) {
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("sets");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
@@ -176,7 +176,7 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionSet) {
 
 // Create an input file with missing boundary condition time function
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionTimeFunction) {
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("time_function");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 

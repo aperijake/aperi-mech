@@ -136,15 +136,15 @@ YAML::Node CreateTestYaml() {
     return root;
 }
 
-void AddBoundaryConditions(YAML::Node& root) {
+void AddBoundaryCondition(YAML::Node& root, const std::string& type) {
     // Create the boundary conditions list
     YAML::Node boundary_conditions(YAML::NodeType::Sequence);
 
     // Create the first boundary condition
     YAML::Node displacement;
-    displacement["displacement"]["sets"] = std::vector<std::string>{"block_1"};
-    displacement["displacement"]["direction"] = std::vector<double>{0.0, 0.0, -1.0};
-    displacement["displacement"]["magnitude"] = 4.56;
+    displacement[type]["sets"] = std::vector<std::string>{"block_1"};
+    displacement[type]["direction"] = std::vector<double>{0.0, 0.0, -1.0};
+    displacement[type]["magnitude"] = 4.56;
 
     // Create the time function
     YAML::Node time_function;
@@ -154,13 +154,22 @@ void AddBoundaryConditions(YAML::Node& root) {
     ramp_function["abscissa_values"] = std::vector<double>{0.0, 1.0};
     ramp_function["ordinate_values"] = std::vector<double>{0.0, 1.0};
     time_function["ramp_function"] = ramp_function;
-    displacement["displacement"]["time_function"] = time_function;
+    displacement[type]["time_function"] = time_function;
 
     // Add the boundary condition to the list
     boundary_conditions.push_back(displacement);
 
     // Add the boundary conditions list to the root node
     root["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"] = boundary_conditions;
+}
+
+void AddDisplacementBoundaryConditions(YAML::Node& root) {
+    AddBoundaryCondition(root, "displacement");
+}
+
+// Add a velocity boundary condition to the input file
+void AddVelocityBoundaryConditions(YAML::Node& root) {
+    AddBoundaryCondition(root, "velocity");
 }
 
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager) {
@@ -250,7 +259,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
                     sum_values[i] += p_field_data_n_for_bucket[iI];
                 }
                 if (!check_sum) {  // Check individual values
-                    if (expected_values[i] == 0) {
+                    if (std::abs(expected_values[i]) < 1.0e-12) {
                         EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
                     } else {
                         EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
@@ -263,7 +272,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
         std::array<double, 3> sum_values_global = {0.0, 0.0, 0.0};
         stk::all_reduce_sum(bulk.parallel(), sum_values.data(), sum_values_global.data(), 3);
         for (unsigned i = 0; i < 3; i++) {
-            if (expected_values[i] == 0) {
+            if (std::abs(expected_values[i]) < 1.0e-12) {
                 EXPECT_NEAR(sum_values_global[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect";
             } else {
                 EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect";

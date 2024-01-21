@@ -209,7 +209,7 @@ TEST_F(SolverTest, ExplicitBoundaryConditions) {
     m_yaml_data = CreateTestYaml();
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     CreateInputFile();
     CreateTestMesh();
     RunSolver();
@@ -234,7 +234,7 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
 
-    AddBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(m_yaml_data);
     // Change the boundary condition to apply to a different set
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
 
@@ -286,4 +286,39 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement_2);
     CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity_2);
     CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "acceleration", expected_acceleration_2);
+}
+
+// Test that a basic explicit problem with a velocity boundary condition can be solved
+TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
+    m_yaml_data = CreateTestYaml();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
+    AddVelocityBoundaryConditions(m_yaml_data);
+    CreateInputFile();
+    CreateTestMesh();
+    RunSolver();
+
+    // Check the boundary conditions
+    const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
+    double magnitude = boundary_conditions[0]["velocity"]["magnitude"].as<double>();
+    std::array<double, 3> direction = boundary_conditions[0]["velocity"]["direction"].as<std::array<double, 3>>();
+    double final_time = 1.0;
+    double delta_time = 0.1;
+    double second_final_time = final_time - delta_time;
+    std::array<double, 3> expected_velocity = {magnitude * direction[0] * second_final_time, magnitude * direction[1] * second_final_time, magnitude * direction[2] * second_final_time};
+    // Integrate the velocity to get the displacement
+    std::array<double, 3> expected_displacement = {0.0, 0.0, 0.0};
+    double time = 0.0;
+    for (size_t i = 0; i < static_cast<size_t>(final_time / delta_time); ++i) {
+        // Increment the displacement
+        expected_displacement[0] += magnitude * direction[0] * time * delta_time;
+        expected_displacement[1] += magnitude * direction[1] * time * delta_time;
+        expected_displacement[2] += magnitude * direction[2] * time * delta_time;
+        time += delta_time;
+    }
+    std::array<double, 3> expected_acceleration = {0, 0, 0};
+
+    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
 }
