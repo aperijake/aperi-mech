@@ -4,6 +4,7 @@
 #include <stk_topology/topology.hpp>
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
+#include "BoundaryCondition.h"
 #include "FieldManager.h"
 #include "ForceContribution.h"
 #include "IoMesh.h"
@@ -51,6 +52,7 @@ void ExplicitSolver::ComputeForce() {
 
 void ExplicitSolver::ComputeAcceleration() {
     // Compute initial accelerations: a^{n} = M^{–1}(f^{n})
+    // STK QUESTION: Just would like a sanity check on this. Am I using fields correctly in this function and the others?
 
     // Get the field data
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
@@ -110,10 +112,29 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
                 int iI = i_node * num_values_per_node + i;
                 velocity_data_np1_for_bucket[iI] = velocity_data_n_for_bucket[iI] + (time_mid - time) * acceleration_data_n_for_bucket[iI];
             }
+        }
+    }
+}
 
-            // Enforce velocity boundary conditions
-            // TODO(jake): Enforce velocity boundary conditions
+// Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+void ExplicitSolver::UpdateNodalDisplacements(double time, double time_increment) {
+    // Get the displacement and velocity fields
+    VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
+    VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
 
+    VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
+
+    // Loop over all the buckets
+    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        // Get the field data for the bucket
+        double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
+
+        double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
+        double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
+
+        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
+
+        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
@@ -191,10 +212,13 @@ void ExplicitSolver::Solve() {
         // Compute first partial update
         ComputeFirstPartialUpdate(time, time_increment);
 
-        // Enforce essential boundary conditions
-        // 6. Enforce velocity boundary conditions:
-        //    a: if node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
-        // 7. Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+        // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
+        for (const auto &boundary_condition : m_boundary_conditions) {
+            boundary_condition->Apply(time);
+        }
+
+        // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+        UpdateNodalDisplacements(time, time_increment);
 
         // Compute the force, f^{n+1}
         ComputeForce();

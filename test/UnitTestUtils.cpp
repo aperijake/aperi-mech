@@ -5,6 +5,9 @@
 #include <filesystem>
 #include <fstream>
 #include <stk_mesh/base/BulkData.hpp>
+#include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/Selector.hpp>
 #include <stk_topology/topology.hpp>
 #include <stk_util/parallel/Parallel.hpp>
 #include <string>
@@ -214,7 +217,7 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
 // Check that the nodal field values match the expected values
 // Checks either individual values or the sum of the values, depending on the check_sum flag
 // For checking individual values, expects a uniform field, values for every node are the same
-void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values, bool check_sum = false) {
+void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values, bool check_sum = false) {
     double absolute_tolerance = 1e-12;
     double relative_tolerance = 1e-12;
     typedef stk::mesh::Field<double, stk::mesh::Cartesian3d> VectorField;
@@ -232,7 +235,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
     std::array<double, 3> sum_values = {0.0, 0.0, 0.0};
 
     // Loop over all the buckets
-    for (stk::mesh::Bucket* bucket : bulk.buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket* bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
         bool owned = bucket->owned();
         // Get the field data for the bucket
         double* p_field_data_n_for_bucket = stk::mesh::field_data(*p_field_n, *bucket);
@@ -271,13 +274,13 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_
 
 // Check that the nodal field values match the expected values
 // Expects a uniform field, values for every node are the same
-void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values) {
     bool check_sum = false;
-    CheckFieldValues(bulk, field_name, expected_values, check_sum);
+    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
 }
 
 // Check that the sum of the nodal field values match the expected values
-void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const std::string& field_name, const std::array<double, 3>& expected_values) {
+void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values) {
     bool check_sum = true;
-    CheckFieldValues(bulk, field_name, expected_values, check_sum);
+    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
 }

@@ -11,31 +11,27 @@
 
 namespace aperi {
 
-// Should work for velocity, need delta time for displacement
-void BoundaryCondition::Apply(double time, double delta_time) {
+// Apply the velocity boundary condition (displacement is converted to velocity earlier)
+void BoundaryCondition::Apply(double time) {
     // Loop over the nodes
     for (stk::mesh::Bucket* bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
         for (auto&& node : *bucket) {
             // Get the time function values
-            std::vector<double> bc_values = m_time_function(time, delta_time);
+            std::vector<double> bc_values = m_time_function(time);
 
             // Get the velocity field values for the node
             double* velocity_field_values = stk::mesh::field_data(*m_velocity_field, node);
 
-            // Get the displacement field values for the node
-            double* displacement_field_values = stk::mesh::field_data(*m_displacement_field, node);
-
             // Apply the boundary condition
             for (size_t i = 0; i < 3; ++i) {
                 velocity_field_values[i] = bc_values[i];
-                displacement_field_values[i] += bc_values[i] * delta_time;
             }
         }
     }
 }
 
 // Set the time function
-std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& component_value_vector, const std::string& bc_type) {
+std::function<std::vector<double>(double)> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& component_value_vector, const std::string& bc_type) {
     // Get the time function node
     const YAML::Node time_function_node = boundary_condition["time_function"].begin()->second;
 
@@ -43,7 +39,7 @@ std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::N
     std::string time_function_type = boundary_condition["time_function"].begin()->first.as<std::string>();
 
     // Create a time function
-    std::function<std::vector<double>(double, double)> time_function;
+    std::function<std::vector<double>(double)> time_function;
 
     // Set the time function
     if (time_function_type == "ramp_function") {
@@ -58,7 +54,7 @@ std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::N
                 ordinate_derivate[i] = (ordinate[i + 1] - ordinate[i]) / (abscissa[i + 1] - abscissa[i]);
             }
             ordinate_derivate[ordinate.size() - 1] = 0.0;
-            time_function = [abscissa, ordinate_derivate, component_value_vector](double time, double delta_time) {
+            time_function = [abscissa, ordinate_derivate, component_value_vector](double time) {
                 double time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
                 std::vector<double> result(component_value_vector.size());
                 for (size_t i = 0; i < component_value_vector.size(); ++i) {
@@ -67,7 +63,7 @@ std::function<std::vector<double>(double, double)> SetTimeFunction(const YAML::N
                 return result;
             };
         } else if (bc_type == "velocity") {
-            time_function = [abscissa, ordinate, component_value_vector](double time, double delta_time) {
+            time_function = [abscissa, ordinate, component_value_vector](double time) {
                 double time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
                 std::vector<double> result(component_value_vector.size());
                 for (size_t i = 0; i < component_value_vector.size(); ++i) {
@@ -100,7 +96,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     std::transform(type.begin(), type.end(), type.begin(), ::tolower);
 
     // Get the time function
-    std::function<std::vector<double>(double, double)> time_function = SetTimeFunction(boundary_condition_node, vector, type);
+    std::function<std::vector<double>(double)> time_function = SetTimeFunction(boundary_condition_node, vector, type);
 
     // Loop over sets from boundary condition
     std::vector<std::string> sets;

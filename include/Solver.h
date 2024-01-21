@@ -144,6 +144,8 @@ class ExplicitSolver : public Solver {
      */
     void ComputeSecondPartialUpdate(double time, double time_step);
 
+    void UpdateNodalDisplacements(double time, double time_increment);
+
     VectorField *displacement_field;  ///< Pointer to the displacement field.
     VectorField *velocity_field;      ///< Pointer to the velocity field.
     VectorField *acceleration_field;  ///< Pointer to the acceleration field.
