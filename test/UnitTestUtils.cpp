@@ -243,6 +243,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
     // Sum of the values
     std::array<double, 3> sum_values = {0.0, 0.0, 0.0};
 
+    bool found = false;  // Prevents false positive if no nodes are found
     // Loop over all the buckets
     for (stk::mesh::Bucket* bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
         bool owned = bucket->owned();
@@ -253,6 +254,7 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
         EXPECT_EQ(num_values_per_node, 3);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+            found = true;
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
                 if (owned) {
@@ -268,6 +270,8 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
             }
         }
     }
+    EXPECT_TRUE(found) << "No nodes found for field " << field_name;
+
     if (check_sum) {  // Check the sum of the values
         std::array<double, 3> sum_values_global = {0.0, 0.0, 0.0};
         stk::all_reduce_sum(bulk.parallel(), sum_values.data(), sum_values_global.data(), 3);
