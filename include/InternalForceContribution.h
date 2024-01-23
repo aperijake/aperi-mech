@@ -49,7 +49,7 @@ class InternalForceContribution : public ForceContribution {
      * This function overrides the ComputeForce function from the base class.
      * It calculates the internal forces for the force contribution.
      */
-    void ComputeForce() override {}
+    void ComputeForce() override;
 
    private:
     std::shared_ptr<Material> m_material;  ///< A shared pointer to the Material object.
