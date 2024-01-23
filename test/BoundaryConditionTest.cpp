@@ -167,11 +167,11 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Interpolate the abscissa and ordinate values to get the time scale factor
                 if (bc_type == "displacement") {
-                    double displacement_time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);  // TODO(jake): LinearInterpolation should be tested
+                    double displacement_time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
                     expected_displacement = direction;
-                    aperi::ChangeLength(expected_displacement, magnitude * displacement_time_scale_factor);  // TODO(jake): ChangeLength should be tested
+                    aperi::ChangeLength(expected_displacement, magnitude * displacement_time_scale_factor);
 
-                    double velocity_time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);  // TODO(jake): ConstantInterpolation should be tested
+                    double velocity_time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
                     expected_velocity = direction;
                     aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
                 } else if (bc_type == "velocity") {

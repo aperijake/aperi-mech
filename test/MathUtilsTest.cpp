@@ -58,3 +58,68 @@ TEST(MassUtilsTest, TetVolume) {
     double expected = 1.0 / 6.0;
     EXPECT_DOUBLE_EQ(result, expected);
 }
+
+// Test the change of length of a vector
+TEST(MassUtilsTest, ChangeLength) {
+    std::array<double, 3> vector = {1.0, 0.0, 0.0};
+    aperi::ChangeLength(vector, 2.0);
+    std::array<double, 3> expected = {2.0, 0.0, 0.0};
+    EXPECT_EQ(vector, expected);
+
+    std::array<double, 3> vector2 = {1.0, 1.0, 1.0};
+    aperi::ChangeLength(vector2, 1.0);
+    std::array<double, 3> expected2 = {1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    EXPECT_EQ(vector2, expected2);
+}
+
+// Test the constant interpolation
+TEST(MassUtilsTest, ConstantInterpolation) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
+
+    double result = aperi::ConstantInterpolation(1.5, abscissa, ordinate);
+    double expected = 1.0;
+    EXPECT_DOUBLE_EQ(result, expected);
+
+    double result2 = aperi::ConstantInterpolation(3.5, abscissa, ordinate);
+    double expected2 = 3.0;
+    EXPECT_DOUBLE_EQ(result2, expected2);
+
+    double result3 = aperi::ConstantInterpolation(0.0, abscissa, ordinate);
+    double expected3 = 0.0;
+    EXPECT_DOUBLE_EQ(result3, expected3);
+
+    double result4 = aperi::ConstantInterpolation(-0.5, abscissa, ordinate);
+    double expected4 = 0.0;
+    EXPECT_DOUBLE_EQ(result4, expected4);
+
+    double result5 = aperi::ConstantInterpolation(3.0, abscissa, ordinate);
+    double expected5 = 2.0;
+    EXPECT_DOUBLE_EQ(result5, expected5);
+}
+
+// Test the linear interpolation
+TEST(MassUtilsTest, LinearInterpolation) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
+
+    double result = aperi::LinearInterpolation(1.5, abscissa, ordinate);
+    double expected = 1.5;
+    EXPECT_DOUBLE_EQ(result, expected);
+
+    double result2 = aperi::LinearInterpolation(3.5, abscissa, ordinate);
+    double expected2 = 3.0;
+    EXPECT_DOUBLE_EQ(result2, expected2);
+
+    double result3 = aperi::LinearInterpolation(0.0, abscissa, ordinate);
+    double expected3 = 0.0;
+    EXPECT_DOUBLE_EQ(result3, expected3);
+
+    double result4 = aperi::LinearInterpolation(-0.5, abscissa, ordinate);
+    double expected4 = 0.0;
+    EXPECT_DOUBLE_EQ(result4, expected4);
+
+    double result5 = aperi::LinearInterpolation(3.0, abscissa, ordinate);
+    double expected5 = 3.0;
+    EXPECT_DOUBLE_EQ(result5, expected5);
+}
