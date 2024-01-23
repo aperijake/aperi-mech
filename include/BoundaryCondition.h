@@ -23,6 +23,9 @@ class BoundaryCondition {
     // Apply the boundary condition to the field
     void Apply(double time);
 
+    // Get the selector
+    stk::mesh::Selector GetSelector() { return m_selector; }
+
    private:
     std::function<std::vector<double>(double)> m_time_function;
     stk::mesh::Selector m_selector;

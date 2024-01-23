@@ -112,7 +112,7 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
 }
 
 // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-void ExplicitSolver::UpdateNodalDisplacements(double time, double time_increment) {
+void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
     // Get the displacement and velocity fields
     VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
     VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
@@ -213,7 +213,7 @@ void ExplicitSolver::Solve() {
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        UpdateNodalDisplacements(time, time_increment);
+        UpdateNodalDisplacements(time_increment);
 
         // Compute the force, f^{n+1}
         ComputeForce();
