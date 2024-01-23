@@ -5,9 +5,10 @@
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "BoundaryCondition.h"
+#include "ExternalForceContribution.h"
 #include "FieldManager.h"
-#include "ForceContribution.h"
 #include "InitialConditionUtil.h"
+#include "InternalForceContribution.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "Solver.h"

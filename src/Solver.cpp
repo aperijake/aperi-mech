@@ -5,8 +5,9 @@
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "BoundaryCondition.h"
+#include "ExternalForceContribution.h"
 #include "FieldManager.h"
-#include "ForceContribution.h"
+#include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MassUtils.h"
 #include "Material.h"
