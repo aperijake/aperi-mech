@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <stk_mesh/base/Part.hpp>
 
+#include "Element.h"
 #include "ForceContribution.h"
 #include "Material.h"
 
@@ -23,7 +24,7 @@ class InternalForceContribution : public ForceContribution {
      * @param material A shared pointer to the Material object associated with the force contribution.
      * @param part A pointer to the stk::mesh::Part object associated with the force contribution.
      */
-    InternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part) : m_material(material), m_part(part) {}
+    InternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part);
 
     /**
      * @brief Gets the Material object associated with the force contribution.
@@ -52,8 +53,12 @@ class InternalForceContribution : public ForceContribution {
     void ComputeForce() override;
 
    private:
-    std::shared_ptr<Material> m_material;  ///< A shared pointer to the Material object.
-    stk::mesh::Part *m_part;               ///< A pointer to the stk::mesh::Part object.
+    std::shared_ptr<Material> m_material;       ///< A shared pointer to the Material object.
+    stk::mesh::Part *m_part;                    ///< A pointer to the stk::mesh::Part object.
+    stk::mesh::BulkData *m_bulk_data;           ///< The bulk data associated with the force contribution.
+    stk::mesh::MetaData *m_meta_data;           ///< The meta data associated with the force contribution.
+    stk::mesh::Selector m_selector;             ///< The selector associated with the force contribution. (TODO(jake): Move to base class?))
+    std::shared_ptr<aperi::Element> m_element;  ///< The element associated with the force contribution.
 };
 
 /**
