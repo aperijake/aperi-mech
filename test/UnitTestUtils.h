@@ -16,6 +16,17 @@ class Selector;
 }  // namespace mesh
 }  // namespace stk
 
+#define EXPECT_NEAR_2D(container1, container2, tolerance)                                                   \
+    do {                                                                                                    \
+        ASSERT_EQ(container1.size(), container2.size());                                                    \
+        for (size_t i = 0; i < container1.size(); ++i) {                                                    \
+            ASSERT_EQ(container1[i].size(), container2[i].size());                                          \
+            for (size_t j = 0; j < container1[i].size(); ++j) {                                             \
+                EXPECT_NEAR(container1[i][j], container2[i][j], tolerance) << "i = " << i << ", j = " << j; \
+            }                                                                                               \
+        }                                                                                                   \
+    } while (0)
+
 YAML::Node CreateTestYaml();
 void AddDisplacementBoundaryConditions(YAML::Node& root);
 void AddVelocityBoundaryConditions(YAML::Node& root);

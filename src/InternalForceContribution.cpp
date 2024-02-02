@@ -31,7 +31,7 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
     stk::topology element_topology = m_part->topology();
 
     // Create the element
-    m_element = CreateElement(*m_bulk_data, displacement_field, velocity_field, force_field, m_material, element_topology);
+    m_element = CreateElement(*m_bulk_data, element_topology);
 }
 
 void InternalForceContribution::ComputeForce() {
@@ -40,7 +40,7 @@ void InternalForceContribution::ComputeForce() {
         for (auto &&mesh_element : *bucket) {
             // Get the element's nodes
             stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(mesh_element);
-            m_element->ComputeInternalForce(element_nodes);
+            m_element->ComputeInternalForce(element_nodes);  // TODO(jake) need to pass in fields and material
         }
     }
 }

@@ -97,13 +97,13 @@ class FieldManager {
         if (set_part == nullptr) {
             return 2;
         }
-        stk::mesh::Selector set_selector(*set_part);
+        stk::mesh::Selector set_selector(*set_part);  // STK NOTE: Can build owned and ghosted into the selector.
 
         // Loop over all the buckets
         for (stk::mesh::Bucket* bucket : set_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (auto&& node : *bucket) {
                 // Get the field values for the node
-                double* field_values = stk::mesh::field_data(*field, node);
+                double* field_values = stk::mesh::field_data(*field, node);  // STK_NOTE: Can move this outside of the loop, pass a bucket instead of node. For speed.
 
                 // Set the field values for the node
                 for (size_t i = 0; i < field->number_of_states(); ++i) {

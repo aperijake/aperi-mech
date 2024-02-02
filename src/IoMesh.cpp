@@ -250,6 +250,8 @@ void IoMesh::ReadMesh(const std::string &filename,
     mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();
 
+    // STK NOTE: Create parts here for a bit more speed.
+
     if (field_manager) {
         field_manager->SetupFields(mp_io_broker->meta_data());
     }
