@@ -98,6 +98,41 @@ class ElementTest : public ApplicationTest {
         }
     }
 
+    // Check the displacement gradient, deformation gradient, and strain
+    void CheckGradientsAndStrain(const std::shared_ptr<aperi::Element>& element, const std::array<std::array<double, 3>, 3>& expected_displacement_gradient, const std::vector<std::array<double, 3>>& nodal_coordinates, const std::vector<double>& nodal_displacements) {
+        // Expected deformation gradient = expected_displacement_gradient + identity
+        std::array<std::array<double, 3>, 3> expected_deformation_gradient = expected_displacement_gradient;
+        for (size_t i = 0; i < 3; ++i) {
+            expected_deformation_gradient[i][i] += 1.0;
+        }
+
+        // Expected Green Lagrange strain = 0.5 * (expected_deformation_gradient^T * expected_deformation_gradient - identity)
+        std::array<std::array<double, 3>, 3> expected_strain;
+        for (size_t i = 0; i < 3; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
+                expected_strain[i][j] = 0.0;
+                for (size_t k = 0; k < 3; ++k) {
+                    expected_strain[i][j] += 0.5 * (expected_deformation_gradient[k][i] * expected_deformation_gradient[k][j]);
+                }
+                if (i == j) {
+                    expected_strain[i][j] -= 0.5;
+                }
+            }
+        }
+
+        std::array<std::array<double, 3>, 3> displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
+        std::array<std::array<double, 3>, 3> deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
+        std::array<std::array<double, 3>, 3> other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
+        std::array<std::array<double, 3>, 3> strain = element->ComputeGreenLagrangeStrainTensor(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
+        std::array<std::array<double, 3>, 3> other_strain = element->ComputeGreenLagrangeStrainTensor(displacement_gradient);
+
+        EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
+        EXPECT_NEAR_2D(deformation_gradient, expected_deformation_gradient, 1.0e-12);
+        EXPECT_NEAR_2D(other_deformation_gradient, expected_deformation_gradient, 1.0e-12);
+        EXPECT_NEAR_2D(strain, expected_strain, 1.0e-12);
+        EXPECT_NEAR_2D(other_strain, expected_strain, 1.0e-12);
+    }
+
     void TearDown() override {
         // Run ApplicationTest::TearDown last
         ApplicationTest::TearDown();
@@ -317,24 +352,12 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
                                                0.0, 0.0, 0.0};
 
     // Check the displacement gradient
-    std::array<std::array<double, 3>, 3> displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
     std::array<std::array<double, 3>, 3> expected_displacement_gradient;
     expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
 
-    EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
-
-    // Check the deformation gradient
-    std::array<std::array<double, 3>, 3> deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
-    std::array<std::array<double, 3>, 3> other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
-    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
-    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
-
-    EXPECT_NEAR_2D(deformation_gradient, expected_deformation_gradient, 1.0e-12);
-    EXPECT_NEAR_2D(other_deformation_gradient, expected_deformation_gradient, 1.0e-12);
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 
     // ---------------------------------------------------------
     // Create some nodal displacements, dialate the tet4 element
@@ -343,22 +366,11 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
                            0.0, 1.0, 0.0,
                            0.0, 0.0, 1.0};
 
-    displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
     expected_displacement_gradient[0] = {1.0, 0.0, 0.0};
     expected_displacement_gradient[1] = {0.0, 1.0, 0.0};
     expected_displacement_gradient[2] = {0.0, 0.0, 1.0};
 
-    EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
-
-    // Check the deformation gradient
-    deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
-    other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
-    expected_deformation_gradient[0] = {2.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 2.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 2.0};
-
-    EXPECT_NEAR_2D(deformation_gradient, expected_deformation_gradient, 1.0e-12);
-    EXPECT_NEAR_2D(other_deformation_gradient, expected_deformation_gradient, 1.0e-12);
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 
     // ---------------------------------------------------------
     // Create some nodal displacements, stretch the tet4 element in one direction
@@ -367,22 +379,11 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
                            0.0, 0.0, 0.0,
                            0.0, 0.0, 0.0};
 
-    displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
     expected_displacement_gradient[0] = {1.0, 0.0, 0.0};
     expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
 
-    EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
-
-    // Check the deformation gradient
-    deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
-    other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
-    expected_deformation_gradient[0] = {2.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
-
-    EXPECT_NEAR_2D(deformation_gradient, expected_deformation_gradient, 1.0e-12);
-    EXPECT_NEAR_2D(other_deformation_gradient, expected_deformation_gradient, 1.0e-12);
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 
     // ---------------------------------------------------------
     // Create some nodal displacements, stretch the tet4 element in another direction
@@ -390,22 +391,11 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
                            0.0, 0.0, 0.0,
                            0.0, 1.0, 0.0,
                            0.0, 0.0, 0.0};
-    displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
     expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[1] = {0.0, 1.0, 0.0};
     expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
 
-    EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
-
-    // Check the deformation gradient
-    deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
-    other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
-    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 2.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
-
-    EXPECT_NEAR_2D(deformation_gradient, expected_deformation_gradient, 1.0e-12);
-    EXPECT_NEAR_2D(other_deformation_gradient, expected_deformation_gradient, 1.0e-12);
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 
     // ---------------------------------------------------------
     // Create some nodal displacements, stretch the tet4 element in another direction
@@ -413,17 +403,9 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
                            0.0, 0.0, 0.0,
                            0.0, 0.0, 0.0,
                            0.0, 0.0, 1.0};
-    displacement_gradient = element->ComputeDisplacementGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
     expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
     expected_displacement_gradient[2] = {0.0, 0.0, 1.0};
 
-    EXPECT_NEAR_2D(displacement_gradient, expected_displacement_gradient, 1.0e-12);
-
-    // Check the deformation gradient
-    deformation_gradient = element->ComputeDeformationGradient(0.0, 0.0, 0.0, nodal_coordinates, nodal_displacements);
-    other_deformation_gradient = element->ComputeDeformationGradient(displacement_gradient);
-    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 2.0};
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 }
