@@ -206,6 +206,35 @@ class Element {
         return green_lagrange_strain_tensor;
     }
 
+    // Compute (B_I F)^T, voigt notation, 3 x 6
+    std::array<std::array<double, 6>, 3> ComputeBFTranspose(const std::vector<double> &bI_vector, const std::array<std::array<double, 3>, 3> &displacement_gradient) const {
+        std::array<std::array<double, 6>, 3> bf_transpose;
+        bf_transpose[0][0] = bI_vector[0] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[1][1] = bI_vector[1] * (displacement_gradient[1][1] + 1.0);
+        bf_transpose[2][2] = bI_vector[2] * (displacement_gradient[2][2] + 1.0);
+
+        bf_transpose[0][1] = bI_vector[1] * displacement_gradient[0][1];
+        bf_transpose[0][2] = bI_vector[2] * displacement_gradient[0][2];
+        bf_transpose[1][0] = bI_vector[0] * displacement_gradient[1][0];
+        bf_transpose[1][2] = bI_vector[2] * displacement_gradient[1][2];
+        bf_transpose[2][0] = bI_vector[0] * displacement_gradient[2][0];
+        bf_transpose[2][1] = bI_vector[1] * displacement_gradient[2][1];
+
+        bf_transpose[0][3] = bI_vector[1] * displacement_gradient[0][2] + bI_vector[2] * displacement_gradient[0][1];
+        bf_transpose[0][4] = bI_vector[0] * displacement_gradient[0][2] + bI_vector[2] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[0][5] = bI_vector[0] * displacement_gradient[0][1] + bI_vector[1] * (displacement_gradient[0][0] + 1.0);
+
+        bf_transpose[1][3] = bI_vector[1] * displacement_gradient[1][2] + bI_vector[2] * (displacement_gradient[1][1] + 1.0);
+        bf_transpose[1][4] = bI_vector[0] * displacement_gradient[1][2] + bI_vector[2] * displacement_gradient[1][0];
+        bf_transpose[1][5] = bI_vector[0] * displacement_gradient[1][1] + bI_vector[1] * displacement_gradient[1][0];
+
+        bf_transpose[2][3] = bI_vector[1] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][1];
+        bf_transpose[2][4] = bI_vector[0] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][0];
+        bf_transpose[2][5] = bI_vector[0] * displacement_gradient[2][1] + bI_vector[1] * displacement_gradient[2][0];
+
+        return bf_transpose;
+    }
+
    protected:
     stk::mesh::BulkData &m_bulk_data;  ///< The bulk data object for the mesh.
     size_t m_num_nodes;                ///< The number of nodes in the element.
