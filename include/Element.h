@@ -17,6 +17,7 @@ namespace aperi {
  * @brief Represents an element in a mesh.
  *
  * This class provides a base implementation for elements in a mesh.
+ * TODO(jake): THIS NEEDS A LOT OF WORK. BULK_DATA NEEDED? VOIGT NOTATION? DATA STRUCTURES?
  */
 class Element {
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
@@ -110,26 +111,6 @@ class Element {
         return inverse_jacobian_matrix;
     }
 
-    // Compute the displacement gradient
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(std::array<std::array<double, 3>, 3> inverse_jacobian_matrix, std::vector<double> node_displacements) {
-        std::array<std::array<double, 3>, 3> displacement_gradient;
-        for (int i = 0; i < 3; ++i) {
-            displacement_gradient[i][0] = inverse_jacobian_matrix[0][0] * node_displacements[0] + inverse_jacobian_matrix[0][1] * node_displacements[3] + inverse_jacobian_matrix[0][2] * node_displacements[6];
-            displacement_gradient[i][1] = inverse_jacobian_matrix[1][0] * node_displacements[1] + inverse_jacobian_matrix[1][1] * node_displacements[4] + inverse_jacobian_matrix[1][2] * node_displacements[7];
-            displacement_gradient[i][2] = inverse_jacobian_matrix[2][0] * node_displacements[2] + inverse_jacobian_matrix[2][1] * node_displacements[5] + inverse_jacobian_matrix[2][2] * node_displacements[8];
-        }
-        return displacement_gradient;
-    }
-
-    // Compute displacement gradient, NSD x NSD = 3 x 3, using xi, eta, zeta
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, std::vector<double> node_displacements, std::vector<std::array<double, 3>> node_coordinates) {
-        // Compute the inverse Jacobian matrix
-        std::array<std::array<double, 3>, 3> inverse_jacobian_matrix = ComputeInverseJacobianMatrix(xi, eta, zeta, node_coordinates);
-        // Compute the displacement gradient
-        std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(inverse_jacobian_matrix, node_displacements);
-        return displacement_gradient;
-    }
-
     // Compute B matrix, NSD x m_num_nodes, using inverse Jacobian matrix and shape function derivatives
     std::vector<std::vector<double>> ComputeBMatrix(std::array<std::array<double, 3>, 3> inverse_jacobian_matrix, std::vector<std::array<double, 3>> shape_function_derivatives) {
         std::vector<std::vector<double>> b_matrix(3, std::vector<double>(m_num_nodes, 0.0));
@@ -152,6 +133,49 @@ class Element {
         std::vector<std::array<double, 3>> shape_function_derivatives = ComputeShapeFunctionDerivatives(xi, eta, zeta);
         // Compute the B matrix
         return ComputeBMatrix(inverse_jacobian_matrix, shape_function_derivatives);
+    }
+
+    // Compute the displacement gradient, B * u, (NSD x m_num_nodes) x (m_num_nodes x NSD) = 3 x 3
+    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(std::vector<std::vector<double>> b_matrix, std::vector<double> node_displacements) {
+        std::array<std::array<double, 3>, 3> displacement_gradient;
+        displacement_gradient.fill({0.0, 0.0, 0.0});
+        for (size_t i = 0; i < 3; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
+                for (size_t k = 0; k < m_num_nodes; ++k) {
+                    displacement_gradient[i][j] += b_matrix[i][k] * node_displacements[k * 3 + j];
+                }
+            }
+        }
+        return displacement_gradient;
+    }
+
+    // Compute the displacement gradient, B * u, (NSD x m_num_nodes) x (m_num_nodes x NS) = 3 x 3, using xi, eta, zeta and node coordinates
+    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) {
+        // Compute the B matrix
+        std::vector<std::vector<double>> b_matrix = ComputeBMatrix(xi, eta, zeta, node_coordinates);
+        // Compute the displacement gradient
+        std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(b_matrix, node_displacements);
+        return displacement_gradient;
+    }
+
+    // Compute the deformation gradient, I + B * u, 3 x 3
+    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(const std::array<std::array<double, 3>, 3> &displacement_gradient) {
+        std::array<std::array<double, 3>, 3> deformation_gradient = displacement_gradient;
+        for (size_t i = 0; i < 3; ++i) {
+            deformation_gradient[i][i] += 1.0;
+        }
+        return deformation_gradient;
+    }
+
+    // Compute the deformation gradient, I + B * u, 3 x 3, using xi, eta, zeta and node coordinates
+    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) {
+        // Compute the displacement gradient
+        std::array<std::array<double, 3>, 3> d_gradient = ComputeDisplacementGradient(xi, eta, zeta, node_coordinates, node_displacements);
+        // Add identity matrix to displacement gradient to get deformation gradient
+        for (size_t i = 0; i < 3; ++i) {
+            d_gradient[i][i] += 1.0;
+        }
+        return d_gradient;
     }
 
    protected:
