@@ -12,7 +12,7 @@ namespace aperi {
  */
 enum MaterialType {
     ELASTIC, /**< Elastic material type */
-    NONE /**< No material type */
+    NONE     /**< No material type */
 };
 
 /**
@@ -20,8 +20,8 @@ enum MaterialType {
  */
 struct MaterialProperties {
     MaterialType material_type = MaterialType::NONE; /**< The type of material */
-    double density; /**< The density of the material */
-    std::map<std::string, double> properties; /**< Additional properties of the material */
+    double density;                                  /**< The density of the material */
+    std::map<std::string, double> properties;        /**< Additional properties of the material */
 };
 
 /**
@@ -43,6 +43,8 @@ class Material {
         return m_material_properties->density;
     }
 
+    virtual std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const = 0;
+
     /**
      * @brief Virtual destructor for Material class.
      */
@@ -62,6 +64,11 @@ class ElasticMaterial : public Material {
      * @param material_properties The properties of the elastic material.
      */
     ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {}
+
+    std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const override {
+        std::array<double, 6> stress({0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+        return stress;
+    }
 
     /**
      * @brief Virtual destructor for ElasticMaterial class.

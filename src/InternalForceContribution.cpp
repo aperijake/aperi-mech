@@ -21,11 +21,14 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
 
     // Get the force field
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
-    VectorField *force_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
+    m_force_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
 
     // Get the displacement and velocity fields
-    VectorField *displacement_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
-    VectorField *velocity_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
+    m_displacement_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
+    m_velocity_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
+
+    // Get the coordinates field
+    m_coordinates_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, m_meta_data->coordinate_field_name());
 
     // Get the element topology
     stk::topology element_topology = m_part->topology();
@@ -40,7 +43,7 @@ void InternalForceContribution::ComputeForce() {
         for (auto &&mesh_element : *bucket) {
             // Get the element's nodes
             stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(mesh_element);
-            m_element->ComputeInternalForce(element_nodes);  // TODO(jake) need to pass in fields and material
+            m_element->ComputeInternalForce(element_nodes, m_coordinates_field, m_displacement_field, m_velocity_field, m_force_field, m_material);
         }
     }
 }

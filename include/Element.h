@@ -38,8 +38,12 @@ class Element {
      * It computes the internal force of the element based on the given nodes.
      *
      * @param nodes An array of entity pointers representing the nodes of the element.
+     * @param displacement_field The displacement field.
+     * @param velocity_field The velocity field.
+     * @param force_field The force field.
+     * @param material The material of the element.
      */
-    virtual void ComputeInternalForce(stk::mesh::Entity const *nodes) = 0;
+    virtual void ComputeInternalForce(stk::mesh::Entity const *nodes, const VectorField *coordinate_field, const VectorField *displacement_field, const VectorField *velocity_field, const VectorField *force_field, std::shared_ptr<Material> material) = 0;
 
     virtual std::vector<double> ComputeShapeFunctions(double xi, double eta, double zeta) const = 0;
 
@@ -111,14 +115,14 @@ class Element {
         return inverse_jacobian_matrix;
     }
 
-    // Compute B matrix, NSD x m_num_nodes, using inverse Jacobian matrix and shape function derivatives
+    // Compute B matrix, m_num_nodes x NSD, using inverse Jacobian matrix and shape function derivatives
     std::vector<std::vector<double>> ComputeBMatrix(std::array<std::array<double, 3>, 3> inverse_jacobian_matrix, std::vector<std::array<double, 3>> shape_function_derivatives) const {
-        std::vector<std::vector<double>> b_matrix(3, std::vector<double>(m_num_nodes, 0.0));
+        std::vector<std::vector<double>> b_matrix(m_num_nodes, std::vector<double>(3, 0.0));
         // B = inverse_jacobian_matrix * shape_function_derivatives
-        for (size_t i = 0; i < 3; ++i) {
-            for (size_t j = 0; j < m_num_nodes; ++j) {
+        for (size_t i = 0; i < m_num_nodes; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
                 for (size_t k = 0; k < 3; ++k) {
-                    b_matrix[i][j] += inverse_jacobian_matrix[i][k] * shape_function_derivatives[j][k];
+                    b_matrix[i][j] += inverse_jacobian_matrix[j][k] * shape_function_derivatives[i][k];
                 }
             }
         }
@@ -142,14 +146,14 @@ class Element {
         for (size_t i = 0; i < 3; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 for (size_t k = 0; k < m_num_nodes; ++k) {
-                    displacement_gradient[i][j] += b_matrix[i][k] * node_displacements[k * 3 + j];
+                    displacement_gradient[i][j] += b_matrix[k][i] * node_displacements[k * 3 + j];
                 }
             }
         }
         return displacement_gradient;
     }
 
-    // Compute the displacement gradient, B * u, (NSD x m_num_nodes) x (m_num_nodes x NS) = 3 x 3, using xi, eta, zeta and node coordinates
+    // Compute the displacement gradient, B^T * u, (NSD x m_num_nodes) x (m_num_nodes x NS) = 3 x 3, using xi, eta, zeta and node coordinates
     std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) const {
         // Compute the B matrix
         std::vector<std::vector<double>> b_matrix = ComputeBMatrix(xi, eta, zeta, node_coordinates);
@@ -286,23 +290,99 @@ class Tetrahedron4 : public Element {
      *
      * @param nodes An array of entity pointers representing the nodes of the element.
      */
-    void ComputeInternalForce(stk::mesh::Entity const *nodes) override {
-        // Gather the node's displacement, velocity, and force
-        double *p_element_node_displacement[12];  // 4 nodes * 3 components
-        double *p_element_node_velocity[12];
-        double *p_element_node_force[12];
+    void ComputeInternalForce(stk::mesh::Entity const *nodes, const VectorField *coordinate_field, const VectorField *displacement_field, const VectorField *velocity_field, const VectorField *force_field, std::shared_ptr<Material> material) override {
+        // Gather the node's displacement, force, and coordinates
+        std::vector<double> node_displacement(12);  // 4 nodes * 3 components
+        std::vector<std::array<double, 3>> node_force(4);
+        std::vector<std::array<double, 3>> node_coordinates(4);
 
         for (int i = 0; i < 4; ++i) {
             // Get the node
-            // stk::mesh::Entity node = nodes[i];
-            //// Get the node's displacement
-            // p_element_node_displacement[i * 3] = stk::mesh::field_data(*m_displacement_field, node);
-            //// Get the node's velocity
-            // p_element_node_velocity[i * 3] = stk::mesh::field_data(*m_velocity_field, node);
-            //// Get the node's force
-            // p_element_node_force[i * 3] = stk::mesh::field_data(*m_force_field, node);
+            stk::mesh::Entity node = nodes[i];
+            // std::cout << "node: " << node << std::endl;
+            //  Get the node's coordinates
+            double *coordinates = stk::mesh::field_data(*coordinate_field, node);
+            node_coordinates[i] = {coordinates[0], coordinates[1], coordinates[2]};
+            // Get the node's displacement
+            double *displacement = stk::mesh::field_data(*displacement_field, node);
+            node_displacement[i * 3] = displacement[0];
+            node_displacement[i * 3 + 1] = displacement[1];
+            node_displacement[i * 3 + 2] = displacement[2];
         }
-        // Compute the stress and internal force of the element. TODO(jake): Implement.
+        // Compute the shape function derivatives
+        std::vector<std::array<double, 3>> shape_function_derivatives = ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
+
+        // Compute Jacobian matrix
+        std::array<std::array<double, 3>, 3> jacobian = ComputeJacobianMatrix(shape_function_derivatives, node_coordinates);
+
+        // Compute Jacobian determinant
+        double jacobian_determinant = ComputeJacobianDeterminant(jacobian);
+
+        // Compute inverse of Jacobian matrix
+        std::array<std::array<double, 3>, 3> inverse_jacobian = ComputeInverseJacobianMatrix(jacobian);
+
+        // Compute B matrix
+        std::vector<std::vector<double>> b_matrix = ComputeBMatrix(inverse_jacobian, shape_function_derivatives);
+
+        // Compute displacement gradient
+        std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(b_matrix, node_displacement);
+
+        // Compute the Green Lagrange strain tensor
+        std::array<std::array<double, 3>, 3> green_lagrange_strain_tensor = ComputeGreenLagrangeStrainTensor(displacement_gradient);
+
+        /*
+        std::cout << "node_coordinates: " << node_coordinates[0][0] << " " << node_coordinates[0][1] << " " << node_coordinates[0][2] << std::endl;
+        std::cout << "                  " << node_coordinates[1][0] << " " << node_coordinates[1][1] << " " << node_coordinates[1][2] << std::endl;
+        std::cout << "                  " << node_coordinates[2][0] << " " << node_coordinates[2][1] << " " << node_coordinates[2][2] << std::endl;
+        std::cout << "                  " << node_coordinates[3][0] << " " << node_coordinates[3][1] << " " << node_coordinates[3][2] << std::endl;
+
+        std::cout << "node_displacement: " << node_displacement[0] << " " << node_displacement[1] << " " << node_displacement[2] << std::endl;
+        std::cout << "                   " << node_displacement[3] << " " << node_displacement[4] << " " << node_displacement[5] << std::endl;
+        std::cout << "                   " << node_displacement[6] << " " << node_displacement[7] << " " << node_displacement[8] << std::endl;
+
+        std::cout << "shape_function_derivatives: " << shape_function_derivatives[0][0] << " " << shape_function_derivatives[0][1] << " " << shape_function_derivatives[0][2] << std::endl;
+        std::cout << "                           " << shape_function_derivatives[1][0] << " " << shape_function_derivatives[1][1] << " " << shape_function_derivatives[1][2] << std::endl;
+        std::cout << "                           " << shape_function_derivatives[2][0] << " " << shape_function_derivatives[2][1] << " " << shape_function_derivatives[2][2] << std::endl;
+        std::cout << "                           " << shape_function_derivatives[3][0] << " " << shape_function_derivatives[3][1] << " " << shape_function_derivatives[3][2] << std::endl;
+
+        std::cout << "jacobian: " << jacobian[0][0] << " " << jacobian[0][1] << " " << jacobian[0][2] << std::endl;
+        std::cout << "          " << jacobian[1][0] << " " << jacobian[1][1] << " " << jacobian[1][2] << std::endl;
+        std::cout << "          " << jacobian[2][0] << " " << jacobian[2][1] << " " << jacobian[2][2] << std::endl;
+
+        std::cout << "jacobian_determinant: " << jacobian_determinant << std::endl;
+
+        std::cout << "inverse_jacobian: " << inverse_jacobian[0][0] << " " << inverse_jacobian[0][1] << " " << inverse_jacobian[0][2] << std::endl;
+        std::cout << "                  " << inverse_jacobian[1][0] << " " << inverse_jacobian[1][1] << " " << inverse_jacobian[1][2] << std::endl;
+        std::cout << "                  " << inverse_jacobian[2][0] << " " << inverse_jacobian[2][1] << " " << inverse_jacobian[2][2] << std::endl;
+
+        std::cout << "displacement_gradient: " << displacement_gradient[0][0] << " " << displacement_gradient[0][1] << " " << displacement_gradient[0][2] << std::endl;
+        std::cout << "                      " << displacement_gradient[1][0] << " " << displacement_gradient[1][1] << " " << displacement_gradient[1][2] << std::endl;
+        std::cout << "                      " << displacement_gradient[2][0] << " " << displacement_gradient[2][1] << " " << displacement_gradient[2][2] << std::endl;
+
+        std::cout << "b_matrix: " << b_matrix[0][0] << " " << b_matrix[0][1] << " " << b_matrix[0][2] << " " << b_matrix[0][3] << std::endl;
+        std::cout << "           " << b_matrix[1][0] << " " << b_matrix[1][1] << " " << b_matrix[1][2] << " " << b_matrix[1][3] << std::endl;
+        std::cout << "           " << b_matrix[2][0] << " " << b_matrix[2][1] << " " << b_matrix[2][2] << " " << b_matrix[2][3] << std::endl;
+
+        std::cout << "green_lagrange_strain_tensor: " << green_lagrange_strain_tensor[0][0] << " " << green_lagrange_strain_tensor[0][1] << " " << green_lagrange_strain_tensor[0][2] << std::endl;
+        std::cout << "                              " << green_lagrange_strain_tensor[1][0] << " " << green_lagrange_strain_tensor[1][1] << " " << green_lagrange_strain_tensor[1][2] << std::endl;
+        std::cout << "                              " << green_lagrange_strain_tensor[2][0] << " " << green_lagrange_strain_tensor[2][1] << " " << green_lagrange_strain_tensor[2][2] << std::endl;
+        */
+
+        for (int i = 0; i < 4; ++i) {
+            // Compute the stress and internal force of the element.
+            std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
+
+            // Compute (B_I F)^T
+            std::array<std::array<double, 6>, 3> bF_IT = ComputeBFTranspose(b_matrix[i], displacement_gradient);
+
+            double *element_node_force = stk::mesh::field_data(*force_field, nodes[i]);
+            // Compute the internal force
+            for (int j = 0; j < 3; ++j) {
+                for (int k = 0; k < 6; ++k) {
+                    element_node_force[j] += bF_IT[j][k] * stress[k] * jacobian_determinant;  // TODO(jake): Check this, integration weight? + or -?
+                }
+            }
+        }
     }
 };
 
