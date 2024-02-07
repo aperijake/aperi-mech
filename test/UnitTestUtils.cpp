@@ -277,9 +277,9 @@ void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector
         stk::all_reduce_sum(bulk.parallel(), sum_values.data(), sum_values_global.data(), 3);
         for (unsigned i = 0; i < 3; i++) {
             if (std::abs(expected_values[i]) < 1.0e-12) {
-                EXPECT_NEAR(sum_values_global[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect";
+                EXPECT_NEAR(sum_values_global[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
             } else {
-                EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect";
+                EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
             }
         }
     }

@@ -50,7 +50,7 @@ class Material {
      */
     virtual ~Material() = default;
 
-   private:
+   protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
 };
 
@@ -66,7 +66,15 @@ class ElasticMaterial : public Material {
     ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {}
 
     std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const override {
-        std::array<double, 6> stress({0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+        std::array<double, 6> stress;
+        double lambda_trace_strain = m_material_properties->properties.at("lambda") * (green_lagrange_strain[0][0] + green_lagrange_strain[1][1] + green_lagrange_strain[2][2]);
+        double two_mu = m_material_properties->properties.at("two_mu");
+        stress[0] = lambda_trace_strain + two_mu * green_lagrange_strain[0][0];
+        stress[1] = lambda_trace_strain + two_mu * green_lagrange_strain[1][1];
+        stress[2] = lambda_trace_strain + two_mu * green_lagrange_strain[2][2];
+        stress[3] = two_mu * green_lagrange_strain[1][2];
+        stress[4] = two_mu * green_lagrange_strain[0][2];
+        stress[5] = two_mu * green_lagrange_strain[0][1];
         return stress;
     }
 
@@ -88,8 +96,14 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         YAML::Node elastic_node = material_node["elastic"];
         material_properties->material_type = MaterialType::ELASTIC;
         material_properties->density = elastic_node["density"].as<double>();
-        material_properties->properties.emplace("poissons_ratio", elastic_node["poissons_ratio"].as<double>());
-        material_properties->properties.emplace("youngs_modulus", elastic_node["youngs_modulus"].as<double>());
+        double poissons_ratio = elastic_node["poissons_ratio"].as<double>();
+        double youngs_modulus = elastic_node["youngs_modulus"].as<double>();
+        material_properties->properties.emplace("poissons_ratio", poissons_ratio);
+        material_properties->properties.emplace("youngs_modulus", youngs_modulus);
+        // 2 mu = E / (1 + nu)
+        material_properties->properties.emplace("two_mu", youngs_modulus / (1.0 + poissons_ratio));
+        // lambda = E * nu / ((1 + nu) * (1 - 2 * nu))
+        material_properties->properties.emplace("lambda", youngs_modulus * poissons_ratio / ((1.0 + poissons_ratio) * (1.0 - 2.0 * poissons_ratio)));
         return std::make_shared<ElasticMaterial>(material_properties);
     } else {
         return nullptr;

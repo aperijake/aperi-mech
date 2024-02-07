@@ -130,7 +130,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
                 // Compute the gravity force
                 for (unsigned i = 0; i < num_values_per_node; ++i) {
                     int iI = i_node * num_values_per_node + i;
-                    force_data_at_state_for_bucket[iI] = gravity[i] * mass_data_for_bucket[iI];  // TODO(jake): this should be +=, but we need to zero out the force field first
+                    force_data_at_state_for_bucket[iI] += gravity[i] * mass_data_for_bucket[iI];
                 }
             }
         }

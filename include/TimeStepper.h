@@ -33,6 +33,8 @@ class TimeStepper {
      */
     double GetTimeEnd() const { return m_time_end; };
 
+    bool AtEnd(double time) const { return time >= GetTimeEnd(); }
+
     /**
      * @brief Calculate the time increment for the next time step.
      * @param time The current time.

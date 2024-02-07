@@ -60,7 +60,7 @@ class Element {
         for (int I = 0, e = node_coordinates.size(); I < e; ++I) {
             for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < 3; ++j) {
-                    jacobian_matrix[i][j] += shape_function_derivatives[I][j] * node_coordinates[I][i];
+                    jacobian_matrix[i][j] += shape_function_derivatives[I][i] * node_coordinates[I][j];
                 }
             }
         }
@@ -368,10 +368,10 @@ class Tetrahedron4 : public Element {
         std::cout << "                              " << green_lagrange_strain_tensor[2][0] << " " << green_lagrange_strain_tensor[2][1] << " " << green_lagrange_strain_tensor[2][2] << std::endl;
         */
 
-        for (int i = 0; i < 4; ++i) {
-            // Compute the stress and internal force of the element.
-            std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
+        // Compute the stress and internal force of the element.
+        std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
 
+        for (int i = 0; i < 4; ++i) {
             // Compute (B_I F)^T
             std::array<std::array<double, 6>, 3> bF_IT = ComputeBFTranspose(b_matrix[i], displacement_gradient);
 
@@ -379,7 +379,7 @@ class Tetrahedron4 : public Element {
             // Compute the internal force
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 6; ++k) {
-                    element_node_force[j] += bF_IT[j][k] * stress[k] * jacobian_determinant;  // TODO(jake): Check this, integration weight? + or -?
+                    element_node_force[j] -= bF_IT[j][k] * stress[k] * jacobian_determinant / 6.0;  // weight = 1/6 for tetrahedron
                 }
             }
         }

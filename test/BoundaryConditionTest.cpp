@@ -107,14 +107,14 @@ class BoundaryConditionTest : public ApplicationTest {
         // Initial time
         for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
             m_io_mesh->GetBulkData().update_field_data_states();
-            m_boundary_conditions[i]->Apply(0);
+            m_boundary_conditions[i]->ApplyVelocity(0);
         }
 
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
             for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
                 m_io_mesh->GetBulkData().update_field_data_states();
-                m_boundary_conditions[i]->Apply(time);
+                m_boundary_conditions[i]->ApplyVelocity(time);
             }
             UpdateNodalDisplacements(time_increment);
 

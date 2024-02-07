@@ -43,6 +43,19 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce() {
+    VectorField &force_field = *meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
+    // zero out the force field, STK_QUESTION: Is this the correct way to zero out the force field?
+    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        double *force_data_for_bucket = stk::mesh::field_data(force_field, *bucket);
+        size_t num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
+        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+            for (size_t i = 0; i < num_values_per_node; i++) {
+                int iI = i_node * num_values_per_node + i;
+                force_data_for_bucket[iI] = 0.0;
+            }
+        }
+    }
+
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
     }
@@ -170,9 +183,6 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increme
 }
 
 void ExplicitSolver::Solve() {
-    // Get the final time, t_{final}
-    double time_end = m_time_stepper->GetTimeEnd();
-
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         stk::mesh::Part *p_part = internal_force_contribution->GetPart();
@@ -192,15 +202,15 @@ void ExplicitSolver::Solve() {
     ComputeAcceleration();
 
     // Output initial state
-    sierra::Env::outputP0() << "Writing Results" << std::endl;
+    sierra::Env::outputP0() << "Writing Results at Time 0.0" << std::endl;
     m_io_mesh->WriteFieldResults(time);
 
-    // Loop over time steps
-    while (time < time_end) {
-        sierra::Env::outputP0() << "Time: " << time << std::endl;
+    // Get the initial time step
+    double time_increment = m_time_stepper->GetTimeIncrement(time);
 
-        // Get the time step, Δt^{n+½}
-        double time_increment = m_time_stepper->GetTimeIncrement(time);
+    // Loop over time steps
+    while (m_time_stepper->AtEnd(time) == false) {
+        sierra::Env::outputP0() << "Starting Time Increment. Time " << time << " to " << time + time_increment << std::endl;
 
         // Move state n+1 to state n
         bulk_data->update_field_data_states();
@@ -210,7 +220,7 @@ void ExplicitSolver::Solve() {
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {
-            boundary_condition->Apply(time);
+            boundary_condition->ApplyVelocity(time + 0.5 * time_increment);
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
@@ -221,6 +231,11 @@ void ExplicitSolver::Solve() {
 
         // Compute the acceleration, a^{n+1}
         ComputeAcceleration();
+
+        // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
+        for (const auto &boundary_condition : m_boundary_conditions) {
+            boundary_condition->ApplyAcceleration(time + time_increment);
+        }
 
         // Compute the second partial update
         ComputeSecondPartialUpdate(time, time_increment);
@@ -234,8 +249,11 @@ void ExplicitSolver::Solve() {
         // Update the increment, n = n + 1
         n = n + 1;
 
+        // Get the next time step, Δt^{n+½}
+        time_increment = m_time_stepper->GetTimeIncrement(time);
+
         // Output
-        sierra::Env::outputP0() << "Writing Results" << std::endl;
+        sierra::Env::outputP0() << "Writing Results at Time " << time << std::endl;
         m_io_mesh->WriteFieldResults(time);
     }
 }

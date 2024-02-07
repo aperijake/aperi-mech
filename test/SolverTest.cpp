@@ -305,21 +305,100 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     std::array<double, 3> direction = boundary_conditions[0]["velocity"]["direction"].as<std::array<double, 3>>();
     double final_time = 1.0;
     double delta_time = 0.1;
-    double second_final_time = final_time - delta_time;
-    std::array<double, 3> expected_velocity = {magnitude * direction[0] * second_final_time, magnitude * direction[1] * second_final_time, magnitude * direction[2] * second_final_time};
+    std::array<double, 3> expected_velocity = {magnitude * direction[0] * final_time, magnitude * direction[1] * final_time, magnitude * direction[2] * final_time};
     // Integrate the velocity to get the displacement
     std::array<double, 3> expected_displacement = {0.0, 0.0, 0.0};
     double time = 0.0;
     for (size_t i = 0; i < static_cast<size_t>(final_time / delta_time); ++i) {
         // Increment the displacement
-        expected_displacement[0] += magnitude * direction[0] * time * delta_time;
-        expected_displacement[1] += magnitude * direction[1] * time * delta_time;
-        expected_displacement[2] += magnitude * direction[2] * time * delta_time;
+        expected_displacement[0] += magnitude * direction[0] * (time + 0.5 * delta_time) * delta_time;
+        expected_displacement[1] += magnitude * direction[1] * (time + 0.5 * delta_time) * delta_time;
+        expected_displacement[2] += magnitude * direction[2] * (time + 0.5 * delta_time) * delta_time;
         time += delta_time;
     }
-    std::array<double, 3> expected_acceleration = {0, 0, 0};
+    std::array<double, 3> expected_acceleration = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
 
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
+}
+
+// Explicit test for a simple cube in tension in x. No loads, just two displacement boundary condition.
+TEST_F(SolverTest, ExplicitTension) {
+    m_yaml_data = CreateTestYaml();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    // Change the boundary condition to apply to a different set
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = 0.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = 1.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = 0.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = 0.0;
+
+    // Deep copy the first boundary condition to create a second boundary condition
+    YAML::Node second_boundary_condition = Clone(m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]);
+    // Change the boundary condition to apply to a different set
+    second_boundary_condition["displacement"]["sets"][0] = "surface_2";
+    // Change the magnitude and direction of the second boundary condition
+    double magnitude = 0.1;
+    second_boundary_condition["displacement"]["magnitude"] = magnitude;
+    second_boundary_condition["displacement"]["direction"][0] = 1.0;
+    second_boundary_condition["displacement"]["direction"][1] = 0.0;
+    second_boundary_condition["displacement"]["direction"][2] = 0.0;
+    // Add a second boundary condition
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"].push_back(second_boundary_condition);
+
+    // Change the young's modulus, poisson's ratio, and density
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["youngs_modulus"] = 1.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["poissons_ratio"] = 0.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 8.0;  // Each node has a mass of around 1.0
+
+    CreateInputFile();
+
+    // Add a sideset to the mesh
+    m_mesh_sidesets = "|sideset:xX";
+    CreateTestMesh();
+
+    RunSolver();
+
+    // Force = S_11 * A = E_11 * E * A = E_11 * 1.0 * 1.0 = E_11 = 1/2 (F_11^2 - 1) = 1/2 (1.1^2 - 1) = 0.105
+    double expected_force = 0.5 * ((1.0 + magnitude) * (1.0 + magnitude) - 1.0) * 1.1;  // The 1.1 is because the force is calculated for time = 1.1. This is sensitive to the way the time stepping is implemented.
+    std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
+    std::array<double, 3> expected_force_sum_surface_1 = {expected_force, 0.0, 0.0};
+    std::array<double, 3> expected_force_sum_surface_2 = {-expected_force, 0.0, 0.0};
+
+    // Check the force balance
+    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "force", expected_zero);
+
+    // Get selector for the first set
+    stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
+    stk::mesh::Selector set_selector_1(*p_set_part_1);
+
+    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_1, "force", expected_force_sum_surface_1);
+
+    // Get selector for the second set
+    stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
+    stk::mesh::Selector set_selector_2(*p_set_part_2);
+
+    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_2, "force", expected_force_sum_surface_2);
+
+    // Check the mass
+    double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+    double mass = density * m_num_procs * m_num_blocks;  // 1x1x(num_procs * num_blocks) mesh
+    std::array<double, 3> expected_mass = {mass, mass, mass};
+    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
+
+    // Check the boundary conditions
+    const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
+    std::array<double, 3> direction = boundary_conditions[0]["displacement"]["direction"].as<std::array<double, 3>>();
+    double final_time = 1.0;
+    std::array<double, 3> expected_displacement = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
+    std::array<double, 3> expected_velocity = {expected_displacement[0] / final_time, expected_displacement[1] / final_time, expected_displacement[2] / final_time};
+
+    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_zero);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_zero);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
 }
