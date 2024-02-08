@@ -45,9 +45,9 @@
       "program": "/Users/jake/projects/spack/var/spack/environments/aperi-mech/.spack-env/view/bin/mpirun",
       "args": [
         "-np",
-        "1",
+        "2",
         "${workspaceFolder}/../aperi-mech_build/unit_tests_debug",
-        "--gtest_filter=ApplicationTest.RunValidInputFile"
+        "--gtest_filter=ElementPatchTest.ExplicitTensionX"
       ],
       "cwd": "${workspaceFolder}/../aperi-mech_build",
       "preLaunchTask": "make_debug"

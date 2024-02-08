@@ -494,7 +494,6 @@ class ElementPatchTest : public SolverTest {
    protected:
     void SetUp() override {
         // Run SolverTest::SetUp first
-        m_capture_output = false;
         SolverTest::SetUp();
     }
 
@@ -543,8 +542,8 @@ class ElementPatchTest : public SolverTest {
         // S = P * F^-T
         // P = S F^T
         // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
-        // Unit cube so:
-        // Force = S F^T
+        // Unit cube:
+        //  Force = B S F^T
         std::array<double, 3> expected_force;
         if (face_direction == 0) {
             expected_force[0] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[0][2];
@@ -738,7 +737,6 @@ TEST_F(ElementPatchTest, ExplicitShearYX) {
 
     // Get the expected forces
     std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force);
@@ -793,7 +791,6 @@ TEST_F(ElementPatchTest, ExplicitShearXY) {
 
     // Get the expected forces
     std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force);
@@ -821,7 +818,6 @@ TEST_F(ElementPatchTest, ExplicitShearZY) {
 
     // Get the expected forces
     std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force);
@@ -849,7 +845,6 @@ TEST_F(ElementPatchTest, ExplicitShearXZ) {
 
     // Get the expected forces
     std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force);
@@ -877,7 +872,6 @@ TEST_F(ElementPatchTest, ExplicitShearYZ) {
 
     // Get the expected forces
     std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force);
