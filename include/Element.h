@@ -225,16 +225,16 @@ class Element {
         bf_transpose[2][1] = bI_vector[1] * displacement_gradient[2][1];
 
         bf_transpose[0][3] = bI_vector[1] * displacement_gradient[0][2] + bI_vector[2] * displacement_gradient[0][1];
-        bf_transpose[0][4] = bI_vector[0] * displacement_gradient[0][2] + bI_vector[1] * (displacement_gradient[0][0] + 1.0);
-        bf_transpose[0][5] = bI_vector[0] * displacement_gradient[0][1] + bI_vector[2] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[0][4] = bI_vector[0] * displacement_gradient[0][2] + bI_vector[2] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[0][5] = bI_vector[0] * displacement_gradient[0][1] + bI_vector[1] * (displacement_gradient[0][0] + 1.0);
 
         bf_transpose[1][3] = bI_vector[1] * displacement_gradient[1][2] + bI_vector[2] * (displacement_gradient[1][1] + 1.0);
-        bf_transpose[1][4] = bI_vector[0] * displacement_gradient[1][2] + bI_vector[1] * displacement_gradient[1][0];
-        bf_transpose[1][5] = bI_vector[0] * (displacement_gradient[1][1] + 1.0) + bI_vector[2] * displacement_gradient[1][0];
+        bf_transpose[1][4] = bI_vector[0] * displacement_gradient[1][2] + bI_vector[2] * displacement_gradient[1][0];
+        bf_transpose[1][5] = bI_vector[0] * (displacement_gradient[1][1] + 1.0) + bI_vector[1] * displacement_gradient[1][0];
 
         bf_transpose[2][3] = bI_vector[1] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][1];
-        bf_transpose[2][4] = bI_vector[0] * (displacement_gradient[2][2] + 1.0) + bI_vector[1] * displacement_gradient[2][0];
-        bf_transpose[2][5] = bI_vector[0] * displacement_gradient[2][1] + bI_vector[2] * displacement_gradient[2][0];
+        bf_transpose[2][4] = bI_vector[0] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][0];
+        bf_transpose[2][5] = bI_vector[0] * displacement_gradient[2][1] + bI_vector[1] * displacement_gradient[2][0];
 
         return bf_transpose;
     }
@@ -293,7 +293,6 @@ class Tetrahedron4 : public Element {
     void ComputeInternalForce(stk::mesh::Entity const *nodes, const VectorField *coordinate_field, const VectorField *displacement_field, const VectorField *velocity_field, const VectorField *force_field, std::shared_ptr<Material> material) override {
         // Gather the node's displacement, force, and coordinates
         std::vector<double> node_displacement(12);  // 4 nodes * 3 components
-        std::vector<std::array<double, 3>> node_force(4);
         std::vector<std::array<double, 3>> node_coordinates(4);
 
         for (int i = 0; i < 4; ++i) {
@@ -334,7 +333,6 @@ class Tetrahedron4 : public Element {
         std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
 
         /*
-
         std::cout << "node_coordinates: " << node_coordinates[0][0] << " " << node_coordinates[0][1] << " " << node_coordinates[0][2] << std::endl;
         std::cout << "                  " << node_coordinates[1][0] << " " << node_coordinates[1][1] << " " << node_coordinates[1][2] << std::endl;
         std::cout << "                  " << node_coordinates[2][0] << " " << node_coordinates[2][1] << " " << node_coordinates[2][2] << std::endl;
@@ -343,6 +341,7 @@ class Tetrahedron4 : public Element {
         std::cout << "node_displacement: " << node_displacement[0] << " " << node_displacement[1] << " " << node_displacement[2] << std::endl;
         std::cout << "                   " << node_displacement[3] << " " << node_displacement[4] << " " << node_displacement[5] << std::endl;
         std::cout << "                   " << node_displacement[6] << " " << node_displacement[7] << " " << node_displacement[8] << std::endl;
+        std::cout << "                   " << node_displacement[9] << " " << node_displacement[10] << " " << node_displacement[11] << std::endl;
 
         std::cout << "shape_function_derivatives: " << shape_function_derivatives[0][0] << " " << shape_function_derivatives[0][1] << " " << shape_function_derivatives[0][2] << std::endl;
         std::cout << "                           " << shape_function_derivatives[1][0] << " " << shape_function_derivatives[1][1] << " " << shape_function_derivatives[1][2] << std::endl;

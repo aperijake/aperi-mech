@@ -19,7 +19,6 @@ class ElementTest : public ApplicationTest {
    protected:
     void SetUp() override {
         // Run ApplicationTest::SetUp first
-        m_capture_output = false;
         ApplicationTest::SetUp();
 
         // Initialize field data
@@ -495,6 +494,7 @@ class ElementPatchTest : public SolverTest {
    protected:
     void SetUp() override {
         // Run SolverTest::SetUp first
+        m_capture_output = false;
         SolverTest::SetUp();
     }
 
@@ -502,200 +502,383 @@ class ElementPatchTest : public SolverTest {
         // Run SolverTest::TearDown last
         SolverTest::TearDown();
     }
+
+    void RunFullyPrescribedBoundaryConditionProblem(const std::string& sideset, const std::array<double, 3>& displacement_direction, double magnitude) {
+        // Add a sideset to the mesh
+        m_mesh_sidesets = "|sideset:" + sideset;
+
+        // Displacement boundary conditions
+        m_yaml_data = CreateTestYaml();
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
+        AddDisplacementBoundaryConditions(m_yaml_data);
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = -magnitude;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = displacement_direction[0];
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = displacement_direction[1];
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = displacement_direction[2];
+
+        // Deep copy the first boundary condition to create a second boundary condition
+        YAML::Node second_boundary_condition = Clone(m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]);
+        // Change the boundary condition to apply to a different set
+        second_boundary_condition["displacement"]["sets"][0] = "surface_2";
+        // Change the magnitude and direction of the second boundary condition
+        second_boundary_condition["displacement"]["magnitude"] = magnitude;
+        // Add a second boundary condition
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"].push_back(second_boundary_condition);
+
+        // Change the young's modulus, poisson's ratio, and density
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["youngs_modulus"] = 1.0;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["poissons_ratio"] = 0.0;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 8.0;  // Each node has a mass of around 1.0
+
+        CreateInputFile();
+
+        CreateTestMesh();
+
+        RunSolver();
+    }
+
+    std::array<double, 3> GetExpectedPositiveForces(int face_direction, const std::array<double, 6>& expected_second_piola_kirchhoff_stress, const std::array<std::array<double, 3>, 3>& expected_deformation_gradient) {
+        // S = P * F^-T
+        // P = S F^T
+        // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
+        // Unit cube so:
+        // Force = S F^T
+        std::array<double, 3> expected_force;
+        if (face_direction == 0) {
+            expected_force[0] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[0][2];
+            expected_force[1] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[1][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[1][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[1][2];
+            expected_force[2] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[2][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[2][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[2][2];
+        } else if (face_direction == 1) {
+            expected_force[0] = expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[1] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[0][2];
+            expected_force[1] = expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[1][0] + expected_second_piola_kirchhoff_stress[1] * expected_deformation_gradient[1][1] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[1][2];
+            expected_force[2] = expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[2][0] + expected_second_piola_kirchhoff_stress[1] * expected_deformation_gradient[2][1] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[2][2];
+        } else if (face_direction == 2) {
+            expected_force[0] = expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[2] * expected_deformation_gradient[0][2];
+            expected_force[1] = expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[1][0] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[1][1] + expected_second_piola_kirchhoff_stress[2] * expected_deformation_gradient[1][2];
+            expected_force[2] = expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[2][0] + expected_second_piola_kirchhoff_stress[3] * expected_deformation_gradient[2][1] + expected_second_piola_kirchhoff_stress[2] * expected_deformation_gradient[2][2];
+        } else {
+            throw std::runtime_error("Invalid face direction");
+        }
+        return expected_force;
+    }
+
+    void CheckForcesAndFields(const std::array<double, 3>& expected_force) {
+        // Get the expected negative force
+        std::array<double, 3> expected_force_negative = {-expected_force[0], -expected_force[1], -expected_force[2]};
+
+        // Check the force balance
+        std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
+        CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "force", expected_zero);
+
+        // Get selector for the first set
+        stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
+        stk::mesh::Selector set_selector_1(*p_set_part_1);
+
+        CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_1, "force", expected_force);
+
+        // Get selector for the second set
+        stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
+        stk::mesh::Selector set_selector_2(*p_set_part_2);
+
+        CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_2, "force", expected_force_negative);
+
+        // Check the mass
+        double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+        double mass = density * m_num_procs * m_num_blocks;  // 1x1x(num_procs * num_blocks) mesh
+        std::array<double, 3> expected_mass = {mass, mass, mass};
+        CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
+
+        // Check the boundary conditions
+        const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
+        std::array<double, 3> direction = boundary_conditions[1]["displacement"]["direction"].as<std::array<double, 3>>();
+        double magnitude = boundary_conditions[1]["displacement"]["magnitude"].as<double>();
+        double final_time = 1.0;
+        std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
+        std::array<double, 3> expected_velocity_positive = {expected_displacement_positive[0] / final_time, expected_displacement_positive[1] / final_time, expected_displacement_positive[2] / final_time};
+        std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
+        std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
+
+        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_displacement_negative);
+        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement_positive);
+        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_velocity_negative);
+        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity_positive);
+        CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
+    }
 };
 
-// Explicit test for a simple cube in tension in x. No loads, just two displacement boundary condition. All DOFs are constrained.
-TEST_F(ElementPatchTest, ExplicitTension) {
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
-    AddDisplacementBoundaryConditions(m_yaml_data);
-    // Change the boundary condition to apply to a different set
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = 0.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = 1.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = 0.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = 0.0;
-
-    // Deep copy the first boundary condition to create a second boundary condition
-    YAML::Node second_boundary_condition = Clone(m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]);
-    // Change the boundary condition to apply to a different set
-    second_boundary_condition["displacement"]["sets"][0] = "surface_2";
-    // Change the magnitude and direction of the second boundary condition
+// Tests element calculations. Explicit test for a simple cube in tension in x. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitTensionX) {
+    // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
-    second_boundary_condition["displacement"]["magnitude"] = magnitude;
-    second_boundary_condition["displacement"]["direction"][0] = 1.0;
-    second_boundary_condition["displacement"]["direction"][1] = 0.0;
-    second_boundary_condition["displacement"]["direction"][2] = 0.0;
-    // Add a second boundary condition
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"].push_back(second_boundary_condition);
 
-    // Change the young's modulus, poisson's ratio, and density
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["youngs_modulus"] = 1.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["poissons_ratio"] = 0.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 8.0;  // Each node has a mass of around 1.0
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
-    CreateInputFile();
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
 
-    // Add a sideset to the mesh
-    m_mesh_sidesets = "|sideset:xX";
-    CreateTestMesh();
-
-    RunSolver();
-
+    // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
-    expected_deformation_gradient[0] = {1.0 + magnitude, 0.0, 0.0};
+    expected_deformation_gradient[0] = {1.0 + 2.0 * magnitude, 0.0, 0.0};
     expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
     expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
 
-    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.105, 0.0, 0.0, 0.0, 0.0, 0.0};
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.22, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-    // S = P * F^-T
-    // P = S F^T
-    // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
-    // Unit cube so:
-    // Force = S F^T
-    std::array<double, 3> expected_force;  // Positive x face
-    expected_force[0] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[0][2];
-    expected_force[1] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[1][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[1][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[1][2];
-    expected_force[2] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[2][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[2][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[2][2];
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
-    std::array<double, 3> expected_force_negative = {-expected_force[0], -expected_force[1], -expected_force[2]};
-
-    EXPECT_NEAR(expected_force[0], 0.5 * ((1.0 + magnitude) * (1.0 + magnitude) - 1.0) * (1.0 + magnitude), 1.0e-10);
-    EXPECT_NEAR(expected_force[1], 0.0, 1.0e-10);
-    EXPECT_NEAR(expected_force[2], 0.0, 1.0e-10);
-
-    std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-
-    // Check the force balance
-    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "force", expected_zero);
-
-    // Get selector for the first set
-    stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
-    stk::mesh::Selector set_selector_1(*p_set_part_1);
-
-    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_1, "force", expected_force);
-
-    // Get selector for the second set
-    stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
-    stk::mesh::Selector set_selector_2(*p_set_part_2);
-
-    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_2, "force", expected_force_negative);
-
-    // Check the mass
-    double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
-    double mass = density * m_num_procs * m_num_blocks;  // 1x1x(num_procs * num_blocks) mesh
-    std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
-
-    // Check the boundary conditions
-    const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-    std::array<double, 3> direction = boundary_conditions[0]["displacement"]["direction"].as<std::array<double, 3>>();
-    double final_time = 1.0;
-    std::array<double, 3> expected_displacement = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
-    std::array<double, 3> expected_velocity = {expected_displacement[0] / final_time, expected_displacement[1] / final_time, expected_displacement[2] / final_time};
-
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_zero);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_zero);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
 }
 
-// Explicit test for a simple cube in shear. No loads, just two displacement boundary condition.
-TEST_F(ElementPatchTest, ExplicitShear) {
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
-    AddDisplacementBoundaryConditions(m_yaml_data);
-    // Change the boundary condition to apply to a different set
+// Tests element calculations. Explicit test for a simple cube in compression in x. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitCompressionX) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = -0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0 + 2.0 * magnitude, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {-0.18, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in tension in y. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitTensionY) {
+    // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = -magnitude;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = 0.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = 1.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = 0.0;
 
-    // Deep copy the first boundary condition to create a second boundary condition
-    YAML::Node second_boundary_condition = Clone(m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]);
-    // Change the boundary condition to apply to a different set
-    second_boundary_condition["displacement"]["sets"][0] = "surface_2";
-    // Change the magnitude and direction of the second boundary condition
-    second_boundary_condition["displacement"]["magnitude"] = magnitude;
-    second_boundary_condition["displacement"]["direction"][0] = 0.0;
-    second_boundary_condition["displacement"]["direction"][1] = 1.0;
-    second_boundary_condition["displacement"]["direction"][2] = 0.0;
-    // Add a second boundary condition
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"].push_back(second_boundary_condition);
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
 
-    // Change the young's modulus, poisson's ratio, and density
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["youngs_modulus"] = 1.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["poissons_ratio"] = 0.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 8.0;  // Each node has a mass of around 1.0
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
 
-    CreateInputFile();
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0 + 2.0 * magnitude, 0.0};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
 
-    // Add a sideset to the mesh
-    m_mesh_sidesets = "|sideset:xX";
-    CreateTestMesh();
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.22, 0.0, 0.0, 0.0, 0.0};
 
-    RunSolver();
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in tension in z. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitTensionZ) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0 + 2.0 * magnitude};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.22, 0.0, 0.0, 0.0};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearYX) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
     expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
     expected_deformation_gradient[1] = {2.0 * magnitude, 1.0, 0.0};
     expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
 
+    // Set the expected second piola kirchhoff stress
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.0, 0.1};
 
-    // S = P * F^-T
-    // P = S F^T
-    // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
-    // Unit cube so:
-    // Force = S F^T
-    std::array<double, 3> expected_force;  // Positive x face
-    expected_force[0] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[0][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[0][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[0][2];
-    expected_force[1] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[1][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[1][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[1][2];
-    expected_force[2] = expected_second_piola_kirchhoff_stress[0] * expected_deformation_gradient[2][0] + expected_second_piola_kirchhoff_stress[5] * expected_deformation_gradient[2][1] + expected_second_piola_kirchhoff_stress[4] * expected_deformation_gradient[2][2];
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
 
-    std::array<double, 3> expected_force_negative = {-expected_force[0], -expected_force[1], -expected_force[2]};
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
 
-    std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
+// Tests element calculations. Explicit test for a simple cube in shear in zx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearZX) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
 
-    // Check the force balance
-    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "force", expected_zero);
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
 
-    // Get selector for the first set
-    stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
-    stk::mesh::Selector set_selector_1(*p_set_part_1);
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
 
-    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_1, "force", expected_force);
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {2.0 * magnitude, 0.0, 1.0};
 
-    // Get selector for the second set
-    stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
-    stk::mesh::Selector set_selector_2(*p_set_part_2);
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.1, 0.0};
 
-    CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_2, "force", expected_force_negative);
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
-    // Check the mass
-    double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
-    double mass = density * m_num_procs * m_num_blocks;  // 1x1x(num_procs * num_blocks) mesh
-    std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
 
-    // Check the boundary conditions
-    const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-    std::array<double, 3> direction = boundary_conditions[0]["displacement"]["direction"].as<std::array<double, 3>>();
-    double final_time = 1.0;
-    std::array<double, 3> expected_displacement_1 = {-magnitude * direction[0], -magnitude * direction[1], -magnitude * direction[2]};
-    std::array<double, 3> expected_displacement_2 = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
-    std::array<double, 3> expected_velocity_1 = {expected_displacement_1[0] / final_time, expected_displacement_1[1] / final_time, expected_displacement_1[2] / final_time};
-    std::array<double, 3> expected_velocity_2 = {expected_displacement_2[0] / final_time, expected_displacement_2[1] / final_time, expected_displacement_2[2] / final_time};
+// Tests element calculations. Explicit test for a simple cube in shear in xy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearXY) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_displacement_1);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement_2);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_velocity_1);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity_2);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 2.0 * magnitude, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.0, 0.0, 0.1};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearZY) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {0.0, 2.0 * magnitude, 1.0};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.1, 0.0, 0.0};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearXZ) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 2.0 * magnitude};
+    expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.0, 0.1, 0.0};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
+TEST_F(ElementPatchTest, ExplicitShearYZ) {
+    // magnitude of the displacement, both positive and negative sides
+    double magnitude = 0.1;
+
+    // Displacement boundary conditions
+    std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
+
+    // Run the problem, apply the displacement boundary conditions on the x faces
+    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+
+    // Set the expected deformation gradient
+    std::array<std::array<double, 3>, 3> expected_deformation_gradient;
+    expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
+    expected_deformation_gradient[1] = {0.0, 1.0, 2.0 * magnitude};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
+
+    // Set the expected second piola kirchhoff stress
+    std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.1, 0.0, 0.0};
+
+    // Get the expected forces
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::cout << "expected_force: " << expected_force[0] << " " << expected_force[1] << " " << expected_force[2] << std::endl;
+
+    // Check the force balance and the other fields
+    CheckForcesAndFields(expected_force);
 }
