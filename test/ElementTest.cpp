@@ -414,4 +414,77 @@ TEST_F(ElementTest, Tet4DisplacementAndDeformationGradient) {
     expected_displacement_gradient[2] = {0.0, 0.0, 1.0};
 
     CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in XY plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0};
+    expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[1] = {1.0, 0.0, 0.0};
+    expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in ZX plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0};
+    expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[2] = {1.0, 0.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in ZY plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 0.0};
+    expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[2] = {0.0, 1.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in XY plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0};
+    expected_displacement_gradient[0] = {0.0, 1.0, 0.0};
+    expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in XZ plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0};
+    expected_displacement_gradient[0] = {0.0, 0.0, 1.0};
+    expected_displacement_gradient[1] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
+
+    // ---------------------------------------------------------
+    // Create some nodal displacements, shear the tet4 element in YZ plane
+    nodal_displacements = {0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0};
+
+    expected_displacement_gradient[0] = {0.0, 0.0, 0.0};
+    expected_displacement_gradient[1] = {0.0, 0.0, 1.0};
+    expected_displacement_gradient[2] = {0.0, 0.0, 0.0};
+
+    CheckGradientsAndStrain(element, expected_displacement_gradient, nodal_coordinates, nodal_displacements);
 }

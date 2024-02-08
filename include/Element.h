@@ -57,10 +57,10 @@ class Element {
           J_ij = \frac{\partial x_i}{\partial \xi_j} = \sum_I \frac{\partial N_I}{\partial \xi_j} * x_{Ii}
         */
         std::array<std::array<double, 3>, 3> jacobian_matrix = {};  // Initialize jacobian_matrix to zero
-        for (int I = 0, e = node_coordinates.size(); I < e; ++I) {
+        for (int k = 0, e = node_coordinates.size(); k < e; ++k) {
             for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < 3; ++j) {
-                    jacobian_matrix[i][j] += shape_function_derivatives[I][i] * node_coordinates[I][j];
+                    jacobian_matrix[i][j] += shape_function_derivatives[k][j] * node_coordinates[k][i];
                 }
             }
         }
@@ -118,11 +118,11 @@ class Element {
     // Compute B matrix, m_num_nodes x NSD, using inverse Jacobian matrix and shape function derivatives
     std::vector<std::vector<double>> ComputeBMatrix(std::array<std::array<double, 3>, 3> inverse_jacobian_matrix, std::vector<std::array<double, 3>> shape_function_derivatives) const {
         std::vector<std::vector<double>> b_matrix(m_num_nodes, std::vector<double>(3, 0.0));
-        // B = inverse_jacobian_matrix * shape_function_derivatives
+        // B = shape_function_derivatives * inverse_jacobian_matrix
         for (size_t i = 0; i < m_num_nodes; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 for (size_t k = 0; k < 3; ++k) {
-                    b_matrix[i][j] += inverse_jacobian_matrix[j][k] * shape_function_derivatives[i][k];
+                    b_matrix[i][j] += shape_function_derivatives[i][k] * inverse_jacobian_matrix[k][j];
                 }
             }
         }
@@ -146,7 +146,7 @@ class Element {
         for (size_t i = 0; i < 3; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 for (size_t k = 0; k < m_num_nodes; ++k) {
-                    displacement_gradient[i][j] += b_matrix[k][i] * node_displacements[k * 3 + j];
+                    displacement_gradient[i][j] += b_matrix[k][j] * node_displacements[k * 3 + i];
                 }
             }
         }
@@ -194,7 +194,7 @@ class Element {
         for (size_t i = 0; i < 3; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 for (size_t k = 0; k < 3; ++k) {
-                    green_lagrange_strain_tensor[i][j] += 0.5 * displacement_gradient[i][k] * displacement_gradient[k][j];
+                    green_lagrange_strain_tensor[i][j] += 0.5 * displacement_gradient[k][i] * displacement_gradient[k][j];
                 }
             }
         }
@@ -225,16 +225,16 @@ class Element {
         bf_transpose[2][1] = bI_vector[1] * displacement_gradient[2][1];
 
         bf_transpose[0][3] = bI_vector[1] * displacement_gradient[0][2] + bI_vector[2] * displacement_gradient[0][1];
-        bf_transpose[0][4] = bI_vector[0] * displacement_gradient[0][2] + bI_vector[2] * (displacement_gradient[0][0] + 1.0);
-        bf_transpose[0][5] = bI_vector[0] * displacement_gradient[0][1] + bI_vector[1] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[0][4] = bI_vector[0] * displacement_gradient[0][2] + bI_vector[1] * (displacement_gradient[0][0] + 1.0);
+        bf_transpose[0][5] = bI_vector[0] * displacement_gradient[0][1] + bI_vector[2] * (displacement_gradient[0][0] + 1.0);
 
         bf_transpose[1][3] = bI_vector[1] * displacement_gradient[1][2] + bI_vector[2] * (displacement_gradient[1][1] + 1.0);
-        bf_transpose[1][4] = bI_vector[0] * displacement_gradient[1][2] + bI_vector[2] * displacement_gradient[1][0];
-        bf_transpose[1][5] = bI_vector[0] * displacement_gradient[1][1] + bI_vector[1] * displacement_gradient[1][0];
+        bf_transpose[1][4] = bI_vector[0] * displacement_gradient[1][2] + bI_vector[1] * displacement_gradient[1][0];
+        bf_transpose[1][5] = bI_vector[0] * (displacement_gradient[1][1] + 1.0) + bI_vector[2] * displacement_gradient[1][0];
 
         bf_transpose[2][3] = bI_vector[1] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][1];
-        bf_transpose[2][4] = bI_vector[0] * (displacement_gradient[2][2] + 1.0) + bI_vector[2] * displacement_gradient[2][0];
-        bf_transpose[2][5] = bI_vector[0] * displacement_gradient[2][1] + bI_vector[1] * displacement_gradient[2][0];
+        bf_transpose[2][4] = bI_vector[0] * (displacement_gradient[2][2] + 1.0) + bI_vector[1] * displacement_gradient[2][0];
+        bf_transpose[2][5] = bI_vector[0] * displacement_gradient[2][1] + bI_vector[2] * displacement_gradient[2][0];
 
         return bf_transpose;
     }
@@ -330,7 +330,11 @@ class Tetrahedron4 : public Element {
         // Compute the Green Lagrange strain tensor
         std::array<std::array<double, 3>, 3> green_lagrange_strain_tensor = ComputeGreenLagrangeStrainTensor(displacement_gradient);
 
+        // Compute the stress and internal force of the element.
+        std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
+
         /*
+
         std::cout << "node_coordinates: " << node_coordinates[0][0] << " " << node_coordinates[0][1] << " " << node_coordinates[0][2] << std::endl;
         std::cout << "                  " << node_coordinates[1][0] << " " << node_coordinates[1][1] << " " << node_coordinates[1][2] << std::endl;
         std::cout << "                  " << node_coordinates[2][0] << " " << node_coordinates[2][1] << " " << node_coordinates[2][2] << std::endl;
@@ -366,10 +370,9 @@ class Tetrahedron4 : public Element {
         std::cout << "green_lagrange_strain_tensor: " << green_lagrange_strain_tensor[0][0] << " " << green_lagrange_strain_tensor[0][1] << " " << green_lagrange_strain_tensor[0][2] << std::endl;
         std::cout << "                              " << green_lagrange_strain_tensor[1][0] << " " << green_lagrange_strain_tensor[1][1] << " " << green_lagrange_strain_tensor[1][2] << std::endl;
         std::cout << "                              " << green_lagrange_strain_tensor[2][0] << " " << green_lagrange_strain_tensor[2][1] << " " << green_lagrange_strain_tensor[2][2] << std::endl;
-        */
 
-        // Compute the stress and internal force of the element.
-        std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
+        std::cout << "stress: " << stress[0] << " " << stress[1] << " " << stress[2] << " " << stress[3] << " " << stress[4] << " " << stress[5] << std::endl;
+        */
 
         for (int i = 0; i < 4; ++i) {
             // Compute (B_I F)^T
