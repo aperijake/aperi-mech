@@ -50,7 +50,7 @@ class Element {
     virtual std::vector<std::array<double, 3>> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const = 0;
 
     // Compute Jacobian matrix
-    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(std::vector<std::array<double, 3>> shape_function_derivatives, std::vector<std::array<double, 3>> node_coordinates) const {
+    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(const std::vector<std::array<double, 3>> &shape_function_derivatives, const std::vector<std::array<double, 3>> &node_coordinates) const {
         // The Jacobian matrix is a 3 x 3 matrix representing the partial derivatives of the coordinates with respect to the parent coordinates
         /*
           \mathbf{x} = \sum_I N_I(\mathbf{\xi}) * \mathbf{x_I}
@@ -68,27 +68,27 @@ class Element {
     }
 
     // Compute Jacobian matrix, from xi, eta, zeta
-    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates) const {
+    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const {
         std::vector<std::array<double, 3>> shape_function_derivatives = ComputeShapeFunctionDerivatives(xi, eta, zeta);
         std::array<std::array<double, 3>, 3> jacobian_matrix = ComputeJacobianMatrix(shape_function_derivatives, node_coordinates);
         return jacobian_matrix;
     }
 
     // Compute Jacobian determinant, TODO(jake): Move this to a utility class and optimize
-    double ComputeJacobianDeterminant(std::array<std::array<double, 3>, 3> jacobian_matrix) const {
+    double ComputeJacobianDeterminant(const std::array<std::array<double, 3>, 3> &jacobian_matrix) const {
         double jacobian_determinant = jacobian_matrix[0][0] * (jacobian_matrix[1][1] * jacobian_matrix[2][2] - jacobian_matrix[1][2] * jacobian_matrix[2][1]) - jacobian_matrix[0][1] * (jacobian_matrix[1][0] * jacobian_matrix[2][2] - jacobian_matrix[1][2] * jacobian_matrix[2][0]) + jacobian_matrix[0][2] * (jacobian_matrix[1][0] * jacobian_matrix[2][1] - jacobian_matrix[1][1] * jacobian_matrix[2][0]);
         return jacobian_determinant;
     }
 
     // Compute Jacobian determinant, from xi, eta, zeta
-    double ComputeJacobianDeterminant(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates) const {
+    double ComputeJacobianDeterminant(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const {
         std::array<std::array<double, 3>, 3> jacobian_matrix = ComputeJacobianMatrix(xi, eta, zeta, node_coordinates);
         double jacobian_determinant = ComputeJacobianDeterminant(jacobian_matrix);
         return jacobian_determinant;
     }
 
     // Compute inverse of Jacobian matrix, TODO(jake): Move this to a utility class and optimize
-    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(std::array<std::array<double, 3>, 3> jacobian_matrix) const {
+    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(const std::array<std::array<double, 3>, 3> &jacobian_matrix) const {
         // The inverse Jacobian matrix is a 3 x 3 matrix representing the partial derivatives of the parent coordinates with respect to the coordinates
         /*
           J^{-1}_{ij} = \frac{\partial \xi_i}{\partial x_j}
@@ -108,7 +108,7 @@ class Element {
     }
 
     // Compute inverse of Jacobian matrix, TODO(jake): Move this to a utility class and optimize
-    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates) const {
+    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const {
         // Compute the Jacobian matrix
         std::array<std::array<double, 3>, 3> jacobian_matrix = ComputeJacobianMatrix(xi, eta, zeta, node_coordinates);
         std::array<std::array<double, 3>, 3> inverse_jacobian_matrix = ComputeInverseJacobianMatrix(jacobian_matrix);
@@ -116,7 +116,7 @@ class Element {
     }
 
     // Compute B matrix, m_num_nodes x NSD, using inverse Jacobian matrix and shape function derivatives
-    std::vector<std::vector<double>> ComputeBMatrix(std::array<std::array<double, 3>, 3> inverse_jacobian_matrix, std::vector<std::array<double, 3>> shape_function_derivatives) const {
+    std::vector<std::vector<double>> ComputeBMatrix(const std::array<std::array<double, 3>, 3> &inverse_jacobian_matrix, const std::vector<std::array<double, 3>> &shape_function_derivatives) const {
         std::vector<std::vector<double>> b_matrix(m_num_nodes, std::vector<double>(3, 0.0));
         // B = shape_function_derivatives * inverse_jacobian_matrix
         for (size_t i = 0; i < m_num_nodes; ++i) {
@@ -130,7 +130,7 @@ class Element {
     }
 
     // Compute B matrix, NSD x m_num_nodes, using xi, eta, zeta and node coordinates
-    std::vector<std::vector<double>> ComputeBMatrix(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates) const {
+    std::vector<std::vector<double>> ComputeBMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const {
         // Compute the inverse Jacobian matrix
         std::array<std::array<double, 3>, 3> inverse_jacobian_matrix = ComputeInverseJacobianMatrix(xi, eta, zeta, node_coordinates);
         // Compute the shape function derivatives
@@ -140,7 +140,7 @@ class Element {
     }
 
     // Compute the displacement gradient, B * u, (NSD x m_num_nodes) x (m_num_nodes x NSD) = 3 x 3
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(std::vector<std::vector<double>> b_matrix, std::vector<double> node_displacements) const {
+    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(const std::vector<std::vector<double>> &b_matrix, const std::vector<double> &node_displacements) const {
         std::array<std::array<double, 3>, 3> displacement_gradient;
         displacement_gradient.fill({0.0, 0.0, 0.0});
         for (size_t i = 0; i < 3; ++i) {
@@ -154,7 +154,7 @@ class Element {
     }
 
     // Compute the displacement gradient, B^T * u, (NSD x m_num_nodes) x (m_num_nodes x NS) = 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) const {
+    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const {
         // Compute the B matrix
         std::vector<std::vector<double>> b_matrix = ComputeBMatrix(xi, eta, zeta, node_coordinates);
         // Compute the displacement gradient
@@ -172,7 +172,7 @@ class Element {
     }
 
     // Compute the deformation gradient, I + B * u, 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) const {
+    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const {
         // Compute the displacement gradient
         std::array<std::array<double, 3>, 3> d_gradient = ComputeDisplacementGradient(xi, eta, zeta, node_coordinates, node_displacements);
         // Add identity matrix to displacement gradient to get deformation gradient
@@ -202,7 +202,7 @@ class Element {
     }
 
     // Compute the Green Lagrange strain tensor, 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeGreenLagrangeStrainTensor(double xi, double eta, double zeta, std::vector<std::array<double, 3>> node_coordinates, std::vector<double> node_displacements) const {
+    std::array<std::array<double, 3>, 3> ComputeGreenLagrangeStrainTensor(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const {
         // Compute the displacement gradient
         std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(xi, eta, zeta, node_coordinates, node_displacements);
         // Compute the Green Lagrange strain tensor
@@ -309,28 +309,28 @@ class Tetrahedron4 : public Element {
             node_displacement[i * 3 + 2] = displacement[2];
         }
         // Compute the shape function derivatives
-        std::vector<std::array<double, 3>> shape_function_derivatives = ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
+        const std::vector<std::array<double, 3>> shape_function_derivatives = ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
 
         // Compute Jacobian matrix
-        std::array<std::array<double, 3>, 3> jacobian = ComputeJacobianMatrix(shape_function_derivatives, node_coordinates);
+        const std::array<std::array<double, 3>, 3> jacobian = ComputeJacobianMatrix(shape_function_derivatives, node_coordinates);
 
         // Compute Jacobian determinant
-        double jacobian_determinant = ComputeJacobianDeterminant(jacobian);
+        const double jacobian_determinant = ComputeJacobianDeterminant(jacobian);
 
         // Compute inverse of Jacobian matrix
-        std::array<std::array<double, 3>, 3> inverse_jacobian = ComputeInverseJacobianMatrix(jacobian);
+        const std::array<std::array<double, 3>, 3> inverse_jacobian = ComputeInverseJacobianMatrix(jacobian);
 
         // Compute B matrix
-        std::vector<std::vector<double>> b_matrix = ComputeBMatrix(inverse_jacobian, shape_function_derivatives);
+        const std::vector<std::vector<double>> b_matrix = ComputeBMatrix(inverse_jacobian, shape_function_derivatives);
 
         // Compute displacement gradient
-        std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(b_matrix, node_displacement);
+        const std::array<std::array<double, 3>, 3> displacement_gradient = ComputeDisplacementGradient(b_matrix, node_displacement);
 
         // Compute the Green Lagrange strain tensor
-        std::array<std::array<double, 3>, 3> green_lagrange_strain_tensor = ComputeGreenLagrangeStrainTensor(displacement_gradient);
+        const std::array<std::array<double, 3>, 3> green_lagrange_strain_tensor = ComputeGreenLagrangeStrainTensor(displacement_gradient);
 
         // Compute the stress and internal force of the element.
-        std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
+        const std::array<double, 6> stress = material->GetStress(green_lagrange_strain_tensor);
 
         /*
         std::cout << "node_coordinates: " << node_coordinates[0][0] << " " << node_coordinates[0][1] << " " << node_coordinates[0][2] << std::endl;
@@ -375,7 +375,7 @@ class Tetrahedron4 : public Element {
 
         for (int i = 0; i < 4; ++i) {
             // Compute (B_I F)^T
-            std::array<std::array<double, 6>, 3> bF_IT = ComputeBFTranspose(b_matrix[i], displacement_gradient);
+            const std::array<std::array<double, 6>, 3> bF_IT = ComputeBFTranspose(b_matrix[i], displacement_gradient);
 
             double *element_node_force = stk::mesh::field_data(*force_field, nodes[i]);
             // Compute the internal force
