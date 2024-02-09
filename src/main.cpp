@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <stk_util/parallel/Parallel.hpp>
+#include <stk_util/environment/Env.hpp>
 
 #include "Application.h"
 
@@ -9,12 +10,8 @@ int main(int argc, char* argv[]) {
     // Initialize MPI and get communicator for the current process
     stk::ParallelMachine comm = stk::parallel_machine_init(&argc, &argv);
 
-    // Get the rank and number of processes
-    int my_rank = stk::parallel_machine_rank(comm);
-    int num_procs = stk::parallel_machine_size(comm);
-
-    // Print rank and number of processes
-    std::cout << "Process " << my_rank << " out of " << num_procs << " processes." << std::endl;
+    // Print number of processes
+    sierra::Env::outputP0() << "Running on " << stk::parallel_machine_size(comm) << " processes." << std::endl;
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {

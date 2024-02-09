@@ -206,6 +206,7 @@ void ExplicitSolver::Solve() {
     ComputeAcceleration();
 
     // Output initial state
+    sierra::Env::outputP0() << std::scientific << std::setprecision(6); // Set output to scientific notation and 6 digits of precision
     sierra::Env::outputP0() << "Writing Results at Time 0.0" << std::endl;
     m_io_mesh->WriteFieldResults(time);
 

@@ -3,6 +3,7 @@
 #include <stk_io/IossBridge.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/MetaData.hpp>
+#include <stk_util/environment/Env.hpp>  // for outputP0
 #include <string>
 #include <vector>
 
@@ -100,7 +101,7 @@ class FieldManager {
         stk::mesh::Selector set_selector(*set_part);  // STK NOTE: Can build owned and ghosted into the selector.
         // Warn if the selector is empty.
         if (set_selector.is_empty(stk::topology::NODE_RANK)) {
-            std::cout << "Warning: Initial Condition Set " << set_name << " is empty." << std::endl;
+            sierra::Env::outputP0() << "Warning: Initial Condition Set " << set_name << " is empty." << std::endl;
         }
 
         // Loop over all the buckets

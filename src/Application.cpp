@@ -54,7 +54,7 @@ void Application::Run(std::string& input_filename) {
         YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
         std::string part_location = part["set"].as<std::string>();
-        std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
+        sierra::Env::outputP0() << "Adding part " << part_location << " to force contributions" << std::endl;
         // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
         // STK QUESTION: How do I check if a part exists? I could probably RTFM this one.
         // STK QUESTION: Is declaring a part here the right thing to do? Is there a more appropriate way?
@@ -69,7 +69,7 @@ void Application::Run(std::string& input_filename) {
     // Loop over loads and add them to force contributions
     for (auto load : loads) {
         std::string name = load.begin()->first.as<std::string>();
-        std::cout << "Adding load " << name << " to force contributions" << std::endl;
+        sierra::Env::outputP0() << "Adding load " << name << " to force contributions" << std::endl;
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
     }
 
@@ -83,7 +83,7 @@ void Application::Run(std::string& input_filename) {
     // Loop over boundary conditions and add them to the vector of boundary conditions
     for (auto boundary_condition : boundary_conditions) {
         std::string name = boundary_condition.begin()->first.as<std::string>();
-        std::cout << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
+        sierra::Env::outputP0() << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
         m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMetaData()));
     }
 
