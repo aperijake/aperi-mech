@@ -502,10 +502,7 @@ class ElementPatchTest : public SolverTest {
         SolverTest::TearDown();
     }
 
-    void RunFullyPrescribedBoundaryConditionProblem(const std::string& sideset, const std::array<double, 3>& displacement_direction, double magnitude) {
-        // Add a sideset to the mesh
-        m_mesh_sidesets = "|sideset:" + sideset;
-
+    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude) {
         // Displacement boundary conditions
         m_yaml_data = CreateTestYaml();
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
@@ -533,12 +530,12 @@ class ElementPatchTest : public SolverTest {
 
         CreateInputFile();
 
-        CreateTestMesh();
+        CreateTestMesh(mesh_string);
 
         RunSolver();
     }
 
-    std::array<double, 3> GetExpectedPositiveForces(int face_direction, const std::array<double, 6>& expected_second_piola_kirchhoff_stress, const std::array<std::array<double, 3>, 3>& expected_deformation_gradient) {
+    std::array<double, 3> GetExpectedPositiveForces(int face_direction, double cross_section_area, const std::array<double, 6>& expected_second_piola_kirchhoff_stress, const std::array<std::array<double, 3>, 3>& expected_deformation_gradient) {
         // S = P * F^-T
         // P = S F^T
         // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
@@ -560,10 +557,14 @@ class ElementPatchTest : public SolverTest {
         } else {
             throw std::runtime_error("Invalid face direction");
         }
+        // Size multiplier due to the number of unit cubes
+        expected_force[0] *= cross_section_area;
+        expected_force[1] *= cross_section_area;
+        expected_force[2] *= cross_section_area;
         return expected_force;
     }
 
-    void CheckForcesAndFields(const std::array<double, 3>& expected_force) {
+    void CheckForcesAndFields(const std::array<double, 3>& expected_force, double volume) {
         // Get the expected negative force
         std::array<double, 3> expected_force_negative = {-expected_force[0], -expected_force[1], -expected_force[2]};
 
@@ -585,7 +586,7 @@ class ElementPatchTest : public SolverTest {
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
-        double mass = density * m_num_procs * m_num_blocks;  // 1x1x(num_procs * num_blocks) mesh
+        double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
 
@@ -615,8 +616,17 @@ TEST_F(ElementPatchTest, ExplicitTensionX) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = "1x" + std::to_string(m_num_procs) + "x" + std::to_string(m_num_procs) + "|sideset:xX|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -628,10 +638,9 @@ TEST_F(ElementPatchTest, ExplicitTensionX) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.22, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
-
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in compression in x. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -642,8 +651,17 @@ TEST_F(ElementPatchTest, ExplicitCompressionX) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = "1x" + std::to_string(m_num_procs) + "x" + std::to_string(m_num_procs) + "|sideset:xX|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -655,10 +673,10 @@ TEST_F(ElementPatchTest, ExplicitCompressionX) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {-0.18, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in tension in y. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -669,8 +687,17 @@ TEST_F(ElementPatchTest, ExplicitTensionY) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x1x" + std::to_string(m_num_procs) + "|sideset:yY|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -682,37 +709,52 @@ TEST_F(ElementPatchTest, ExplicitTensionY) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.22, 0.0, 0.0, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in tension in z. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
 TEST_F(ElementPatchTest, ExplicitTensionZ) {
+    // Exit if the number of processors is not 1
+    // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
+    // Thus, all DOFs are not constrained and some noise will be present in the fields.
+    if (m_num_procs != 1) {
+        return;
+    }
     // magnitude of the displacement, both positive and negative sides
-    double magnitude = 0.1;
+    double magnitude = 0.1 * m_num_procs;
 
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x1x" + std::to_string(m_num_procs) + "|sideset:zZ|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
     expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
     expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 1.0 + 2.0 * magnitude};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0 + 2.0 * magnitude/m_num_procs};
 
     // Set the expected second piola kirchhoff stress
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.22, 0.0, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -723,8 +765,17 @@ TEST_F(ElementPatchTest, ExplicitShearYX) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = "1x" + std::to_string(m_num_procs) + "x" + std::to_string(m_num_procs) + "|sideset:xX|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -736,10 +787,10 @@ TEST_F(ElementPatchTest, ExplicitShearYX) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.0, 0.1};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -750,8 +801,17 @@ TEST_F(ElementPatchTest, ExplicitShearZX) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = "1x" + std::to_string(m_num_procs) + "x" + std::to_string(m_num_procs) + "|sideset:xX|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("xX", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -763,10 +823,10 @@ TEST_F(ElementPatchTest, ExplicitShearZX) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.1, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -777,8 +837,17 @@ TEST_F(ElementPatchTest, ExplicitShearXY) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x1x" + std::to_string(m_num_procs) + "|sideset:yY|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -790,10 +859,10 @@ TEST_F(ElementPatchTest, ExplicitShearXY) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.0, 0.0, 0.1};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
@@ -804,8 +873,17 @@ TEST_F(ElementPatchTest, ExplicitShearZY) {
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 0.0, 1.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x1x" + std::to_string(m_num_procs) + "|sideset:yY|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs * m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("yY", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
@@ -817,26 +895,42 @@ TEST_F(ElementPatchTest, ExplicitShearZY) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.1, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
 TEST_F(ElementPatchTest, ExplicitShearXZ) {
+    // Exit if the number of processors is not 1
+    // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
+    // Thus, all DOFs are not constrained and some noise will be present in the fields.
+    if (m_num_procs != 1) {
+        return;
+    }
+
     // magnitude of the displacement, both positive and negative sides
-    double magnitude = 0.1;
+    double magnitude = 0.1 * m_num_procs;
 
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x1x" + std::to_string(m_num_procs) + "|sideset:zZ|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
-    expected_deformation_gradient[0] = {1.0, 0.0, 2.0 * magnitude};
+    expected_deformation_gradient[0] = {1.0, 0.0, 2.0 * magnitude / m_num_procs};
     expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
     expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
 
@@ -844,35 +938,50 @@ TEST_F(ElementPatchTest, ExplicitShearXZ) {
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.0, 0.1, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
 TEST_F(ElementPatchTest, ExplicitShearYZ) {
+    // Exit if the number of processors is not 1
+    // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
+    // Thus, all DOFs are not constrained and some noise will be present in the fields.
+    if (m_num_procs != 1) {
+        return;
+    }
     // magnitude of the displacement, both positive and negative sides
-    double magnitude = 0.1;
+    double magnitude = 0.1 * m_num_procs;
 
     // Displacement boundary conditions
     std::array<double, 3> displacement_direction = {0.0, 1.0, 0.0};
 
+    // Create a mesh that is num_procs x num_procs x 1
+    std::string mesh_string = std::to_string(m_num_procs) + "x" + std::to_string(m_num_procs) + "x1" + "|sideset:zZ|tets";
+
+    // Volume of the mesh
+    double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
+
+    // Cross section area for loading direction
+    double cross_section_area = m_num_procs;
+
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem("zZ", displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
 
     // Set the expected deformation gradient
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
     expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
-    expected_deformation_gradient[1] = {0.0, 1.0, 2.0 * magnitude};
+    expected_deformation_gradient[1] = {0.0, 1.0, 2.0 * magnitude / m_num_procs};
     expected_deformation_gradient[2] = {0.0, 0.0, 1.0};
 
     // Set the expected second piola kirchhoff stress
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.1, 0.0, 0.0};
 
     // Get the expected forces
-    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
+    std::array<double, 3> expected_force = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, expected_deformation_gradient);
 
     // Check the force balance and the other fields
-    CheckForcesAndFields(expected_force);
+    CheckForcesAndFields(expected_force, volume);
 }
