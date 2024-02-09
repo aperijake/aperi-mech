@@ -14,6 +14,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "Material.h"
+#include "Scheduler.h"
 #include "Solver.h"
 #include "TimeStepper.h"
 #include "UnitTestUtils.h"
@@ -86,8 +87,11 @@ class SolverTest : public ApplicationTest {
         // Get the time stepper
         std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(0));
 
+        // Get the output scheduler
+        std::shared_ptr<aperi::Scheduler> output_scheduler = aperi::CreateScheduler(m_io_input_file->GetOutputScheduler(0));
+
         // Create solver
-        m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper);
+        m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
 
         //// Run solver
         m_solver->Solve();

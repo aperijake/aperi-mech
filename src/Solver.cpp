@@ -11,6 +11,7 @@
 #include "IoMesh.h"
 #include "MassUtils.h"
 #include "Material.h"
+#include "Scheduler.h"
 #include "TimeStepper.h"
 
 namespace aperi {
@@ -256,8 +257,10 @@ void ExplicitSolver::Solve() {
         time_increment = m_time_stepper->GetTimeIncrement(time);
 
         // Output
-        sierra::Env::outputP0() << "Writing Results at Time " << time << std::endl;
-        m_io_mesh->WriteFieldResults(time);
+        if (m_output_scheduler->AtNextEvent(time)) {
+            sierra::Env::outputP0() << "Writing Results at Time " << time << std::endl;
+            m_io_mesh->WriteFieldResults(time);
+        }
     }
 }
 

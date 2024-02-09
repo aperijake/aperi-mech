@@ -11,6 +11,7 @@
 #include "InternalForceContribution.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
+#include "Scheduler.h"
 #include "Solver.h"
 #include "TimeStepper.h"
 #include "YamlUtils.h"
@@ -89,8 +90,11 @@ void Application::Run(std::string& input_filename) {
     // Get the time stepper
     std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
+    // Get the output scheduler
+    std::shared_ptr<aperi::Scheduler> output_scheduler = CreateScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
+
     // Create solver
-    m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper);
+    m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
 
     // Run solver
     sierra::Env::outputP0() << "Starting Solver" << std::endl;

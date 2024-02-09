@@ -134,6 +134,17 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    // Get the output scheduler for a specific procedure id
+    YAML::Node GetOutputScheduler(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        std::pair<YAML::Node, int> node_pair = GetNode(procedure_node, "output");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting output scheduler");
+        return node_pair.first;
+    }
+
     // Get material from a part
     static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = true) {
         std::pair<YAML::Node, int> node_pair = GetNode(part, "material");

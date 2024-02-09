@@ -16,6 +16,7 @@ class IoMesh;
 class InternalForceContribution;
 class ExternalForceContribution;
 class TimeStepper;
+class Scheduler;
 
 /**
  * @class Solver
@@ -34,8 +35,8 @@ class Solver {
      * @param external_force_contributions The vector of external force contributions.
      * @param time_stepper The time stepper object.
      */
-    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper)
-        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper) {
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
         meta_data = &m_io_mesh->GetMetaData();
         bulk_data = &m_io_mesh->GetBulkData();
     }
@@ -71,6 +72,7 @@ class Solver {
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The vector of external force contributions.
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
+    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
     stk::mesh::MetaData *meta_data;                                                                 ///< The meta data object.
     stk::mesh::BulkData *bulk_data;                                                                 ///< The bulk data object.
 };
@@ -93,9 +95,10 @@ class ExplicitSolver : public Solver {
      * @param force_contributions A vector of internal force contributions applied to the mechanical system.
      * @param external_force_contributions A vector of external force contributions applied to the mechanical system.
      * @param time_stepper The time stepper used to advance the simulation over time.
+     * @param output_scheduler The output scheduler used to control the output of the simulation.
      */
-    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper)
-        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper) {
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
+        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
         // Get the displacement, velocity, and acceleration fields
         displacement_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
         velocity_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
@@ -165,8 +168,8 @@ class ExplicitSolver : public Solver {
  * @param time_stepper The time stepper object.
  * @return A unique pointer to the created solver object.
  */
-inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper) {
-    return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper);
+inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler) {
+    return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
 }
 
 }  // namespace aperi
