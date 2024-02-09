@@ -22,9 +22,11 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         const std::string type = initial_condition.begin()->first.as<std::string>();
 
         // Loop over sets from initial condition
+        std::cout << "Adding initial condition for sets:" << std::endl;
         std::vector<std::string> sets;
         if (initial_condition_node["sets"]) {
             sets = initial_condition_node["sets"].as<std::vector<std::string>>();
+            std::cout << "  " << sets.back() << std::endl;
         }
 
         // Loop over sets

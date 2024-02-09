@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+#include "MathUtils.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 
@@ -20,6 +21,9 @@ TEST_F(SolverTest, Explicit) {
     std::array<double, 3> expected_velocity = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
     std::array<double, 3> expected_displacement = {expected_velocity[0] * final_time, expected_velocity[1] * final_time, expected_velocity[2] * final_time};
     std::array<double, 3> expected_acceleration = {0, 0, 0};
+
+    EXPECT_GT(std::abs(magnitude), 0);
+    EXPECT_GT((direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]), 0);
 
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
@@ -195,6 +199,8 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
     double magnitude = boundary_conditions[0]["velocity"]["magnitude"].as<double>();
     std::array<double, 3> direction = boundary_conditions[0]["velocity"]["direction"].as<std::array<double, 3>>();
+    EXPECT_GT(std::abs(magnitude), 0);
+    EXPECT_GT((direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]), 0);
     double final_time = 1.0;
     double delta_time = 0.1;
     std::array<double, 3> expected_velocity = {magnitude * direction[0] * final_time, magnitude * direction[1] * final_time, magnitude * direction[2] * final_time};
@@ -213,4 +219,38 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
     CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
+}
+
+// Test a large, square cross section, taylor impact test
+TEST_F(SolverTest, DISABLED_TaylorImpact) {
+    // This isn't really testing anything
+
+    // Start with the basic explicit test
+    m_yaml_data = CreateTestYaml();
+
+    // Change the time increment
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_increment"] = 0.01;
+
+    // Remove the loads
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+
+    // Change the initial conditions
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = 10.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"][0] = 0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"][1] = 0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"][2] = 1;
+
+    // Add boundary conditions on the impact surface
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    // Change boundary condition to apply to surface_1
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
+    // Change the magnitude and direction of the boundary condition
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = 0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = 0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = 0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = 1;
+
+    CreateInputFile();
+    CreateTestMesh("4x4x10|sideset:z|tets");
+    RunSolver();
 }

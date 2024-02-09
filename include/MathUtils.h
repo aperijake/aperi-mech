@@ -35,6 +35,12 @@ void ChangeLength(T &vector, double new_magnitude) {
     }
 }
 
+// Normalize a vector
+template <typename T>
+void Normalize(T &vector) {
+    ChangeLength(vector, 1.0);
+}
+
 // Constant interpolation
 template <typename T>
 double ConstantInterpolation(double x, const T &abscissa, const T &ordinate) {

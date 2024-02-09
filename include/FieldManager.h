@@ -93,11 +93,15 @@ class FieldManager {
         }
 
         stk::mesh::Part* set_part = meta_data.get_part(set_name);
-        // Return 1 for failure if the part is not found
+        // Return 2 for failure if the part is not found
         if (set_part == nullptr) {
             return 2;
         }
         stk::mesh::Selector set_selector(*set_part);  // STK NOTE: Can build owned and ghosted into the selector.
+        // Warn if the selector is empty.
+        if (set_selector.is_empty(stk::topology::NODE_RANK)) {
+            std::cout << "Warning: Initial Condition Set " << set_name << " is empty." << std::endl;
+        }
 
         // Loop over all the buckets
         for (stk::mesh::Bucket* bucket : set_selector.get_buckets(stk::topology::NODE_RANK)) {
@@ -106,7 +110,7 @@ class FieldManager {
                 double* field_values = stk::mesh::field_data(*field, node);  // STK_NOTE: Can move this outside of the loop, pass a bucket instead of node. For speed.
 
                 // Set the field values for the node
-                for (size_t i = 0; i < field->number_of_states(); ++i) {
+                for (size_t i = 0; i < 3; ++i) {
                     field_values[i] = values[i];
                 }
             }
