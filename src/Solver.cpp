@@ -151,6 +151,9 @@ void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
             }
         }
     }
+
+    // Parallel communication
+    stk::mesh::communicate_field_data(*bulk_data, {&displacement_field_np1});
 }
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increment) {
