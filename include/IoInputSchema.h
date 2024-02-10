@@ -38,11 +38,14 @@ class InputSchema {
         // Check if m_subitems has a key condition_name
         if (m_subitems[condition_name]) {
             // If it does, append the new node to the sequence
-            m_subitems[condition_name].push_back(condition_node);
+            m_subitems[condition_name][0]["set"].push_back(condition_node);
         } else {
             // If it doesn't, create a new sequence and add the new node
             m_subitems[condition_name] = YAML::Node(YAML::NodeType::Sequence);
-            m_subitems[condition_name].push_back(condition_node);
+            YAML::Node set(YAML::NodeType::Map);
+            set["set"] = YAML::Node(YAML::NodeType::Sequence);
+            set["set"].push_back(condition_node);
+            m_subitems[condition_name].push_back(set);
         }
     }
 
