@@ -35,7 +35,7 @@ class InputSchema {
      * @param condition_node The YAML node representing the condition.
      * @param index The index of the condition.
      */
-    void AddCondition(const std::string& condition_name, const YAML::Node& condition_node, int index = 0) {
+    void AddCondition(const std::string& condition_name, const YAML::Node& condition_node, int index) {
         // Check if m_subitems has a key condition_name
         if (m_subitems[condition_name]) {
             // Check the length of the sequence
@@ -70,7 +70,7 @@ class InputSchema {
      * @param index The index of the condition.
      */
     void AddAllOf(const YAML::Node& all_of_node, int index = 0) {
-        AddCondition("all_of", all_of_node);
+        AddCondition("all_of", all_of_node, index);
     }
 
     /**
@@ -80,7 +80,7 @@ class InputSchema {
      * @param index The index of the condition.
      */
     void AddOneOf(const YAML::Node& one_of_node, int index = 0) {
-        AddCondition("one_of", one_of_node);
+        AddCondition("one_of", one_of_node, index);
     }
 
     /**
@@ -90,7 +90,7 @@ class InputSchema {
      * @param index The index of the condition.
      */
     void AddOptional(const YAML::Node& optional_node, int index = 0) {
-        AddCondition("optional", optional_node);
+        AddCondition("optional", optional_node, index);
     }
 
     /**
@@ -100,7 +100,7 @@ class InputSchema {
      * @param index The index of the condition.
      */
     void AddOneOrMoreOf(const YAML::Node& one_or_more_of_node, int index = 0) {
-        AddCondition("one_or_more_of", one_or_more_of_node);
+        AddCondition("one_or_more_of", one_or_more_of_node, index);
     }
 
     /**
@@ -130,59 +130,75 @@ class InputSchema {
  * @return The YAML node representing the input schema.
  */
 YAML::Node GetInputSchema() {
+    // File node
     aperi::InputSchema file_schema("file", "string", "the file to write");
     YAML::Node file_node = file_schema.GetInputSchema();
 
+    // Time start node
     aperi::InputSchema time_start_schema("time_start", "float", "the start time");
     YAML::Node time_start_node = time_start_schema.GetInputSchema();
 
+    // Time end node
     aperi::InputSchema time_end_schema("time_end", "float", "the end time");
     YAML::Node time_end_node = time_end_schema.GetInputSchema();
 
+    // Time increment node
     aperi::InputSchema time_increment_schema("time_increment", "float", "the time increment");
     YAML::Node time_increment_node = time_increment_schema.GetInputSchema();
 
+    // Set node
     aperi::InputSchema set_schema("set", "string", "the name of the set");
     YAML::Node set_node = set_schema.GetInputSchema();
 
+    // Sets node
     aperi::InputSchema sets_schema("sets", "sequence", "the name of the sets");
     YAML::Node sets_node = sets_schema.GetInputSchema();
 
+    // Magnitude node
     aperi::InputSchema magnitude_schema("magnitude", "float", "the magnitude of the vector");
     YAML::Node magnitude_node = magnitude_schema.GetInputSchema();
 
+    // Direction node
     aperi::InputSchema direction_schema("direction", "direction_vector", "the direction of the vector");
     YAML::Node direction_node = direction_schema.GetInputSchema();
 
+    // Vector node
     aperi::InputSchema vector_schema("vector", "map", "the vector");
     vector_schema.AddAllOf(magnitude_node);
     vector_schema.AddAllOf(direction_node);
     YAML::Node vector_node = vector_schema.GetInputSchema();
 
+    // X component node
     aperi::InputSchema x_component_schema("X", "float", "the x component value");
     YAML::Node x_component_node = x_component_schema.GetInputSchema();
 
+    // Y component node
     aperi::InputSchema y_component_schema("Y", "float", "the y component value");
     YAML::Node y_component_node = y_component_schema.GetInputSchema();
 
+    // Z component node
     aperi::InputSchema z_component_schema("Z", "float", "the z component value");
     YAML::Node z_component_node = z_component_schema.GetInputSchema();
 
+    // Components node
     aperi::InputSchema components_schema("components", "map", "the components");
     components_schema.AddOneOrMoreOf(x_component_node);
     components_schema.AddOneOrMoreOf(y_component_node);
     components_schema.AddOneOrMoreOf(z_component_node);
     YAML::Node components_node = components_schema.GetInputSchema();
 
+    // Direct time stepper node
     aperi::InputSchema direct_time_stepper_schema("direct_time_stepper", "map", "the direct time stepper");
     direct_time_stepper_schema.AddAllOf(time_increment_node);
     direct_time_stepper_schema.AddAllOf(time_end_node);
     YAML::Node direct_time_stepper_node = direct_time_stepper_schema.GetInputSchema();
 
+    // Time stepper node
     aperi::InputSchema time_stepper_schema("time_stepper", "map", "the time stepper");
     time_stepper_schema.AddOneOf(direct_time_stepper_node);
     YAML::Node time_stepper_node = time_stepper_schema.GetInputSchema();
 
+    // Output node
     aperi::InputSchema output_schema("output", "map", "the output");
     output_schema.AddAllOf(file_node);
     output_schema.AddAllOf(time_end_node);
@@ -190,22 +206,26 @@ YAML::Node GetInputSchema() {
     output_schema.AddOptional(time_start_node);
     YAML::Node output_node = output_schema.GetInputSchema();
 
+    // Gravity load node
     aperi::InputSchema gravity_load_schema("gravity_load", "map", "the gravity load");
     gravity_load_schema.AddAllOf(sets_node);
     gravity_load_schema.AddOneOf(vector_node);
     gravity_load_schema.AddOneOf(components_node);
     YAML::Node gravity_load_node = gravity_load_schema.GetInputSchema();
 
+    // Loads node
     aperi::InputSchema loads_schema("loads", "sequence", "the loads");
     loads_schema.AddOneOrMoreOf(gravity_load_node);
     YAML::Node loads_node = loads_schema.GetInputSchema();
 
+    // Initial velocity node
     aperi::InputSchema initial_velocity_schema("velocity", "map", "the initial velocity");
     initial_velocity_schema.AddAllOf(sets_node);
     initial_velocity_schema.AddOneOf(vector_node);
     initial_velocity_schema.AddOneOf(components_node);
     YAML::Node initial_velocity_node = initial_velocity_schema.GetInputSchema();
 
+    // Initial conditions node
     aperi::InputSchema initial_conditions_schema("initial_conditions", "sequence", "the initial conditions");
     initial_conditions_schema.AddOptional(initial_velocity_node);
     YAML::Node initial_conditions_node = initial_conditions_schema.GetInputSchema();
@@ -232,15 +252,17 @@ YAML::Node GetInputSchema() {
     // Specified velocity node
     aperi::InputSchema specified_velocity_schema("velocity", "map", "a velocity boundary condition");
     specified_velocity_schema.AddAllOf(sets_node);
-    specified_velocity_schema.AddAllOf(vector_node);
     specified_velocity_schema.AddOneOf(time_function_node);
+    specified_velocity_schema.AddOneOf(vector_node, 1);  // New OneOf set
+    specified_velocity_schema.AddOneOf(components_node, 1);
     YAML::Node specified_velocity_node = specified_velocity_schema.GetInputSchema();
 
     // Specified displacement node
     aperi::InputSchema specified_displacement_schema("displacement", "map", "a displacement boundary condition");
     specified_displacement_schema.AddAllOf(sets_node);
-    specified_displacement_schema.AddAllOf(vector_node);
     specified_displacement_schema.AddOneOf(time_function_node);
+    specified_displacement_schema.AddOneOf(vector_node, 1);  // New OneOf set
+    specified_displacement_schema.AddOneOf(components_node, 1);
     YAML::Node specified_displacement_node = specified_displacement_schema.GetInputSchema();
 
     // Boundary conditions node
