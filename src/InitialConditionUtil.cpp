@@ -3,6 +3,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "FieldManager.h"
+#include "IoInputFile.h"
 #include "MathUtils.h"
 #include "stk_util/environment/Env.hpp"  // for outputP0
 
@@ -14,10 +15,8 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         // Get this initial condition node
         const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
-        // Get the magnitude and direction, and change the length to match the magnitude
-        const double magnitude = initial_condition_node["vector"]["magnitude"].as<double>();
-        std::vector<double> vector = initial_condition_node["vector"]["direction"].as<std::vector<double>>();
-        aperi::ChangeLength(vector, magnitude);
+        // Get the components and values
+        std::vector<std::pair<int, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
 
         // Get the type of initial condition
         const std::string type = initial_condition.begin()->first.as<std::string>();
@@ -32,7 +31,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
 
         // Loop over sets
         for (const auto& set : sets) {
-            int return_code = field_manager->SetInitialFieldValues(meta, set, type, vector);
+            int return_code = field_manager->SetInitialFieldValues(meta, set, type, components_and_values);
             if (return_code == 1) {
                 throw std::runtime_error("Initial condition field type " + type + " not found.");
             } else if (return_code == 2) {

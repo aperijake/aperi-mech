@@ -82,7 +82,7 @@ class FieldManager {
      * @note This function is hard coded to a vector field. Fix this.
      * @note This function is hard coded to a node rank. Fix this.
      */
-    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<double>& values) {
+    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<int, double>>& components_and_values) {
         // TODO(jake) This is hard coded to a vector field on node field. Fix this.
         typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
 
@@ -111,8 +111,8 @@ class FieldManager {
                 double* field_values = stk::mesh::field_data(*field, node);  // STK_NOTE: Can move this outside of the loop, pass a bucket instead of node. For speed.
 
                 // Set the field values for the node
-                for (size_t i = 0; i < 3; ++i) {
-                    field_values[i] = values[i];
+                for (size_t i = 0, e = components_and_values.size(); i < e; ++i) {
+                    field_values[components_and_values[i].first] = components_and_values[i].second;
                 }
             }
         }
