@@ -1,8 +1,8 @@
 #include <yaml-cpp/yaml.h>
 
 #include <iostream>
-#include <stk_util/parallel/Parallel.hpp>
 #include <stk_util/environment/Env.hpp>
+#include <stk_util/parallel/Parallel.hpp>
 
 #include "Application.h"
 

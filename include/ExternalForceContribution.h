@@ -152,8 +152,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContribution(YAML::Node &load, stk::mesh::MetaData &meta_data) {
     std::string type = load.begin()->first.as<std::string>();
     YAML::Node load_node = load.begin()->second;
-    double magnitude = load_node["magnitude"].as<double>();
-    std::array<double, 3> direction = load_node["direction"].as<std::array<double, 3>>();
+    double magnitude = load_node["vector"]["magnitude"].as<double>();
+    std::array<double, 3> direction = load_node["vector"]["direction"].as<std::array<double, 3>>();
     if (type == "traction_load") {
         return std::make_shared<ExternalForceContributionTraction>(meta_data, magnitude, direction);
     } else if (type == "gravity_load") {

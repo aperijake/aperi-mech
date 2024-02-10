@@ -15,8 +15,8 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
         // Get the magnitude and direction, and change the length to match the magnitude
-        const double magnitude = initial_condition_node["magnitude"].as<double>();
-        std::vector<double> vector = initial_condition_node["direction"].as<std::vector<double>>();
+        const double magnitude = initial_condition_node["vector"]["magnitude"].as<double>();
+        std::vector<double> vector = initial_condition_node["vector"]["direction"].as<std::vector<double>>();
         aperi::ChangeLength(vector, magnitude);
 
         // Get the type of initial condition

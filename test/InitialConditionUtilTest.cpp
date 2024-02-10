@@ -59,8 +59,8 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     AddTestInitialConditions();
 
     // Get the initial condition values
-    double magnitude = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"].as<double>();
-    std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"].as<std::array<double, 3>>();
+    double magnitude = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"].as<double>();
+    std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
     aperi::ChangeLength(expected_values, magnitude);
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
@@ -90,8 +90,8 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsMultipleSets) {
     AddTestInitialConditions();
 
     // Get the initial condition values
-    double magnitude = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"].as<double>();
-    std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"].as<std::array<double, 3>>();
+    double magnitude = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"].as<double>();
+    std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
     aperi::ChangeLength(expected_values, magnitude);
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
@@ -131,10 +131,10 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["sets"][0] = "surface_2";
 
     // Change the magnitude and direction of the second initial condition
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["magnitude"] = 2.34;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["direction"][0] = 5.9;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["direction"][1] = -6.2;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["direction"][2] = 11.0;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["magnitude"] = 2.34;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["direction"][0] = 5.9;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["direction"][1] = -6.2;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["direction"][2] = 11.0;
 
     CreateInputFile();
 
@@ -142,8 +142,8 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     AddTestInitialConditions();
 
     // Get the initial condition values
-    double magnitude_1 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"].as<double>();
-    std::array<double, 3> expected_values_1 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"].as<std::array<double, 3>>();
+    double magnitude_1 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"].as<double>();
+    std::array<double, 3> expected_values_1 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
     aperi::ChangeLength(expected_values_1, magnitude_1);
     EXPECT_GT(expected_values_1[0] * expected_values_1[0] + expected_values_1[1] * expected_values_1[1] + expected_values_1[2] * expected_values_1[2], 0.0);
 
@@ -159,8 +159,8 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     stk::mesh::Selector set_selector_2(*p_set_part);
 
     // Get the initial condition values
-    double magnitude_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["magnitude"].as<double>();
-    std::array<double, 3> expected_values_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["direction"].as<std::array<double, 3>>();
+    double magnitude_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["magnitude"].as<double>();
+    std::array<double, 3> expected_values_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
     aperi::ChangeLength(expected_values_2, magnitude_2);
     EXPECT_GT(expected_values_2[0] * expected_values_2[0] + expected_values_2[1] * expected_values_2[1] + expected_values_2[2] * expected_values_2[2], 0.0);
 

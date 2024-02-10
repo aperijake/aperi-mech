@@ -4,7 +4,7 @@
 #include <array>
 
 // Test the cross product of two vectors
-TEST(MassUtilsTest, Cross) {
+TEST(MathUtilsTest, Cross) {
     std::array<double, 3> v1 = {1.0, 0.0, 0.0};
     std::array<double, 3> v2 = {0.0, 1.0, 0.0};
 
@@ -15,7 +15,7 @@ TEST(MassUtilsTest, Cross) {
 }
 
 // Test the subtraction of two vectors
-TEST(MassUtilsTest, Subtract) {
+TEST(MathUtilsTest, Subtract) {
     std::array<double, 3> v1 = {1.1, 0.0, 0.0};
     std::array<double, 3> v2 = {0.0, 2.2, 0.0};
 
@@ -26,7 +26,7 @@ TEST(MassUtilsTest, Subtract) {
 }
 
 // Test the addition of two vectors
-TEST(MassUtilsTest, Add) {
+TEST(MathUtilsTest, Add) {
     std::array<double, 3> v1 = {1.1, 0.0, 0.0};
     std::array<double, 3> v2 = {0.0, 2.2, 0.0};
 
@@ -37,7 +37,7 @@ TEST(MassUtilsTest, Add) {
 }
 
 // Test the dot product of two vectors
-TEST(MassUtilsTest, Dot) {
+TEST(MathUtilsTest, Dot) {
     std::array<double, 3> v1 = {1.1, 0.0, 0.0};
     std::array<double, 3> v2 = {0.0, 2.2, 0.0};
     std::array<double, 3> v3 = {0.0, 3.3, 0.0};
@@ -52,7 +52,7 @@ TEST(MassUtilsTest, Dot) {
 }
 
 // Test the volume of a tetrahedron
-TEST(MassUtilsTest, TetVolume) {
+TEST(MathUtilsTest, TetVolume) {
     std::array<std::array<double, 3>, 4> tet = {{{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
     double result = aperi::TetVolume(tet);
     double expected = 1.0 / 6.0;
@@ -60,7 +60,7 @@ TEST(MassUtilsTest, TetVolume) {
 }
 
 // Test the change of length of a vector
-TEST(MassUtilsTest, ChangeLength) {
+TEST(MathUtilsTest, ChangeLength) {
     std::array<double, 3> vector = {1.0, 0.0, 0.0};
     aperi::ChangeLength(vector, 2.0);
     std::array<double, 3> expected = {2.0, 0.0, 0.0};
@@ -73,7 +73,7 @@ TEST(MassUtilsTest, ChangeLength) {
 }
 
 // Test the constant interpolation
-TEST(MassUtilsTest, ConstantInterpolation) {
+TEST(MathUtilsTest, ConstantInterpolation) {
     std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
     std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
 
@@ -99,7 +99,7 @@ TEST(MassUtilsTest, ConstantInterpolation) {
 }
 
 // Test the linear interpolation
-TEST(MassUtilsTest, LinearInterpolation) {
+TEST(MathUtilsTest, LinearInterpolation) {
     std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
     std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
 
@@ -122,4 +122,17 @@ TEST(MassUtilsTest, LinearInterpolation) {
     double result5 = aperi::LinearInterpolation(3.0, abscissa, ordinate);
     double expected5 = 3.0;
     EXPECT_DOUBLE_EQ(result5, expected5);
+}
+
+// Test normalizing a vector
+TEST(MathUtilsTest, Normalize) {
+    std::array<double, 3> vector = {1.0, 1.0, 1.0};
+    aperi::Normalize(vector);
+    std::array<double, 3> expected = {1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    EXPECT_EQ(vector, expected);
+
+    std::array<double, 3> vector3 = {1.0, 0.0, 0.0};
+    aperi::Normalize(vector3);
+    std::array<double, 3> expected3 = {1.0, 0.0, 0.0};
+    EXPECT_EQ(vector3, expected3);
 }

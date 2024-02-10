@@ -63,7 +63,7 @@ YAML::Node GetInputSchema() {
 
     YAML::Node magnitude_node;
     magnitude_node["type"] = "float";
-    magnitude_node["description"] = "the magnitude of the velocity";
+    magnitude_node["description"] = "the magnitude of the vector";
     YAML::Node magnitude_subitems_node;
     magnitude_node["subitems"] = YAML::Node(YAML::NodeType::Null);
     YAML::Node magnitude_wrapper_node;
@@ -71,11 +71,22 @@ YAML::Node GetInputSchema() {
 
     YAML::Node direction_node;
     direction_node["type"] = "direction_vector";
-    direction_node["description"] = "the direction of the velocity";
+    direction_node["description"] = "the direction of the vector";
     YAML::Node direction_subitems_node;
     direction_node["subitems"] = YAML::Node(YAML::NodeType::Null);
     YAML::Node direction_wrapper_node;
     direction_wrapper_node["direction"] = direction_node;
+
+    YAML::Node vector_node;
+    vector_node["type"] = "map";
+    vector_node["description"] = "the vector";
+    YAML::Node vector_subitems_node;
+    vector_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+    vector_subitems_node["all_of"].push_back(magnitude_wrapper_node);
+    vector_subitems_node["all_of"].push_back(direction_wrapper_node);
+    vector_node["subitems"] = vector_subitems_node;
+    YAML::Node vector_wrapper_node;
+    vector_wrapper_node["vector"] = vector_node;
 
     YAML::Node direct_time_stepper_node;
     direct_time_stepper_node["type"] = "map";
@@ -118,8 +129,7 @@ YAML::Node GetInputSchema() {
     YAML::Node gravity_load_subitems_node;
     gravity_load_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
     gravity_load_subitems_node["all_of"].push_back(sets_wrapper_node);
-    gravity_load_subitems_node["all_of"].push_back(magnitude_wrapper_node);
-    gravity_load_subitems_node["all_of"].push_back(direction_wrapper_node);
+    gravity_load_subitems_node["all_of"].push_back(vector_wrapper_node);
     gravity_load_node["subitems"] = gravity_load_subitems_node;
     YAML::Node gravity_load_wrapper_node;
     gravity_load_wrapper_node["gravity_load"] = gravity_load_node;
@@ -140,8 +150,7 @@ YAML::Node GetInputSchema() {
     YAML::Node initial_velocity_subitems_node;
     initial_velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
     initial_velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
-    initial_velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
-    initial_velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
+    initial_velocity_subitems_node["all_of"].push_back(vector_wrapper_node);
     initial_velocity_node["subitems"] = initial_velocity_subitems_node;
     YAML::Node initial_velocity_wrapper_node;
     initial_velocity_wrapper_node["velocity"] = initial_velocity_node;
@@ -202,8 +211,7 @@ YAML::Node GetInputSchema() {
     YAML::Node specified_velocity_subitems_node;
     specified_velocity_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
     specified_velocity_subitems_node["all_of"].push_back(sets_wrapper_node);
-    specified_velocity_subitems_node["all_of"].push_back(magnitude_wrapper_node);
-    specified_velocity_subitems_node["all_of"].push_back(direction_wrapper_node);
+    specified_velocity_subitems_node["all_of"].push_back(vector_wrapper_node);
     specified_velocity_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
     specified_velocity_subitems_node["one_of"].push_back(time_function_wrapper_node);
     specified_velocity_node["subitems"] = specified_velocity_subitems_node;
@@ -217,8 +225,7 @@ YAML::Node GetInputSchema() {
     YAML::Node specified_displacement_subitems_node;
     specified_displacement_subitems_node["all_of"] = YAML::Node(YAML::NodeType::Sequence);
     specified_displacement_subitems_node["all_of"].push_back(sets_wrapper_node);
-    specified_displacement_subitems_node["all_of"].push_back(magnitude_wrapper_node);
-    specified_displacement_subitems_node["all_of"].push_back(direction_wrapper_node);
+    specified_displacement_subitems_node["all_of"].push_back(vector_wrapper_node);
     specified_displacement_subitems_node["one_of"] = YAML::Node(YAML::NodeType::Sequence);
     specified_displacement_subitems_node["one_of"].push_back(time_function_wrapper_node);
     specified_displacement_node["subitems"] = specified_displacement_subitems_node;

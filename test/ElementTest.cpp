@@ -509,17 +509,17 @@ class ElementPatchTest : public SolverTest {
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
         AddDisplacementBoundaryConditions(m_yaml_data);
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["magnitude"] = -magnitude;
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][0] = displacement_direction[0];
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][1] = displacement_direction[1];
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["direction"][2] = displacement_direction[2];
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = -magnitude;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = displacement_direction[0];
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = displacement_direction[1];
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = displacement_direction[2];
 
         // Deep copy the first boundary condition to create a second boundary condition
         YAML::Node second_boundary_condition = Clone(m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]);
         // Change the boundary condition to apply to a different set
         second_boundary_condition["displacement"]["sets"][0] = "surface_2";
         // Change the magnitude and direction of the second boundary condition
-        second_boundary_condition["displacement"]["magnitude"] = magnitude;
+        second_boundary_condition["displacement"]["vector"]["magnitude"] = magnitude;
         // Add a second boundary condition
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"].push_back(second_boundary_condition);
 
@@ -592,8 +592,8 @@ class ElementPatchTest : public SolverTest {
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-        std::array<double, 3> direction = boundary_conditions[1]["displacement"]["direction"].as<std::array<double, 3>>();
-        double magnitude = boundary_conditions[1]["displacement"]["magnitude"].as<double>();
+        std::array<double, 3> direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
+        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>();
         double final_time = 1.0;
         std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
         std::array<double, 3> expected_velocity_positive = {expected_displacement_positive[0] / final_time, expected_displacement_positive[1] / final_time, expected_displacement_positive[2] / final_time};
@@ -745,7 +745,7 @@ TEST_F(ElementPatchTest, ExplicitTensionZ) {
     std::array<std::array<double, 3>, 3> expected_deformation_gradient;
     expected_deformation_gradient[0] = {1.0, 0.0, 0.0};
     expected_deformation_gradient[1] = {0.0, 1.0, 0.0};
-    expected_deformation_gradient[2] = {0.0, 0.0, 1.0 + 2.0 * magnitude/m_num_procs};
+    expected_deformation_gradient[2] = {0.0, 0.0, 1.0 + 2.0 * magnitude / m_num_procs};
 
     // Set the expected second piola kirchhoff stress
     std::array<double, 6> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.22, 0.0, 0.0, 0.0};

@@ -140,10 +140,10 @@ class BoundaryConditionTest : public ApplicationTest {
                 EXPECT_TRUE(parts_selector == m_boundary_conditions[i]->GetSelector());
 
                 // Get the boundary condition magnitude
-                double magnitude = bc_node["magnitude"].as<double>();
+                double magnitude = bc_node["vector"]["magnitude"].as<double>();
 
                 // Get the boundary condition direction
-                std::array<double, 3> direction = bc_node["direction"].as<std::array<double, 3>>();
+                std::array<double, 3> direction = bc_node["vector"]["direction"].as<std::array<double, 3>>();
 
                 // Get the time function type
                 YAML::Node time_function = bc_node["time_function"];

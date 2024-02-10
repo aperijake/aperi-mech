@@ -122,8 +122,8 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
     // Get the magnitude and direction, and change the length to match the magnitude
-    const double magnitude = boundary_condition_node["magnitude"].as<double>();
-    std::vector<double> vector = boundary_condition_node["direction"].as<std::vector<double>>();
+    const double magnitude = boundary_condition_node["vector"]["magnitude"].as<double>();
+    std::vector<double> vector = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
     aperi::ChangeLength(vector, magnitude);
 
     // Get the type of boundary condition, lowercase

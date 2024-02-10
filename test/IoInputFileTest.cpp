@@ -98,7 +98,7 @@ TEST_F(IoInputFileTest, CheckInputMissingOutputFile) {
 // -------- Initial Conditions --------
 // Create an input file with missing initial conditions direction
 TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("direction");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"].remove("direction");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -108,7 +108,7 @@ TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
 // Create an input file with bad initial conditions direction, too few items
 TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
     // TODO(jake): This test is disabled because the schema does not catch this error. Fix this.
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[1, 2]");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"] = YAML::Load("[1, 2]");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -117,7 +117,7 @@ TEST_F(IoInputFileTest, CheckInputShortInitialConditionsDirection) {
 
 // Create an input file with bad initial conditions direction, wrong data type
 TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[a,b,c]");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"] = YAML::Load("[a,b,c]");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -127,7 +127,7 @@ TEST_F(IoInputFileTest, CheckInputBadInitialConditionsDirection) {
 // Create an input file with bad initial conditions direction, all zero
 TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     // TODO(jake): This test is disabled because the schema does not catch this error. Fix this.
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[0,0,0]");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"] = YAML::Load("[0,0,0]");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -147,7 +147,7 @@ TEST_F(IoInputFileTest, AddDisplacementBoundaryConditions) {
 // Create an input file with missing boundary condition direction
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionDirection) {
     AddDisplacementBoundaryConditions(m_yaml_data);
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("direction");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"].remove("direction");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -157,7 +157,7 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionDirection) {
 // Create an input file with missing boundary condition magnitude
 TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionMagnitude) {
     AddDisplacementBoundaryConditions(m_yaml_data);
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("magnitude");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"].remove("magnitude");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -215,7 +215,7 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsSet) {
 
 // Create an input file with missing loads magnitude
 TEST_F(IoInputFileTest, CheckInputMissingLoadsMagnitude) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("magnitude");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["vector"].remove("magnitude");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -224,7 +224,7 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsMagnitude) {
 
 // Create an input file with missing loads direction
 TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("direction");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["vector"].remove("direction");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -262,14 +262,14 @@ TEST_F(IoInputFileTest, CheckInputMissingTimeEndDirect) {
 // -------- Basic Checks --------
 // Create an input file with a sequence where a scalar is expected
 TEST_F(IoInputFileTest, CheckInputScalarSequence) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = YAML::Load("[1, 2, 3]");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"] = YAML::Load("[1, 2, 3]");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
     MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have done the check before modifying the file
 
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["magnitude"] = YAML::Load("1");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"] = YAML::Load("1");
     io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -278,14 +278,14 @@ TEST_F(IoInputFileTest, CheckInputScalarSequence) {
 
 // Create an input file with a scalar where a sequence is expected
 TEST_F(IoInputFileTest, CheckInputSequenceScalar) {
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("1");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"] = YAML::Load("1");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
     MPI_Barrier(MPI_COMM_WORLD);  // Make sure all processes have done the check before modifying the file
 
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["direction"] = YAML::Load("[1, 2, 3]");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"] = YAML::Load("[1, 2, 3]");
     io_input_file = GetIoInputFile(false);
 
     // Check input file

@@ -35,13 +35,15 @@ YAML::Node CreateTestYaml() {
                 initial_conditions:
                   - velocity:
                         sets: [block_1]
-                        magnitude: 1.23
-                        direction: [1,0,0]
+                        vector:
+                            magnitude: 1.23
+                            direction: [1.4, -2.5, 2.9]
                 loads:
                   - gravity_load:
                         sets: [block_1]
-                        magnitude: -9.81
-                        direction: [0,0,1]
+                        vector:
+                            magnitude: -9.81
+                            direction: [0,0,1]
                 time_stepper:
                     direct_time_stepper:
                         time_increment: 0.1
@@ -90,10 +92,12 @@ YAML::Node CreateTestYaml() {
     // Create the first initial condition
     YAML::Node velocity;
     velocity["velocity"]["sets"] = std::vector<std::string>{"block_1"};
-    velocity["velocity"]["magnitude"] = 1.23;
+    YAML::Node vector;
+    vector["magnitude"] = 1.23;
     std::vector<double> direction = {1.4, -2.5, 2.9};
     aperi::Normalize(direction);  // The code will normalize the direction, but normalize it here to make the test easier to work with
-    velocity["velocity"]["direction"] = direction;
+    vector["direction"] = direction;
+    velocity["velocity"]["vector"] = vector;
 
     // Add the initial condition to the list
     initial_conditions.push_back(velocity);
@@ -106,8 +110,10 @@ YAML::Node CreateTestYaml() {
     // Create the first load
     YAML::Node gravity_load;
     gravity_load["gravity_load"]["sets"] = std::vector<std::string>{"block_1"};
-    gravity_load["gravity_load"]["magnitude"] = -9.81;
-    gravity_load["gravity_load"]["direction"] = std::vector<double>{0.0, 0.0, 1.0};
+    YAML::Node gravity_vector;
+    gravity_vector["magnitude"] = -9.81;
+    gravity_vector["direction"] = std::vector<double>{0.0, 0.0, 1.0};
+    gravity_load["gravity_load"]["vector"] = gravity_vector;
 
     // Add the load to the list
     loads.push_back(gravity_load);
@@ -144,10 +150,12 @@ void AddBoundaryCondition(YAML::Node& root, const std::string& type) {
     YAML::Node boundary_conditions(YAML::NodeType::Sequence);
 
     // Create the first boundary condition
-    YAML::Node displacement;
-    displacement[type]["sets"] = std::vector<std::string>{"block_1"};
-    displacement[type]["direction"] = std::vector<double>{0.0, 0.0, -1.0};
-    displacement[type]["magnitude"] = 4.56;
+    YAML::Node bc;
+    bc[type]["sets"] = std::vector<std::string>{"block_1"};
+    YAML::Node bc_vector;
+    bc_vector["direction"] = std::vector<double>{0.0, 0.0, -1.0};
+    bc_vector["magnitude"] = 4.56;
+    bc[type]["vector"] = bc_vector;
 
     // Create the time function
     YAML::Node time_function;
@@ -157,10 +165,10 @@ void AddBoundaryCondition(YAML::Node& root, const std::string& type) {
     ramp_function["abscissa_values"] = std::vector<double>{0.0, 1.0};
     ramp_function["ordinate_values"] = std::vector<double>{0.0, 1.0};
     time_function["ramp_function"] = ramp_function;
-    displacement[type]["time_function"] = time_function;
+    bc[type]["time_function"] = time_function;
 
     // Add the boundary condition to the list
-    boundary_conditions.push_back(displacement);
+    boundary_conditions.push_back(bc);
 
     // Add the boundary conditions list to the root node
     root["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"] = boundary_conditions;
