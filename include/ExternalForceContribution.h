@@ -10,6 +10,7 @@
 #include <stk_mesh/base/Part.hpp>
 #include <stk_topology/topology.hpp>
 
+#include "IoInputFile.h"
 #include "ForceContribution.h"
 #include "Material.h"
 
@@ -32,10 +33,9 @@ class ExternalForceContribution : public ForceContribution {
      * @brief Constructs an ExternalForceContribution object.
      *
      * @param meta_data The meta data of the mesh.
-     * @param magnitude The magnitude of the external force.
-     * @param direction The direction of the external force.
+     * @param components_and_values The components and values of the force.
      */
-    ExternalForceContribution(stk::mesh::MetaData &meta_data, double magnitude, std::array<double, 3> direction) : m_meta_data(meta_data), m_magnitude(magnitude), m_direction(direction) {}
+    ExternalForceContribution(stk::mesh::MetaData &meta_data, std::vector<std::pair<int, double>> components_and_values) : m_meta_data(meta_data), m_components_and_values(components_and_values) {}
 
     /**
      * @brief Computes the force exerted by the external source.
@@ -45,9 +45,8 @@ class ExternalForceContribution : public ForceContribution {
     void ComputeForce() override {}
 
    protected:
-    stk::mesh::MetaData &m_meta_data;  /**< The meta data of the mesh. */
-    double m_magnitude;                /**< The magnitude of the external force. */
-    std::array<double, 3> m_direction; /**< The direction of the external force. */
+    stk::mesh::MetaData &m_meta_data;                            /**< The meta data of the mesh. */
+    std::vector<std::pair<int, double>> m_components_and_values; /**< The components and values of the force. */
 };
 
 /**
@@ -64,7 +63,7 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
      * @param magnitude The magnitude of the traction force.
      * @param direction The direction of the traction force.
      */
-    ExternalForceContributionTraction(stk::mesh::MetaData &meta_data, double magnitude, std::array<double, 3> direction) : ExternalForceContribution(meta_data, magnitude, direction) {
+    ExternalForceContributionTraction(stk::mesh::MetaData &meta_data, std::vector<std::pair<int, double>> components_and_values) : ExternalForceContribution(meta_data, components_and_values) {
         // Throw error because this is not implemented yet
         throw std::runtime_error("Error: Traction not implemented yet");
     }
@@ -89,10 +88,9 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @brief Constructs an ExternalForceContributionGravity object.
      *
      * @param meta_data The meta data of the mesh.
-     * @param magnitude The magnitude of the gravity force.
-     * @param direction The direction of the gravity force.
+     * @param components_and_values The components and values of the gravity force.
      */
-    ExternalForceContributionGravity(stk::mesh::MetaData &meta_data, double magnitude, std::array<double, 3> direction) : ExternalForceContribution(meta_data, magnitude, direction) {}
+    ExternalForceContributionGravity(stk::mesh::MetaData &meta_data, std::vector<std::pair<int,double>> components_and_values) : ExternalForceContribution(meta_data, components_and_values) {}
 
     /**
      * @brief Computes the force due to gravity on the mesh.
@@ -109,12 +107,6 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 
         VectorField &force_field_at_state = force_field->field_of_state(stk::mesh::StateNP1);
 
-        // Gravity vector
-        std::array<double, 3> gravity;
-        for (unsigned i = 0; i < 3; ++i) {
-            gravity[i] = m_magnitude * m_direction[i];
-        }
-
         stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 
         // Loop over all the buckets
@@ -128,9 +120,9 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 
             for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
                 // Compute the gravity force
-                for (unsigned i = 0; i < num_values_per_node; ++i) {
-                    int iI = i_node * num_values_per_node + i;
-                    force_data_at_state_for_bucket[iI] += gravity[i] * mass_data_for_bucket[iI];
+                for (auto&& component_value : m_components_and_values) {
+                    int iI = i_node * num_values_per_node + component_value.first;
+                    force_data_at_state_for_bucket[iI] += component_value.second * mass_data_for_bucket[iI];
                 }
             }
         }
@@ -152,12 +144,12 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContribution(YAML::Node &load, stk::mesh::MetaData &meta_data) {
     std::string type = load.begin()->first.as<std::string>();
     YAML::Node load_node = load.begin()->second;
-    double magnitude = load_node["vector"]["magnitude"].as<double>();
-    std::array<double, 3> direction = load_node["vector"]["direction"].as<std::array<double, 3>>();
+    // Get the components and values
+    std::vector<std::pair<int, double>> components_and_values = aperi::GetComponentsAndValues(load_node);
     if (type == "traction_load") {
-        return std::make_shared<ExternalForceContributionTraction>(meta_data, magnitude, direction);
+        return std::make_shared<ExternalForceContributionTraction>(meta_data, components_and_values);
     } else if (type == "gravity_load") {
-        return std::make_shared<ExternalForceContributionGravity>(meta_data, magnitude, direction);
+        return std::make_shared<ExternalForceContributionGravity>(meta_data, components_and_values);
     } else {
         return nullptr;
     }
