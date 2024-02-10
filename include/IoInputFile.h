@@ -7,6 +7,7 @@
 #include <utility>    // for pair
 #include <vector>     // for vector
 
+#include "MathUtils.h"
 #include "YamlUtils.h"
 
 namespace aperi {
@@ -156,6 +157,34 @@ class IoInputFile {
     std::string m_filename;
     YAML::Node m_yaml_file;
 };
+
+// Get component and value pairs
+inline std::vector<std::pair<int, double>> GetComponentsAndValues(const YAML::Node& parent_node, bool exit_on_error = true) {
+    std::vector<std::pair<int, double>> component_value_pair;
+    if (parent_node["vector"]) {
+        // Get the magnitude and direction, and change the length to match the magnitude
+        const double magnitude = parent_node["vector"]["magnitude"].as<double>();
+        std::vector<double> values = parent_node["vector"]["direction"].as<std::vector<double>>();
+        aperi::ChangeLength(values, magnitude);
+        for (size_t i = 0; i < values.size(); ++i) {
+            component_value_pair.push_back(std::make_pair(i, values[i]));
+        }
+    } else if (parent_node["components"]) {
+        // Loop over the yaml nodes
+        if (parent_node["components"]["X"]) {
+            component_value_pair.push_back(std::make_pair(0, parent_node["components"]["X"].as<double>()));
+        }
+        if (parent_node["components"]["Y"]) {
+            component_value_pair.push_back(std::make_pair(1, parent_node["components"]["Y"].as<double>()));
+        }
+        if (parent_node["components"]["Z"]) {
+            component_value_pair.push_back(std::make_pair(2, parent_node["components"]["Z"].as<double>()));
+        }
+    } else {
+        if (exit_on_error) throw std::runtime_error("Error getting component and value pairs. Needs to be a 'vector' or 'components' node.");
+    }
+    return component_value_pair;
+}
 
 // IoInputFile factory function
 inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {

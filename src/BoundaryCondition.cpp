@@ -7,6 +7,7 @@
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
 
+#include "IoInputFile.h"
 #include "MathUtils.h"
 
 namespace aperi {
@@ -106,29 +107,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
     // Components and values of the boundary condition vector
-    std::vector<std::pair<int, double>> component_value_vector;
-
-    // Check if the values are specified as a vector or or as individual components
-    if (boundary_condition_node["vector"]) {
-        // Get the magnitude and direction, and change the length to match the magnitude
-        const double magnitude = boundary_condition_node["vector"]["magnitude"].as<double>();
-        std::vector<double> values = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
-        aperi::ChangeLength(values, magnitude);
-        for (size_t i = 0; i < values.size(); ++i) {
-            component_value_vector.push_back(std::make_pair(i, values[i]));
-        }
-    } else {
-        // Loop over the yaml nodes
-        if (boundary_condition_node["components"]["X"]) {
-            component_value_vector.push_back(std::make_pair(0, boundary_condition_node["components"]["X"].as<double>()));
-        }
-        if (boundary_condition_node["components"]["Y"]) {
-            component_value_vector.push_back(std::make_pair(1, boundary_condition_node["components"]["Y"].as<double>()));
-        }
-        if (boundary_condition_node["components"]["Z"]) {
-            component_value_vector.push_back(std::make_pair(2, boundary_condition_node["components"]["Z"].as<double>()));
-        }
-    }
+    std::vector<std::pair<int, double>> component_value_vector = aperi::GetComponentsAndValues(boundary_condition_node);
 
     // Get the type of boundary condition, lowercase
     std::string type = boundary_condition.begin()->first.as<std::string>();
