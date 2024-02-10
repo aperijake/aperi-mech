@@ -22,9 +22,9 @@ void BoundaryCondition::ApplyVelocity(double time) {
             // Get the velocity field values for the node
             double* velocity_field_values = stk::mesh::field_data(*m_velocity_field, node);
 
-            // Apply the boundary condition
-            for (size_t i = 0; i < 3; ++i) {
-                velocity_field_values[i] = bc_values[i];
+            // Apply the boundary condition, loop over the components
+            for (size_t i = 0, e = m_components.size(); i < e; ++i) {
+                velocity_field_values[m_components[i]] = bc_values[i];
             }
         }
     }
@@ -42,14 +42,14 @@ void BoundaryCondition::ApplyAcceleration(double time) {
             double* acceleration_field_values = stk::mesh::field_data(*m_acceleration_field, node);
 
             // Apply the boundary condition
-            for (size_t i = 0; i < 3; ++i) {
-                acceleration_field_values[i] = bc_values[i];
+            for (size_t i = 0, e = m_components.size(); i < e; ++i) {
+                acceleration_field_values[m_components[i]] = bc_values[i];
             }
         }
     }
 }
 
-// Set the time function
+// Set the time function, TODO(jake): can probably remove the component_value_vector from this and just pass the values to BoundaryCondition and use them in the Apply functions there.
 std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<double>(double)>> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& component_value_vector, const std::string& bc_type) {
     // Get the time function node
     const YAML::Node time_function_node = boundary_condition["time_function"].begin()->second;
@@ -121,17 +121,50 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     // Get the boundary condition node
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
-    // Get the magnitude and direction, and change the length to match the magnitude
-    const double magnitude = boundary_condition_node["vector"]["magnitude"].as<double>();
-    std::vector<double> vector = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
-    aperi::ChangeLength(vector, magnitude);
+    // Components and values of the boundary condition vector
+    std::vector<int> components;
+    std::vector<double> values;
+
+    // Check if the values are specified as a vector or or as individual components
+    if (boundary_condition_node["vector"]) {
+        // Get the magnitude and direction, and change the length to match the magnitude
+        const double magnitude = boundary_condition_node["vector"]["magnitude"].as<double>();
+        values = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
+        aperi::ChangeLength(values, magnitude);
+        components = {0, 1, 2};
+    } else {
+        // Loop over the yaml nodes
+        std::cout << "Components\n";
+        if (boundary_condition_node["components"]["X"]) {
+            std::cout << "X\n";
+            components.push_back(0);
+            values.push_back(boundary_condition_node["components"]["X"].as<double>());
+        }
+        if (boundary_condition_node["components"]["Y"]) {
+            std::cout << "Y\n";
+            components.push_back(1);
+            values.push_back(boundary_condition_node["components"]["Y"].as<double>());
+        }
+        if (boundary_condition_node["components"]["Z"]) {
+            std::cout << "Z\n";
+            components.push_back(2);
+            values.push_back(boundary_condition_node["components"]["Z"].as<double>());
+        }
+    }
+    std::cout << "Components and values: \n";
+    for (size_t i = 0; i < components.size(); ++i) {
+        std::cout << "  " << components[i] << " " << values[i] << "\n";
+    }
 
     // Get the type of boundary condition, lowercase
     std::string type = boundary_condition.begin()->first.as<std::string>();
     std::transform(type.begin(), type.end(), type.begin(), ::tolower);
 
+    // Assert that the component value vector has the same size as the components
+    assert(components.size() == values.size());
+
     // Get the velocity and acceleration time functions
-    std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<double>(double)>> time_functions = SetTimeFunction(boundary_condition_node, vector, type);
+    std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<double>(double)>> time_functions = SetTimeFunction(boundary_condition_node, values, type);
 
     // Loop over sets from boundary condition
     std::vector<std::string> sets;
@@ -177,7 +210,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
         throw std::runtime_error("Boundary condition. Acceleration field not found.");
     }
 
-    return std::make_shared<BoundaryCondition>(time_functions, parts_selector, displacement_field, velocity_field, acceleration_field);
+    return std::make_shared<BoundaryCondition>(components, time_functions, parts_selector, displacement_field, velocity_field, acceleration_field);
 }
 
 }  // namespace aperi
