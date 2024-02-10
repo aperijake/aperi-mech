@@ -14,7 +14,7 @@ namespace aperi {
 // Apply the velocity boundary condition (displacement is converted to velocity earlier)
 void BoundaryCondition::ApplyVelocity(double time) {
     // Get the time function values
-    std::vector<double> bc_values = m_velocity_time_function(time);
+    double time_scale = m_velocity_time_function(time);
 
     // Loop over the nodes
     for (stk::mesh::Bucket* bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
@@ -23,8 +23,8 @@ void BoundaryCondition::ApplyVelocity(double time) {
             double* velocity_field_values = stk::mesh::field_data(*m_velocity_field, node);
 
             // Apply the boundary condition, loop over the components
-            for (size_t i = 0, e = m_components.size(); i < e; ++i) {
-                velocity_field_values[m_components[i]] = bc_values[i];
+            for (auto&& component_value : m_components_and_values) {
+                velocity_field_values[component_value.first] = component_value.second * time_scale;
             }
         }
     }
@@ -33,7 +33,7 @@ void BoundaryCondition::ApplyVelocity(double time) {
 // Apply the acceleration boundary condition
 void BoundaryCondition::ApplyAcceleration(double time) {
     // Get the time function values
-    std::vector<double> bc_values = m_acceleration_time_function(time);
+    double time_scale = m_acceleration_time_function(time);
 
     // Loop over the nodes
     for (stk::mesh::Bucket* bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
@@ -42,15 +42,15 @@ void BoundaryCondition::ApplyAcceleration(double time) {
             double* acceleration_field_values = stk::mesh::field_data(*m_acceleration_field, node);
 
             // Apply the boundary condition
-            for (size_t i = 0, e = m_components.size(); i < e; ++i) {
-                acceleration_field_values[m_components[i]] = bc_values[i];
+            for (auto&& component_value : m_components_and_values) {
+                acceleration_field_values[component_value.first] = component_value.second * time_scale;
             }
         }
     }
 }
 
-// Set the time function, TODO(jake): can probably remove the component_value_vector from this and just pass the values to BoundaryCondition and use them in the Apply functions there.
-std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<double>(double)>> SetTimeFunction(const YAML::Node& boundary_condition, const std::vector<double>& component_value_vector, const std::string& bc_type) {
+// Set the time function
+std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeFunctions(const YAML::Node& boundary_condition, const std::string& bc_type) {
     // Get the time function node
     const YAML::Node time_function_node = boundary_condition["time_function"].begin()->second;
 
@@ -58,10 +58,10 @@ std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<
     std::string time_function_type = boundary_condition["time_function"].begin()->first.as<std::string>();
 
     // Create a velocity vs time function
-    std::function<std::vector<double>(double)> velocity_time_function;
+    std::function<double(double)> velocity_time_function;
 
     // Create an acceleration vs time function
-    std::function<std::vector<double>(double)> acceleration_time_function;
+    std::function<double(double)> acceleration_time_function;
 
     // Set the time function
     if (time_function_type == "ramp_function") {
@@ -77,34 +77,18 @@ std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<
 
         // If type is 'displacement', convert ordinate to velocity. Will be a piecewise constant function
         if (bc_type == "displacement") {
-            velocity_time_function = [abscissa, ordinate_derivate, component_value_vector](double time) {
-                double time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
-                std::vector<double> result(component_value_vector.size());
-                for (size_t i = 0; i < component_value_vector.size(); ++i) {
-                    result[i] = component_value_vector[i] * time_scale_factor;
-                }
-                return result;
+            velocity_time_function = [abscissa, ordinate_derivate](double time) {
+                return aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
             };
-            acceleration_time_function = [abscissa, ordinate_derivate, component_value_vector](double time) {
-                std::vector<double> result(component_value_vector.size(), 0.0);
-                return result;
+            acceleration_time_function = [abscissa, ordinate_derivate](double time) {
+                return 0.0;
             };
         } else if (bc_type == "velocity") {
-            velocity_time_function = [abscissa, ordinate, component_value_vector](double time) {
-                double time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
-                std::vector<double> result(component_value_vector.size());
-                for (size_t i = 0; i < component_value_vector.size(); ++i) {
-                    result[i] = component_value_vector[i] * time_scale_factor;
-                }
-                return result;
+            velocity_time_function = [abscissa, ordinate](double time) {
+                return aperi::LinearInterpolation(time, abscissa, ordinate);
             };
-            acceleration_time_function = [abscissa, ordinate_derivate, component_value_vector](double time) {
-                double time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
-                std::vector<double> result(component_value_vector.size());
-                for (size_t i = 0; i < component_value_vector.size(); ++i) {
-                    result[i] = component_value_vector[i] * time_scale_factor;
-                }
-                return result;
+            acceleration_time_function = [abscissa, ordinate_derivate](double time) {
+                return aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
             };
         } else {
             // Throw an error if the type is not 'velocity' or 'displacement'. Should not happen.
@@ -122,49 +106,36 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
     // Components and values of the boundary condition vector
-    std::vector<int> components;
-    std::vector<double> values;
+    std::vector<std::pair<int, double>> component_value_vector;
 
     // Check if the values are specified as a vector or or as individual components
     if (boundary_condition_node["vector"]) {
         // Get the magnitude and direction, and change the length to match the magnitude
         const double magnitude = boundary_condition_node["vector"]["magnitude"].as<double>();
-        values = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
+        std::vector<double> values = boundary_condition_node["vector"]["direction"].as<std::vector<double>>();
         aperi::ChangeLength(values, magnitude);
-        components = {0, 1, 2};
+        for (size_t i = 0; i < values.size(); ++i) {
+            component_value_vector.push_back(std::make_pair(i, values[i]));
+        }
     } else {
         // Loop over the yaml nodes
-        std::cout << "Components\n";
         if (boundary_condition_node["components"]["X"]) {
-            std::cout << "X\n";
-            components.push_back(0);
-            values.push_back(boundary_condition_node["components"]["X"].as<double>());
+            component_value_vector.push_back(std::make_pair(0, boundary_condition_node["components"]["X"].as<double>()));
         }
         if (boundary_condition_node["components"]["Y"]) {
-            std::cout << "Y\n";
-            components.push_back(1);
-            values.push_back(boundary_condition_node["components"]["Y"].as<double>());
+            component_value_vector.push_back(std::make_pair(1, boundary_condition_node["components"]["Y"].as<double>()));
         }
         if (boundary_condition_node["components"]["Z"]) {
-            std::cout << "Z\n";
-            components.push_back(2);
-            values.push_back(boundary_condition_node["components"]["Z"].as<double>());
+            component_value_vector.push_back(std::make_pair(2, boundary_condition_node["components"]["Z"].as<double>()));
         }
-    }
-    std::cout << "Components and values: \n";
-    for (size_t i = 0; i < components.size(); ++i) {
-        std::cout << "  " << components[i] << " " << values[i] << "\n";
     }
 
     // Get the type of boundary condition, lowercase
     std::string type = boundary_condition.begin()->first.as<std::string>();
     std::transform(type.begin(), type.end(), type.begin(), ::tolower);
 
-    // Assert that the component value vector has the same size as the components
-    assert(components.size() == values.size());
-
     // Get the velocity and acceleration time functions
-    std::pair<std::function<std::vector<double>(double)>, std::function<std::vector<double>(double)>> time_functions = SetTimeFunction(boundary_condition_node, values, type);
+    std::pair<std::function<double(double)>, std::function<double(double)>> time_functions = SetTimeFunctions(boundary_condition_node, type);
 
     // Loop over sets from boundary condition
     std::vector<std::string> sets;
@@ -210,7 +181,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
         throw std::runtime_error("Boundary condition. Acceleration field not found.");
     }
 
-    return std::make_shared<BoundaryCondition>(components, time_functions, parts_selector, displacement_field, velocity_field, acceleration_field);
+    return std::make_shared<BoundaryCondition>(component_value_vector, time_functions, parts_selector, displacement_field, velocity_field, acceleration_field);
 }
 
 }  // namespace aperi
