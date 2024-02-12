@@ -49,7 +49,7 @@ class InitialConditionUtilTest : public ApplicationTest {
     std::shared_ptr<aperi::FieldManager> m_field_manager;
 };
 
-// Test AddInitialConditions function with valid input
+// Test AddInitialConditions function with valid input, using a vector input
 TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     // Create input file
     m_yaml_data = CreateTestYaml();
@@ -63,6 +63,35 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
     aperi::ChangeLength(expected_values, magnitude);
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
+
+    // Get the part and selector
+    stk::mesh::Part* p_set_part = m_io_mesh->GetMetaData().get_part("block_1");
+    stk::mesh::Selector set_selector(*p_set_part);
+
+    // Check the field values
+    CheckNodeFieldValues(m_io_mesh->GetBulkData(), set_selector, "velocity", expected_values);
+}
+
+// Test AddInitialConditions function with valid input, using component values instead of vector
+TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInputComponentValues) {
+    // Create input file
+    m_yaml_data = CreateTestYaml();
+
+    // Grab the vector values and remove the vector
+    double magnitude = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"].as<double>();
+    std::array<double, 3> expected_values = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"].as<std::array<double, 3>>();
+    aperi::ChangeLength(expected_values, magnitude);
+    EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("vector");
+
+    // Add the component values
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["X"] = expected_values[0];
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["Y"] = expected_values[1];
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["Z"] = expected_values[2];
+    CreateInputFile();
+
+    // Add initial conditions to field data
+    AddTestInitialConditions();
 
     // Get the part and selector
     stk::mesh::Part* p_set_part = m_io_mesh->GetMetaData().get_part("block_1");
