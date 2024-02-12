@@ -29,6 +29,7 @@ class Selector;
 
 YAML::Node CreateTestYaml();
 void AddDisplacementBoundaryConditions(YAML::Node& root);
+void AddDisplacementBoundaryConditionsComponents(YAML::Node& root);
 void AddVelocityBoundaryConditions(YAML::Node& root);
 void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr);

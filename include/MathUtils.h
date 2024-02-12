@@ -22,23 +22,31 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 // Compute the volume of a tetrahedron
 double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
 
-// Change the length of a vector
+// Get the magnitude of a vector
 template <typename T>
-void ChangeLength(T &vector, double new_magnitude) {
+double Magnitude(const T &vector) {
     double magnitude = 0.0;
     for (const auto &component : vector) {
         magnitude += component * component;
     }
-    double scale_factor = new_magnitude / std::sqrt(magnitude);
+    return std::sqrt(magnitude);
+}
+
+// Change the length of a vector in place, returns the original magnitude
+template <typename T>
+double ChangeLength(T &vector, double new_magnitude) {
+    double magnitude = Magnitude(vector);
+    double scale_factor = new_magnitude / magnitude;
     for (auto &component : vector) {
         component *= scale_factor;
     }
+    return magnitude;
 }
 
-// Normalize a vector
+// Normalize a vector in place, returns the original magnitude
 template <typename T>
-void Normalize(T &vector) {
-    ChangeLength(vector, 1.0);
+double Normalize(T &vector) {
+    return ChangeLength(vector, 1.0);
 }
 
 // Constant interpolation

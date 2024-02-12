@@ -59,16 +59,37 @@ TEST(MathUtilsTest, TetVolume) {
     EXPECT_DOUBLE_EQ(result, expected);
 }
 
+// Test the magnitude of a vector
+TEST(MathUtilsTest, Magnitude) {
+    std::array<double, 3> vector = {1.0, 0.0, 0.0};
+    double result = aperi::Magnitude(vector);
+    double expected = 1.0;
+    EXPECT_DOUBLE_EQ(result, expected);
+
+    std::array<double, 3> vector2 = {1.0, 1.0, 1.0};
+    double result2 = aperi::Magnitude(vector2);
+    double expected2 = std::sqrt(3.0);
+    EXPECT_DOUBLE_EQ(result2, expected2);
+
+    std::array<double, 3> vector3 = {2.0, -3.0, 4.0};
+    double result3 = aperi::Magnitude(vector3);
+    double expected3 = std::sqrt(29.0);
+    EXPECT_DOUBLE_EQ(result3, expected3);
+}
+
 // Test the change of length of a vector
 TEST(MathUtilsTest, ChangeLength) {
     std::array<double, 3> vector = {1.0, 0.0, 0.0};
-    aperi::ChangeLength(vector, 2.0);
+    double magnitude = aperi::ChangeLength(vector, 2.0);
+    EXPECT_DOUBLE_EQ(magnitude, 1.0);
     std::array<double, 3> expected = {2.0, 0.0, 0.0};
     EXPECT_EQ(vector, expected);
 
     std::array<double, 3> vector2 = {1.0, 1.0, 1.0};
-    aperi::ChangeLength(vector2, 1.0);
-    std::array<double, 3> expected2 = {1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    double expected_magnitude = std::sqrt(3.0);
+    magnitude = aperi::ChangeLength(vector2, 1.0);
+    EXPECT_DOUBLE_EQ(magnitude, expected_magnitude);
+    std::array<double, 3> expected2 = {1.0 / expected_magnitude, 1.0 / expected_magnitude, 1.0 / expected_magnitude};
     EXPECT_EQ(vector2, expected2);
 }
 
@@ -127,12 +148,15 @@ TEST(MathUtilsTest, LinearInterpolation) {
 // Test normalizing a vector
 TEST(MathUtilsTest, Normalize) {
     std::array<double, 3> vector = {1.0, 1.0, 1.0};
-    aperi::Normalize(vector);
-    std::array<double, 3> expected = {1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    double expected_magnitude = std::sqrt(3.0);
+    double magnitude = aperi::Normalize(vector);
+    EXPECT_DOUBLE_EQ(magnitude, expected_magnitude);
+    std::array<double, 3> expected = {1.0 / expected_magnitude, 1.0 / expected_magnitude, 1.0 / expected_magnitude};
     EXPECT_EQ(vector, expected);
 
     std::array<double, 3> vector3 = {1.0, 0.0, 0.0};
-    aperi::Normalize(vector3);
+    expected_magnitude = aperi::Normalize(vector3);
+    EXPECT_DOUBLE_EQ(expected_magnitude, 1.0);
     std::array<double, 3> expected3 = {1.0, 0.0, 0.0};
     EXPECT_EQ(vector3, expected3);
 }

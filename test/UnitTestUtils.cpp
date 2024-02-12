@@ -145,17 +145,28 @@ YAML::Node CreateTestYaml() {
     return root;
 }
 
-void AddBoundaryCondition(YAML::Node& root, const std::string& type) {
+void AddBoundaryCondition(YAML::Node& root, const std::string& type, bool use_components = false) {
     // Create the boundary conditions list
     YAML::Node boundary_conditions(YAML::NodeType::Sequence);
 
     // Create the first boundary condition
     YAML::Node bc;
     bc[type]["sets"] = std::vector<std::string>{"block_1"};
-    YAML::Node bc_vector;
-    bc_vector["direction"] = std::vector<double>{0.0, 0.0, -1.0};
-    bc_vector["magnitude"] = 4.56;
-    bc[type]["vector"] = bc_vector;
+
+    if (use_components) {
+        // Create the components and values
+        YAML::Node components_and_values;
+        components_and_values["X"] = 1.23;
+        components_and_values["Y"] = -4.56;
+        components_and_values["Z"] = 7.89;
+        bc[type]["components"] = components_and_values;
+    } else {
+        // Create the vector
+        YAML::Node bc_vector;
+        bc_vector["magnitude"] = 4.56;
+        bc_vector["direction"] = std::vector<double>{0.0, 0.0, -1.0};
+        bc[type]["vector"] = bc_vector;
+    }
 
     // Create the time function
     YAML::Node time_function;
@@ -176,6 +187,11 @@ void AddBoundaryCondition(YAML::Node& root, const std::string& type) {
 
 void AddDisplacementBoundaryConditions(YAML::Node& root) {
     AddBoundaryCondition(root, "displacement");
+}
+
+void AddDisplacementBoundaryConditionsComponents(YAML::Node& root) {
+    bool use_components = true;
+    AddBoundaryCondition(root, "displacement", use_components);
 }
 
 // Add a velocity boundary condition to the input file

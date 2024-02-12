@@ -140,10 +140,29 @@ class BoundaryConditionTest : public ApplicationTest {
                 EXPECT_TRUE(parts_selector == m_boundary_conditions[i]->GetSelector());
 
                 // Get the boundary condition magnitude
-                double magnitude = bc_node["vector"]["magnitude"].as<double>();
+                double magnitude = 0;
 
                 // Get the boundary condition direction
-                std::array<double, 3> direction = bc_node["vector"]["direction"].as<std::array<double, 3>>();
+                std::array<double, 3> direction = {0.0, 0.0, 0.0};
+
+                // If the boundary condition is specified with a vector
+                bool is_vector_or_components = bc_node["vector"] || bc_node["components"];
+                EXPECT_TRUE(is_vector_or_components);
+                if (bc_node["vector"]) {
+                    magnitude = bc_node["vector"]["magnitude"].as<double>();
+                    direction = bc_node["vector"]["direction"].as<std::array<double, 3>>();
+                } else if (bc_node["components"]) {
+                    if (bc_node["components"]["X"]) {
+                        direction[0] = bc_node["components"]["X"].as<double>();
+                    }
+                    if (bc_node["components"]["Y"]) {
+                        direction[1] = bc_node["components"]["Y"].as<double>();
+                    }
+                    if (bc_node["components"]["Z"]) {
+                        direction[2] = bc_node["components"]["Z"].as<double>();
+                    }
+                    magnitude = aperi::Normalize(direction);
+                }
 
                 // Get the time function type
                 YAML::Node time_function = bc_node["time_function"];
@@ -204,6 +223,20 @@ class BoundaryConditionTest : public ApplicationTest {
 TEST_F(BoundaryConditionTest, AddDisplacementBoundaryCondition) {
     m_yaml_data = CreateTestYaml();
     AddDisplacementBoundaryConditions(m_yaml_data);
+    CreateTestMesh(m_field_manager);
+    CreateInputFile();
+
+    // Add boundary conditions
+    AddTestBoundaryConditions();
+
+    // Check the boundary conditions
+    CheckBoundaryConditions("displacement");
+}
+
+// Test adding a displacement boundary condition using components instead of a vector
+TEST_F(BoundaryConditionTest, AddDisplacementBoundaryConditionComponents) {
+    m_yaml_data = CreateTestYaml();
+    AddDisplacementBoundaryConditionsComponents(m_yaml_data);
     CreateTestMesh(m_field_manager);
     CreateInputFile();
 
