@@ -96,9 +96,36 @@ TEST_F(IoInputFileTest, CheckInputMissingOutputFile) {
 }
 
 // -------- Initial Conditions --------
+// Create an input file without a vector or component specified for the initial conditions
+TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsVectorAndComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("vector");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with both a vector and component specified for the initial conditions
+TEST_F(IoInputFileTest, CheckInputInitialConditionsVectorAndComponents) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
 // Create an input file with missing initial conditions direction
 TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsDirection) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"].remove("direction");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with missing initial conditions magnitude
+TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsMagnitude) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"].remove("magnitude");
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
@@ -134,6 +161,44 @@ TEST_F(IoInputFileTest, CheckInputZeroInitialConditionsDirection) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
 }
 
+// Create an input file with components specified for the initial conditions
+TEST_F(IoInputFileTest, CheckInputInitialConditionsComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("vector");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);
+}
+
+// Create an input file with missing initial conditions sets
+TEST_F(IoInputFileTest, CheckInputMissingInitialConditionsSet) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"].remove("sets");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with bad components specified for the initial conditions
+TEST_F(IoInputFileTest, CheckInputBadInitialConditionsComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["W"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with bad components specified for the initial conditions, lower case component
+TEST_F(IoInputFileTest, CheckInputBadInitialConditionsComponentLower) {
+    // TODO(jake): Probably want to make this input case insensitive eventually. So this test would fail and need to be fixed.
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["components"]["x"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
 // -------- Boundary Conditions --------
 // Test adding boundary conditions to the input file
 TEST_F(IoInputFileTest, AddDisplacementBoundaryConditions) {
@@ -142,6 +207,37 @@ TEST_F(IoInputFileTest, AddDisplacementBoundaryConditions) {
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 0);
+}
+
+// Create an input file with missing boundary condition vector and components
+TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionVectorAndComponent) {
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("vector");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with both a vector and component specified for the boundary conditions
+TEST_F(IoInputFileTest, CheckInputBoundaryConditionVectorAndComponents) {
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with components specified for the boundary conditions
+TEST_F(IoInputFileTest, CheckInputBoundaryConditionComponent) {
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"].remove("vector");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);
 }
 
 // Create an input file with missing boundary condition direction
@@ -162,6 +258,16 @@ TEST_F(IoInputFileTest, CheckInputMissingBoundaryConditionMagnitude) {
 
     // Check input file
     EXPECT_EQ(io_input_file.CheckInputWithSchema(), 1);
+}
+
+// Create an input file with bad boundary condition components
+TEST_F(IoInputFileTest, CheckInputBadBoundaryConditionComponent) {
+    AddDisplacementBoundaryConditions(m_yaml_data);
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["components"]["W"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
 // Create an input file with missing boundary condition sets
@@ -213,6 +319,34 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsSet) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// Create an input file with missing vector and component for the loads
+TEST_F(IoInputFileTest, CheckInputMissingLoadsVectorAndComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("vector");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with both a vector and component specified for the loads
+TEST_F(IoInputFileTest, CheckInputLoadsVectorAndComponents) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with components specified for the loads
+TEST_F(IoInputFileTest, CheckInputLoadsComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"].remove("vector");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["components"]["X"] = 1.0;
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);
+}
+
 // Create an input file with missing loads magnitude
 TEST_F(IoInputFileTest, CheckInputMissingLoadsMagnitude) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["vector"].remove("magnitude");
@@ -225,6 +359,15 @@ TEST_F(IoInputFileTest, CheckInputMissingLoadsMagnitude) {
 // Create an input file with missing loads direction
 TEST_F(IoInputFileTest, CheckInputMissingLoadsDirection) {
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["vector"].remove("direction");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with bad components specified for the loads
+TEST_F(IoInputFileTest, CheckInputBadLoadsComponent) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["components"]["W"] = 1.0;
     aperi::IoInputFile io_input_file = GetIoInputFile(false);
 
     // Check input file
