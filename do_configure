@@ -3,6 +3,7 @@
 # Initialize variables with default values
 BUILD_TYPE="Release"
 CODE_COVERAGE=false
+XCODE=false
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
@@ -17,6 +18,11 @@ while [[ $# -gt 0 ]]; do
 		CODE_COVERAGE=true
 		BUILD_TYPE="Debug"
 		echo "Requested code coverage. Build type set to Debug"
+		shift
+		;;
+	-x | --xcode)
+		XCODE=true
+		echo "Requested Xcode project generation."
 		shift
 		;;
 	*)
@@ -52,6 +58,11 @@ if [[ ${BUILD_TYPE} == "Debug" ]]; then
 	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O0 -g -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
 else
 	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+fi
+if ${XCODE}; then
+	mkdir -p ../aperi-mech_xcode_build
+	cd ../aperi-mech_xcode_build || exit
+	cmake_command+=" -G Xcode -B . -S "
 fi
 cmake_command+=" ../aperi-mech"
 
