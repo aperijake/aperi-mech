@@ -20,6 +20,15 @@
       }
     },
     {
+      "label": "make_relwithdebinfo",
+      "type": "shell",
+      "command": "./do_configure --build-type RelWithDebInfo; cd ../aperi-mech_build; make",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
       "label": "make_coverage",
       "type": "shell",
       "command": "./do_configure --code-coverage; cd ../aperi-mech_build; make coverage",

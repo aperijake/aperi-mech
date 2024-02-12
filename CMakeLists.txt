@@ -99,6 +99,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set_target_properties(aperi-mech PROPERTIES OUTPUT_NAME "aperi-mech_debug")
     set_target_properties(libaperi-mech PROPERTIES OUTPUT_NAME "libaperi-mech_debug")
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set_target_properties(aperi-mech PROPERTIES OUTPUT_NAME "aperi-mech_relwithdebinfo")
+    set_target_properties(libaperi-mech PROPERTIES OUTPUT_NAME "libaperi-mech_relwithdebinfo")
 endif()
 
 ############# TESTING ############# 

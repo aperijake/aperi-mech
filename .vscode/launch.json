@@ -20,6 +20,15 @@
       "preLaunchTask": "make"
     },
     {
+      "name": "ReleaseWithDebugInfo",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_relwithdebinfo",
+      "args": ["test.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
+      "preLaunchTask": "make_relwithdebinfo"
+    },
+    {
       "name": "Debug",
       "type": "lldb",
       "request": "launch",
@@ -46,7 +55,7 @@
       "args": [
         "-np",
         "3",
-        "${workspaceFolder}/../aperi-mech_build/unit_tests_debug",
+        "${workspaceFolder}/../aperi-mech_build/unit_tests_debug"
         //"--gtest_filter=ElementPatchTest.ExplicitTensionX"
       ],
       "cwd": "${workspaceFolder}/../aperi-mech_build",

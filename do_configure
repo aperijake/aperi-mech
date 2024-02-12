@@ -55,9 +55,14 @@ if ${CODE_COVERAGE}; then
 fi
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
 if [[ ${BUILD_TYPE} == "Debug" ]]; then
-	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O0 -g -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O0 -g -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+elif [[ ${BUILD_TYPE} == "Release" ]]; then
+	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+elif [[ ${BUILD_TYPE} == "RelWithDebInfo" ]]; then
+	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -g -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
 else
-	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++11 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+	echo "Unknown build type: ${BUILD_TYPE}"
+	exit 1
 fi
 if ${XCODE}; then
 	mkdir -p ../aperi-mech_xcode_build
