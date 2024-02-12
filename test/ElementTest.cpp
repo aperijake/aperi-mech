@@ -226,11 +226,11 @@ TEST_F(ElementTest, Tet4BMatrix) {
     EXPECT_NEAR(jacobian_determinant, expected_jacobian_determinant, 1.0e-12);
 
     // Check the B matrix
-    std::vector<std::vector<double>> b_matrix = element->ComputeBMatrix(0.0, 0.0, 0.0, nodal_coordinates);
-    std::vector<std::vector<double>> expected_b_matrix = {{-1.0, -1.0, -1.0},
-                                                          {1.0, 0.0, 0.0},
-                                                          {0.0, 1.0, 0.0},
-                                                          {0.0, 0.0, 1.0}};
+    std::vector<std::array<double, 3>> b_matrix = element->ComputeBMatrix(0.0, 0.0, 0.0, nodal_coordinates);
+    std::vector<std::array<double, 3>> expected_b_matrix = {{-1.0, -1.0, -1.0},
+                                                            {1.0, 0.0, 0.0},
+                                                            {0.0, 1.0, 0.0},
+                                                            {0.0, 0.0, 1.0}};
 
     EXPECT_NEAR_2D(b_matrix, expected_b_matrix, 1.0e-12);
 

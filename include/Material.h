@@ -63,18 +63,20 @@ class ElasticMaterial : public Material {
      * @brief Constructor for ElasticMaterial class.
      * @param material_properties The properties of the elastic material.
      */
-    ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {}
+    ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {
+        m_lambda = m_material_properties->properties.at("lambda");
+        m_two_mu = m_material_properties->properties.at("two_mu");
+    }
 
     std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const override {
         std::array<double, 6> stress;
-        double lambda_trace_strain = m_material_properties->properties.at("lambda") * (green_lagrange_strain[0][0] + green_lagrange_strain[1][1] + green_lagrange_strain[2][2]);
-        double two_mu = m_material_properties->properties.at("two_mu");
-        stress[0] = lambda_trace_strain + two_mu * green_lagrange_strain[0][0];
-        stress[1] = lambda_trace_strain + two_mu * green_lagrange_strain[1][1];
-        stress[2] = lambda_trace_strain + two_mu * green_lagrange_strain[2][2];
-        stress[3] = two_mu * green_lagrange_strain[1][2];
-        stress[4] = two_mu * green_lagrange_strain[0][2];
-        stress[5] = two_mu * green_lagrange_strain[0][1];
+        double lambda_trace_strain = m_lambda * (green_lagrange_strain[0][0] + green_lagrange_strain[1][1] + green_lagrange_strain[2][2]);
+        stress[0] = lambda_trace_strain + m_two_mu * green_lagrange_strain[0][0];
+        stress[1] = lambda_trace_strain + m_two_mu * green_lagrange_strain[1][1];
+        stress[2] = lambda_trace_strain + m_two_mu * green_lagrange_strain[2][2];
+        stress[3] = m_two_mu * green_lagrange_strain[1][2];
+        stress[4] = m_two_mu * green_lagrange_strain[0][2];
+        stress[5] = m_two_mu * green_lagrange_strain[0][1];
         return stress;
     }
 
@@ -82,6 +84,10 @@ class ElasticMaterial : public Material {
      * @brief Virtual destructor for ElasticMaterial class.
      */
     virtual ~ElasticMaterial() = default;
+
+   private:
+    double m_lambda; /**< The lambda parameter of the elastic material */
+    double m_two_mu; /**< The two mu parameter of the elastic material */
 };
 
 /**
