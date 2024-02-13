@@ -207,15 +207,17 @@ void ExplicitSolver::Solve() {
 
     // Output initial state
     sierra::Env::outputP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
-    sierra::Env::outputP0() << "Writing Results at Time 0.0" << std::endl;
-    m_io_mesh->WriteFieldResults(time);
+    if (m_output_scheduler->AtNextEvent(time)) {
+        sierra::Env::outputP0() << "Writing Results at Time 0.0" << std::endl;
+        m_io_mesh->WriteFieldResults(time);
+    }
 
     // Get the initial time step
     double time_increment = m_time_stepper->GetTimeIncrement(time);
 
     // Loop over time steps
     while (m_time_stepper->AtEnd(time) == false) {
-        sierra::Env::outputP0() << "Starting Time Increment. Time " << time << " to " << time + time_increment << std::endl;
+        sierra::Env::outputP0() << "Starting Time Increment " << n << ". Time " << time << " to " << time + time_increment << std::endl;
 
         // Move state n+1 to state n
         bulk_data->update_field_data_states();

@@ -6,8 +6,8 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech",
-      "args": ["test.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make"
     },
     {
@@ -24,8 +24,8 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_relwithdebinfo",
-      "args": ["test.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make_relwithdebinfo"
     },
     {
@@ -33,8 +33,8 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_debug",
-      "args": ["test.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/test",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make_debug"
     },
     {
