@@ -56,9 +56,7 @@ void Application::Run(std::string& input_filename) {
         std::string part_location = part["set"].as<std::string>();
         sierra::Env::outputP0() << "Adding part " << part_location << " to force contributions" << std::endl;
         // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
-        // STK QUESTION: How do I check if a part exists? I could probably RTFM this one.
-        // STK QUESTION: Is declaring a part here the right thing to do? Is there a more appropriate way?
-        // STK QUESTION: Would it be better to pass a selector here instead of a part?
+        // STK QUESTION: How do I check if a part exists?
         stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
         m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
     }

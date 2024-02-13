@@ -16,12 +16,11 @@ namespace aperi {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::Part *part, double density) {
-    // STK QUESTION: Just a general review of how I am using STK here would be helpful
     typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
     stk::mesh::Selector part_selector(*part);
-    VectorField *mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
-    VectorField *coordinates_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
+    VectorField *p_mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
+    VectorField *p_coordinates_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
     double mass_sum = 0.0;
     // Loop over all the buckets
@@ -29,9 +28,8 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::
         bool owned = bucket->owned();
         for (auto &&elem : *bucket) {
             // Get the number of nodes in the element
-            // unsigned num_nodes = bulk_data.num_nodes(elem);
-            // assert(num_nodes == 4);
-            size_t num_nodes = 4;
+            size_t num_nodes = bulk_data.num_nodes(elem);
+            assert(num_nodes == 4);
 
             // Get the element connectivity
             const stk::mesh::Entity *elem_nodes = bulk_data.begin_nodes(elem);
@@ -40,15 +38,15 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::
             std::array<std::array<double, 3>, 4> coordinates;
             for (unsigned i = 0; i < num_nodes; ++i) {
                 stk::mesh::Entity node = elem_nodes[i];
-                double *coordinate_values = stk::mesh::field_data(*coordinates_field, node);
+                double *coordinate_values = stk::mesh::field_data(*p_coordinates_field, node);
                 coordinates[i] = {coordinate_values[0], coordinate_values[1], coordinate_values[2]};
             }
             double mass = density * TetVolume(coordinates) / num_nodes;
-            if (owned) mass_sum += mass * num_nodes;
+            if (owned) mass_sum += mass * num_nodes;  // For diagnostics output
 
             for (unsigned i = 0; i < num_nodes; ++i) {
                 stk::mesh::Entity node = elem_nodes[i];
-                double *mass_values = stk::mesh::field_data(*mass_field, node);
+                double *mass_values = stk::mesh::field_data(*p_mass_field, node);
                 // add mass to mass_values
                 mass_values[0] += mass;
                 mass_values[1] += mass;

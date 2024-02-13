@@ -1,6 +1,7 @@
 #include "Solver.h"
 
 #include <numeric>
+#include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_topology/topology.hpp>
 #include <stk_util/environment/Env.hpp>  // for outputP0
 
@@ -45,18 +46,9 @@ Reference:
 
 void ExplicitSolver::ComputeForce() {
     VectorField &force_field = *meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
-    unsigned num_values_per_node = 3;  // Number of values per node
-    // zero out the force field, STK_QUESTION: Is this the correct way to zero out the force field?
-    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
-        double *force_data_for_bucket = stk::mesh::field_data(force_field, *bucket);
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            for (size_t i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                force_data_for_bucket[iI] = 0.0;
-            }
-        }
-    }
+
+    // Set the force field to zero
+    stk::mesh::field_fill(0.0, force_field);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -68,7 +60,6 @@ void ExplicitSolver::ComputeForce() {
 
 void ExplicitSolver::ComputeAcceleration() {
     // Compute initial accelerations: a^{n} = M^{–1}(f^{n})
-    // STK QUESTION: Just would like a sanity check on this. Am I using fields correctly in this function and the others?
 
     // Get the field data
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
