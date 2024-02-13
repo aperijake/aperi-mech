@@ -10,8 +10,8 @@
 #include <stk_mesh/base/Part.hpp>
 #include <stk_topology/topology.hpp>
 
-#include "IoInputFile.h"
 #include "ForceContribution.h"
+#include "IoInputFile.h"
 #include "Material.h"
 
 namespace YAML {
@@ -90,7 +90,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @param meta_data The meta data of the mesh.
      * @param components_and_values The components and values of the gravity force.
      */
-    ExternalForceContributionGravity(stk::mesh::MetaData &meta_data, std::vector<std::pair<int,double>> components_and_values) : ExternalForceContribution(meta_data, components_and_values) {}
+    ExternalForceContributionGravity(stk::mesh::MetaData &meta_data, std::vector<std::pair<int, double>> components_and_values) : ExternalForceContribution(meta_data, components_and_values) {}
 
     /**
      * @brief Computes the force due to gravity on the mesh.
@@ -109,18 +109,19 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 
         stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 
+        unsigned num_values_per_node = 3;  // Number of values per node
+
         // Loop over all the buckets
         // TODO(jake): Do for specific part
         for (stk::mesh::Bucket *bucket : bulk_data.buckets(stk::topology::NODE_RANK)) {
+            assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*force_field, *bucket));
             // Get the field data for the bucket
             double *force_data_at_state_for_bucket = stk::mesh::field_data(force_field_at_state, *bucket);
             double *mass_data_for_bucket = stk::mesh::field_data(*mass_field, *bucket);
 
-            unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*force_field, *bucket);
-
             for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
                 // Compute the gravity force
-                for (auto&& component_value : m_components_and_values) {
+                for (auto &&component_value : m_components_and_values) {
                     int iI = i_node * num_values_per_node + component_value.first;
                     force_data_at_state_for_bucket[iI] += component_value.second * mass_data_for_bucket[iI];
                 }

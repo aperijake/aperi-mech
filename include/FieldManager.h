@@ -98,7 +98,7 @@ class FieldManager {
         if (set_part == nullptr) {
             return 2;
         }
-        stk::mesh::Selector set_selector(*set_part);  // STK NOTE: Can build owned and ghosted into the selector.
+        stk::mesh::Selector set_selector(*set_part);
         // Warn if the selector is empty.
         if (set_selector.is_empty(stk::topology::NODE_RANK)) {
             sierra::Env::outputP0() << "Warning: Initial Condition Set " << set_name << " is empty." << std::endl;
@@ -106,13 +106,15 @@ class FieldManager {
 
         // Loop over all the buckets
         for (stk::mesh::Bucket* bucket : set_selector.get_buckets(stk::topology::NODE_RANK)) {
-            for (auto&& node : *bucket) {
-                // Get the field values for the node
-                double* field_values = stk::mesh::field_data(*field, node);  // STK_NOTE: Can move this outside of the loop, pass a bucket instead of node. For speed.
-
+            // Get the field values for the bucket
+            double* field_values_for_bucket = stk::mesh::field_data(*field, *bucket);
+            size_t num_values_per_node = 3;
+            for (size_t i_node = 0, e = bucket->size(); i_node < e; i_node++) {
+                assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*field, *bucket));
                 // Set the field values for the node
                 for (size_t i = 0, e = components_and_values.size(); i < e; ++i) {
-                    field_values[components_and_values[i].first] = components_and_values[i].second;
+                    int iI = i_node * num_values_per_node + components_and_values[i].first;
+                    field_values_for_bucket[iI] = components_and_values[i].second;
                 }
             }
         }

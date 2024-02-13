@@ -45,10 +45,11 @@ Reference:
 
 void ExplicitSolver::ComputeForce() {
     VectorField &force_field = *meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
+    unsigned num_values_per_node = 3;  // Number of values per node
     // zero out the force field, STK_QUESTION: Is this the correct way to zero out the force field?
     for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
         double *force_data_for_bucket = stk::mesh::field_data(force_field, *bucket);
-        size_t num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             for (size_t i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
@@ -74,14 +75,15 @@ void ExplicitSolver::ComputeAcceleration() {
     VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
     VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
 
+    unsigned num_values_per_node = 3;  // Number of values per node
+
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
         // Get the field data for the bucket
         double *mass_data_n_for_bucket = stk::mesh::field_data(mass_field_n, *bucket);
         double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
         double *force_data_np1_for_bucket = stk::mesh::field_data(force_field_np1, *bucket);
-
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             // Compute acceleration: a^{n} = M^{–1}(f^{n})
@@ -106,15 +108,16 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
 
     VectorField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
 
+    unsigned num_values_per_node = 3;  // Number of values per node
+
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
         // Get the field data for the bucket
         double *velocity_data_n_for_bucket = stk::mesh::field_data(velocity_field_n, *bucket);
         double *acceleration_data_n_for_bucket = stk::mesh::field_data(acceleration_field_n, *bucket);
 
         double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
@@ -134,15 +137,16 @@ void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
 
     VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
 
+    unsigned num_values_per_node = 3;  // Number of values per node
+
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
         // Get the field data for the bucket
         double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
 
         double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
         double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
@@ -168,13 +172,14 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increme
     VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
     VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
+    unsigned num_values_per_node = 3;  // Number of values per node
+
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
+        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
         // Get the field data for the bucket
         double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
         double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
-
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*displacement_field, *bucket);
 
         for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
             // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
