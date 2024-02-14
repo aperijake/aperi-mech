@@ -1,39 +1,24 @@
 #include "IoMesh.h"
 
-#include <Ioss_Field.h>         // for Field
-#include <Ioss_Property.h>      // for Property
-#include <Ioss_Region.h>        // for Region
-#include <Ioss_Utils.h>         // for Utils
-#include <Ioss_VariableType.h>  // for Varia...
-#include <mpi.h>                // for MPI_Comm
+#include <Ioss_Field.h>     // for Field
+#include <Ioss_Property.h>  // for Property
+#include <mpi.h>            // for MPI_Comm
 
 #include <cstring>                     // for size_t
 #include <iostream>                    // for opera...
 #include <memory>                      // for shared_ptr
 #include <stk_io/DatabasePurpose.hpp>  // for READ_...
 #include <stk_io/IossBridge.hpp>       // for get_f...
-#include <stk_io/MeshField.hpp>        // for MeshF...
 #include <stk_io/StkMeshIoBroker.hpp>  // for StkMe...
+#include <stk_mesh/base/Bucket.hpp>    // for Bucket
 #include <stk_mesh/base/BulkData.hpp>  // for BulkData
-#include <stk_mesh/base/Comm.hpp>      // for comm_...
 #include <stk_mesh/base/CreateEdges.hpp>
 #include <stk_mesh/base/CreateFaces.hpp>
-#include <stk_mesh/base/GetEntities.hpp>         // for count...
-#include <stk_mesh/base/MeshBuilder.hpp>         // for MeshBuilder
-#include <stk_mesh/base/MetaData.hpp>            // for MetaData
-#include <stk_mesh/base/Part.hpp>                // for Part
-#include <stk_mesh/base/Selector.hpp>            // for Selector
-#include <stk_mesh/base/Types.hpp>               // for Field...
-#include <stk_topology/topology.hpp>             // for topology
-#include <stk_util/environment/Env.hpp>          // for outputP0
-#include <stk_util/environment/EnvData.hpp>      // for EnvData
-#include <stk_util/parallel/Parallel.hpp>        // for paral...
-#include <stk_util/parallel/ParallelReduce.hpp>  // for Reduc...
-#include <stk_util/util/ParameterList.hpp>       // for Param...
-#include <stk_util/util/SimpleArrayOps.hpp>      // for Sum
-#include <stk_util/util/human_bytes.hpp>         // for human...
-#include <string>                                // for string
-#include <vector>                                // for vector
+#include <stk_mesh/base/MeshBuilder.hpp>  // for MeshBuilder
+#include <stk_mesh/base/MetaData.hpp>     // for MetaData
+#include <stk_mesh/base/Part.hpp>         // for Part
+#include <stk_mesh/base/Selector.hpp>     // for Selector
+#include <string>                         // for string
 
 #include "FieldManager.h"
 

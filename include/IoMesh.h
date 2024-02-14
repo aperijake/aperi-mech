@@ -1,5 +1,4 @@
 #pragma once
-#include <stk_io/Heartbeat.hpp>
 #include <stk_io/StkMeshIoBroker.hpp>  // for StkMe...
 #include <stk_mesh/base/BulkData.hpp>
 #include <string>  // for string
