@@ -256,13 +256,13 @@ void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>&
 void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values, bool check_sum = false) {
     double absolute_tolerance = 1e-12;
     double relative_tolerance = 1e-12;
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian3d> VectorField;
+    typedef stk::mesh::Field<double> DoubleField;
     // Get the field
-    VectorField* p_field = bulk.mesh_meta_data().get_field<VectorField>(stk::topology::NODE_RANK, field_name);
+    DoubleField* p_field = bulk.mesh_meta_data().get_field<double>(stk::topology::NODE_RANK, field_name);
     EXPECT_TRUE(p_field != nullptr) << "Field " << field_name << " not found";
 
     // Get the field data
-    VectorField* p_field_n = p_field;
+    DoubleField* p_field_n = p_field;
     if (field_name != "mass") {  // mass is not stated
         p_field_n = &p_field->field_of_state(stk::mesh::StateN);
     }

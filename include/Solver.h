@@ -85,7 +85,7 @@ class Solver {
  * It takes in various force contributions and a time stepper to advance the simulation over time.
  */
 class ExplicitSolver : public Solver {
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+    typedef stk::mesh::Field<double> DoubleField;
 
    public:
     /**
@@ -100,11 +100,11 @@ class ExplicitSolver : public Solver {
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
         // Get the displacement, velocity, and acceleration fields
-        displacement_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
-        velocity_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
-        acceleration_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "acceleration");
-        force_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
-        mass_field = meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "mass");
+        displacement_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "displacement");
+        velocity_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "velocity");
+        acceleration_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "acceleration");
+        force_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "force");
+        mass_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "mass");
     }
     ~ExplicitSolver() {}
 
@@ -149,11 +149,11 @@ class ExplicitSolver : public Solver {
 
     void UpdateNodalDisplacements(double time_increment);
 
-    VectorField *displacement_field;  ///< Pointer to the displacement field.
-    VectorField *velocity_field;      ///< Pointer to the velocity field.
-    VectorField *acceleration_field;  ///< Pointer to the acceleration field.
-    VectorField *force_field;         ///< Pointer to the force field.
-    VectorField *mass_field;          ///< Pointer to the mass field.
+    DoubleField *displacement_field;  ///< Pointer to the displacement field.
+    DoubleField *velocity_field;      ///< Pointer to the velocity field.
+    DoubleField *acceleration_field;  ///< Pointer to the acceleration field.
+    DoubleField *force_field;         ///< Pointer to the force field.
+    DoubleField *mass_field;          ///< Pointer to the mass field.
 };
 
 /**

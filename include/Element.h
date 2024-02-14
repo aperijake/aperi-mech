@@ -20,7 +20,7 @@ namespace aperi {
  * TODO(jake): THIS NEEDS A LOT OF WORK. BULK_DATA NEEDED? VOIGT NOTATION? DATA STRUCTURES?
  */
 class Element {
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+    typedef stk::mesh::Field<double> DoubleField;
 
    public:
     /**
@@ -43,7 +43,7 @@ class Element {
      * @param force_field The force field.
      * @param material The material of the element.
      */
-    virtual void ComputeInternalForce(stk::mesh::Entity const *nodes, const VectorField *coordinate_field, const VectorField *displacement_field, const VectorField *velocity_field, const VectorField *force_field, std::shared_ptr<Material> material) = 0;
+    virtual void ComputeInternalForce(stk::mesh::Entity const *nodes, const DoubleField *coordinate_field, const DoubleField *displacement_field, const DoubleField *velocity_field, const DoubleField *force_field, std::shared_ptr<Material> material) = 0;
 
     virtual std::vector<double> ComputeShapeFunctions(double xi, double eta, double zeta) const = 0;
 
@@ -252,7 +252,7 @@ class Element {
  * of the element.
  */
 class Tetrahedron4 : public Element {
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+    typedef stk::mesh::Field<double> DoubleField;
 
    public:
     /**
@@ -290,7 +290,7 @@ class Tetrahedron4 : public Element {
      *
      * @param nodes An array of entity pointers representing the nodes of the element.
      */
-    void ComputeInternalForce(stk::mesh::Entity const *nodes, const VectorField *coordinate_field, const VectorField *displacement_field, const VectorField *velocity_field, const VectorField *force_field, std::shared_ptr<Material> material) override {
+    void ComputeInternalForce(stk::mesh::Entity const *nodes, const DoubleField *coordinate_field, const DoubleField *displacement_field, const DoubleField *velocity_field, const DoubleField *force_field, std::shared_ptr<Material> material) override {
         // Gather the node's displacement, force, and coordinates
         std::vector<double> node_displacement(12);  // 4 nodes * 3 components
         std::vector<std::array<double, 3>> node_coordinates(4);

@@ -140,21 +140,21 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     }
 
     // Get the displacement field
-    stk::mesh::Field<double, stk::mesh::Cartesian>* displacement_field = meta_data.get_field<stk::mesh::Field<double, stk::mesh::Cartesian>>(stk::topology::NODE_RANK, "displacement");
+    stk::mesh::Field<double>* displacement_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "displacement");
     // Throw an error if the field is not found
     if (displacement_field == nullptr) {
         throw std::runtime_error("Boundary condition. Displacement field not found.");
     }
 
     // Get the velocity field
-    stk::mesh::Field<double, stk::mesh::Cartesian>* velocity_field = meta_data.get_field<stk::mesh::Field<double, stk::mesh::Cartesian>>(stk::topology::NODE_RANK, "velocity");
+    stk::mesh::Field<double>* velocity_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "velocity");
     // Throw an error if the field is not found
     if (velocity_field == nullptr) {
         throw std::runtime_error("Boundary condition. Velocity field not found.");
     }
 
     // Get the acceleration field
-    stk::mesh::Field<double, stk::mesh::Cartesian>* acceleration_field = meta_data.get_field<stk::mesh::Field<double, stk::mesh::Cartesian>>(stk::topology::NODE_RANK, "acceleration");
+    stk::mesh::Field<double>* acceleration_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "acceleration");
     // Throw an error if the field is not found
     if (acceleration_field == nullptr) {
         throw std::runtime_error("Boundary condition. Acceleration field not found.");

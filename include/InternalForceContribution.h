@@ -53,16 +53,16 @@ class InternalForceContribution : public ForceContribution {
     void ComputeForce() override;
 
    private:
-    std::shared_ptr<Material> m_material;                                  ///< A shared pointer to the Material object.
-    stk::mesh::Part *m_part;                                               ///< A pointer to the stk::mesh::Part object.
-    stk::mesh::BulkData *m_bulk_data;                                      ///< The bulk data associated with the force contribution.
-    stk::mesh::MetaData *m_meta_data;                                      ///< The meta data associated with the force contribution.
-    stk::mesh::Selector m_selector;                                        ///< The selector associated with the force contribution. (TODO(jake): Move to base class?))
-    std::shared_ptr<aperi::Element> m_element;                             ///< The element associated with the force contribution.
-    stk::mesh::Field<double, stk::mesh::Cartesian> *m_coordinates_field;   ///< The coordinates field associated with the force contribution.
-    stk::mesh::Field<double, stk::mesh::Cartesian> *m_displacement_field;  ///< The displacement field associated with the force contribution.
-    stk::mesh::Field<double, stk::mesh::Cartesian> *m_velocity_field;      ///< The velocity field associated with the force contribution.
-    stk::mesh::Field<double, stk::mesh::Cartesian> *m_force_field;         ///< The force field associated with the force contribution.
+    std::shared_ptr<Material> m_material;            ///< A shared pointer to the Material object.
+    stk::mesh::Part *m_part;                         ///< A pointer to the stk::mesh::Part object.
+    stk::mesh::BulkData *m_bulk_data;                ///< The bulk data associated with the force contribution.
+    stk::mesh::MetaData *m_meta_data;                ///< The meta data associated with the force contribution.
+    stk::mesh::Selector m_selector;                  ///< The selector associated with the force contribution. (TODO(jake): Move to base class?))
+    std::shared_ptr<aperi::Element> m_element;       ///< The element associated with the force contribution.
+    stk::mesh::Field<double> *m_coordinates_field;   ///< The coordinates field associated with the force contribution.
+    stk::mesh::Field<double> *m_displacement_field;  ///< The displacement field associated with the force contribution.
+    stk::mesh::Field<double> *m_velocity_field;      ///< The velocity field associated with the force contribution.
+    stk::mesh::Field<double> *m_force_field;         ///< The force field associated with the force contribution.
 };
 
 /**

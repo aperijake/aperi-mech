@@ -51,14 +51,14 @@ class BoundaryConditionTest : public ApplicationTest {
 
     void UpdateNodalDisplacements(double time_increment) {
         // Get the displacement and velocity fields
-        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
-        VectorField *p_displacement_field = m_io_mesh->GetMetaData().get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
+        typedef stk::mesh::Field<double> DoubleField;
+        DoubleField *p_displacement_field = m_io_mesh->GetMetaData().get_field<double>(stk::topology::NODE_RANK, "displacement");
 
-        VectorField &displacement_field_n = p_displacement_field->field_of_state(stk::mesh::StateN);
-        VectorField &displacement_field_np1 = p_displacement_field->field_of_state(stk::mesh::StateNP1);
+        DoubleField &displacement_field_n = p_displacement_field->field_of_state(stk::mesh::StateN);
+        DoubleField &displacement_field_np1 = p_displacement_field->field_of_state(stk::mesh::StateNP1);
 
-        VectorField *p_velocity_field = m_io_mesh->GetMetaData().get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
-        VectorField &velocity_field_np1 = p_velocity_field->field_of_state(stk::mesh::StateNP1);
+        DoubleField *p_velocity_field = m_io_mesh->GetMetaData().get_field<double>(stk::topology::NODE_RANK, "velocity");
+        DoubleField &velocity_field_np1 = p_velocity_field->field_of_state(stk::mesh::StateNP1);
 
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : m_io_mesh->GetBulkData().buckets(stk::topology::NODE_RANK)) {

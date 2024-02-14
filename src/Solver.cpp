@@ -45,10 +45,8 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce() {
-    VectorField &force_field = *meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
-
     // Set the force field to zero
-    stk::mesh::field_fill(0.0, force_field);
+    stk::mesh::field_fill(0.0, *force_field);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -62,9 +60,9 @@ void ExplicitSolver::ComputeAcceleration() {
     // Compute initial accelerations: a^{n} = M^{–1}(f^{n})
 
     // Get the field data
-    VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
-    VectorField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
-    VectorField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
+    DoubleField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
 
     unsigned num_values_per_node = 3;  // Number of values per node
 
@@ -94,10 +92,10 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
     double time_mid = 0.5 * (time + time_next);
 
     // Get the velocity and acceleration fields
-    VectorField &velocity_field_n = velocity_field->field_of_state(stk::mesh::StateN);
-    VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &velocity_field_n = velocity_field->field_of_state(stk::mesh::StateN);
+    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
 
-    VectorField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
+    DoubleField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
 
     unsigned num_values_per_node = 3;  // Number of values per node
 
@@ -123,10 +121,10 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
 // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
 void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
     // Get the displacement and velocity fields
-    VectorField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
-    VectorField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
+    DoubleField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
 
-    VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
 
     unsigned num_values_per_node = 3;  // Number of values per node
 
@@ -160,8 +158,8 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increme
     double time_mid = 0.5 * (time + time_next);
 
     // Get the field data
-    VectorField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
-    VectorField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
+    DoubleField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
 
     unsigned num_values_per_node = 3;  // Number of values per node
 

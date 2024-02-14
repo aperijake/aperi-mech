@@ -80,6 +80,7 @@ IoMesh::IoMesh(MPI_Comm comm, IoMeshParameters io_mesh_parameters)
     stk::log_with_time_and_memory(m_comm, "Creating StkMeshIoBroker object");
 
     mp_io_broker = std::make_shared<stk::io::StkMeshIoBroker>(comm);
+    mp_io_broker->use_simple_fields();
     SetIoProperties();
     mp_io_broker->set_bulk_data(bulk);
 }
@@ -246,6 +247,7 @@ void IoMesh::ReadMesh(const std::string &filename,
     }
 
     mp_field_manager = field_manager;
+    mp_io_broker->use_simple_fields();
     m_input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();

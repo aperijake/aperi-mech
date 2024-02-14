@@ -20,15 +20,14 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
     m_selector = stk::mesh::Selector(*m_part);
 
     // Get the force field
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
-    m_force_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "force");
+    m_force_field = m_meta_data->get_field<double>(stk::topology::NODE_RANK, "force");
 
     // Get the displacement and velocity fields
-    m_displacement_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "displacement");
-    m_velocity_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, "velocity");
+    m_displacement_field = m_meta_data->get_field<double>(stk::topology::NODE_RANK, "displacement");
+    m_velocity_field = m_meta_data->get_field<double>(stk::topology::NODE_RANK, "velocity");
 
     // Get the coordinates field
-    m_coordinates_field = m_meta_data->get_field<VectorField>(stk::topology::NODE_RANK, m_meta_data->coordinate_field_name());
+    m_coordinates_field = m_meta_data->get_field<double>(stk::topology::NODE_RANK, m_meta_data->coordinate_field_name());
 
     // Get the element topology
     stk::topology element_topology = m_part->topology();

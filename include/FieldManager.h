@@ -48,14 +48,12 @@ class FieldManager {
      * @param field_data The field data to add.
      */
     void AddField(stk::mesh::MetaData& meta_data, const FieldData& field_data) {
-        // Define the field data type
-        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorFieldType;
-
         // Create the field
-        VectorFieldType& vector_field = meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, field_data.name, field_data.number_of_states);
+        stk::mesh::FieldBase& vector_field = meta_data.declare_field<double>(stk::topology::NODE_RANK, field_data.name, field_data.number_of_states);
 
         // Set the field properties
-        stk::mesh::put_field_on_entire_mesh_with_initial_value(vector_field, field_data.initial_values.data());
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(vector_field, 3, field_data.initial_values.data());
+        stk::io::set_field_output_type(vector_field, stk::io::FieldOutputType::VECTOR_3D);
 
         // Set the field role to TRANSIENT
         stk::io::set_field_role(vector_field, Ioss::Field::TRANSIENT);
@@ -84,10 +82,10 @@ class FieldManager {
      */
     int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<int, double>>& components_and_values) {
         // TODO(jake) This is hard coded to a vector field on node field. Fix this.
-        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+        typedef stk::mesh::Field<double> DoubleField;
 
         // Get the field
-        VectorField* field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, field_name.c_str());
+        DoubleField* field = meta_data.get_field<double>(stk::topology::NODE_RANK, field_name.c_str());
         // Return 1 for failure if the field is not found
         if (field == nullptr) {
             return 1;

@@ -1,17 +1,24 @@
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
 #include <iostream>
 #include <stk_util/environment/Env.hpp>
-#include <stk_util/parallel/Parallel.hpp>
 
 #include "Application.h"
 
 int main(int argc, char* argv[]) {
     // Initialize MPI and get communicator for the current process
-    stk::ParallelMachine comm = stk::parallel_machine_init(&argc, &argv);
+    MPI_Init(&argc, &argv);
+    MPI_Comm comm = MPI_COMM_WORLD;
+
+    // Get rank and size of the current process
+    int rank;
+    int size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
 
     // Print number of processes
-    sierra::Env::outputP0() << "Running on " << stk::parallel_machine_size(comm) << " processes." << std::endl;
+    sierra::Env::outputP0() << "Running on " << size << " processes." << std::endl;
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
@@ -29,7 +36,7 @@ int main(int argc, char* argv[]) {
     application.Run(input_filename);
 
     // Finalize MPI and clean up
-    stk::parallel_machine_finalize();
+    MPI_Finalize();
 
     return 0;
 }

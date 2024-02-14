@@ -101,11 +101,11 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @note The force field should be zeroed out before applying the gravity force.
      */
     void ComputeForce() override {
-        typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
-        VectorField *force_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "force");
-        VectorField *mass_field = m_meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
+        typedef stk::mesh::Field<double> DoubleField;
+        DoubleField *force_field = m_meta_data.get_field<double>(stk::topology::NODE_RANK, "force");
+        DoubleField *mass_field = m_meta_data.get_field<double>(stk::topology::NODE_RANK, "mass");
 
-        VectorField &force_field_at_state = force_field->field_of_state(stk::mesh::StateNP1);
+        DoubleField &force_field_at_state = force_field->field_of_state(stk::mesh::StateNP1);
 
         stk::mesh::BulkData &bulk_data = m_meta_data.mesh_bulk_data();
 

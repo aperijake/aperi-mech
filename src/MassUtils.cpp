@@ -16,11 +16,11 @@ namespace aperi {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::Part *part, double density) {
-    typedef stk::mesh::Field<double, stk::mesh::Cartesian> VectorField;
+    typedef stk::mesh::Field<double> DoubleField;
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
     stk::mesh::Selector part_selector(*part);
-    VectorField *p_mass_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, "mass");
-    VectorField *p_coordinates_field = meta_data.get_field<VectorField>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
+    DoubleField *p_mass_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "mass");
+    DoubleField *p_coordinates_field = meta_data.get_field<double>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
     double mass_sum = 0.0;
     // Loop over all the buckets
