@@ -18,7 +18,7 @@
 
 namespace aperi {
 
-void Application::Run(std::string& input_filename) {
+void Application::Run(const std::string& input_filename) {
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
 
@@ -106,6 +106,7 @@ void Application::Run(std::string& input_filename) {
 void Application::Finalize() {
     MPI_Barrier(m_comm);
     m_io_mesh->Finalize();
+    std::cout << "Application Finalized" << std::endl;
 }
 
 }  // namespace aperi

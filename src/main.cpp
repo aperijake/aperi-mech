@@ -2,9 +2,16 @@
 #include <yaml-cpp/yaml.h>
 
 #include <iostream>
-#include <stk_util/environment/Env.hpp>
 
 #include "Application.h"
+
+void RunApplication(const std::string& input_filename, MPI_Comm comm) {
+    // Create an application object
+    aperi::Application application(comm);
+
+    // Run the application
+    application.Run(input_filename);
+}
 
 int main(int argc, char* argv[]) {
     // Initialize MPI and get communicator for the current process
@@ -18,25 +25,31 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(comm, &size);
 
     // Print number of processes
-    sierra::Env::outputP0() << "Running on " << size << " processes." << std::endl;
+    if (rank == 0) {
+        std::cout << "Running on " << size << " processes." << std::endl;
+    }
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <input_filename>" << std::endl;
+        if (rank == 0) {
+            std::cerr << "Usage: " << argv[0] << " <input_filename>" << std::endl;
+        }
+        MPI_Finalize();
         return 1;
     }
 
     // Get input filename from command-line argument
     std::string input_filename = argv[1];
 
-    // Create an application object
-    aperi::Application application(comm);
-
     // Run the application
-    application.Run(input_filename);
+    RunApplication(input_filename, comm);
 
     // Finalize MPI and clean up
     MPI_Finalize();
+
+    if (rank == 0) {
+        std::cout << "aperi-mech finished successfully!" << std::endl;
+    }
 
     return 0;
 }

@@ -45,7 +45,7 @@ class Application {
      *
      * @param input_filename The name of the input file.
      */
-    void Run(std::string& input_filename);
+    void Run(const std::string& input_filename);
 
     /**
      * @brief Finalizes the application.

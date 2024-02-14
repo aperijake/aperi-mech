@@ -30,7 +30,7 @@ struct IoMeshParameters {
 
 class IoMesh {
    public:
-    IoMesh(stk::ParallelMachine comm, aperi::IoMeshParameters io_mesh_parameters);
+    IoMesh(const stk::ParallelMachine &comm, aperi::IoMeshParameters io_mesh_parameters);
 
     void Finalize();
 
@@ -46,12 +46,8 @@ class IoMesh {
     stk::mesh::MetaData &GetMetaData() { return mp_io_broker->meta_data(); }
 
    private:
-    void EquilibrateMemoryBaseline();
-    void SetOutputStreams();
-    void LogMeshCounts(const stk::mesh::BulkData &mesh) const;
     void SetIoProperties() const;
 
-    MPI_Comm m_comm;
     bool m_add_edges;                  // create all internal edges in the mesh
     bool m_add_faces;                  // create all internal faces in the mesh
     bool m_upward_connectivity;        // create upward connectivity/adjacency in the mesh
