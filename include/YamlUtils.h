@@ -53,7 +53,7 @@ inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::str
 // Get a scalar string, checking if it exists
 template <typename T>
 inline std::pair<T, int> GetScalarValue(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
-    T value;
+    T value{};
     int return_code = 0;
     if (!node[name.c_str()].IsDefined()) {
         return_code = 1;
