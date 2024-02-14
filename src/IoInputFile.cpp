@@ -144,7 +144,8 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                 std::map<std::string, std::string> one_or_more_of_names_types = ParseSubitemSchema(schema_subitem_set, "set", verbose);
 
                 // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
-                std::pair<std::map<std::string, YAML::Node>, int> found_one_or_more_of_pair = GetInputNodes(input_node, one_or_more_of_names_types, verbose);
+                bool optional = true;
+                std::pair<std::map<std::string, YAML::Node>, int> found_one_or_more_of_pair = GetInputNodes(input_node, one_or_more_of_names_types, verbose, optional);
 
                 // Make sure at least one schema_subitem is found
                 if (found_one_or_more_of_pair.second == 0) {
@@ -164,7 +165,8 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                 std::map<std::string, std::string> one_of_names_types = ParseSubitemSchema(schema_subitem_set, "set", verbose);
 
                 // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
-                std::pair<std::map<std::string, YAML::Node>, int> found_one_of_pair = GetInputNodes(input_node, one_of_names_types, verbose);
+                bool optional = true;
+                std::pair<std::map<std::string, YAML::Node>, int> found_one_of_pair = GetInputNodes(input_node, one_of_names_types, verbose, optional);
 
                 // Make sure only one schema_subitem is found
                 if (found_one_of_pair.second != 1) {
@@ -184,7 +186,8 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                 std::map<std::string, std::string> all_of_names_types = ParseSubitemSchema(schema_subitem_set, "set", verbose);
 
                 // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
-                std::pair<std::map<std::string, YAML::Node>, int> found_all_of_pair = GetInputNodes(input_node, all_of_names_types, verbose);
+                bool optional = false;
+                std::pair<std::map<std::string, YAML::Node>, int> found_all_of_pair = GetInputNodes(input_node, all_of_names_types, verbose, optional);
 
                 // Make sure all subitems are found
                 if (found_all_of_pair.second != (int)all_of_names_types.size()) {
@@ -204,7 +207,8 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                 std::map<std::string, std::string> optional_names_types = ParseSubitemSchema(schema_subitem_set, "set", verbose);
 
                 // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
-                std::pair<std::map<std::string, YAML::Node>, int> found_optional_pair = GetInputNodes(input_node, optional_names_types, verbose, true /*optional*/);
+                bool optional = true;
+                std::pair<std::map<std::string, YAML::Node>, int> found_optional_pair = GetInputNodes(input_node, optional_names_types, verbose, optional);
 
                 // Map found nodes to associated schema
                 AddFoundNodesToMap(found_optional_pair.first, schema_subitem_set["set"], found_nodes_and_associated_schema);

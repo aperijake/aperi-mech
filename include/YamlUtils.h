@@ -35,8 +35,9 @@ inline std::pair<YAML::Node, int> GetNode(const YAML::Node& node, const std::str
         return_code = 1;
         if (optional) {
             return std::make_pair(value, return_code);
+        } else {
+            std::cerr << "Error: In GetNode. '" << name << "' not found in:\n " << node << std::endl;
         }
-        std::cerr << "Error: In GetNode. '" << name << "' not found in:\n " << node << ". Of type: " << node.Type() << "." << std::endl;
     }
     try {
         value = node[name].as<YAML::Node>();
@@ -59,8 +60,9 @@ inline std::pair<T, int> GetScalarValue(const YAML::Node& node, const std::strin
         return_code = 1;
         if (optional) {
             return std::make_pair(value, return_code);
+        } else {
+            std::cerr << "Error: In GetScalarValue. '" << name << "' not found in:\n " << node << "." << std::endl;
         }
-        std::cerr << "Error: In GetScalarValue. '" << name << "' not found in:\n " << node << "." << std::endl;
     } else if (!node[name].IsScalar()) {
         std::cerr << "Error: In GetScalarValue. '" << name << "' must be a scalar value. Found: " << node[name].Type() << "." << std::endl;
         return_code = 1;
@@ -87,8 +89,9 @@ inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, c
         return_code = 1;
         if (optional) {
             return std::make_pair(values, return_code);
+        } else {
+            std::cerr << "Error: In GetValueSequence. '" << name << "' not found in:\n " << node << "." << std::endl;
         }
-        std::cerr << "Error: In GetValueSequence. '" << name << "' not found in:\n " << node << "." << std::endl;
     } else if (!node[name].IsSequence()) {
         std::cerr << "Error: In GetValueSequence. '" << name << "' must be a sequence. Found: " << node[name].Type() << "." << std::endl;
         return_code = 1;
@@ -143,8 +146,9 @@ inline std::pair<std::vector<YAML::Node>, int> GetValueOrValueSequence(const YAM
         return_code = 1;
         if (optional) {
             return std::make_pair(values, return_code);
+        } else {
+            std::cerr << "Error: In GetValueOrValueSequence. " << name << " not found in:\n " << node << "." << std::endl;
         }
-        std::cerr << "Error: In GetValueOrValueSequence. " << name << " not found in:\n " << node << "." << std::endl;
     } else if (node[name].IsSequence()) {
         return GetValueSequence<YAML::Node>(node, name, verbose);
     } else {
