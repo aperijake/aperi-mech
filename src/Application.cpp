@@ -2,8 +2,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <stk_util/environment/Env.hpp>  // for outputP0
-
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
 #include "FieldManager.h"
@@ -11,6 +9,7 @@
 #include "InternalForceContribution.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
+#include "LogUtils.h"
 #include "Scheduler.h"
 #include "Solver.h"
 #include "TimeStepper.h"
@@ -54,7 +53,7 @@ void Application::Run(const std::string& input_filename) {
         YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
         std::string part_location = part["set"].as<std::string>();
-        sierra::Env::outputP0() << "Adding part " << part_location << " to force contributions" << std::endl;
+        aperi::CoutP0() << "Adding part " << part_location << " to force contributions" << std::endl;
         // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
         // STK QUESTION: How do I check if a part exists?
         stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
@@ -67,7 +66,7 @@ void Application::Run(const std::string& input_filename) {
     // Loop over loads and add them to force contributions
     for (auto load : loads) {
         std::string name = load.begin()->first.as<std::string>();
-        sierra::Env::outputP0() << "Adding load " << name << " to force contributions" << std::endl;
+        aperi::CoutP0() << "Adding load " << name << " to force contributions" << std::endl;
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
     }
 
@@ -81,7 +80,7 @@ void Application::Run(const std::string& input_filename) {
     // Loop over boundary conditions and add them to the vector of boundary conditions
     for (auto boundary_condition : boundary_conditions) {
         std::string name = boundary_condition.begin()->first.as<std::string>();
-        sierra::Env::outputP0() << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
+        aperi::CoutP0() << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
         m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMetaData()));
     }
 
@@ -95,9 +94,9 @@ void Application::Run(const std::string& input_filename) {
     m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
 
     // Run solver
-    sierra::Env::outputP0() << "Starting Solver" << std::endl;
+    aperi::CoutP0() << "Starting Solver" << std::endl;
     m_solver->Solve();
-    sierra::Env::outputP0() << "Finished Solver" << std::endl;
+    aperi::CoutP0() << "Finished Solver" << std::endl;
 
     // Finalize
     Finalize();
@@ -106,7 +105,7 @@ void Application::Run(const std::string& input_filename) {
 void Application::Finalize() {
     MPI_Barrier(m_comm);
     m_io_mesh->Finalize();
-    std::cout << "Application Finalized" << std::endl;
+    aperi::CoutP0() << "Application Finalized" << std::endl;
 }
 
 }  // namespace aperi

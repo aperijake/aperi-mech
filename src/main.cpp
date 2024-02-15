@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "Application.h"
+#include "LogUtils.h"
 
 void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     // Create an application object
@@ -18,22 +19,16 @@ int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    // Get rank and size of the current process
-    int rank;
+    // Get size of the current process
     int size;
-    MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
 
     // Print number of processes
-    if (rank == 0) {
-        std::cout << "Running on " << size << " processes." << std::endl;
-    }
+    aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
-        if (rank == 0) {
-            std::cerr << "Usage: " << argv[0] << " <input_filename>" << std::endl;
-        }
+        aperi::CerrP0() << "Usage: " << argv[0] << " <input_filename>" << std::endl;
         MPI_Finalize();
         return 1;
     }
@@ -44,12 +39,10 @@ int main(int argc, char* argv[]) {
     // Run the application
     RunApplication(input_filename, comm);
 
+    aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
+
     // Finalize MPI and clean up
     MPI_Finalize();
-
-    if (rank == 0) {
-        std::cout << "aperi-mech finished successfully!" << std::endl;
-    }
 
     return 0;
 }

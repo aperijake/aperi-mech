@@ -3,13 +3,13 @@
 #include <numeric>
 #include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_topology/topology.hpp>
-#include <stk_util/environment/Env.hpp>  // for outputP0
 
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
 #include "FieldManager.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
+#include "LogUtils.h"
 #include "MassUtils.h"
 #include "Material.h"
 #include "Scheduler.h"
@@ -200,9 +200,9 @@ void ExplicitSolver::Solve() {
     ComputeAcceleration();
 
     // Output initial state
-    sierra::Env::outputP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
+    aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
     if (m_output_scheduler->AtNextEvent(time)) {
-        sierra::Env::outputP0() << "Writing Results at Time 0.0" << std::endl;
+        aperi::CoutP0() << "Writing Results at Time 0.0" << std::endl;
         m_io_mesh->WriteFieldResults(time);
     }
 
@@ -211,7 +211,7 @@ void ExplicitSolver::Solve() {
 
     // Loop over time steps
     while (m_time_stepper->AtEnd(time) == false) {
-        sierra::Env::outputP0() << "Starting Time Increment " << n << ". Time " << time << " to " << time + time_increment << std::endl;
+        aperi::CoutP0() << "Starting Time Increment " << n << ". Time " << time << " to " << time + time_increment << std::endl;
 
         // Move state n+1 to state n
         bulk_data->update_field_data_states();
@@ -255,7 +255,7 @@ void ExplicitSolver::Solve() {
 
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
-            sierra::Env::outputP0() << "Writing Results at Time " << time << std::endl;
+            aperi::CoutP0() << "Writing Results at Time " << time << std::endl;
             m_io_mesh->WriteFieldResults(time);
         }
     }

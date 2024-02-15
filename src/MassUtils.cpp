@@ -7,9 +7,9 @@
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_topology/topology.hpp>
-#include <stk_util/environment/Env.hpp>  // for outputP0
 #include <stk_util/parallel/ParallelReduce.hpp>
 
+#include "LogUtils.h"
 #include "MathUtils.h"
 
 namespace aperi {
@@ -57,7 +57,7 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::
     // Parallel sum
     double mass_sum_global = 0.0;
     stk::all_reduce_sum(bulk_data.parallel(), &mass_sum, &mass_sum_global, 1);
-    sierra::Env::outputP0() << "Total Mass for Part " << part->name() << ": " << mass_sum_global << std::endl;
+    aperi::CoutP0() << "Total Mass for Part " << part->name() << ": " << mass_sum_global << std::endl;
     return mass_sum_global;
 }
 
