@@ -39,14 +39,20 @@ void Application::Run(const std::string& input_filename) {
     io_mesh_parameters.compose_output = true;
     m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
+    // Get parts
+    std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
+
+    // Get part names
+    std::vector<std::string> part_names;
+    for (auto part : parts) {
+        part_names.push_back(part["set"].as<std::string>());
+    }
+
     // Read the mesh
-    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), m_field_manager);
+    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names, m_field_manager);
 
     // Create the field results file
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
-
-    // Get parts
-    std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
 
     // Loop over parts, create materials, and add parts to force contributions
     for (auto part : parts) {
@@ -54,9 +60,7 @@ void Application::Run(const std::string& input_filename) {
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
         std::string part_location = part["set"].as<std::string>();
         aperi::CoutP0() << "Adding part " << part_location << " to force contributions" << std::endl;
-        // TODO(jake): Make sure the part exists. This will just continue if it doesn't.
-        // STK QUESTION: How do I check if a part exists?
-        stk::mesh::Part* stk_part = &m_io_mesh->GetMetaData().declare_part(part_location, stk::topology::ELEMENT_RANK);
+        stk::mesh::Part* stk_part = m_io_mesh->GetMetaData().get_part(part_location);
         m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
     }
 

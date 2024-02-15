@@ -100,8 +100,7 @@ void IoMesh::SetIoProperties() const {
     }
 }
 
-void IoMesh::ReadMesh(const std::string &filename,
-                      std::shared_ptr<aperi::FieldManager> field_manager) {
+void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::shared_ptr<aperi::FieldManager> field_manager) {
     // Make sure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
@@ -113,7 +112,14 @@ void IoMesh::ReadMesh(const std::string &filename,
     mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();
 
-    // STK NOTE: Create parts here for a bit more speed.
+    // Add all parts to the meta data
+    for (const std::string &part_name : part_names) {
+        stk::mesh::Part *part = &mp_io_broker->meta_data().declare_part(part_name, stk::topology::ELEMENT_RANK);
+        // Make sure the part exists in the mesh file. If not, throw an exception
+        if (part->id() == stk::mesh::Part::INVALID_ID) {
+            throw std::runtime_error("Part '" + part_name + "' does not exist in the mesh file.");
+        }
+    }
 
     if (field_manager) {
         field_manager->SetupFields(mp_io_broker->meta_data());

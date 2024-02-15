@@ -33,9 +33,7 @@ class IoMesh {
 
     void Finalize();
 
-    void ReadMesh(
-        const std::string &filename,
-        std::shared_ptr<aperi::FieldManager> field_manager = nullptr);
+    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::shared_ptr<aperi::FieldManager> field_manager = nullptr);
 
     void CreateFieldResultsFile(const std::string &filename);
 
