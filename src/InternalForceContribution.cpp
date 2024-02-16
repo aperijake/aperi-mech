@@ -29,29 +29,32 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
     // Get the coordinates field
     m_coordinates_field = m_meta_data->get_field<double>(stk::topology::NODE_RANK, m_meta_data->coordinate_field_name());
 
-    // Get the element topology
-    stk::topology element_topology = m_part->topology();
-
-    // Create the element
-    m_element = CreateElement(element_topology);
-}
-
-void InternalForceContribution::ComputeForce() {
-    // Loop over the elements
+    // Use the element topology to set the number of nodes per element
     size_t num_nodes_per_element = 0;
     if (m_part->topology() == stk::topology::TET_4) {
         num_nodes_per_element = 4;
     } else {
         throw std::runtime_error("Unsupported element topology");
     }
-    Eigen::Matrix<double, Eigen::Dynamic, 3> node_coordinates;
-    Eigen::Matrix<double, Eigen::Dynamic, 3> node_displacements;
-    Eigen::Matrix<double, Eigen::Dynamic, 3> node_velocities;
-    Eigen::Matrix<double, Eigen::Dynamic, 3> force;
+
+    // Create the element
+    m_element = CreateElement(num_nodes_per_element);
+}
+
+void InternalForceContribution::ComputeForce() {
+    // Get the number of nodes per element and set up the matrices
+    size_t num_nodes_per_element = m_element->GetNumNodes();
+    // 4 is max number of nodes per element. We only have tet4 elements for now. Will need to change this if we add more elements.
+    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> node_coordinates;
+    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> node_displacements;
+    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> node_velocities;
+    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> force;
     node_coordinates.resize(num_nodes_per_element, 3);
     node_displacements.resize(num_nodes_per_element, 3);
     node_velocities.resize(num_nodes_per_element, 3);
     force.resize(num_nodes_per_element, 3);
+
+    // Loop over the elements
     for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
         for (auto &&mesh_element : *bucket) {
             // Get the element's nodes

@@ -38,61 +38,51 @@ class ElementTest : public ApplicationTest {
         stk::mesh::Selector selector(*p_part);
         EXPECT_FALSE(selector.is_empty(stk::topology::ELEMENT_RANK));
 
-        // Get the element topology
-        stk::topology element_topology = p_part->topology();
-        return aperi::CreateElement(element_topology);
+        // Create the element, tet4 by default (4 nodes)
+        return aperi::CreateElement(4);
     }
 
     // Check partition of unity
-    void CheckPartitionOfUnity(const std::vector<double>& shape_functions) {
+    void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
         // Check the partition of unity
-        double sum = 0.0;
-        for (size_t i = 0; i < shape_functions.size(); ++i) {
-            sum += shape_functions[i];
-        }
+        double sum = shape_functions.sum();
         EXPECT_NEAR(sum, 1.0, 1.0e-12);
     }
 
     // Check partition of nullity
-    void CheckPartitionOfNullity(const std::vector<double>& shape_function_derivatives) {
+    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
         // Check the partition of nullity
-        double sum = 0.0;
-        for (size_t i = 0; i < shape_function_derivatives.size(); ++i) {
-            sum += shape_function_derivatives[i];
-        }
+        double sum = shape_function_derivatives.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
     // Check shape functions
-    void CheckShapeFunctions(const std::vector<double>& shape_functions, const std::vector<double>& expected_shape_functions, const int expected_num_shape_functions) {
+    void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_functions.size(), expected_num_shape_functions);
+        EXPECT_EQ(shape_functions.rows(), expected_num_shape_functions);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
 
         // Check the shape functions
-        for (size_t i = 0; i < shape_functions.size(); ++i) {
+        for (size_t i = 0; i < expected_num_shape_functions; ++i) {
             EXPECT_NEAR(shape_functions[i], expected_shape_functions[i], 1.0e-12);
         }
     }
 
     // Check shape function derivatives
-    void CheckShapeFunctionDerivatives(const std::vector<std::array<double, 3>>& shape_function_derivatives, const std::vector<std::array<double, 3>>& expected_shape_function_derivatives, const int expected_num_shape_functions) {
+    void CheckShapeFunctionDerivatives(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_function_derivatives.size(), expected_num_shape_functions);
-
-        std::vector<double> shape_function_derivatives_j(shape_function_derivatives.size());
+        EXPECT_EQ(shape_function_derivatives.rows(), expected_num_shape_functions);
 
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
             // Check the shape function derivatives
-            for (size_t i = 0; i < shape_function_derivatives.size(); ++i) {
-                EXPECT_NEAR(shape_function_derivatives[i][j], expected_shape_function_derivatives[i][j], 1.0e-12);
-                shape_function_derivatives_j[i] = shape_function_derivatives[i][j];
+            for (size_t i = 0; i < expected_num_shape_functions; ++i) {
+                EXPECT_NEAR(shape_function_derivatives(i, j), expected_shape_function_derivatives(i, j), 1.0e-12);
             }
             // Check the partition of nullity
-            CheckPartitionOfNullity(shape_function_derivatives_j);
+            CheckPartitionOfNullity(shape_function_derivatives.col(j));
         }
     }
 
@@ -113,15 +103,19 @@ TEST_F(ElementTest, Tet4ShapeFunctions) {
     // Create the tet4 element
     std::shared_ptr<aperi::Element> element = CreateElement();
 
-    int expected_num_shape_functions = 4;
+    size_t expected_num_shape_functions = 4;
 
     // Check the shape functions
-    std::vector<double> shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 0.0);
-    std::vector<double> expected_shape_functions = {1.0, 0.0, 0.0, 0.0};
+    Eigen::Matrix<double, 4, 1> shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 0.0);
+    Eigen::Matrix<double, 4, 1> expected_shape_functions = {1.0, 0.0, 0.0, 0.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     // Check the shape function derivatives
-    std::vector<std::array<double, 3>> shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
-    std::vector<std::array<double, 3>> expected_shape_function_derivatives = {{-1.0, -1.0, -1.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+    Eigen::Matrix<double, 4, 3> shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
+    Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
+    expected_shape_function_derivatives << -1.0, -1.0, -1.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
     shape_functions = element->ComputeShapeFunctions(1.0, 0.0, 0.0);
