@@ -83,7 +83,8 @@
     "pamgen",
     "pnetcdf",
     "SIDESET",
-    "spyhis"
+    "spyhis",
+    "Venant"
   ],
   "editor.tokenColorCustomizations": {
     "[*Light*]": {

@@ -68,6 +68,8 @@ class Element {
    protected:
     /**
      * @brief Template function to compute the internal force of the element. Handles the actual computation of the internal force.
+     * @note Templating this way prevents the calling function from having to know the number of nodes in the element.
+     *       It also was a moderate performance improvement over have Eigen::Dynamic sizes on the matrices.
      *
      * @param shape_function_derivatives The shape function derivatives of the element.
      * @param node_coordinates The coordinates of the nodes of the element.
