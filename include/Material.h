@@ -2,6 +2,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Dense>
 #include <memory>
 #include <string>
 
@@ -43,7 +44,7 @@ class Material {
         return m_material_properties->density;
     }
 
-    virtual std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const = 0;
+    virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
 
     /**
      * @brief Virtual destructor for Material class.
@@ -68,15 +69,15 @@ class ElasticMaterial : public Material {
         m_two_mu = m_material_properties->properties.at("two_mu");
     }
 
-    std::array<double, 6> GetStress(const std::array<std::array<double, 3>, 3>& green_lagrange_strain) const override {
-        std::array<double, 6> stress;
-        double lambda_trace_strain = m_lambda * (green_lagrange_strain[0][0] + green_lagrange_strain[1][1] + green_lagrange_strain[2][2]);
-        stress[0] = lambda_trace_strain + m_two_mu * green_lagrange_strain[0][0];
-        stress[1] = lambda_trace_strain + m_two_mu * green_lagrange_strain[1][1];
-        stress[2] = lambda_trace_strain + m_two_mu * green_lagrange_strain[2][2];
-        stress[3] = m_two_mu * green_lagrange_strain[1][2];
-        stress[4] = m_two_mu * green_lagrange_strain[0][2];
-        stress[5] = m_two_mu * green_lagrange_strain[0][1];
+    Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
+        Eigen::Matrix<double, 6, 1> stress;
+        double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
+        stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
+        stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
+        stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
+        stress(3) = m_two_mu * green_lagrange_strain(3);
+        stress(4) = m_two_mu * green_lagrange_strain(4);
+        stress(5) = m_two_mu * green_lagrange_strain(5);
         return stress;
     }
 

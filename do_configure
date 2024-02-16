@@ -49,6 +49,7 @@ cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
+cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
 if ${CODE_COVERAGE}; then
 	cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
 	cmake_command+=" -D KOKKOS_PATH:FILEPATH=$(spack location -i kokkos)"

@@ -8,6 +8,7 @@ SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 # Set the path to project-specific custom modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+### TRILINOS ###
 MESSAGE("   TRILINOS_PATH = ${TRILINOS_PATH}")
 
 FIND_PACKAGE(Trilinos PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
@@ -61,6 +62,19 @@ ELSE()
 	MESSAGE(FATAL_ERROR "Could not find yaml-cpp!")
 ENDIF()
 
+### EIGEN ###
+MESSAGE("   EIGEN_PATH = ${EIGEN_PATH}")
+find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
+
+IF(Eigen3_FOUND)
+    MESSAGE("   Eigen3_DIR = ${Eigen3_DIR}")
+    MESSAGE("    Eigen3_INCLUDE_DIR = ${EIGEN3_INCLUDE_DIR}")
+    MESSAGE("    Eigen3_LIBRARIES = ${EIGEN3_LIBRARIES}")
+ELSE()
+    MESSAGE(FATAL_ERROR "Could not find Eigen3!")
+ENDIF()
+
+### apperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
 
 add_library(libaperi-mech ${LIB_SOURCES})
@@ -70,6 +84,7 @@ set_property( TARGET libaperi-mech PROPERTY CXX_STANDARD_REQUIRED ON )
 
 target_link_libraries(libaperi-mech
             yaml-cpp
+            Eigen3::Eigen
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
             ${EXTRA_LIBS}
@@ -157,6 +172,7 @@ if (CODE_COVERAGE)
             "${KOKKOS_PATH}/*"
             "${TRILINOS_PATH}/*"
             "${YAML-CPP_PATH}/*"
+            "${EIGEN_PATH}/*"
             "/opt/homebrew/*")
     setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
 endif ()

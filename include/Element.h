@@ -1,18 +1,10 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <memory>
-#include <stk_mesh/base/Field.hpp>
+#include <stk_topology/topology.hpp>
 
 #include "Material.h"
-
-namespace stk {
-namespace mesh {
-class BulkData;
-class Entity;
-class MetaData;
-}  // namespace mesh
-class topology;
-}  // namespace stk
 
 namespace aperi {
 
@@ -20,98 +12,36 @@ namespace aperi {
  * @brief Represents an element in a mesh.
  *
  * This class provides a base implementation for elements in a mesh.
- * TODO(jake): THIS NEEDS A LOT OF WORK. BULK_DATA NEEDED? VOIGT NOTATION? DATA STRUCTURES?
  */
 class Element {
-    typedef stk::mesh::Field<double> DoubleField;
-
    public:
     /**
      * @brief Constructs an Element object.
      *
-     * @param bulk_data The bulk data object for the mesh.
      * @param num_nodes The number of nodes in the element.
      */
-    Element(stk::mesh::BulkData &bulk_data, size_t num_nodes) : m_bulk_data(bulk_data), m_num_nodes(num_nodes) {}
-
-    /**
-     * @brief Computes the internal force of the element.
-     *
-     * This method is pure virtual and must be implemented by derived classes.
-     * It computes the internal force of the element based on the given nodes.
-     *
-     * @param nodes An array of entity pointers representing the nodes of the element.
-     * @param displacement_field The displacement field.
-     * @param velocity_field The velocity field.
-     * @param force_field The force field.
-     * @param material The material of the element.
-     */
+    Element(size_t num_nodes) : m_num_nodes(num_nodes) {}
 
     virtual std::vector<double> ComputeShapeFunctions(double xi, double eta, double zeta) const = 0;
 
     virtual std::vector<std::array<double, 3>> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const = 0;
 
-    // Compute Jacobian matrix
-    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(const std::vector<std::array<double, 3>> &shape_function_derivatives, const std::vector<std::array<double, 3>> &node_coordinates) const;
-
-    // Compute Jacobian matrix, from xi, eta, zeta
-    std::array<std::array<double, 3>, 3> ComputeJacobianMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const;
-
-    // Compute Jacobian determinant, TODO(jake): Move this to a utility class and optimize
-    double ComputeJacobianDeterminant(const std::array<std::array<double, 3>, 3> &jacobian_matrix) const;
-
-    // Compute Jacobian determinant, from xi, eta, zeta
-    double ComputeJacobianDeterminant(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const;
-
-    // Compute inverse of Jacobian matrix, from jacobian matrix and determinant
-    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(const std::array<std::array<double, 3>, 3> &jacobian_matrix, double jacobian_determinant) const;
-
-    // Compute inverse of Jacobian matrix, TODO(jake): Move this to a utility class and optimize
-    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(const std::array<std::array<double, 3>, 3> &jacobian_matrix) const;
-
-    // Compute inverse of Jacobian matrix, TODO(jake): Move this to a utility class and optimize
-    std::array<std::array<double, 3>, 3> ComputeInverseJacobianMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const;
-
-    // Compute B matrix, m_num_nodes x NSD, using inverse Jacobian matrix and shape function derivatives
-    std::vector<std::array<double, 3>> ComputeBMatrix(const std::array<std::array<double, 3>, 3> &inverse_jacobian_matrix, const std::vector<std::array<double, 3>> &shape_function_derivatives) const;
-
-    // Compute B matrix, NSD x m_num_nodes, using xi, eta, zeta and node coordinates
-    std::vector<std::array<double, 3>> ComputeBMatrix(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates) const;
-
-    // Compute the displacement gradient, B * u, (NSD x m_num_nodes) x (m_num_nodes x NSD) = 3 x 3
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(const std::vector<std::array<double, 3>> &b_matrix, const std::vector<double> &node_displacements) const;
-
-    // Compute the displacement gradient, B^T * u, (NSD x m_num_nodes) x (m_num_nodes x NS) = 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeDisplacementGradient(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const;
-
-    // Compute the deformation gradient, I + B * u, 3 x 3
-    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(const std::array<std::array<double, 3>, 3> &displacement_gradient) const;
-
-    // Compute the deformation gradient, I + B * u, 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeDeformationGradient(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const;
-
-    // Compute the Green Lagrange strain tensor, 3 x 3
-    std::array<std::array<double, 3>, 3> ComputeGreenLagrangeStrainTensor(const std::array<std::array<double, 3>, 3> &displacement_gradient) const;
-
-    // Compute the Green Lagrange strain tensor, 3 x 3, using xi, eta, zeta and node coordinates
-    std::array<std::array<double, 3>, 3> ComputeGreenLagrangeStrainTensor(double xi, double eta, double zeta, const std::vector<std::array<double, 3>> &node_coordinates, const std::vector<double> &node_displacements) const;
-
-    // Compute (B_I F)^T, voigt notation, 3 x 6
-    std::array<std::array<double, 6>, 3> ComputeBFTranspose(const std::array<double, 3> &bI_vector, const std::array<std::array<double, 3>, 3> &displacement_gradient) const;
+    // TODO(jake): Get rid of function above then get rid of dummy parameter
+    virtual Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta, bool dummy) const = 0;
 
     /**
      * @brief Computes the internal force of the element.
      *
-     * This method overrides the base class method and computes the internal force of the element
-     * based on the given nodes.
-     *
-     * @param nodes An array of entity pointers representing the nodes of the element.
+     * @param node_coordinates The coordinates of the nodes of the element.
+     * @param node_displacements The displacements of the nodes of the element.
+     * @param node_velocities The velocities of the nodes of the element.
+     * @param material The material of the element.
+     * @return The internal force of the element.
      */
-    void ComputeInternalForce(stk::mesh::Entity const *nodes, const DoubleField *coordinate_field, const DoubleField *displacement_field, const DoubleField *velocity_field, const DoubleField *force_field, std::shared_ptr<Material> material) const;
+    Eigen::Matrix<double, 4, 3> ComputeInternalForce(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, std::shared_ptr<Material> material) const;
 
    protected:
-    stk::mesh::BulkData &m_bulk_data;  ///< The bulk data object for the mesh.
-    size_t m_num_nodes;                ///< The number of nodes in the element.
+    size_t m_num_nodes;  ///< The number of nodes in the element.
 };
 
 /**
@@ -122,15 +52,12 @@ class Element {
  * of the element.
  */
 class Tetrahedron4 : public Element {
-    typedef stk::mesh::Field<double> DoubleField;
-
    public:
     /**
      * @brief Constructs a Tetrahedron4 object.
      *
-     * @param bulk_data The bulk data object for the mesh.
      */
-    Tetrahedron4(stk::mesh::BulkData &bulk_data) : Element(bulk_data, 4) {
+    Tetrahedron4() : Element(4) {
     }
 
     std::vector<double> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
@@ -151,6 +78,16 @@ class Tetrahedron4 : public Element {
         shape_function_derivatives[3] = {0.0, 0.0, 1.0};
         return shape_function_derivatives;
     }
+
+    // dN/dxi, dN/deta, dN/dzeta
+    Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta, bool dummy) const override {
+        Eigen::Matrix<double, 4, 3> shape_function_derivatives;
+        shape_function_derivatives << -1.0, -1.0, -1.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0;
+        return shape_function_derivatives;
+    }
 };
 
 /**
@@ -160,16 +97,59 @@ class Tetrahedron4 : public Element {
  * parameters. The element is created based on the given topology and is initialized with the
  * given bulk data.
  *
- * @param bulk_data The bulk data object for the mesh.
  * @param topology The topology of the element.
  * @return A shared pointer to the created Element object.
  */
-inline std::shared_ptr<Element> CreateElement(stk::mesh::BulkData &bulk_data, stk::topology topology) {
+inline std::shared_ptr<Element> CreateElement(stk::topology topology) {
     if (topology == stk::topology::TET_4) {
-        return std::make_shared<Tetrahedron4>(bulk_data);
+        return std::make_shared<Tetrahedron4>();
     } else {
         throw std::runtime_error("Unsupported element topology");
     }
+}
+
+Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient);
+
+template <size_t N>
+Eigen::Matrix<double, N, 3> InternalForceCalc(const Eigen::Matrix<double, N, 3> &shape_function_derivatives, const Eigen::Matrix<double, N, 3> &node_coordinates, const Eigen::Matrix<double, N, 3> &node_displacements, const Eigen::Matrix<double, N, 3> &node_velocities, std::shared_ptr<Material> material) {
+    // Compute Jacobian matrix
+    const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
+
+    // Compute Jacobian determinant
+    const double jacobian_determinant = jacobian.determinant();
+
+    // Compute inverse of Jacobian matrix
+    const Eigen::Matrix3d inverse_jacobian = jacobian.inverse();
+
+    // Compute B matrix
+    const Eigen::Matrix<double, N, 3> b_matrix = shape_function_derivatives * inverse_jacobian;
+
+    // Compute displacement gradient
+    const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix;
+
+    // Compute the Green Lagrange strain tensor. TODO(jake): Get rid of this and go straight to voigt notation
+    // E = 0.5 * (H + H^T + H^T * H)
+    const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
+
+    // Green Lagrange strain tensor in voigt notation
+    Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
+    green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
+
+    // Compute the stress and internal force of the element.
+    const Eigen::Matrix<double, 6, 1> stress = material->GetStress(green_lagrange_strain_tensor_voigt);
+
+    Eigen::Matrix<double, N, 3> internal_force;
+    internal_force.fill(0.0);
+
+    Eigen::Matrix<double, 3, 6> bF_IT;
+    for (size_t i = 0; i < N; ++i) {
+        // Compute (B_I F)^T
+        bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
+
+        internal_force.row(i) -= (bF_IT * stress).transpose() * jacobian_determinant / 6.0;  // weight = 1/6 for tetrahedron
+    }
+
+    return internal_force;
 }
 
 }  // namespace aperi

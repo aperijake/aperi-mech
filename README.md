@@ -30,11 +30,12 @@ spacktivate aperi-mech
 
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@11.4.0` at the end of the `spack add` commands
-# Add Trilinos, googletest, lcov, and yaml-cpp
+# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 spack add trilinos +boost +exodus +gtest +hdf5 +stk +zoltan +zoltan2
 spack add googletest@1.12.1
 spack add lcov
 spack add yaml-cpp
+spack add eigen
 
 # Install Packages
 spack install
@@ -75,11 +76,12 @@ ln -s /opt/homebrew/bin/gcov-13 /opt/homebrew/bin/gcov
 Also, had some trouble with `openblas` and `gcc`. Compiled `openblas` with `apple-clang`. The commands are:
 
 ```bash
-# Add Trilinos, googletest, lcov, and yaml-cpp
+# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 spack add trilinos +boost +exodus +gtest +hdf5 +stk +zoltan +zoltan2 %gcc ^openblas%apple-clang
 spack add googletest@1.12.1%gcc@13.2.0
 spack add lcov %gcc@13.2.0
 spack add yaml-cpp %gcc@13.2.0
+spack add eigen %gcc@13.2.0
 
 # Install Packages
 spack install

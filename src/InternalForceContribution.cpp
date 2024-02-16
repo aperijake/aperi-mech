@@ -33,16 +33,52 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
     stk::topology element_topology = m_part->topology();
 
     // Create the element
-    m_element = CreateElement(*m_bulk_data, element_topology);
+    m_element = CreateElement(element_topology);
 }
 
 void InternalForceContribution::ComputeForce() {
     // Loop over the elements
+    size_t num_nodes_per_element = 0;
+    if (m_part->topology() == stk::topology::TET_4) {
+        num_nodes_per_element = 4;
+    } else {
+        throw std::runtime_error("Unsupported element topology");
+    }
+    Eigen::Matrix<double, Eigen::Dynamic, 3> node_coordinates;
+    Eigen::Matrix<double, Eigen::Dynamic, 3> node_displacements;
+    Eigen::Matrix<double, Eigen::Dynamic, 3> node_velocities;
+    Eigen::Matrix<double, Eigen::Dynamic, 3> force;
+    node_coordinates.resize(num_nodes_per_element, 3);
+    node_displacements.resize(num_nodes_per_element, 3);
+    node_velocities.resize(num_nodes_per_element, 3);
+    force.resize(num_nodes_per_element, 3);
     for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
         for (auto &&mesh_element : *bucket) {
             // Get the element's nodes
             stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(mesh_element);
-            m_element->ComputeInternalForce(element_nodes, m_coordinates_field, m_displacement_field, m_velocity_field, m_force_field, m_material);
+
+            // Gather the coordinates, displacements, and velocities of the nodes
+            for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                double *element_node_coordinates = stk::mesh::field_data(*m_coordinates_field, element_nodes[i]);
+                double *element_node_displacements = stk::mesh::field_data(*m_displacement_field, element_nodes[i]);
+                double *element_node_velocities = stk::mesh::field_data(*m_velocity_field, element_nodes[i]);
+                for (size_t j = 0; j < 3; ++j) {
+                    node_coordinates(i, j) = element_node_coordinates[j];
+                    node_displacements(i, j) = element_node_displacements[j];
+                    node_velocities(i, j) = element_node_velocities[j];
+                }
+            }
+
+            // Compute the internal force
+            force = m_element->ComputeInternalForce(node_coordinates, node_displacements, node_velocities, m_material);
+
+            // Scatter the force to the nodes
+            for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                double *element_node_force = stk::mesh::field_data(*m_force_field, element_nodes[i]);
+                for (size_t j = 0; j < 3; ++j) {
+                    element_node_force[j] += force(i, j);
+                }
+            }
         }
     }
 }

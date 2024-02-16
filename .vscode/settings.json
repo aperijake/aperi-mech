@@ -68,7 +68,9 @@
     "numeric": "cpp",
     "codecvt": "cpp",
     "condition_variable": "cpp",
-    "source_location": "cpp"
+    "source_location": "cpp",
+    "dense": "cpp",
+    "core": "cpp"
   },
   "cSpell.words": [
     "cgns",

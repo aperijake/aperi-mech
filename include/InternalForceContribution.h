@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <stk_mesh/base/Part.hpp>
+#include <stk_mesh/base/Selector.hpp>
 
 #include "Element.h"
 #include "ForceContribution.h"
