@@ -16,6 +16,10 @@ class Element {
    public:
     /**
      * @brief Constructs an Element object.
+     * @note The object-oriented design cause a low-level virtual function call in the element internal force calculation.
+     *       The performance didn't seem to be too affected by this, but it's something to keep in mind.
+     *       I did try to replace with a lambda function, but that performed worse.
+     *       I also tried to replace with a template function, but that didn't work because the number of nodes is not known at compile time.
      *
      * @param num_nodes The number of nodes in the element.
      */
