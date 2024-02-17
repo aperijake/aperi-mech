@@ -134,18 +134,16 @@ class ExplicitSolver : public Solver {
     /**
      * @brief Computes the first partial update for the solver.
      *
-     * @param time The current time.
-     * @param time_step The time step size.
+     * @param half_time_step The half time step size.
      */
-    void ComputeFirstPartialUpdate(double time, double time_step);
+    void ComputeFirstPartialUpdate(double half_time_step);
 
     /**
      * @brief Computes the second partial update for the solver.
      *
-     * @param time The current time.
-     * @param time_step The time step size.
+     * @param half_time_step The half time step size.
      */
-    void ComputeSecondPartialUpdate(double time, double time_step);
+    void ComputeSecondPartialUpdate(double half_time_step);
 
     void UpdateNodalDisplacements(double time_increment);
 

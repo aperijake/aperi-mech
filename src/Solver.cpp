@@ -84,13 +84,7 @@ void ExplicitSolver::ComputeAcceleration() {
     }
 }
 
-void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_increment) {
-    // Compute the time at the end of the time step, t^{n+1} = t^n + Δt^{n+½}
-    double time_next = time + time_increment;
-
-    // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
-    double time_mid = 0.5 * (time + time_next);
-
+void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment) {
     // Get the velocity and acceleration fields
     DoubleField &velocity_field_n = velocity_field->field_of_state(stk::mesh::StateN);
     DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
@@ -112,7 +106,7 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double time, double time_incremen
             // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                velocity_data_np1_for_bucket[iI] = velocity_data_n_for_bucket[iI] + (time_mid - time) * acceleration_data_n_for_bucket[iI];
+                velocity_data_np1_for_bucket[iI] = velocity_data_n_for_bucket[iI] + half_time_increment * acceleration_data_n_for_bucket[iI];
             }
         }
     }
@@ -150,13 +144,7 @@ void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
     stk::mesh::communicate_field_data(*bulk_data, {&displacement_field_np1});
 }
 
-void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increment) {
-    // Compute the time at the end of the time step, t^{n+1} = t^n + Δt^{n+½}
-    double time_next = time + time_increment;
-
-    // Compute the time at the midpoint of the time step, t^{n+½} = ½(t^n + t^{n+1})
-    double time_mid = 0.5 * (time + time_next);
-
+void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment) {
     // Get the field data
     DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
     DoubleField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
@@ -174,7 +162,7 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double time, double time_increme
             // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
             for (unsigned i = 0; i < num_values_per_node; i++) {
                 int iI = i_node * num_values_per_node + i;
-                velocity_data_np1_for_bucket[iI] += (time_next - time_mid) * acceleration_data_np1_for_bucket[iI];
+                velocity_data_np1_for_bucket[iI] += half_time_increment * acceleration_data_np1_for_bucket[iI];
             }
         }
     }
@@ -217,7 +205,7 @@ void ExplicitSolver::Solve() {
         bulk_data->update_field_data_states();
 
         // Compute first partial update
-        ComputeFirstPartialUpdate(time, time_increment);
+        ComputeFirstPartialUpdate(0.5 * time_increment);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {
@@ -239,7 +227,7 @@ void ExplicitSolver::Solve() {
         }
 
         // Compute the second partial update
-        ComputeSecondPartialUpdate(time, time_increment);
+        ComputeSecondPartialUpdate(0.5 * time_increment);
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
