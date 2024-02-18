@@ -56,116 +56,48 @@ void ExplicitSolver::ComputeForce() {
     }
 }
 
-void ExplicitSolver::ComputeAcceleration() {
-    // Compute initial accelerations: a^{n} = M^{–1}(f^{n})
-
-    // Get the field data
-    DoubleField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
-    DoubleField &force_field_np1 = force_field->field_of_state(stk::mesh::StateNP1);
-    DoubleField &mass_field_n = mass_field->field_of_state(stk::mesh::StateNone);
-
-    unsigned num_values_per_node = 3;  // Number of values per node
-
-    // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
-        // Get the field data for the bucket
-        double *mass_data_n_for_bucket = stk::mesh::field_data(mass_field_n, *bucket);
-        double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
-        double *force_data_np1_for_bucket = stk::mesh::field_data(force_field_np1, *bucket);
-
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            // Compute acceleration: a^{n} = M^{–1}(f^{n})
-            for (unsigned i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                acceleration_data_np1_for_bucket[iI] = force_data_np1_for_bucket[iI] / mass_data_n_for_bucket[iI];
-            }
-        }
-    }
+void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor> &node_processor_acceleration) {
+    // Compute acceleration: a^{n} = M^{–1}(f^{n})
+    // field_data[0] = acceleration_data_np1
+    // field_data[1] = force_data_np1
+    // field_data[2] = mass_data_n
+    node_processor_acceleration->for_each_dof({}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
+        field_data[0][iI] = field_data[1][iI] / field_data[2][iI];
+    });
 }
 
-void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment) {
-    // Get the velocity and acceleration fields
-    DoubleField &velocity_field_n = velocity_field->field_of_state(stk::mesh::StateN);
-    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
-
-    DoubleField &acceleration_field_n = acceleration_field->field_of_state(stk::mesh::StateN);
-
-    unsigned num_values_per_node = 3;  // Number of values per node
-
-    // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
-        // Get the field data for the bucket
-        double *velocity_data_n_for_bucket = stk::mesh::field_data(velocity_field_n, *bucket);
-        double *acceleration_data_n_for_bucket = stk::mesh::field_data(acceleration_field_n, *bucket);
-
-        double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-            for (unsigned i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                velocity_data_np1_for_bucket[iI] = velocity_data_n_for_bucket[iI] + half_time_increment * acceleration_data_n_for_bucket[iI];
-            }
-        }
-    }
+void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_first_update) {
+    // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
+    // field_data[0] = velocity_data_n
+    // field_data[1] = acceleration_data_n
+    // field_data[2] = velocity_data_np1
+    // data[0] = half_time_increment
+    node_processor_first_update->for_each_dof({half_time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
+        field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
+    });
 }
 
-// Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-void ExplicitSolver::UpdateNodalDisplacements(double time_increment) {
-    // Get the displacement and velocity fields
-    DoubleField &displacement_field_n = displacement_field->field_of_state(stk::mesh::StateN);
-    DoubleField &displacement_field_np1 = displacement_field->field_of_state(stk::mesh::StateNP1);
-
-    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
-
-    unsigned num_values_per_node = 3;  // Number of values per node
-
-    // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
-        // Get the field data for the bucket
-        double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
-
-        double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
-        double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-            for (unsigned i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_increment * velocity_data_np1_for_bucket[iI];
-            }
-        }
-    }
-
+void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor> &node_processor_update_displacements) {
+    // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+    // field_data[0] = displacement_data_np1
+    // field_data[1] = displacement_data_n
+    // field_data[2] = velocity_data_np1
+    // data[0] = time_increment
+    node_processor_update_displacements->for_each_dof({time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
+        field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
+    });
     // Parallel communication
-    stk::mesh::communicate_field_data(*bulk_data, {&displacement_field_np1});
+    stk::mesh::communicate_field_data(*bulk_data, {displacement_field_np1});
 }
 
-void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment) {
-    // Get the field data
-    DoubleField &velocity_field_np1 = velocity_field->field_of_state(stk::mesh::StateNP1);
-    DoubleField &acceleration_field_np1 = acceleration_field->field_of_state(stk::mesh::StateNP1);
-
-    unsigned num_values_per_node = 3;  // Number of values per node
-
-    // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-        assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*displacement_field, *bucket));
-        // Get the field data for the bucket
-        double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-        double *acceleration_data_np1_for_bucket = stk::mesh::field_data(acceleration_field_np1, *bucket);
-
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-            for (unsigned i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                velocity_data_np1_for_bucket[iI] += half_time_increment * acceleration_data_np1_for_bucket[iI];
-            }
-        }
-    }
+void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_second_update) {
+    // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
+    // field_data[0] = velocity_data_np1
+    // field_data[1] = acceleration_data_np1
+    // data[0] = half_time_increment
+    node_processor_second_update->for_each_dof({half_time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
+        field_data[0][iI] += data[0] * field_data[1][iI];
+    });
 }
 
 void ExplicitSolver::Solve() {
@@ -174,6 +106,13 @@ void ExplicitSolver::Solve() {
         stk::mesh::Part *p_part = internal_force_contribution->GetPart();
         ComputeMassMatrix(*bulk_data, p_part, internal_force_contribution->GetMaterial()->GetDensity());
     }
+
+    // Create node processors for each step of the time integration algorithm
+    // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
+    std::shared_ptr<NodeProcessor> node_processor_first_update = CreateNodeProcessorFirstUpdate();
+    std::shared_ptr<NodeProcessor> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
+    std::shared_ptr<NodeProcessor> node_processor_acceleration = CreateNodeProcessorAcceleration();
+    std::shared_ptr<NodeProcessor> node_processor_second_update = CreateNodeProcessorSecondUpdate();
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -185,7 +124,7 @@ void ExplicitSolver::Solve() {
     ComputeForce();
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
-    ComputeAcceleration();
+    ComputeAcceleration(node_processor_acceleration);
 
     // Output initial state
     aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
@@ -204,30 +143,34 @@ void ExplicitSolver::Solve() {
         // Move state n+1 to state n
         bulk_data->update_field_data_states();
 
+        double half_time_increment = 0.5 * time_increment;
+        double time_midstep = time + half_time_increment;
+        double time_next = time + time_increment;
+
         // Compute first partial update
-        ComputeFirstPartialUpdate(0.5 * time_increment);
+        ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {
-            boundary_condition->ApplyVelocity(time + 0.5 * time_increment);
+            boundary_condition->ApplyVelocity(time_midstep);
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        UpdateNodalDisplacements(time_increment);
+        UpdateDisplacements(time_increment, node_processor_update_displacements);
 
         // Compute the force, f^{n+1}
         ComputeForce();
 
         // Compute the acceleration, a^{n+1}
-        ComputeAcceleration();
+        ComputeAcceleration(node_processor_acceleration);
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         for (const auto &boundary_condition : m_boundary_conditions) {
-            boundary_condition->ApplyAcceleration(time + time_increment);
+            boundary_condition->ApplyAcceleration(time_next);
         }
 
         // Compute the second partial update
-        ComputeSecondPartialUpdate(0.5 * time_increment);
+        ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
