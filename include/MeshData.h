@@ -13,8 +13,9 @@ class MeshData {
     MeshData(stk::mesh::BulkData *bulk_data) : m_bulk_data(bulk_data) {}
 
     stk::mesh::BulkData *GetBulkData() const { return m_bulk_data; }
+
    private:
-    stk::mesh::BulkData *m_bulk_data;           // The bulk data object.
+    stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
 };
 
 // Creation is in IoMesh as it knows about the mesh data (e.g. the bulk data and meta data).

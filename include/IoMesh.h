@@ -4,9 +4,8 @@
 #include <string>  // for string
 #include <vector>  // for vector
 
-#include "mpi.h"  // for MPI_Comm
-
 #include "MeshData.h"
+#include "mpi.h"  // for MPI_Comm
 
 namespace aperi {
 

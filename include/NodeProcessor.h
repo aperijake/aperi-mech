@@ -19,7 +19,7 @@ struct FieldQueryData {
     FieldQueryState state;  // The state of the field.
 };
 
-inline stk::mesh::Field<double>* StkGetField(const FieldQueryData& field_query_data, stk::mesh::MetaData *meta_data) {
+inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
     stk::mesh::Field<double> *field = meta_data->get_field<double>(stk::topology::NODE_RANK, field_query_data.name);
     stk::mesh::FieldState state = stk::mesh::StateNone;
     if (field_query_data.state == FieldQueryState::N) {
@@ -30,7 +30,7 @@ inline stk::mesh::Field<double>* StkGetField(const FieldQueryData& field_query_d
         if (field_query_data.state != FieldQueryState::None) {
             throw std::runtime_error("Invalid field state");
         }
-    }   
+    }
     return &field->field_of_state(state);
 }
 
@@ -38,8 +38,22 @@ class NodeProcessor {
     typedef stk::mesh::Field<double> DoubleField;
 
    public:
-    NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data){
+    NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         m_bulk_data = mesh_data->GetBulkData();
+        if (sets.size() > 0) {
+            stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+            stk::mesh::PartVector parts;
+            for (const auto &set : sets) {
+                stk::mesh::Part *part = meta_data->get_part(set);
+                if (part == nullptr) {
+                    throw std::runtime_error("Set " + set + " not found.");
+                }
+                parts.push_back(part);
+            }
+            m_selector = stk::mesh::selectUnion(parts);
+        } else {
+            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
+        }
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (const auto &field_query_data : field_query_data_vec) {
             m_fields.push_back(StkGetField(field_query_data, meta_data));
@@ -52,7 +66,7 @@ class NodeProcessor {
         std::vector<double *> field_data(m_fields.size());  // Array to hold field data
 
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_bulk_data->buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
             for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
                 field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
@@ -75,7 +89,8 @@ class NodeProcessor {
 
    private:
     std::vector<DoubleField *> m_fields;  // The fields to process
-    stk::mesh::BulkData *m_bulk_data;           // The bulk data object.
+    stk::mesh::BulkData *m_bulk_data;     // The bulk data object.
+    stk::mesh::Selector m_selector;       // The selector for the sets
 };
 
 }  // namespace aperi
