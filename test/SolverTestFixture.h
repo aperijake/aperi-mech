@@ -86,7 +86,7 @@ class SolverTest : public ApplicationTest {
         for (auto boundary_condition : boundary_conditions) {
             std::string name = boundary_condition.begin()->first.as<std::string>();
             std::cout << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
-            m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMetaData()));
+            m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
         }
 
         // Get the time stepper

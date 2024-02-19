@@ -45,7 +45,7 @@ class BoundaryConditionTest : public ApplicationTest {
         for (auto boundary_condition : boundary_conditions) {
             std::string name = boundary_condition.begin()->first.as<std::string>();
             std::cout << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
-            m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMetaData()));
+            m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
         }
     }
 
@@ -135,9 +135,6 @@ class BoundaryConditionTest : public ApplicationTest {
                     parts.push_back(part);
                 }
                 stk::mesh::Selector parts_selector = stk::mesh::selectUnion(parts);
-
-                // Check the selector
-                EXPECT_TRUE(parts_selector == m_boundary_conditions[i]->GetSelector());
 
                 // Get the boundary condition magnitude
                 double magnitude = 0;

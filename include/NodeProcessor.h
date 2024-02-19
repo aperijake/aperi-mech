@@ -60,7 +60,7 @@ class NodeProcessor {
         }
     }
 
-    // Loop over each node and apply the function
+    // Loop over each node then DOF and apply the function
     void for_each_dof(const std::vector<double> &data, void (*func)(size_t iI, const std::vector<double> &data, std::vector<double *> &field_data)) const {
         size_t num_values_per_node = 3;                     // Number of values per node
         std::vector<double *> field_data(m_fields.size());  // Array to hold field data
@@ -78,6 +78,26 @@ class NodeProcessor {
                     size_t iI = i_node * num_values_per_node + i;  // Index into the field data
                     func(iI, data, field_data);                    // Call the function
                 }
+            }
+        }
+    }
+
+    // Loop over each node and apply the function
+    void for_each_node(const std::vector<double> &data, const std::vector<std::pair<size_t, double>> &components_and_values, void (*func)(size_t iI, const std::vector<double> &data, const std::vector<std::pair<size_t, double>> &component_and_value, std::vector<double *> &field_data)) const {
+        // void for_each_node(const std::vector<double> &data, const std::vector<std::pair<size_t, double>>& components_and_values, void (*func)(size_t iI, const std::vector<double> &data, const std::vector<std::pair<size_t, double>>& component_and_value, std::vector<double *> &field_data)) const {
+        size_t num_values_per_node = 3;                     // Number of values per node
+        std::vector<double *> field_data(m_fields.size());  // Array to hold field data
+
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
+                field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
+            }
+            // Loop over each node in the bucket
+            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                size_t i_dof_start = i_node * num_values_per_node;           // Index into the field data
+                func(i_dof_start, data, components_and_values, field_data);  // Call the function
             }
         }
     }

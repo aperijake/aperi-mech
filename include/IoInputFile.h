@@ -159,8 +159,8 @@ class IoInputFile {
 };
 
 // Get component and value pairs
-inline std::vector<std::pair<int, double>> GetComponentsAndValues(const YAML::Node& parent_node, bool exit_on_error = true) {
-    std::vector<std::pair<int, double>> component_value_pair;
+inline std::vector<std::pair<size_t, double>> GetComponentsAndValues(const YAML::Node& parent_node, bool exit_on_error = true) {
+    std::vector<std::pair<size_t, double>> component_value_pair;
     if (parent_node["vector"]) {
         // Get the magnitude and direction, and change the length to match the magnitude
         const double magnitude = parent_node["vector"]["magnitude"].as<double>();

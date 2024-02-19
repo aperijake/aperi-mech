@@ -16,7 +16,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
         // Get the components and values
-        std::vector<std::pair<int, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
+        std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
 
         // Get the type of initial condition
         const std::string type = initial_condition.begin()->first.as<std::string>();

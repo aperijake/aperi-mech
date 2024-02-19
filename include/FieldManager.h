@@ -81,7 +81,7 @@ class FieldManager {
      * @note This function is hard coded to a vector field. Fix this.
      * @note This function is hard coded to a node rank. Fix this.
      */
-    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<int, double>>& components_and_values) {
+    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
         // TODO(jake) This is hard coded to a vector field on node field. Fix this.
         typedef stk::mesh::Field<double> DoubleField;
 
@@ -112,7 +112,7 @@ class FieldManager {
                 assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*field, *bucket));
                 // Set the field values for the node
                 for (size_t i = 0, e = components_and_values.size(); i < e; ++i) {
-                    int iI = i_node * num_values_per_node + components_and_values[i].first;
+                    size_t iI = i_node * num_values_per_node + components_and_values[i].first;
                     field_values_for_bucket[iI] = components_and_values[i].second;
                 }
             }

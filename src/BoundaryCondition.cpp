@@ -2,13 +2,10 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/MetaData.hpp>
-#include <stk_mesh/base/Part.hpp>
-#include <stk_mesh/base/Selector.hpp>
-
 #include "IoInputFile.h"
 #include "MathUtils.h"
+#include "MeshData.h"
+#include "NodeProcessor.h"
 
 namespace aperi {
 
@@ -18,17 +15,12 @@ void BoundaryCondition::ApplyVelocity(double time) {
     double time_scale = m_velocity_time_function(time);
 
     // Loop over the nodes
-    for (stk::mesh::Bucket* bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
-        for (auto&& node : *bucket) {
-            // Get the velocity field values for the node
-            double* velocity_field_values = stk::mesh::field_data(*m_velocity_field, node);
-
-            // Apply the boundary condition, loop over the components
-            for (auto&& component_value : m_components_and_values) {
-                velocity_field_values[component_value.first] = component_value.second * time_scale;
-            }
+    m_node_processor_velocity->for_each_node({time_scale}, m_components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
+        // Apply the boundary condition, loop over the components
+        for (auto&& component_value : components_and_values) {
+            field_data[0][i_component_start + component_value.first] = component_value.second * data[0];
         }
-    }
+    });
 }
 
 // Apply the acceleration boundary condition
@@ -37,17 +29,12 @@ void BoundaryCondition::ApplyAcceleration(double time) {
     double time_scale = m_acceleration_time_function(time);
 
     // Loop over the nodes
-    for (stk::mesh::Bucket* bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
-        for (auto&& node : *bucket) {
-            // Get the acceleration field values for the node
-            double* acceleration_field_values = stk::mesh::field_data(*m_acceleration_field, node);
-
-            // Apply the boundary condition
-            for (auto&& component_value : m_components_and_values) {
-                acceleration_field_values[component_value.first] = component_value.second * time_scale;
-            }
+    m_node_processor_acceleration->for_each_node({time_scale}, m_components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
+        // Apply the boundary condition, loop over the components
+        for (auto&& component_value : components_and_values) {
+            field_data[0][i_component_start + component_value.first] = component_value.second * data[0];
         }
-    }
+    });
 }
 
 // Set the time function
@@ -102,12 +89,12 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
     return std::make_pair(velocity_time_function, acceleration_time_function);
 }
 
-std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, stk::mesh::MetaData& meta_data) {
+std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, std::shared_ptr<aperi::MeshData> mesh_data) {
     // Get the boundary condition node
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
     // Components and values of the boundary condition vector
-    std::vector<std::pair<int, double>> component_value_vector = aperi::GetComponentsAndValues(boundary_condition_node);
+    std::vector<std::pair<size_t, double>> component_value_vector = aperi::GetComponentsAndValues(boundary_condition_node);
 
     // Get the type of boundary condition, lowercase
     std::string type = boundary_condition.begin()->first.as<std::string>();
@@ -122,45 +109,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
         sets = boundary_condition_node["sets"].as<std::vector<std::string>>();
     }
 
-    // Create a selector for the sets
-    stk::mesh::PartVector parts;
-    for (const auto& set : sets) {
-        stk::mesh::Part* part = meta_data.get_part(set);
-        // Throw an error if the part is not found
-        if (part == nullptr) {
-            throw std::runtime_error("Boundary condition set " + set + " not found.");
-        }
-        parts.push_back(part);
-    }
-    stk::mesh::Selector parts_selector = stk::mesh::selectUnion(parts);
-
-    // Make sure type is 'velocity' or 'displacement'
-    if (type != "velocity" && type != "displacement") {
-        throw std::runtime_error("Boundary condition type must be 'velocity' or 'displacement'. Found: " + type + ".");
-    }
-
-    // Get the displacement field
-    stk::mesh::Field<double>* displacement_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "displacement");
-    // Throw an error if the field is not found
-    if (displacement_field == nullptr) {
-        throw std::runtime_error("Boundary condition. Displacement field not found.");
-    }
-
-    // Get the velocity field
-    stk::mesh::Field<double>* velocity_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "velocity");
-    // Throw an error if the field is not found
-    if (velocity_field == nullptr) {
-        throw std::runtime_error("Boundary condition. Velocity field not found.");
-    }
-
-    // Get the acceleration field
-    stk::mesh::Field<double>* acceleration_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "acceleration");
-    // Throw an error if the field is not found
-    if (acceleration_field == nullptr) {
-        throw std::runtime_error("Boundary condition. Acceleration field not found.");
-    }
-
-    return std::make_shared<BoundaryCondition>(component_value_vector, time_functions, parts_selector, displacement_field, velocity_field, acceleration_field);
+    return std::make_shared<BoundaryCondition>(component_value_vector, time_functions, sets, mesh_data);
 }
 
 }  // namespace aperi

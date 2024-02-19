@@ -85,7 +85,7 @@ void Application::Run(const std::string& input_filename) {
     for (auto boundary_condition : boundary_conditions) {
         std::string name = boundary_condition.begin()->first.as<std::string>();
         aperi::CoutP0() << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
-        m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMetaData()));
+        m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
     }
 
     // Get the time stepper
