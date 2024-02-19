@@ -58,6 +58,7 @@ IoMesh::IoMesh(const MPI_Comm &comm, IoMeshParameters io_mesh_parameters)
     mp_io_broker->use_simple_fields();
     SetIoProperties();
     mp_io_broker->set_bulk_data(bulk);
+    mp_mesh_data = std::make_shared<MeshData>(&mp_io_broker->bulk_data());
 }
 
 void IoMesh::Finalize() {

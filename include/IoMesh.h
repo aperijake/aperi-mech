@@ -6,6 +6,8 @@
 
 #include "mpi.h"  // for MPI_Comm
 
+#include "MeshData.h"
+
 namespace aperi {
 
 class FieldManager;
@@ -41,6 +43,7 @@ class IoMesh {
 
     stk::mesh::BulkData &GetBulkData() { return mp_io_broker->bulk_data(); }
     stk::mesh::MetaData &GetMetaData() { return mp_io_broker->meta_data(); }
+    std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
 
    private:
     void SetIoProperties() const;
@@ -64,6 +67,7 @@ class IoMesh {
     std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
     std::shared_ptr<aperi::FieldManager> mp_field_manager;
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;
     int m_input_index = -1;
     int m_results_index = -1;
 };

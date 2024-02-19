@@ -6,6 +6,8 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <vector>
 
+#include "MeshData.h"
+
 namespace aperi {
 
 enum class FieldQueryState { None,
@@ -36,8 +38,8 @@ class NodeProcessor {
     typedef stk::mesh::Field<double> DoubleField;
 
    public:
-    NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, stk::mesh::BulkData *bulk_data)
-        : m_bulk_data(bulk_data) {
+    NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data){
+        m_bulk_data = mesh_data->GetBulkData();
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (const auto &field_query_data : field_query_data_vec) {
             m_fields.push_back(StkGetField(field_query_data, meta_data));

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "IoMesh.h"
+#include "MeshData.h"
 #include "NodeProcessor.h"
 
 namespace aperi {
@@ -40,6 +41,7 @@ class Solver {
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
         meta_data = &m_io_mesh->GetMetaData();
         bulk_data = &m_io_mesh->GetBulkData();
+        mp_mesh_data = m_io_mesh->GetMeshData();
     }
 
     /**
@@ -76,6 +78,7 @@ class Solver {
     std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
     stk::mesh::MetaData *meta_data;                                                                 ///< The meta data object.
     stk::mesh::BulkData *bulk_data;                                                                 ///< The bulk data object.
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
 };
 
 /**
@@ -114,7 +117,7 @@ class ExplicitSolver : public Solver {
             {"velocity", FieldQueryState::N},
             {"acceleration", FieldQueryState::N},
         };
-        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
+        return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for updating displacements
@@ -125,7 +128,7 @@ class ExplicitSolver : public Solver {
             {"displacement", FieldQueryState::N},
             {"velocity", FieldQueryState::NP1},
         };
-        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
+        return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the second partial update
@@ -135,7 +138,7 @@ class ExplicitSolver : public Solver {
             {"velocity", FieldQueryState::NP1},
             {"acceleration", FieldQueryState::NP1},
         };
-        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
+        return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the acceleration
@@ -146,7 +149,7 @@ class ExplicitSolver : public Solver {
             {"force", FieldQueryState::NP1},
             {"mass", FieldQueryState::None},
         };
-        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
+        return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
     }
 
     /**
