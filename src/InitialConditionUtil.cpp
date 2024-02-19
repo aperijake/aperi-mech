@@ -6,10 +6,11 @@
 #include "IoInputFile.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
+#include "MeshData.h"
 
 namespace aperi {
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta) {
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, std::shared_ptr<aperi::MeshData> mesh_data) {
     // Loop over initial conditions
     for (const auto& initial_condition : initial_conditions) {
         // Get this initial condition node
@@ -31,7 +32,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
 
         // Loop over sets
         for (const auto& set : sets) {
-            int return_code = field_manager->SetInitialFieldValues(meta, set, type, components_and_values);
+            int return_code = field_manager->SetInitialFieldValues(mesh_data, set, type, components_and_values);
             if (return_code == 1) {
                 throw std::runtime_error("Initial condition field type " + type + " not found.");
             } else if (return_code == 2) {

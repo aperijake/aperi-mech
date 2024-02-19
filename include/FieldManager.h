@@ -1,12 +1,14 @@
 #pragma once
 
 #include <stk_io/IossBridge.hpp>
+#include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <string>
 #include <vector>
 
 #include "LogUtils.h"
+#include "MeshData.h"
 
 namespace aperi {
 
@@ -81,9 +83,12 @@ class FieldManager {
      * @note This function is hard coded to a vector field. Fix this.
      * @note This function is hard coded to a node rank. Fix this.
      */
-    int SetInitialFieldValues(stk::mesh::MetaData& meta_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
+    int SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
         // TODO(jake) This is hard coded to a vector field on node field. Fix this.
         typedef stk::mesh::Field<double> DoubleField;
+
+        // Get the meta data
+        stk::mesh::MetaData& meta_data = mesh_data->GetBulkData()->mesh_meta_data();
 
         // Get the field
         DoubleField* field = meta_data.get_field<double>(stk::topology::NODE_RANK, field_name.c_str());

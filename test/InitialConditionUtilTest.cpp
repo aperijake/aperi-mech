@@ -39,7 +39,7 @@ class InitialConditionUtilTest : public ApplicationTest {
 
         // Set initial conditions
         std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
-        AddInitialConditions(initial_conditions, m_field_manager, m_io_mesh->GetMetaData());
+        AddInitialConditions(initial_conditions, m_field_manager, m_io_mesh->GetMeshData());
 
         m_io_mesh->GetBulkData().update_field_data_states();
     }

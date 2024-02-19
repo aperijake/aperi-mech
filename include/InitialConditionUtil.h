@@ -7,14 +7,9 @@ namespace YAML {
 class Node;
 }  // namespace YAML
 
-namespace stk {
-namespace mesh {
-class MetaData;
-}  // namespace mesh
-}  // namespace stk
-
 namespace aperi {
 class FieldManager;
+class MeshData;
 
 /**
  * @brief Adds initial conditions to field data.
@@ -25,8 +20,8 @@ class FieldManager;
  *
  * @param initial_conditions A vector of YAML nodes representing the initial conditions.
  * @param field_manager A shared pointer to a FieldManager object to which the initial conditions are added.
- * @param meta_data The meta data to add the initial conditions to.
+ * @param mesh_data A shared pointer to a MeshData object.
  */
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, stk::mesh::MetaData& meta_data);
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, std::shared_ptr<aperi::MeshData> mesh_data);
 
 }  // namespace aperi
