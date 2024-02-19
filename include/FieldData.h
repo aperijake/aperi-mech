@@ -1,14 +1,7 @@
 #pragma once
 
-#include <stk_io/IossBridge.hpp>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/MetaData.hpp>
 #include <string>
 #include <vector>
-
-#include "LogUtils.h"
-#include "MeshData.h"
 
 namespace aperi {
 
