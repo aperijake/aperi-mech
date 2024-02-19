@@ -6,6 +6,7 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <vector>
 
+#include "LogUtils.h"
 #include "MeshData.h"
 
 namespace aperi {
@@ -21,6 +22,9 @@ struct FieldQueryData {
 
 inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
     stk::mesh::Field<double> *field = meta_data->get_field<double>(stk::topology::NODE_RANK, field_query_data.name);
+    if (field == nullptr) {
+        throw std::runtime_error("Field " + field_query_data.name + " not found.");
+    }
     stk::mesh::FieldState state = stk::mesh::StateNone;
     if (field_query_data.state == FieldQueryState::N) {
         state = stk::mesh::StateN;
@@ -54,6 +58,11 @@ class NodeProcessor {
         } else {
             m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
         }
+        // Warn if the selector is empty.
+        if (m_selector.is_empty(stk::topology::NODE_RANK)) {
+            aperi::CoutP0() << "Warning: NodeProcessor selector is empty." << std::endl;
+        }
+
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (const auto &field_query_data : field_query_data_vec) {
             m_fields.push_back(StkGetField(field_query_data, meta_data));

@@ -2,15 +2,31 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include "FieldManager.h"
 #include "IoInputFile.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "NodeProcessor.h"
 
 namespace aperi {
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::FieldManager> field_manager, std::shared_ptr<aperi::MeshData> mesh_data) {
+void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
+    // NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    std::vector<FieldQueryData> field_query_data_vec;
+    field_query_data_vec.push_back({field_name, FieldQueryState::NP1});
+
+    NodeProcessor node_processor(field_query_data_vec, mesh_data, {set_name});
+
+    // Loop over each node
+    node_processor.for_each_node({}, components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
+        // Apply the boundary condition, loop over the components
+        for (auto&& component_value : components_and_values) {
+            field_data[0][i_component_start + component_value.first] = component_value.second;
+        }
+    });
+}
+
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::MeshData> mesh_data) {
     // Loop over initial conditions
     for (const auto& initial_condition : initial_conditions) {
         // Get this initial condition node
@@ -32,12 +48,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
 
         // Loop over sets
         for (const auto& set : sets) {
-            int return_code = field_manager->SetInitialFieldValues(mesh_data, set, type, components_and_values);
-            if (return_code == 1) {
-                throw std::runtime_error("Initial condition field type " + type + " not found.");
-            } else if (return_code == 2) {
-                throw std::runtime_error("Initial condition set " + set + " not found.");
-            }
+            SetInitialFieldValues(mesh_data, set, type, components_and_values);
         }
     }
 }

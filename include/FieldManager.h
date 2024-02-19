@@ -73,58 +73,6 @@ class FieldManager {
         }
     }
 
-    /**
-     * @brief Sets the initial field values for a set.
-     * @param meta_data The meta data to set the initial field values in.
-     * @param set_name The name of the set to set the initial field values for.
-     * @param field_name The name of the field to set the initial field values for.
-     * @param values The values to set the initial field values to.
-     * @return 0 for success, 1 for failure to find the field, 2 for failure to find the part.
-     * @note This function is hard coded to a vector field. Fix this.
-     * @note This function is hard coded to a node rank. Fix this.
-     */
-    int SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
-        // TODO(jake) This is hard coded to a vector field on node field. Fix this.
-        typedef stk::mesh::Field<double> DoubleField;
-
-        // Get the meta data
-        stk::mesh::MetaData& meta_data = mesh_data->GetBulkData()->mesh_meta_data();
-
-        // Get the field
-        DoubleField* field = meta_data.get_field<double>(stk::topology::NODE_RANK, field_name.c_str());
-        // Return 1 for failure if the field is not found
-        if (field == nullptr) {
-            return 1;
-        }
-
-        stk::mesh::Part* set_part = meta_data.get_part(set_name);
-        // Return 2 for failure if the part is not found
-        if (set_part == nullptr) {
-            return 2;
-        }
-        stk::mesh::Selector set_selector(*set_part);
-        // Warn if the selector is empty.
-        if (set_selector.is_empty(stk::topology::NODE_RANK)) {
-            aperi::CoutP0() << "Warning: Initial Condition Set " << set_name << " is empty." << std::endl;
-        }
-
-        // Loop over all the buckets
-        for (stk::mesh::Bucket* bucket : set_selector.get_buckets(stk::topology::NODE_RANK)) {
-            // Get the field values for the bucket
-            double* field_values_for_bucket = stk::mesh::field_data(*field, *bucket);
-            size_t num_values_per_node = 3;
-            for (size_t i_node = 0, e = bucket->size(); i_node < e; i_node++) {
-                assert(num_values_per_node == stk::mesh::field_scalars_per_entity(*field, *bucket));
-                // Set the field values for the node
-                for (size_t i = 0, e = components_and_values.size(); i < e; ++i) {
-                    size_t iI = i_node * num_values_per_node + components_and_values[i].first;
-                    field_values_for_bucket[iI] = components_and_values[i].second;
-                }
-            }
-        }
-        return 0;
-    }
-
    private:
     std::vector<FieldData> m_field_data;
 };

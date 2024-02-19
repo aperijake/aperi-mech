@@ -76,7 +76,7 @@ void Application::Run(const std::string& input_filename) {
 
     // Set initial conditions
     std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(procedure_id);
-    aperi::AddInitialConditions(initial_conditions, m_field_manager, m_io_mesh->GetMeshData());
+    aperi::AddInitialConditions(initial_conditions, m_io_mesh->GetMeshData());
 
     // Get boundary conditions
     std::vector<YAML::Node> boundary_conditions = m_io_input_file->GetBoundaryConditions(procedure_id);
