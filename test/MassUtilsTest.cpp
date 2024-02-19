@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "CaptureOutputTestFixture.h"
-#include "FieldManager.h"
+#include "FieldData.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 #include "stk_mesh/base/BulkData.hpp"

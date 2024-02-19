@@ -6,7 +6,7 @@
 
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
-#include "FieldManager.h"
+#include "FieldData.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "LogUtils.h"

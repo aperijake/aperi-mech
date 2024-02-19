@@ -5,7 +5,7 @@
 
 #include "ApplicationTestFixture.h"
 #include "Element.h"
-#include "FieldManager.h"
+#include "FieldData.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "stk_mesh/base/BulkData.hpp"

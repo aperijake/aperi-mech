@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "ApplicationTestFixture.h"
-#include "FieldManager.h"
+#include "FieldData.h"
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "yaml-cpp/yaml.h"

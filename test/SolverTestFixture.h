@@ -8,7 +8,7 @@
 #include "ApplicationTestFixture.h"
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
-#include "FieldManager.h"
+#include "FieldData.h"
 #include "InitialConditionUtil.h"
 #include "InternalForceContribution.h"
 #include "IoInputFile.h"
