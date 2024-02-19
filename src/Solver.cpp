@@ -87,7 +87,7 @@ void ExplicitSolver::UpdateDisplacements(double time_increment, const std::share
         field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
     });
     // Parallel communication
-    stk::mesh::communicate_field_data(*bulk_data, {displacement_field_np1});
+    node_processor_update_displacements->communicate_field_data(0);
 }
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_second_update) {

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "IoMesh.h"
+#include "NodeProcessor.h"
 
 namespace aperi {
 
@@ -17,40 +18,6 @@ class InternalForceContribution;
 class ExternalForceContribution;
 class TimeStepper;
 class Scheduler;
-
-class NodeProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-
-   public:
-    NodeProcessor(const std::vector<DoubleField *> fields, stk::mesh::BulkData *bulk_data)
-        : m_fields(fields), m_bulk_data(bulk_data) {}
-
-    // Loop over each node and apply the function
-    void for_each_dof(const std::vector<double> &data, void (*func)(size_t iI, const std::vector<double> &data, std::vector<double *> &field_data)) const {
-        size_t num_values_per_node = 3;                     // Number of values per node
-        std::vector<double *> field_data(m_fields.size());  // Array to hold field data
-
-        // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_bulk_data->buckets(stk::topology::NODE_RANK)) {
-            // Get the field data for the bucket
-            for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
-                field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
-            }
-            // Loop over each node in the bucket
-            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                // Loop over each component of the node
-                for (size_t i = 0; i < num_values_per_node; i++) {
-                    size_t iI = i_node * num_values_per_node + i;  // Index into the field data
-                    func(iI, data, field_data);                    // Call the function
-                }
-            }
-        }
-    }
-
-   private:
-    const std::vector<DoubleField *> m_fields;  // The fields to process
-    stk::mesh::BulkData *m_bulk_data;           // The bulk data object.
-};
 
 /**
  * @class Solver
@@ -133,22 +100,8 @@ class ExplicitSolver : public Solver {
      */
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
-        // Get the displacement, velocity, and acceleration fields
-        displacement_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "displacement");
-        velocity_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "velocity");
-        acceleration_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "acceleration");
+        // Get the force field
         force_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "force");
-        mass_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "mass");
-
-        // Get the field states
-        displacement_field_n = &displacement_field->field_of_state(stk::mesh::StateN);
-        displacement_field_np1 = &displacement_field->field_of_state(stk::mesh::StateNP1);
-        velocity_field_n = &velocity_field->field_of_state(stk::mesh::StateN);
-        velocity_field_np1 = &velocity_field->field_of_state(stk::mesh::StateNP1);
-        acceleration_field_n = &acceleration_field->field_of_state(stk::mesh::StateN);
-        acceleration_field_np1 = &acceleration_field->field_of_state(stk::mesh::StateNP1);
-        force_field_np1 = &force_field->field_of_state(stk::mesh::StateNP1);
-        mass_field_n = &mass_field->field_of_state(stk::mesh::StateNone);
     }
 
     ~ExplicitSolver() {}
@@ -156,29 +109,44 @@ class ExplicitSolver : public Solver {
     // Create a node processor for the first partial update
     std::shared_ptr<NodeProcessor> CreateNodeProcessorFirstUpdate() {
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        std::vector<DoubleField *> fields = {velocity_field_np1, velocity_field_n, acceleration_field_n};
-        return std::make_shared<NodeProcessor>(fields, &m_io_mesh->GetBulkData());
+        std::vector<FieldQueryData> field_query_data_vec = {
+            {"velocity", FieldQueryState::NP1},
+            {"velocity", FieldQueryState::N},
+            {"acceleration", FieldQueryState::N},
+        };
+        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
     }
 
     // Create a node processor for updating displacements
     std::shared_ptr<NodeProcessor> CreateNodeProcessorUpdateDisplacements() {
         // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
-        std::vector<DoubleField *> fields = {displacement_field_np1, displacement_field_n, velocity_field_np1};
-        return std::make_shared<NodeProcessor>(fields, &m_io_mesh->GetBulkData());
+        std::vector<FieldQueryData> field_query_data_vec = {
+            {"displacement", FieldQueryState::NP1},
+            {"displacement", FieldQueryState::N},
+            {"velocity", FieldQueryState::NP1},
+        };
+        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
     }
 
     // Create a node processor for the second partial update
     std::shared_ptr<NodeProcessor> CreateNodeProcessorSecondUpdate() {
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        std::vector<DoubleField *> fields = {velocity_field_np1, acceleration_field_np1};
-        return std::make_shared<NodeProcessor>(fields, &m_io_mesh->GetBulkData());
+        std::vector<FieldQueryData> field_query_data_vec = {
+            {"velocity", FieldQueryState::NP1},
+            {"acceleration", FieldQueryState::NP1},
+        };
+        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
     }
 
     // Create a node processor for the acceleration
     std::shared_ptr<NodeProcessor> CreateNodeProcessorAcceleration() {
         // Compute the acceleration: a^{n+1} = f^{n+1}/m
-        std::vector<DoubleField *> fields = {acceleration_field_np1, force_field_np1, mass_field_n};
-        return std::make_shared<NodeProcessor>(fields, &m_io_mesh->GetBulkData());
+        std::vector<FieldQueryData> field_query_data_vec = {
+            {"acceleration", FieldQueryState::NP1},
+            {"force", FieldQueryState::NP1},
+            {"mass", FieldQueryState::None},
+        };
+        return std::make_shared<NodeProcessor>(field_query_data_vec, &m_io_mesh->GetBulkData());
     }
 
     /**
