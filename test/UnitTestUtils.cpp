@@ -13,6 +13,7 @@
 #include <string>
 #include <system_error>
 
+#include "FieldManager.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "MathUtils.h"
@@ -199,7 +200,7 @@ void AddVelocityBoundaryConditions(YAML::Node& root) {
     AddBoundaryCondition(root, "velocity");
 }
 
-void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager) {
+void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data) {
     // Create a temporary mesh file
     CleanUp(filename);  // Remove any existing file
     // Make sure output doesn't already exist to prevent false positives
@@ -207,7 +208,7 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    io_mesh.ReadMesh(mesh_string, {"block_1"}, field_manager);
+    io_mesh.ReadMesh(mesh_string, {"block_1"}, field_data);
     // std::vector<size_t> expected_owned = {8, 0, 0, 1};
     // CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
 

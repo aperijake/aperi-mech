@@ -19,9 +19,6 @@ class InitialConditionUtilTest : public ApplicationTest {
         m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-
-        // Create field manager
-        m_field_manager = CreateFieldManager(m_field_data);
     }
 
     void TearDown() override {
@@ -32,7 +29,7 @@ class InitialConditionUtilTest : public ApplicationTest {
     // Add initial conditions to field data
     void AddTestInitialConditions() {
         // Create a temporary mesh file
-        CreateTestMesh(m_field_manager);
+        CreateTestMesh(m_field_data);
 
         // Create an IO input file object and read the input file
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
@@ -46,7 +43,6 @@ class InitialConditionUtilTest : public ApplicationTest {
 
     std::vector<aperi::FieldData> m_field_data;
     std::shared_ptr<aperi::IoInputFile> m_io_input_file;
-    std::shared_ptr<aperi::FieldManager> m_field_manager;
 };
 
 // Test AddInitialConditions function with valid input, using a vector input

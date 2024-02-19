@@ -4,12 +4,11 @@
 #include <string>  // for string
 #include <vector>  // for vector
 
+#include "FieldManager.h"  // for FieldDataType, FieldData
 #include "MeshData.h"
 #include "mpi.h"  // for MPI_Comm
 
 namespace aperi {
-
-class FieldManager;
 
 struct IoMeshParameters {
     bool add_edges = false;                 // create all internal edges in the mesh
@@ -34,7 +33,7 @@ class IoMesh {
 
     void Finalize();
 
-    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::shared_ptr<aperi::FieldManager> field_manager = nullptr);
+    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::vector<aperi::FieldData> field_data = {});
 
     void CreateFieldResultsFile(const std::string &filename);
 
@@ -65,7 +64,6 @@ class IoMesh {
     size_t m_current_avg_baseline = 0;
     std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
-    std::shared_ptr<aperi::FieldManager> mp_field_manager;
     std::shared_ptr<aperi::MeshData> mp_mesh_data;
     int m_input_index = -1;
     int m_results_index = -1;

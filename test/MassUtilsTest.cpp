@@ -35,13 +35,12 @@ class MassMatrixTest : public CaptureOutputTest {
         // Get number of mpi processes
         m_num_procs = stk::parallel_machine_size(m_comm);
 
-        // Create a FieldManager
+        // Create FieldData
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-        std::shared_ptr<aperi::FieldManager> field_manager = aperi::CreateFieldManager(field_data);
 
         // Make a 1x1xnum_procs mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
-        WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_manager);
+        WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_data);
     }
 
     void TearDown() override {

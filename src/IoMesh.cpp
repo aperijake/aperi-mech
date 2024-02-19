@@ -101,30 +101,41 @@ void IoMesh::SetIoProperties() const {
     }
 }
 
-void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::shared_ptr<aperi::FieldManager> field_manager) {
+void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::vector<aperi::FieldData> field_data) {
     // Make sure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
     }
 
-    mp_field_manager = field_manager;
     mp_io_broker->use_simple_fields();
     m_input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();
 
+    // Get the meta data
+    stk::mesh::MetaData &meta_data = mp_io_broker->meta_data();
+
     // Add all parts to the meta data
     for (const std::string &part_name : part_names) {
-        stk::mesh::Part *part = &mp_io_broker->meta_data().declare_part(part_name, stk::topology::ELEMENT_RANK);
+        stk::mesh::Part *part = &meta_data.declare_part(part_name, stk::topology::ELEMENT_RANK);
         // Make sure the part exists in the mesh file. If not, throw an exception
         if (part->id() == stk::mesh::Part::INVALID_ID) {
             throw std::runtime_error("Part '" + part_name + "' does not exist in the mesh file.");
         }
     }
 
-    if (field_manager) {
-        field_manager->SetupFields(mp_io_broker->meta_data());
+    for (const FieldData &field : field_data) {
+        // Create the field
+        stk::mesh::FieldBase &vector_field = meta_data.declare_field<double>(stk::topology::NODE_RANK, field.name, field.number_of_states);
+
+        // Set the field properties
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(vector_field, 3, field.initial_values.data());
+        stk::io::set_field_output_type(vector_field, stk::io::FieldOutputType::VECTOR_3D);
+
+        // Set the field role to TRANSIENT
+        stk::io::set_field_role(vector_field, Ioss::Field::TRANSIENT);
     }
+
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
 
     mp_io_broker->populate_bulk_data();  // committing here

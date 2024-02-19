@@ -31,12 +31,6 @@ class SolverTest : public ApplicationTest {
         // Create an IO input file object and read the input file
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
 
-        // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-
-        // Create field manager
-        m_field_manager = CreateFieldManager(field_data);
-
         // Create an IO mesh object
         aperi::IoMeshParameters io_mesh_parameters;  // Default parameters
         io_mesh_parameters.compose_output = true;
@@ -51,8 +45,11 @@ class SolverTest : public ApplicationTest {
             part_names.push_back(part["set"].as<std::string>());
         }
 
+        // Get field data
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+
         // Read the mesh
-        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names, m_field_manager);
+        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names, field_data);
 
         // Create the field results file
         m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0));
@@ -119,7 +116,6 @@ class SolverTest : public ApplicationTest {
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
-    std::shared_ptr<aperi::FieldManager> m_field_manager;
     std::shared_ptr<aperi::Solver> m_solver;
     stk::mesh::Selector m_universal_selector;
 };

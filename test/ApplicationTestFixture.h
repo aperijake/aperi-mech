@@ -37,20 +37,20 @@ class ApplicationTest : public CaptureOutputTest {
     }
 
     // Write the test mesh to a file
-    void CreateTestMesh(const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr) {
+    void CreateTestMesh(const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {}) {
         // Write the mesh to a temporary file and check that it is written correctly
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
-        WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_manager);
+        WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_data);
     }
 
     // Write the test mesh to a file
-    void CreateTestMesh(const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr) {
+    void CreateTestMesh(const std::vector<aperi::FieldData>& field_data = {}) {
         // Make a 1x1x(num_procs*num_blocks) mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs * m_num_blocks) + m_mesh_sidesets + "|tets";
-        CreateTestMesh(mesh_string, field_manager);
+        CreateTestMesh(mesh_string, field_data);
     }
 
     void CreateInputFile() {

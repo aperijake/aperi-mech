@@ -24,13 +24,6 @@ void Application::Run(const std::string& input_filename) {
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
-    // Get field data
-    // STK QUESTION: Thoughts on how I am doing this.
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-
-    // Create field manager
-    m_field_manager = CreateFieldManager(field_data);
-
     // Create an IO mesh object
     // STK QUESTION: Most of IoMesh is from /stk/stk_io/example
     // STK QUESTION: Should that example be elsewhere in the repo?
@@ -48,8 +41,11 @@ void Application::Run(const std::string& input_filename) {
         part_names.push_back(part["set"].as<std::string>());
     }
 
+    // Get field data
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+
     // Read the mesh
-    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names, m_field_manager);
+    m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names, field_data);
 
     // Create the field results file
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));

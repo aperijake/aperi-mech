@@ -20,9 +20,6 @@ class BoundaryConditionTest : public ApplicationTest {
         m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-
-        // Create field manager
-        m_field_manager = CreateFieldManager(m_field_data);
     }
 
     void TearDown() override {
@@ -33,7 +30,7 @@ class BoundaryConditionTest : public ApplicationTest {
     // Add boundary conditions to field data
     void AddTestBoundaryConditions() {
         // Create a temporary mesh file
-        CreateTestMesh(m_field_manager);
+        CreateTestMesh(m_field_data);
 
         // Create an IO input file object and read the input file
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
@@ -212,7 +209,6 @@ class BoundaryConditionTest : public ApplicationTest {
 
     std::vector<aperi::FieldData> m_field_data;
     std::shared_ptr<aperi::IoInputFile> m_io_input_file;
-    std::shared_ptr<aperi::FieldManager> m_field_manager;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
 };
 
@@ -220,7 +216,7 @@ class BoundaryConditionTest : public ApplicationTest {
 TEST_F(BoundaryConditionTest, AddDisplacementBoundaryCondition) {
     m_yaml_data = CreateTestYaml();
     AddDisplacementBoundaryConditions(m_yaml_data);
-    CreateTestMesh(m_field_manager);
+    CreateTestMesh(m_field_data);
     CreateInputFile();
 
     // Add boundary conditions
@@ -234,7 +230,7 @@ TEST_F(BoundaryConditionTest, AddDisplacementBoundaryCondition) {
 TEST_F(BoundaryConditionTest, AddDisplacementBoundaryConditionComponents) {
     m_yaml_data = CreateTestYaml();
     AddDisplacementBoundaryConditionsComponents(m_yaml_data);
-    CreateTestMesh(m_field_manager);
+    CreateTestMesh(m_field_data);
     CreateInputFile();
 
     // Add boundary conditions
@@ -248,7 +244,7 @@ TEST_F(BoundaryConditionTest, AddDisplacementBoundaryConditionComponents) {
 TEST_F(BoundaryConditionTest, AddVelocityBoundaryCondition) {
     m_yaml_data = CreateTestYaml();
     AddVelocityBoundaryConditions(m_yaml_data);
-    CreateTestMesh(m_field_manager);
+    CreateTestMesh(m_field_data);
     CreateInputFile();
 
     // Add boundary conditions

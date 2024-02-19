@@ -26,9 +26,6 @@ class ElementTest : public ApplicationTest {
         m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
         m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-
-        // Create field manager
-        m_field_manager = CreateFieldManager(m_field_data);
     }
 
     // Create an element
@@ -92,13 +89,12 @@ class ElementTest : public ApplicationTest {
     }
 
     std::vector<aperi::FieldData> m_field_data;
-    std::shared_ptr<aperi::FieldManager> m_field_manager;
 };
 
 // Test shape functions for a tet4 element
 TEST_F(ElementTest, Tet4ShapeFunctions) {
     // Create a temporary mesh file, tet4 by default
-    CreateTestMesh(m_field_manager);
+    CreateTestMesh(m_field_data);
 
     // Create the tet4 element
     std::shared_ptr<aperi::Element> element = CreateElement();

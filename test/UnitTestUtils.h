@@ -7,7 +7,7 @@
 
 namespace aperi {
 class IoMesh;
-class FieldManager;
+class FieldData;
 }  // namespace aperi
 namespace stk {
 namespace mesh {
@@ -32,7 +32,7 @@ void AddDisplacementBoundaryConditions(YAML::Node& root);
 void AddDisplacementBoundaryConditionsComponents(YAML::Node& root);
 void AddVelocityBoundaryConditions(YAML::Node& root);
 void WriteTestFile(const std::string& filename);
-void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::shared_ptr<aperi::FieldManager>& field_manager = nullptr);
+void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>& expected_owned);
 void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values);
