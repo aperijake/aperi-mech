@@ -8,11 +8,6 @@
 #include "FieldData.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
-#include "stk_mesh/base/BulkData.hpp"
-#include "stk_mesh/base/CoordinateSystems.hpp"
-#include "stk_mesh/base/FieldBase.hpp"
-#include "stk_mesh/base/MetaData.hpp"
-#include "stk_topology/topology.hpp"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for Element tests
@@ -30,11 +25,6 @@ class ElementTest : public ApplicationTest {
 
     // Create an element
     std::shared_ptr<aperi::Element> CreateElement() {
-        // Get part and selector
-        stk::mesh::Part* p_part = &m_io_mesh->GetMetaData().declare_part("block_1", stk::topology::ELEMENT_RANK);
-        stk::mesh::Selector selector(*p_part);
-        EXPECT_FALSE(selector.is_empty(stk::topology::ELEMENT_RANK));
-
         // Create the element, tet4 by default (4 nodes)
         return aperi::CreateElement(4);
     }
@@ -226,25 +216,19 @@ class ElementPatchTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "force", expected_zero);
+        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero);
 
-        // Get selector for the first set
-        stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
-        stk::mesh::Selector set_selector_1(*p_set_part_1);
+        // Check the force on the first set
+        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force);
 
-        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "force", expected_force);
-
-        // Get selector for the second set
-        stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
-        stk::mesh::Selector set_selector_2(*p_set_part_2);
-
-        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "force", expected_force_negative);
+        // Check the force on the second set
+        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative);
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "mass", expected_mass);
+        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -256,11 +240,11 @@ class ElementPatchTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "displacement", expected_displacement_negative);
-        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "displacement", expected_displacement_positive);
-        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "velocity", expected_velocity_negative);
-        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "velocity", expected_velocity_positive);
-        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
+        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative);
+        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive);
+        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative);
+        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive);
+        CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_zero);
     }
 };
 

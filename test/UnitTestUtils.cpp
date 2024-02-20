@@ -332,12 +332,27 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
         EXPECT_TRUE(part != nullptr);
         parts.push_back(part);
     }
-    stk::mesh::Selector selector = stk::mesh::selectUnion(parts);
+    stk::mesh::Selector selector = set_names.size() ? stk::mesh::selectUnion(parts) : stk::mesh::Selector(meta_data.universal_part());
     CheckNodeFieldValues(bulk, selector, field_name, expected_values);
 }
 
 // Check that the sum of the nodal field values match the expected values
 void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    bool check_sum = true;
+    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
+}
+
+void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    const stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    const stk::mesh::MetaData& meta_data = bulk.mesh_meta_data();
+    // Create a selector for the sets
+    stk::mesh::PartVector parts;
+    for (const auto& set : set_names) {
+        stk::mesh::Part* part = meta_data.get_part(set);
+        EXPECT_TRUE(part != nullptr);
+        parts.push_back(part);
+    }
+    stk::mesh::Selector selector = set_names.size() ? stk::mesh::selectUnion(parts) : stk::mesh::Selector(meta_data.universal_part());
     bool check_sum = true;
     CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
 }
