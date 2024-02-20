@@ -96,9 +96,6 @@ class SolverTest : public ApplicationTest {
 
         //// Run solver
         m_solver->Solve();
-
-        // Get universal selector
-        m_universal_selector = m_io_mesh->GetMetaData().universal_part();
     }
 
     void TearDown() override {
@@ -116,5 +113,4 @@ class SolverTest : public ApplicationTest {
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
     std::shared_ptr<aperi::Solver> m_solver;
-    stk::mesh::Selector m_universal_selector;
 };
