@@ -7,6 +7,8 @@
 #include "FieldData.h"
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
+#include "MeshData.h"
+#include "NodeProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for BoundaryCondition tests
@@ -47,34 +49,22 @@ class BoundaryConditionTest : public ApplicationTest {
     }
 
     void UpdateNodalDisplacements(double time_increment) {
-        // Get the displacement and velocity fields
-        typedef stk::mesh::Field<double> DoubleField;
-        DoubleField *p_displacement_field = m_io_mesh->GetMetaData().get_field<double>(stk::topology::NODE_RANK, "displacement");
+        // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}A
 
-        DoubleField &displacement_field_n = p_displacement_field->field_of_state(stk::mesh::StateN);
-        DoubleField &displacement_field_np1 = p_displacement_field->field_of_state(stk::mesh::StateNP1);
+        // Field query data
+        std::vector<aperi::FieldQueryData> field_query_data_vec;
+        field_query_data_vec.push_back({"displacement", aperi::FieldQueryState::NP1});
+        field_query_data_vec.push_back({"displacement", aperi::FieldQueryState::N});
+        field_query_data_vec.push_back({"velocity", aperi::FieldQueryState::NP1});
 
-        DoubleField *p_velocity_field = m_io_mesh->GetMetaData().get_field<double>(stk::topology::NODE_RANK, "velocity");
-        DoubleField &velocity_field_np1 = p_velocity_field->field_of_state(stk::mesh::StateNP1);
+        // Create a node processor
+        aperi::NodeProcessor node_processor(field_query_data_vec, m_io_mesh->GetMeshData());
 
-        // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_io_mesh->GetBulkData().buckets(stk::topology::NODE_RANK)) {
-            // Get the field data for the bucket
-            double *displacement_data_n_for_bucket = stk::mesh::field_data(displacement_field_n, *bucket);
-
-            double *displacement_data_np1_for_bucket = stk::mesh::field_data(displacement_field_np1, *bucket);
-            double *velocity_data_np1_for_bucket = stk::mesh::field_data(velocity_field_np1, *bucket);
-
-            unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*p_displacement_field, *bucket);
-
-            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-                for (unsigned i = 0; i < num_values_per_node; i++) {
-                    int iI = i_node * num_values_per_node + i;
-                    displacement_data_np1_for_bucket[iI] = displacement_data_n_for_bucket[iI] + time_increment * velocity_data_np1_for_bucket[iI];
-                }
-            }
-        }
+        // Loop over each node then DOF and apply the function
+        node_processor.for_each_dof({time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
+            // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+            field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
+        });
     }
 
     void CheckBoundaryConditions(std::string bc_type) {
@@ -103,14 +93,14 @@ class BoundaryConditionTest : public ApplicationTest {
 
         // Initial time
         for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-            m_io_mesh->GetBulkData().update_field_data_states();
+            m_io_mesh->GetMeshData()->UpdateFieldDataStates();
             m_boundary_conditions[i]->ApplyVelocity(0);
         }
 
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
             for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-                m_io_mesh->GetBulkData().update_field_data_states();
+                m_io_mesh->GetMeshData()->UpdateFieldDataStates();
                 m_boundary_conditions[i]->ApplyVelocity(time);
             }
             UpdateNodalDisplacements(time_increment);
@@ -123,15 +113,6 @@ class BoundaryConditionTest : public ApplicationTest {
                 // Get the part and selector for the boundary condition
                 std::vector<std::string> sets = bc_node["sets"].as<std::vector<std::string>>();
                 EXPECT_TRUE(sets.size() > 0);
-
-                // Create a selector for the sets
-                stk::mesh::PartVector parts;
-                for (const auto &set : sets) {
-                    stk::mesh::Part *part = m_io_mesh->GetMetaData().get_part(set);
-                    EXPECT_TRUE(part != nullptr);
-                    parts.push_back(part);
-                }
-                stk::mesh::Selector parts_selector = stk::mesh::selectUnion(parts);
 
                 // Get the boundary condition magnitude
                 double magnitude = 0;
@@ -201,8 +182,8 @@ class BoundaryConditionTest : public ApplicationTest {
                 }
 
                 // Check the displacement and velocity values
-                CheckNodeFieldValues(m_io_mesh->GetBulkData(), parts_selector, "displacement", expected_displacement);
-                CheckNodeFieldValues(m_io_mesh->GetBulkData(), parts_selector, "velocity", expected_velocity);
+                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement);
+                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity);
             }
         }
     }
