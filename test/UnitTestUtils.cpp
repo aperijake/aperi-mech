@@ -227,7 +227,7 @@ void CleanUp(const std::filesystem::path& filePath) {
     }
 }
 
-void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<size_t>& expected_owned) {
+void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<int>& expected_owned) {
     constexpr unsigned k_num_ranks = static_cast<unsigned>(stk::topology::ELEM_RANK + 1);
     std::vector<size_t> global_counts(k_num_ranks, 0);
     std::vector<size_t> min_global_counts(k_num_ranks, 0);

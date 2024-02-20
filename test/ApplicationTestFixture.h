@@ -9,7 +9,6 @@
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 #include "mpi.h"
-#include "stk_util/parallel/Parallel.hpp"
 
 // Fixture for Application tests
 class ApplicationTest : public CaptureOutputTest {
@@ -20,7 +19,7 @@ class ApplicationTest : public CaptureOutputTest {
         m_comm = MPI_COMM_WORLD;
 
         // Get number of mpi processes
-        m_num_procs = stk::parallel_machine_size(m_comm);
+        MPI_Comm_size(m_comm, &m_num_procs);
 
         // Test file names
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
@@ -79,8 +78,8 @@ class ApplicationTest : public CaptureOutputTest {
     std::string m_mesh_filename;
     std::string m_results_filename;
     std::string m_mesh_sidesets;
-    stk::ParallelMachine m_comm;
+    MPI_Comm m_comm;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
-    size_t m_num_procs;
+    int m_num_procs;
     size_t m_num_blocks;
 };
