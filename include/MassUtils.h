@@ -12,8 +12,8 @@ class MeshData;
  *
  * This function calculates the mass matrix for a specified part in the mesh using the provided density.
  *
- * @param bulk_data The bulk data object representing the mesh.
- * @param part The part for which the mass matrix is computed.
+ * @param mesh_data The mesh data.
+ * @param part_name The name of the part for which to compute the mass matrix.
  * @param density The density used in the mass calculation.
  * @return The computed mass matrix.
  */

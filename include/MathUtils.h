@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <stdexcept>
@@ -21,6 +22,7 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 
 // Compute the volume of a tetrahedron
 double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
+double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet);
 
 // Get the magnitude of a vector
 template <typename T>

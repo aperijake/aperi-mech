@@ -91,6 +91,13 @@ class ElementProcessor {
         }
     }
 
+    // Get the sum of the field to scatter
+    double GetFieldToScatterSum() {
+        double field_to_scatter_sum = 0.0;
+        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_selector, m_bulk_data->parallel());
+        return field_to_scatter_sum;
+    }
+
    private:
     size_t m_num_nodes_per_element;                   ///< The number of nodes per element
     stk::mesh::BulkData *m_bulk_data;                 ///< The bulk data object.

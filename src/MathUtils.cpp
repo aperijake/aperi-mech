@@ -1,5 +1,6 @@
 #include "MathUtils.h"
 
+#include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <stdexcept>
@@ -50,6 +51,15 @@ double TetVolume(const std::array<std::array<double, 3>, 4> &tet) {
     std::array<double, 3> v3 = Subtract(tet[3], tet[0]);
 
     return std::abs(Dot(v1, Cross(v2, v3))) / 6.0;
+}
+
+// Compute the volume of a tetrahedron using Eigen
+double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
+    Eigen::Vector3d v1 = tet.row(1) - tet.row(0);
+    Eigen::Vector3d v2 = tet.row(2) - tet.row(0);
+    Eigen::Vector3d v3 = tet.row(3) - tet.row(0);
+
+    return std::abs(v1.dot(v2.cross(v3))) / 6.0;
 }
 
 }  // namespace aperi
