@@ -67,7 +67,7 @@ void Application::Run(const std::string& input_filename) {
     for (auto load : loads) {
         std::string name = load.begin()->first.as<std::string>();
         aperi::CoutP0() << "Adding load " << name << " to force contributions" << std::endl;
-        m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
+        m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMeshData()));
     }
 
     // Set initial conditions

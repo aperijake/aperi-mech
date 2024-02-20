@@ -69,7 +69,7 @@ class SolverTest : public ApplicationTest {
 
         // Loop over loads and add them to force contributions
         for (auto load : loads) {
-            m_external_force_contributions.push_back(aperi::CreateExternalForceContribution(load, m_io_mesh->GetMetaData()));
+            m_external_force_contributions.push_back(aperi::CreateExternalForceContribution(load, m_io_mesh->GetMeshData()));
         }
 
         // Set initial conditions
