@@ -11,7 +11,7 @@
 
 namespace aperi {
 
-InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name) : m_material(material), m_mesh_data(mesh_data) {
+InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name) : m_material(material), m_mesh_data(mesh_data), m_part_name(part_name) {
     // Get the bulk data and meta data
     m_bulk_data = m_mesh_data->GetBulkData();
     m_meta_data = &m_bulk_data->mesh_meta_data();

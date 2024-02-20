@@ -2,7 +2,6 @@
 
 #include <numeric>
 #include <stk_mesh/base/FieldBLAS.hpp>
-#include <stk_topology/topology.hpp>
 
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
@@ -12,6 +11,8 @@
 #include "LogUtils.h"
 #include "MassUtils.h"
 #include "Material.h"
+#include "MeshData.h"
+#include "NodeProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
 
@@ -103,8 +104,7 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, cons
 void ExplicitSolver::Solve() {
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        stk::mesh::Part *p_part = internal_force_contribution->GetPart();
-        ComputeMassMatrix(*bulk_data, p_part, internal_force_contribution->GetMaterial()->GetDensity());
+        ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
     }
 
     // Create node processors for each step of the time integration algorithm
@@ -141,7 +141,7 @@ void ExplicitSolver::Solve() {
         aperi::CoutP0() << "Starting Time Increment " << n << ". Time " << time << " to " << time + time_increment << std::endl;
 
         // Move state n+1 to state n
-        bulk_data->update_field_data_states();
+        mp_mesh_data->UpdateFieldDataStates();
 
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;

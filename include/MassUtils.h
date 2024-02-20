@@ -1,13 +1,11 @@
 #pragma once
 
-namespace stk {
-namespace mesh {
-class BulkData;
-class Part;
-}  // namespace mesh
-}  // namespace stk
+#include <memory>
+#include <string>
 
 namespace aperi {
+
+class MeshData;
 
 /**
  * @brief Computes the diagonal mass matrix for a given part in the mesh.
@@ -19,6 +17,6 @@ namespace aperi {
  * @param density The density used in the mass calculation.
  * @return The computed mass matrix.
  */
-double ComputeMassMatrix(const stk::mesh::BulkData& bulk_data, const stk::mesh::Part* part, double density);
+double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const std::string& part_name, double density);
 
 }  // namespace aperi

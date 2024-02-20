@@ -11,14 +11,20 @@
 
 #include "LogUtils.h"
 #include "MathUtils.h"
+#include "MeshData.h"
 
 namespace aperi {
 
 // Compute the diagonal mass matrix
-double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::Part *part, double density) {
+double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const std::string &part_name, double density) {
     typedef stk::mesh::Field<double> DoubleField;
+    stk::mesh::BulkData &bulk_data = *mesh_data->GetBulkData();
     const stk::mesh::MetaData &meta_data = bulk_data.mesh_meta_data();
-    stk::mesh::Selector part_selector(*part);
+
+    // Get the part
+    stk::mesh::Part *p_part = meta_data.get_part(part_name);
+
+    stk::mesh::Selector part_selector(*p_part);
     DoubleField *p_mass_field = meta_data.get_field<double>(stk::topology::NODE_RANK, "mass");
     DoubleField *p_coordinates_field = meta_data.get_field<double>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
@@ -57,7 +63,7 @@ double ComputeMassMatrix(const stk::mesh::BulkData &bulk_data, const stk::mesh::
     // Parallel sum
     double mass_sum_global = 0.0;
     stk::all_reduce_sum(bulk_data.parallel(), &mass_sum, &mass_sum_global, 1);
-    aperi::CoutP0() << "Total Mass for Part " << part->name() << ": " << mass_sum_global << std::endl;
+    aperi::CoutP0() << "Total Mass for Part " << p_part->name() << ": " << mass_sum_global << std::endl;
     return mass_sum_global;
 }
 

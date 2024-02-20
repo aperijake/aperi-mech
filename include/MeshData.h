@@ -14,6 +14,8 @@ class MeshData {
 
     stk::mesh::BulkData *GetBulkData() const { return m_bulk_data; }
 
+    void UpdateFieldDataStates() { m_bulk_data->update_field_data_states(); }
+
    private:
     stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
 };

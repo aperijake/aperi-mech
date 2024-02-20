@@ -46,6 +46,10 @@ class InternalForceContribution : public ForceContribution {
         return m_part;
     }
 
+    std::string GetPartName() const {
+        return m_part_name;
+    }
+
     /**
      * @brief Computes the internal forces.
      *
@@ -56,10 +60,11 @@ class InternalForceContribution : public ForceContribution {
 
    private:
     std::shared_ptr<Material> m_material;            ///< A shared pointer to the Material object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;    ///< The mesh data associated with the force contribution.
+    std::string m_part_name;                         ///< The name of the part associated with the force contribution.
     stk::mesh::Part *m_part;                         ///< A pointer to the stk::mesh::Part object.
     stk::mesh::BulkData *m_bulk_data;                ///< The bulk data associated with the force contribution.
     stk::mesh::MetaData *m_meta_data;                ///< The meta data associated with the force contribution.
-    std::shared_ptr<aperi::MeshData> m_mesh_data;    ///< The mesh data associated with the force contribution.
     stk::mesh::Selector m_selector;                  ///< The selector associated with the force contribution. (TODO(jake): Move to base class?))
     std::shared_ptr<aperi::Element> m_element;       ///< The element associated with the force contribution.
     stk::mesh::Field<double> *m_coordinates_field;   ///< The coordinates field associated with the force contribution.
