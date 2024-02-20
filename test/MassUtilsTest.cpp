@@ -7,11 +7,6 @@
 #include "FieldData.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
-#include "stk_mesh/base/BulkData.hpp"
-#include "stk_mesh/base/Field.hpp"
-#include "stk_mesh/base/MetaData.hpp"
-#include "stk_topology/topology.hpp"
-#include "stk_util/parallel/Parallel.hpp"
 
 // Fixture for mass matrix tests
 class MassMatrixTest : public CaptureOutputTest {
@@ -33,7 +28,7 @@ class MassMatrixTest : public CaptureOutputTest {
         m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
 
         // Get number of mpi processes
-        m_num_procs = stk::parallel_machine_size(m_comm);
+        MPI_Comm_size(MPI_COMM_WORLD, &m_num_procs);
 
         // Create FieldData
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
@@ -53,8 +48,8 @@ class MassMatrixTest : public CaptureOutputTest {
 
     std::string m_mesh_filename;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
-    stk::ParallelMachine m_comm;
-    size_t m_num_procs;
+    MPI_Comm m_comm;
+    int m_num_procs;
 };
 
 // Test ComputeMassMatrix
