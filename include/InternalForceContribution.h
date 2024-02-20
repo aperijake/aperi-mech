@@ -8,6 +8,7 @@
 #include "Element.h"
 #include "ForceContribution.h"
 #include "Material.h"
+#include "MeshData.h"
 
 namespace aperi {
 
@@ -25,7 +26,7 @@ class InternalForceContribution : public ForceContribution {
      * @param material A shared pointer to the Material object associated with the force contribution.
      * @param part A pointer to the stk::mesh::Part object associated with the force contribution.
      */
-    InternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part);
+    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name);
 
     /**
      * @brief Gets the Material object associated with the force contribution.
@@ -58,6 +59,7 @@ class InternalForceContribution : public ForceContribution {
     stk::mesh::Part *m_part;                         ///< A pointer to the stk::mesh::Part object.
     stk::mesh::BulkData *m_bulk_data;                ///< The bulk data associated with the force contribution.
     stk::mesh::MetaData *m_meta_data;                ///< The meta data associated with the force contribution.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;    ///< The mesh data associated with the force contribution.
     stk::mesh::Selector m_selector;                  ///< The selector associated with the force contribution. (TODO(jake): Move to base class?))
     std::shared_ptr<aperi::Element> m_element;       ///< The element associated with the force contribution.
     stk::mesh::Field<double> *m_coordinates_field;   ///< The coordinates field associated with the force contribution.
@@ -76,8 +78,8 @@ class InternalForceContribution : public ForceContribution {
  * @param part A pointer to the stk::mesh::Part object.
  * @return A shared pointer to the created InternalForceContribution object.
  */
-inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, stk::mesh::Part *part) {
-    return std::make_shared<InternalForceContribution>(material, part);
+inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name) {
+    return std::make_shared<InternalForceContribution>(material, mesh_data, part_name);
 }
 
 }  // namespace aperi

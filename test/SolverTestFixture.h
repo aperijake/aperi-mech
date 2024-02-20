@@ -60,8 +60,7 @@ class SolverTest : public ApplicationTest {
             std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
             std::string part_location = part["set"].as<std::string>();
             std::cout << "Adding part " << part_location << " to force contributions" << std::endl;
-            stk::mesh::Part* stk_part = m_io_mesh->GetMetaData().get_part(part_location);
-            m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
+            m_internal_force_contributions.push_back(CreateInternalForceContribution(material, m_io_mesh->GetMeshData(), part_location));
         }
 
         // Get loads

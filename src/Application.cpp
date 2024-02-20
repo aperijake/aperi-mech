@@ -25,9 +25,6 @@ void Application::Run(const std::string& input_filename) {
     m_io_input_file = CreateIoInputFile(input_filename);
 
     // Create an IO mesh object
-    // STK QUESTION: Most of IoMesh is from /stk/stk_io/example
-    // STK QUESTION: Should that example be elsewhere in the repo?
-    // STK QUESTION: Is this the best way to do this?
     IoMeshParameters io_mesh_parameters;  // Default parameters
     io_mesh_parameters.compose_output = true;
     m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
@@ -56,8 +53,7 @@ void Application::Run(const std::string& input_filename) {
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
         std::string part_location = part["set"].as<std::string>();
         aperi::CoutP0() << "Adding part " << part_location << " to force contributions" << std::endl;
-        stk::mesh::Part* stk_part = m_io_mesh->GetMetaData().get_part(part_location);
-        m_internal_force_contributions.push_back(CreateInternalForceContribution(material, stk_part));
+        m_internal_force_contributions.push_back(CreateInternalForceContribution(material, m_io_mesh->GetMeshData(), part_location));
     }
 
     // Get loads
