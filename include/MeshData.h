@@ -16,6 +16,17 @@ class MeshData {
 
     void UpdateFieldDataStates() { m_bulk_data->update_field_data_states(); }
 
+    std::string GetCoordinatesFieldName() const { return m_bulk_data->mesh_meta_data().coordinate_field_name(); }
+
+    size_t GetNumNodesPerElement(std::string part_name) const {
+        stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
+        if (part == nullptr) {
+            throw std::runtime_error("Part " + part_name + " not found.");
+        }
+        stk::topology topology = part->topology();
+        return topology.num_nodes();
+    }
+
    private:
     stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
 };

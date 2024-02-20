@@ -29,6 +29,7 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const
     DoubleField *p_coordinates_field = meta_data.get_field<double>(stk::topology::NODE_RANK, meta_data.coordinate_field_name());
 
     double mass_sum = 0.0;
+    std::array<std::array<double, 3>, 4> coordinates;
     // Loop over all the buckets
     for (stk::mesh::Bucket *bucket : part_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
         bool owned = bucket->owned();
@@ -41,7 +42,6 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const
             const stk::mesh::Entity *elem_nodes = bulk_data.begin_nodes(elem);
 
             // Coordinates of the element nodes
-            std::array<std::array<double, 3>, 4> coordinates;
             for (unsigned i = 0; i < num_nodes; ++i) {
                 stk::mesh::Entity node = elem_nodes[i];
                 double *coordinate_values = stk::mesh::field_data(*p_coordinates_field, node);

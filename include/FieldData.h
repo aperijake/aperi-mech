@@ -25,6 +25,23 @@ struct FieldData {
 };
 
 /**
+ * @enum FieldQueryState
+ * @brief Enum for field query states.
+ */
+enum class FieldQueryState { None,
+                             N,
+                             NP1 };
+
+/**
+ * @struct FieldQueryData
+ * @brief Represents the data of a field query.
+ */
+struct FieldQueryData {
+    std::string name;       // The name of the field.
+    FieldQueryState state;  // The state of the field.
+};
+
+/**
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */

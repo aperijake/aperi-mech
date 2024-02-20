@@ -7,19 +7,11 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <vector>
 
+#include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
 
 namespace aperi {
-
-enum class FieldQueryState { None,
-                             N,
-                             NP1 };
-
-struct FieldQueryData {
-    std::string name;       // The name of the field.
-    FieldQueryState state;  // The state of the field.
-};
 
 inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
     stk::mesh::Field<double> *field = meta_data->get_field<double>(stk::topology::NODE_RANK, field_query_data.name);
