@@ -1,10 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/MetaData.hpp>
-#include <stk_topology/topology.hpp>
 #include <vector>
 
 #include "IoMesh.h"
@@ -39,8 +35,6 @@ class Solver {
      */
     Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
-        meta_data = &m_io_mesh->GetMetaData();
-        bulk_data = &m_io_mesh->GetBulkData();
         mp_mesh_data = m_io_mesh->GetMeshData();
     }
 
@@ -57,10 +51,10 @@ class Solver {
     virtual void Solve() = 0;
 
     /**
-     * @brief Get the bulk data object.
-     * @return A pointer to the bulk data object.
+     * @brief Get the mesh data object.
+     * @return A shared pointer to the mesh data object.
      */
-    stk::mesh::BulkData *GetBulkData() { return bulk_data; }
+    std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
 
    protected:
     /**
@@ -76,8 +70,6 @@ class Solver {
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
     std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
-    stk::mesh::MetaData *meta_data;                                                                 ///< The meta data object.
-    stk::mesh::BulkData *bulk_data;                                                                 ///< The bulk data object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
 };
 
@@ -89,8 +81,6 @@ class Solver {
  * It takes in various force contributions and a time stepper to advance the simulation over time.
  */
 class ExplicitSolver : public Solver {
-    typedef stk::mesh::Field<double> DoubleField;
-
    public:
     /**
      * @brief Constructs an ExplicitSolver object.
@@ -103,11 +93,17 @@ class ExplicitSolver : public Solver {
      */
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
-        // Get the force field
-        force_field = meta_data->get_field<double>(stk::topology::NODE_RANK, "force");
+        // Set the force node processor for zeroing the force field
+        m_node_processor_force = CreateNodeProcessorForce();
     }
 
     ~ExplicitSolver() {}
+
+    // Create a node processor for force
+    std::shared_ptr<NodeProcessor> CreateNodeProcessorForce() {
+        std::vector<FieldQueryData> field_query_data_vec = {{"force", FieldQueryState::NP1}};
+        return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
+    }
 
     // Create a node processor for the first partial update
     std::shared_ptr<NodeProcessor> CreateNodeProcessorFirstUpdate() {
@@ -201,20 +197,7 @@ class ExplicitSolver : public Solver {
      */
     void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor> &node_processor_update_nodal_displacements);
 
-    DoubleField *displacement_field;  ///< Pointer to the displacement field.
-    DoubleField *velocity_field;      ///< Pointer to the velocity field.
-    DoubleField *acceleration_field;  ///< Pointer to the acceleration field.
-    DoubleField *force_field;         ///< Pointer to the force field.
-    DoubleField *mass_field;          ///< Pointer to the mass field.
-    DoubleField *displacement_field_n;
-    DoubleField *displacement_field_np1;
-    DoubleField *velocity_field_n;
-    DoubleField *velocity_field_np1;
-    DoubleField *acceleration_field_n;
-    DoubleField *acceleration_field_np1;
-    DoubleField *force_field_np1;
-    DoubleField *mass_field_n;
-    std::shared_ptr<NodeProcessor> m_node_processor_first_update;
+    std::shared_ptr<NodeProcessor> m_node_processor_force;
 };
 
 /**

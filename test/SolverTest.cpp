@@ -25,9 +25,9 @@ TEST_F(SolverTest, Explicit) {
     EXPECT_GT(std::abs(magnitude), 0);
     EXPECT_GT((direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]), 0);
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
 }
 
 // Driver function for gravity tests
@@ -48,16 +48,16 @@ void TestGravity(const YAML::Node& yaml_data, std::shared_ptr<aperi::Solver> sol
         expected_displacement[i] += 0.5 * expected_acceleration[i] * final_time * final_time;
     }
 
-    stk::mesh::Selector selector = solver->GetBulkData()->mesh_meta_data().universal_part();
+    stk::mesh::Selector selector = solver->GetMeshData()->GetBulkData()->mesh_meta_data().universal_part();
 
-    CheckNodeFieldValues(*solver->GetBulkData(), selector, "displacement", expected_displacement);
-    CheckNodeFieldValues(*solver->GetBulkData(), selector, "velocity", expected_velocity);
-    CheckNodeFieldValues(*solver->GetBulkData(), selector, "acceleration", expected_acceleration);
+    CheckNodeFieldValues(*solver->GetMeshData()->GetBulkData(), selector, "displacement", expected_displacement);
+    CheckNodeFieldValues(*solver->GetMeshData()->GetBulkData(), selector, "velocity", expected_velocity);
+    CheckNodeFieldValues(*solver->GetMeshData()->GetBulkData(), selector, "acceleration", expected_acceleration);
 
     double density = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
     double mass = density * num_procs * num_blocks;  // 1x1x(num_procs * num_blocks) mesh
     std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckNodeFieldSum(*solver->GetBulkData(), selector, "mass", expected_mass);
+    CheckNodeFieldSum(*solver->GetMeshData()->GetBulkData(), selector, "mass", expected_mass);
 }
 
 // Test that a basic explicit problem with gravity can be solved
@@ -120,9 +120,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditions) {
     std::array<double, 3> expected_velocity = {expected_displacement[0] / final_time, expected_displacement[1] / final_time, expected_displacement[2] / final_time};
     std::array<double, 3> expected_acceleration = {0, 0, 0};
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
 }
 
 // Test that a basic explicit problem with two boundary conditions can be solved
@@ -165,9 +165,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
     stk::mesh::Selector set_selector_1(*p_set_part_1);
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_displacement_1);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_velocity_1);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "acceleration", expected_acceleration_1);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "displacement", expected_displacement_1);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "velocity", expected_velocity_1);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "acceleration", expected_acceleration_1);
 
     // Check the boundary conditions for the second set
     double magnitude_2 = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>();
@@ -180,9 +180,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
     stk::mesh::Selector set_selector_2(*p_set_part_2);
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement_2);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity_2);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "acceleration", expected_acceleration_2);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "displacement", expected_displacement_2);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "velocity", expected_velocity_2);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "acceleration", expected_acceleration_2);
 }
 
 // Test that a basic explicit problem with a velocity boundary condition can be solved
@@ -216,9 +216,9 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     }
     std::array<double, 3> expected_acceleration = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
 
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "displacement", expected_displacement);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "velocity", expected_velocity);
+    CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "acceleration", expected_acceleration);
 }
 
 // Test a large, square cross section, taylor impact test

@@ -226,25 +226,25 @@ class ElementPatchTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "force", expected_zero);
+        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "force", expected_zero);
 
         // Get selector for the first set
         stk::mesh::Part* p_set_part_1 = m_io_mesh->GetMetaData().get_part("surface_1");
         stk::mesh::Selector set_selector_1(*p_set_part_1);
 
-        CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_1, "force", expected_force);
+        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "force", expected_force);
 
         // Get selector for the second set
         stk::mesh::Part* p_set_part_2 = m_io_mesh->GetMetaData().get_part("surface_2");
         stk::mesh::Selector set_selector_2(*p_set_part_2);
 
-        CheckNodeFieldSum(*m_solver->GetBulkData(), set_selector_2, "force", expected_force_negative);
+        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "force", expected_force_negative);
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetBulkData(), m_universal_selector, "mass", expected_mass);
+        CheckNodeFieldSum(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "mass", expected_mass);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -256,11 +256,11 @@ class ElementPatchTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "displacement", expected_displacement_negative);
-        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "displacement", expected_displacement_positive);
-        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_1, "velocity", expected_velocity_negative);
-        CheckNodeFieldValues(*m_solver->GetBulkData(), set_selector_2, "velocity", expected_velocity_positive);
-        CheckNodeFieldValues(*m_solver->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
+        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "displacement", expected_displacement_negative);
+        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "displacement", expected_displacement_positive);
+        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_1, "velocity", expected_velocity_negative);
+        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), set_selector_2, "velocity", expected_velocity_positive);
+        CheckNodeFieldValues(*m_solver->GetMeshData()->GetBulkData(), m_universal_selector, "acceleration", expected_zero);
     }
 };
 

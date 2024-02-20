@@ -3,6 +3,7 @@
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <vector>
 
@@ -112,8 +113,13 @@ class NodeProcessor {
     }
 
     // Parallel communication for a single field
-    void communicate_field_data(int field_index) {
+    void CommunicateFieldData(int field_index) {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_fields[field_index]});
+    }
+
+    // Fill the field with a value
+    void FillField(double value, size_t field_index) {
+        stk::mesh::field_fill(value, *m_fields[field_index]);
     }
 
    private:

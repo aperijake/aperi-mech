@@ -1,7 +1,6 @@
 #include "Solver.h"
 
 #include <numeric>
-#include <stk_mesh/base/FieldBLAS.hpp>
 
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
@@ -47,7 +46,7 @@ Reference:
 
 void ExplicitSolver::ComputeForce() {
     // Set the force field to zero
-    stk::mesh::field_fill(0.0, *force_field);
+    m_node_processor_force->FillField(0.0, 0);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -88,7 +87,7 @@ void ExplicitSolver::UpdateDisplacements(double time_increment, const std::share
         field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
     });
     // Parallel communication
-    node_processor_update_displacements->communicate_field_data(0);
+    node_processor_update_displacements->CommunicateFieldData(0);
 }
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_second_update) {
