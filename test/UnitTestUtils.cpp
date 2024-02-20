@@ -212,7 +212,7 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     // Generate a mesh
     io_mesh.ReadMesh(mesh_string, {"block_1"}, field_data);
     // std::vector<size_t> expected_owned = {8, 0, 0, 1};
-    // CheckMeshCounts(io_mesh.GetBulkData(), expected_owned);
+    // CheckMeshCounts(*io_mesh.GetMeshData(), expected_owned);
 
     // Write the generated mesh
     io_mesh.CreateFieldResultsFile(filename);
@@ -229,7 +229,8 @@ void CleanUp(const std::filesystem::path& filePath) {
     }
 }
 
-void CheckMeshCounts(const stk::mesh::BulkData& bulk, const std::vector<int>& expected_owned) {
+void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& expected_owned) {
+    const stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
     constexpr unsigned k_num_ranks = static_cast<unsigned>(stk::topology::ELEM_RANK + 1);
     std::vector<size_t> global_counts(k_num_ranks, 0);
     std::vector<size_t> min_global_counts(k_num_ranks, 0);

@@ -24,7 +24,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
     std::vector<int> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs * 6};  // tet4
     io_mesh_read.ReadMesh(m_results_filename, {"block_1"});
-    CheckMeshCounts(io_mesh_read.GetBulkData(), expected_owned);
+    CheckMeshCounts(*io_mesh_read.GetMeshData(), expected_owned);
 }
 
 // Test Run function with invalid input file
