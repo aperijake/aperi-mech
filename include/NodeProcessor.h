@@ -86,7 +86,6 @@ class NodeProcessor {
 
     // Loop over each node and apply the function
     void for_each_node(const std::vector<double> &data, const std::vector<std::pair<size_t, double>> &components_and_values, void (*func)(size_t iI, const std::vector<double> &data, const std::vector<std::pair<size_t, double>> &component_and_value, std::vector<double *> &field_data)) const {
-        // void for_each_node(const std::vector<double> &data, const std::vector<std::pair<size_t, double>>& components_and_values, void (*func)(size_t iI, const std::vector<double> &data, const std::vector<std::pair<size_t, double>>& component_and_value, std::vector<double *> &field_data)) const {
         size_t num_values_per_node = 3;                     // Number of values per node
         std::vector<double *> field_data(m_fields.size());  // Array to hold field data
 
@@ -104,14 +103,49 @@ class NodeProcessor {
         }
     }
 
+    template <typename Func>
+    void for_each_node(const Func &func, const stk::mesh::Selector &selector) const {
+        size_t num_values_per_node = 3;                     // Number of values per node
+        std::vector<double *> field_data(m_fields.size());  // Array to hold field data
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
+                field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
+            }
+            // Loop over each node in the bucket
+            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                size_t i_dof_start = i_node * num_values_per_node;  // Index into the field data
+                func(i_dof_start, field_data);                      // Call the function
+            }
+        }
+    }
+
+    template <typename Func>
+    void for_each_node(const Func &func) const {
+        for_each_node(func, m_selector);
+    }
+
+    template <typename Func>
+    void for_each_owned_node(const Func &func) const {
+        for_each_node(func, m_selector & m_bulk_data->mesh_meta_data().locally_owned_part());
+    }
+
     // Parallel communication for a single field
-    void CommunicateFieldData(int field_index) {
+    void CommunicateFieldData(int field_index) const {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_fields[field_index]});
     }
 
     // Fill the field with a value
     void FillField(double value, size_t field_index) {
         stk::mesh::field_fill(value, *m_fields[field_index]);
+    }
+
+    // Get the sum of the field to scatter
+    double GetFieldSum(int field_index) const {
+        double field_sum = 0.0;
+        stk::mesh::field_asum(field_sum, *m_fields[field_index], m_selector, m_bulk_data->parallel());
+        return field_sum;
     }
 
    private:

@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_topology/topology.hpp>
@@ -255,105 +254,55 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& e
 }
 
 // Check that the nodal field values match the expected values
-// Checks either individual values or the sum of the values, depending on the check_sum flag
-// For checking individual values, expects a uniform field, values for every node are the same
-void CheckFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values, bool check_sum = false) {
-    double absolute_tolerance = 1e-12;
-    double relative_tolerance = 1e-12;
-    typedef stk::mesh::Field<double> DoubleField;
-    // Get the field
-    DoubleField* p_field = bulk.mesh_meta_data().get_field<double>(stk::topology::NODE_RANK, field_name);
-    EXPECT_TRUE(p_field != nullptr) << "Field " << field_name << " not found";
-
-    // Get the field data
-    DoubleField* p_field_n = p_field;
-    if (field_name != "mass") {  // mass is not stated
-        p_field_n = &p_field->field_of_state(stk::mesh::StateN);
-    }
-
-    // Sum of the values
-    std::array<double, 3> sum_values = {0.0, 0.0, 0.0};
-
-    bool found = false;  // Prevents false positive if no nodes are found
-    // Loop over all the buckets
-    for (stk::mesh::Bucket* bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
-        bool owned = bucket->owned();
-        // Get the field data for the bucket
-        double* p_field_data_n_for_bucket = stk::mesh::field_data(*p_field_n, *bucket);
-
-        unsigned num_values_per_node = stk::mesh::field_scalars_per_entity(*p_field, *bucket);
-        EXPECT_EQ(num_values_per_node, 3);
-
-        for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-            found = true;
-            for (unsigned i = 0; i < num_values_per_node; i++) {
-                int iI = i_node * num_values_per_node + i;
-                if (owned) {
-                    sum_values[i] += p_field_data_n_for_bucket[iI];
-                }
-                if (!check_sum) {  // Check individual values
-                    if (std::abs(expected_values[i]) < 1.0e-12) {
-                        EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], absolute_tolerance) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
-                    } else {
-                        EXPECT_NEAR(p_field_data_n_for_bucket[iI], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node << " dof " << i << " is incorrect";
-                    }
-                }
-            }
-        }
-    }
-    EXPECT_TRUE(found) << "No nodes found for field " << field_name;
-
-    if (check_sum) {  // Check the sum of the values
-        std::array<double, 3> sum_values_global = {0.0, 0.0, 0.0};
-        stk::all_reduce_sum(bulk.parallel(), sum_values.data(), sum_values_global.data(), 3);
-        for (unsigned i = 0; i < 3; i++) {
-            if (std::abs(expected_values[i]) < 1.0e-12) {
-                EXPECT_NEAR(sum_values_global[i], expected_values[i], absolute_tolerance) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
-            } else {
-                EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(relative_tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
-            }
-        }
-    }
-}
-
-// Check that the nodal field values match the expected values
 // Expects a uniform field, values for every node are the same
-void CheckNodeFieldValues(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values) {
-    bool check_sum = false;
-    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
-}
-
 void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
-    const stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
-    const stk::mesh::MetaData& meta_data = bulk.mesh_meta_data();
-    // Create a selector for the sets
-    stk::mesh::PartVector parts;
-    for (const auto& set : set_names) {
-        stk::mesh::Part* part = meta_data.get_part(set);
-        EXPECT_TRUE(part != nullptr);
-        parts.push_back(part);
-    }
-    stk::mesh::Selector selector = set_names.size() ? stk::mesh::selectUnion(parts) : stk::mesh::Selector(meta_data.universal_part());
-    CheckNodeFieldValues(bulk, selector, field_name, expected_values);
+    // Field Query Data
+    aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
+    std::vector<aperi::FieldQueryData> field_query_data = {{field_name, field_query_state}};
+
+    // Make a node processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::NodeProcessor node_processor(field_query_data, mesh_data_ptr, set_names);
+
+    // Get the sum of the field values
+    node_processor.for_each_node([&](size_t i_node_start, std::vector<double*>& field_data) {
+        for (size_t i = 0; i < 3; i++) {
+            if (std::abs(expected_values[i]) < 1.0e-12) {
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+            } else {
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], std::abs(1.0e-12 * expected_values[i])) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+            }
+        }
+    });
 }
 
 // Check that the sum of the nodal field values match the expected values
-void CheckNodeFieldSum(const stk::mesh::BulkData& bulk, const stk::mesh::Selector& selector, const std::string& field_name, const std::array<double, 3>& expected_values) {
-    bool check_sum = true;
-    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
-}
-
 void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
-    const stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
-    const stk::mesh::MetaData& meta_data = bulk.mesh_meta_data();
-    // Create a selector for the sets
-    stk::mesh::PartVector parts;
-    for (const auto& set : set_names) {
-        stk::mesh::Part* part = meta_data.get_part(set);
-        EXPECT_TRUE(part != nullptr);
-        parts.push_back(part);
+    // Field Query Data
+    aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
+    std::vector<aperi::FieldQueryData> field_query_data = {{field_name, field_query_state}};
+
+    // Make a node processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::NodeProcessor node_processor(field_query_data, mesh_data_ptr, set_names);
+
+    // Get the sum of the field values
+    std::array<double, 3> sum_values_local = {0.0, 0.0, 0.0};
+    node_processor.for_each_owned_node([&](size_t i_node_start, std::vector<double*>& field_data) {
+        for (size_t i = 0; i < 3; i++) {
+            sum_values_local[i] += field_data[0][i_node_start + i];
+        }
+    });
+
+    // Parallel sum
+    std::array<double, 3> sum_values_global = {0.0, 0.0, 0.0};
+    MPI_Allreduce(sum_values_local.data(), sum_values_global.data(), 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    for (size_t i = 0; i < 3; i++) {
+        if (std::abs(expected_values[i]) < 1.0e-12) {
+            EXPECT_NEAR(sum_values_global[i], expected_values[i], 1.0e-12) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
+        } else {
+            EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(1.0e-12 * expected_values[i])) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
+        }
     }
-    stk::mesh::Selector selector = set_names.size() ? stk::mesh::selectUnion(parts) : stk::mesh::Selector(meta_data.universal_part());
-    bool check_sum = true;
-    CheckFieldValues(bulk, selector, field_name, expected_values, check_sum);
 }
