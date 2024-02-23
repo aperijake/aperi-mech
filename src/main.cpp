@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <yaml-cpp/yaml.h>
 
 #include <iostream>
 
