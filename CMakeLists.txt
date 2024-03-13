@@ -50,7 +50,42 @@ ENDIF()
 
 project(aperi-mech)
 
-### yaml-cpp ###
+### MFEM ###
+MESSAGE("   MFEM_PATH = ${MFEM_PATH}")
+
+# Find the MFEM include directory
+find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include)
+if(NOT MFEM_INCLUDE_DIR)
+    message(FATAL_ERROR "Could not find the MFEM include directory")
+endif()
+
+# Find the MFEM library
+find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib)
+if(NOT MFEM_LIBRARY)
+    message(FATAL_ERROR "Could not find the MFEM library")
+endif()
+
+# Add the MFEM include directory to the include paths
+include_directories(${MFEM_INCLUDE_DIR})
+
+### HYPER ###
+MESSAGE("   HYPER_PATH = ${HYPER_PATH}")
+
+# Find the HYPRE include directory
+find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
+if(NOT HYPRE_INCLUDE_DIR)
+    message(FATAL_ERROR "Could not find the HYPRE include directory")
+endif()
+
+# Find the HYPRE library
+find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib)
+if(NOT HYPRE_LIBRARY)
+    message(FATAL_ERROR "Could not find the HYPRE library")
+endif()
+
+# Add the HYPRE include directory to the include paths
+include_directories(${HYPRE_INCLUDE_DIR})
+
 MESSAGE("   YAML-CPP_PATH = ${YAML-CPP_PATH}")
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
 
@@ -84,6 +119,7 @@ set_property( TARGET libaperi-mech PROPERTY CXX_STANDARD_REQUIRED ON )
 
 target_link_libraries(libaperi-mech
             yaml-cpp
+            ${MFEM_LIBRARY}
             Eigen3::Eigen
 			${Trilinos_LIBRARIES}
 			${Trilinos_TPL_LIBRARIES}
