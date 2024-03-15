@@ -4,6 +4,7 @@
 BUILD_TYPE="Release"
 CODE_COVERAGE=false
 XCODE=false
+GPU=false
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
@@ -25,6 +26,11 @@ while [[ $# -gt 0 ]]; do
 		echo "Requested Xcode project generation."
 		shift
 		;;
+	-g | --gpu)
+		GPU=true
+		echo "Requested GPU support."
+		shift
+		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -32,12 +38,21 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-# Activate Spack environment
-eval $(spack env activate --sh aperi-mech)
+if ${GPU}; then
+	# Activate Spack environment
+	eval $(spack env activate --sh aperi-mech-gpu)
 
-# Create build directory
-mkdir -p ../aperi-mech_build
-cd ../aperi-mech_build || exit
+	# Create build directory
+	mkdir -p ../aperi-mech_build_gpu
+	cd ../aperi-mech_build_gpu || exit
+else
+	# Activate Spack environment
+	eval $(spack env activate --sh aperi-mech)
+
+	# Create build directory
+	mkdir -p ../aperi-mech_build
+	cd ../aperi-mech_build || exit
+fi
 
 # Remove CMakeCache if it exists
 rm -f CMakeCache.txt
