@@ -33,15 +33,21 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Build directory base
+BUILD_DIR="../aperi-mech_build/"
+
+# Append to build directory based on build type
+BUILD_DIR+="${BUILD_TYPE}"
+
 # Set build directory and Spack environment based on GPU option
-BUILD_DIR="../aperi-mech_build"
 if ${GPU}; then
-	BUILD_DIR="../aperi-mech_build_gpu"
+	BUILD_DIR+="_gpu"
 	spack env activate aperi-mech-gpu
 else
-	BUILD_DIR="../aperi-mech_build"
 	spack env activate aperi-mech
 fi
+
+[[ ${CODE_COVERAGE} == true ]] && BUILD_DIR+="_cov"
 
 # Create build directory
 mkdir -p "${BUILD_DIR}"
@@ -93,7 +99,7 @@ cmake_command+=" -D CMAKE_C_COMPILER:FILEPATH=${kokkos_c_path}"
 cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
 
 # Add the path to the stk_ngp_basic source code
-cmake_command+=" ../aperi-mech"
+cmake_command+=" ../../aperi-mech"
 
 # Print and execute the cmake command
 echo "CMake Command: ${cmake_command}"

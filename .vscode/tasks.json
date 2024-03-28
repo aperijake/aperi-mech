@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build && make"
+        "spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build/Release && make"
       ],
       "group": {
         "kind": "build",
@@ -20,7 +20,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build_gpu && make"
+        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build/Release_gpu && make"
       ],
       "group": {
         "kind": "build",
@@ -33,7 +33,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --build-type Debug && cd ../aperi-mech_build && make"
+        "spack env activate aperi-mech && ./do_configure --build-type Debug && cd ../aperi-mech_build/Debug && make"
       ],
       "group": {
         "kind": "build",
@@ -46,7 +46,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd ../aperi-mech_build_gpu && make"
+        "spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd ../aperi-mech_build/Debug_gpu && make"
       ],
       "group": {
         "kind": "build",
@@ -59,7 +59,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd ../aperi-mech_build && make"
+        "spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd ../aperi-mech_build/RelWithDebInfo && make"
       ],
       "group": {
         "kind": "build",
@@ -72,7 +72,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --code-coverage && cd ../aperi-mech_build && make coverage"
+        "spack env activate aperi-mech && ./do_configure --code-coverage && cd ../aperi-mech_build/Debug_cov && make coverage"
       ],
       "group": {
         "kind": "build",

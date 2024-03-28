@@ -5,7 +5,7 @@
       "name": "Release",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech",
+      "program": "${workspaceFolder}/../aperi-mech_build/Release/aperi-mech",
       "args": ["input.yaml"],
       "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make"
@@ -14,26 +14,26 @@
       "name": "Release Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/unit_tests",
+      "program": "${workspaceFolder}/../aperi-mech_build/Release/unit_tests",
       "args": [],
       //"args": ["--gtest_filter=Benchmar*"],
-      "cwd": "${workspaceFolder}/../aperi-mech_build",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Release",
       "preLaunchTask": "make"
     },
     {
       "name": "Release Test GPU",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build_gpu/unit_tests",
+      "program": "${workspaceFolder}/../aperi-mech_build/Release_gpu/unit_tests",
       "args": [],
-      "cwd": "${workspaceFolder}/../aperi-mech_build_gpu",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Release_gpu",
       "preLaunchTask": "make_gpu"
     },
     {
       "name": "ReleaseWithDebugInfo",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_relwithdebinfo",
+      "program": "${workspaceFolder}/../aperi-mech_build/RelWithDebInfo/aperi-mech",
       "args": ["input.yaml"],
       "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make_relwithdebinfo"
@@ -42,7 +42,7 @@
       "name": "Debug",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/aperi-mech_debug",
+      "program": "${workspaceFolder}/../aperi-mech_build/Debug/aperi-mech",
       "args": ["input.yaml"],
       "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
       "preLaunchTask": "make_debug"
@@ -51,20 +51,20 @@
       "name": "Debug Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/unit_tests_debug",
+      "program": "${workspaceFolder}/../aperi-mech_build/Debug/unit_tests",
       "args": [],
       //"args": ["--gtest_filter=Benchmar*"],
-      "cwd": "${workspaceFolder}/../aperi-mech_build",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Debug",
       "preLaunchTask": "make_debug"
     },
     {
       "name": "Debug Test GPU",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build_gpu/unit_tests_debug",
+      "program": "${workspaceFolder}/../aperi-mech_build/Debug_gpu/unit_tests",
       "args": [],
       //"args": ["--gtest_filter=Benchmar*"],
-      "cwd": "${workspaceFolder}/../aperi-mech_build_gpu",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Debug_gpu",
       "preLaunchTask": "make_debug_gpu"
     },
     // TODO(jake): Fix the path to mpirun
@@ -76,19 +76,19 @@
       "args": [
         "-np",
         "3",
-        "${workspaceFolder}/../aperi-mech_build/unit_tests_debug"
+        "${workspaceFolder}/../aperi-mech_build/Debug/unit_tests"
         //"--gtest_filter=ElementPatchTest.ExplicitTensionX"
       ],
-      "cwd": "${workspaceFolder}/../aperi-mech_build",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Debug",
       "preLaunchTask": "make_debug"
     },
     {
       "name": "Code Coverage",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/../aperi-mech_build/unit_tests_debug",
+      "program": "${workspaceFolder}/../aperi-mech_build/Debug_cov/unit_tests",
       "args": [],
-      "cwd": "${workspaceFolder}/../aperi-mech_build",
+      "cwd": "${workspaceFolder}/../aperi-mech_build/Debug_cov",
       "preLaunchTask": "make_coverage"
     }
   ]

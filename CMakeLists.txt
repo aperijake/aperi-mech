@@ -71,15 +71,6 @@ target_include_directories(aperi-mech PRIVATE
     ${MPI_INCLUDE_PATH}
     )
 
-# Check the build type and set different executable names
-set_target_properties(libaperi-mech PROPERTIES
-    OUTPUT_NAME "libaperi-mech$<$<CONFIG:Debug>:_debug>$<$<CONFIG:RelWithDebInfo>:_relwithdebinfo>"
-	)
-set_target_properties(aperi-mech PROPERTIES
-    OUTPUT_NAME "aperi-mech$<$<CONFIG:Debug>:_debug>$<$<CONFIG:RelWithDebInfo>:_relwithdebinfo>"
-	)
-
-
 ############# TESTING #############
 
 enable_testing()
@@ -103,11 +94,6 @@ target_include_directories(unit_tests PRIVATE
 target_link_libraries(unit_tests
 	libaperi-mech
 	GTest::gtest_main
-	)
-
-# Check the build type and set different executable names
-set_target_properties(unit_tests PROPERTIES
-    OUTPUT_NAME "unit_tests$<$<CONFIG:Debug>:_debug>$<$<CONFIG:RelWithDebInfo>:_relwithdebinfo>"
 	)
 
 gtest_discover_tests(unit_tests TIMEOUT 10000)
