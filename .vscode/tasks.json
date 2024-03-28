@@ -4,16 +4,50 @@
     {
       "label": "make",
       "type": "shell",
-      "command": "./do_configure; cd ../aperi-mech_build; make",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build && make"
+      ],
       "group": {
         "kind": "build",
         "isDefault": true
       }
     },
     {
+      "label": "make_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build_gpu && make"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
       "label": "make_debug",
       "type": "shell",
-      "command": "./do_configure --build-type Debug; cd ../aperi-mech_build; make",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech && ./do_configure --build-type Debug && cd ../aperi-mech_build && make"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "make_debug_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd ../aperi-mech_build_gpu && make"
+      ],
       "group": {
         "kind": "build",
         "isDefault": false
@@ -22,7 +56,11 @@
     {
       "label": "make_relwithdebinfo",
       "type": "shell",
-      "command": "./do_configure --build-type RelWithDebInfo; cd ../aperi-mech_build; make",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd ../aperi-mech_build && make"
+      ],
       "group": {
         "kind": "build",
         "isDefault": false
@@ -31,7 +69,11 @@
     {
       "label": "make_coverage",
       "type": "shell",
-      "command": "./do_configure --code-coverage; cd ../aperi-mech_build; make coverage",
+      "command": "bash",
+      "args": [
+        "-c",
+        "spack env activate aperi-mech && ./do_configure --code-coverage && cd ../aperi-mech_build && make coverage"
+      ],
       "group": {
         "kind": "build",
         "isDefault": false

@@ -21,6 +21,15 @@
       "preLaunchTask": "make"
     },
     {
+      "name": "Release Test GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../aperi-mech_build_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/../aperi-mech_build_gpu",
+      "preLaunchTask": "make_gpu"
+    },
+    {
       "name": "ReleaseWithDebugInfo",
       "type": "lldb",
       "request": "launch",
@@ -47,6 +56,16 @@
       //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/../aperi-mech_build",
       "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Debug Test GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../aperi-mech_build_gpu/unit_tests_debug",
+      "args": [],
+      //"args": ["--gtest_filter=Benchmar*"],
+      "cwd": "${workspaceFolder}/../aperi-mech_build_gpu",
+      "preLaunchTask": "make_debug_gpu"
     },
     // TODO(jake): Fix the path to mpirun
     {

@@ -128,8 +128,6 @@
       }
     ]
   },
-  "gtest-adapter.debugConfig": [
-    "Debug Test"
-],
+  "gtest-adapter.debugConfig": ["Debug Test GPU"],
   "gtest-adapter.supportLocation": true
 }

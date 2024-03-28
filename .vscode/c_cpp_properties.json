@@ -4,6 +4,8 @@
       "name": "aperi-mech",
       "includePath": [
         "${workspaceFolder}/**",
+        "/home/azureuser/projects/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-10.5.0/**/include/",
+        "/home/azureuser/projects/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-10.5.0/**/include/eigen3/",
         "/Users/jake/projects/spack/opt/spack/darwin-sonoma-m1/gcc-13.2.0/**/include/",
         "/Users/jake/projects/spack/opt/spack/darwin-sonoma-m1/gcc-13.2.0/**/include/eigen3/"
       ]

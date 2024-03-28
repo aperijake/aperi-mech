@@ -1,9 +1,9 @@
 #!/bin/bash
+set -e
 
 # Initialize variables with default values
 BUILD_TYPE="Release"
 CODE_COVERAGE=false
-XCODE=false
 GPU=false
 
 # Parse command-line options
@@ -21,11 +21,6 @@ while [[ $# -gt 0 ]]; do
 		echo "Requested code coverage. Build type set to Debug"
 		shift
 		;;
-	-x | --xcode)
-		XCODE=true
-		echo "Requested Xcode project generation."
-		shift
-		;;
 	-g | --gpu)
 		GPU=true
 		echo "Requested GPU support."
@@ -38,56 +33,68 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Set build directory and Spack environment based on GPU option
+BUILD_DIR="../aperi-mech_build"
 if ${GPU}; then
-	# Activate Spack environment
-	eval $(spack env activate --sh aperi-mech-gpu)
-
-	# Create build directory
-	mkdir -p ../aperi-mech_build_gpu
-	cd ../aperi-mech_build_gpu || exit
+	BUILD_DIR="../aperi-mech_build_gpu"
+	spack env activate aperi-mech-gpu
 else
-	# Activate Spack environment
-	eval $(spack env activate --sh aperi-mech)
-
-	# Create build directory
-	mkdir -p ../aperi-mech_build
-	cd ../aperi-mech_build || exit
+	BUILD_DIR="../aperi-mech_build"
+	spack env activate aperi-mech
 fi
 
+# Create build directory
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}" || exit
+
 # Remove CMakeCache if it exists
-rm -f CMakeCache.txt
+[[ -f CMakeCache.txt ]] && rm CMakeCache.txt
+
+# Check for cmake in the spack environment, if not found, use the system cmake
+if spack find -p cmake; then
+	cmake=$(spack location -i cmake)/bin/cmake
+else
+	cmake=cmake
+fi
 
 # Configure CMake with specified build type and other options
-cmake_command="cmake"
+cmake_command="${cmake}"
 
+cmake_command+=" -D GPU:BOOL=${GPU}"
 cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
+cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
+cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
 cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
-cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
-if ${CODE_COVERAGE}; then
-	cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
-	cmake_command+=" -D KOKKOS_PATH:FILEPATH=$(spack location -i kokkos)"
-fi
+
+# Add the lcov path to the cmake command
+[[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
-if [[ ${BUILD_TYPE} == "Debug" ]]; then
-	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O0 -g -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
-elif [[ ${BUILD_TYPE} == "Release" ]]; then
-	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
-elif [[ ${BUILD_TYPE} == "RelWithDebInfo" ]]; then
-	cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-O2 -g -Wall -std=c++20 -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
-else
-	echo "Unknown build type: ${BUILD_TYPE}"
-	exit 1
-fi
-if ${XCODE}; then
-	mkdir -p ../aperi-mech_xcode_build
-	cd ../aperi-mech_xcode_build || exit
-	cmake_command+=" -G Xcode -B . -S "
-fi
+
+# Add the cuda compiler to the cmake command
+[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=$(spack location -i cuda)/bin/nvcc"
+
+# Add the cuda flags to the cmake command. There has got to be a better way to do this. Needed?
+[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_FLAGS=\"-arch=sm_$(spack find kokkos | grep 'cuda_arch=' | awk -F'cuda_arch=' 'NR==1 {print $2}' | awk '{print $1}')\""
+
+# Add the C++ compiler to the cmake command. There has got to be a better way to do this.
+kokkos_compiler=$(spack find kokkos | grep -o 'kokkos%[^ ]*' | sed 's/kokkos%//')
+kokkos_cxx_path=$(spack compiler info "${kokkos_compiler}" | grep 'cxx' | awk '{print $3}' | grep -v '^$')
+cmake_command+=" -D CMAKE_CXX_COMPILER:FILEPATH=${kokkos_cxx_path}"
+
+# Add the C compiler to the cmake command. Also, there has got to be a better way to do this.
+kokkos_c_path=$(spack compiler info "${kokkos_compiler}" | grep 'cc' | awk '{print $3}' | grep -v '^$')
+cmake_command+=" -D CMAKE_C_COMPILER:FILEPATH=${kokkos_c_path}"
+
+# Add the C++ flags to the cmake command
+cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+
+# Add the path to the stk_ngp_basic source code
 cmake_command+=" ../aperi-mech"
 
+# Print and execute the cmake command
 echo "CMake Command: ${cmake_command}"
 eval "${cmake_command}"

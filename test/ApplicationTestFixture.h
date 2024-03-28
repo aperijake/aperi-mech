@@ -5,6 +5,7 @@
 #include <string>
 
 #include "CaptureOutputTestFixture.h"
+#include "FieldData.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"

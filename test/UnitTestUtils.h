@@ -4,10 +4,12 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
+
+#include "FieldData.h"
 
 namespace aperi {
 class IoMesh;
-class FieldData;
 class MeshData;
 }  // namespace aperi
 
