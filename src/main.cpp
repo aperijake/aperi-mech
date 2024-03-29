@@ -1,7 +1,8 @@
 #include <mpi.h>
-#include <mfem.hpp>
 
+#include <Kokkos_Core.hpp>
 #include <iostream>
+#include <mfem.hpp>
 
 #include "Application.h"
 #include "LogUtils.h"
@@ -15,7 +16,8 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
 }
 
 int main(int argc, char* argv[]) {
-    // Initialize MPI and get communicator for the current process
+    // Initialize Kokkos and MPI and get communicator for the current process
+    Kokkos::initialize(argc, argv);
     MPI_Init(&argc, &argv);
     MPI_Comm comm = MPI_COMM_WORLD;
 
@@ -41,7 +43,8 @@ int main(int argc, char* argv[]) {
 
     aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
 
-    // Finalize MPI and clean up
+    // Finalize Kokkos and MPI
+    Kokkos::finalize();
     MPI_Finalize();
 
     return 0;

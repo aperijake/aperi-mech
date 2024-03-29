@@ -68,13 +68,29 @@ void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor> &n
 
 void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_first_update) {
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-    // field_data[0] = velocity_data_n
-    // field_data[1] = acceleration_data_n
-    // field_data[2] = velocity_data_np1
+    // field_data[0] = velocity_data_np1
+    // field_data[1] = velocity_data_n
+    // field_data[2] = acceleration_data_n
     // data[0] = half_time_increment
     node_processor_first_update->for_each_dof({half_time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
         field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
     });
+}
+
+struct FirstPartialUpdateVelocity {
+    FirstPartialUpdateVelocity(double half_time_increment) : m_half_time_increment(half_time_increment) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(double *velocity_data_np1, double *velocity_data_n, double *acceleration_data_n) const {
+        *velocity_data_np1 = *velocity_data_n + m_half_time_increment * *acceleration_data_n;
+    }
+    double m_half_time_increment;
+};
+
+void ExplicitSolver::ComputeFirstPartialUpdateStkNgp(double half_time_increment, const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_first_update) {
+    // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
+    FirstPartialUpdateVelocity first_partial_update_velocity(half_time_increment);
+    node_processor_first_update->for_each_dof(first_partial_update_velocity);
 }
 
 void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor> &node_processor_update_displacements) {
@@ -109,6 +125,7 @@ void ExplicitSolver::Solve() {
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
     std::shared_ptr<NodeProcessor> node_processor_first_update = CreateNodeProcessorFirstUpdate();
+    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_first_update = CreateNodeProcessorFirstUpdateStkNgp();
     std::shared_ptr<NodeProcessor> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
     std::shared_ptr<NodeProcessor> node_processor_acceleration = CreateNodeProcessorAcceleration();
     std::shared_ptr<NodeProcessor> node_processor_second_update = CreateNodeProcessorSecondUpdate();
@@ -147,7 +164,8 @@ void ExplicitSolver::Solve() {
         double time_next = time + time_increment;
 
         // Compute first partial update
-        ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        // ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        ComputeFirstPartialUpdateStkNgp(half_time_increment, node_processor_stk_ngp_first_update);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {

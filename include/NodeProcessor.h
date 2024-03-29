@@ -4,7 +4,12 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
+#include <stk_mesh/base/GetNgpField.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/NgpField.hpp>
+#include <stk_mesh/base/NgpForEachEntity.hpp>
+#include <stk_mesh/base/NgpMesh.hpp>
 #include <vector>
 
 #include "FieldData.h"
@@ -29,6 +34,10 @@ inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_d
         }
     }
     return &field->field_of_state(state);
+}
+
+inline stk::mesh::NgpField<double> *StkGetNgpField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
+    return &stk::mesh::get_updated_ngp_field<double>(*StkGetField(field_query_data, meta_data));
 }
 
 class NodeProcessor {
@@ -152,6 +161,77 @@ class NodeProcessor {
     std::vector<DoubleField *> m_fields;  // The fields to process
     stk::mesh::BulkData *m_bulk_data;     // The bulk data object.
     stk::mesh::Selector m_selector;       // The selector for the sets
+};
+
+// A Node processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each degree of freedom of each node
+template <size_t N>
+class NodeProcessorStkNgp {
+    typedef stk::mesh::NgpField<double> NgpDoubleField;
+
+   public:
+    NodeProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {})
+        : m_fields("field_data", N) {
+        m_bulk_data = mesh_data->GetBulkData();
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+        if (sets.size() > 0) {
+            stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+            stk::mesh::PartVector parts;
+            for (const auto &set : sets) {
+                stk::mesh::Part *part = meta_data->get_part(set);
+                if (part == nullptr) {
+                    throw std::runtime_error("Set " + set + " not found.");
+                }
+                parts.push_back(part);
+            }
+            m_selector = stk::mesh::selectUnion(parts);
+        } else {
+            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
+        }
+        // Warn if the selector is empty.
+        if (m_selector.is_empty(stk::topology::NODE_RANK)) {
+            aperi::CoutP0() << "Warning: NodeProcessor selector is empty." << std::endl;
+        }
+
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        for (size_t i = 0; i < N; ++i) {
+            m_fields(i) = *StkGetNgpField(field_query_data_vec[i], meta_data);
+        }
+    }
+
+    // Loop over each node and apply the function
+    template <typename Func, std::size_t... Is>
+    void for_each_dof_impl(const Func &func, std::index_sequence<Is...>) {
+        // Clear the sync state of the fields
+        for (size_t i = 0; i < N; i++) {
+            m_fields[i].clear_sync_state();
+        }
+        auto fields = m_fields;
+
+        // Loop over all the nodes
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                for (size_t j = 0; j < 3; j++) {
+                    func(&fields[Is](entity, j)...);
+                }
+            });
+
+        // Modify the fields on the device
+        for (size_t i = 0; i < N; i++) {
+            m_fields[i].modify_on_device();
+        }
+    }
+
+    template <typename Func>
+    void for_each_dof(const Func &func) {
+        for_each_dof_impl(func, std::make_index_sequence<N>{});
+    }
+
+   private:
+    Kokkos::View<NgpDoubleField *> m_fields;  // The fields to process
+    stk::mesh::BulkData *m_bulk_data;         // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;            // The ngp mesh object.
+    stk::mesh::Selector m_selector;           // The selector for the nodes
 };
 
 }  // namespace aperi
