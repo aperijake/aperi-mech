@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build/Release && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build/Release && make"
       ],
       "group": {
         "kind": "build",

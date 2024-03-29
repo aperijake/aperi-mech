@@ -75,6 +75,7 @@ cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
 cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
+cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
 
 # Add the lcov path to the cmake command
 [[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
@@ -87,7 +88,7 @@ cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
 [[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_FLAGS=\"-arch=sm_$(spack find kokkos | grep 'cuda_arch=' | awk -F'cuda_arch=' 'NR==1 {print $2}' | awk '{print $1}')\""
 
 # Add the C++ compiler to the cmake command. There has got to be a better way to do this.
-kokkos_compiler=$(spack find kokkos | grep -o 'kokkos%[^ ]*' | sed 's/kokkos%//')
+kokkos_compiler=$(spack find --show-full-compiler kokkos | grep kokkos | tail -n 1 | cut -d'%' -f2)
 kokkos_cxx_path=$(spack compiler info "${kokkos_compiler}" | grep 'cxx' | awk '{print $3}' | grep -v '^$')
 cmake_command+=" -D CMAKE_CXX_COMPILER:FILEPATH=${kokkos_cxx_path}"
 
