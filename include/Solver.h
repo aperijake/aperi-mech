@@ -137,6 +137,16 @@ class ExplicitSolver : public Solver {
         return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
     }
 
+    // Create stk ngp node processor for updating displacements
+    std::shared_ptr<NodeProcessorStkNgp<3>> CreateNodeProcessorUpdateDisplacementsStkNgp() {
+        // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
+        std::array<FieldQueryData, 3> field_query_data_vec;
+        field_query_data_vec[0] = {"displacement", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"displacement", FieldQueryState::N};
+        field_query_data_vec[2] = {"velocity", FieldQueryState::NP1};
+        return std::make_shared<NodeProcessorStkNgp<3>>(field_query_data_vec, mp_mesh_data);
+    }
+
     // Create a node processor for the second partial update
     std::shared_ptr<NodeProcessor> CreateNodeProcessorSecondUpdate() {
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
@@ -145,6 +155,15 @@ class ExplicitSolver : public Solver {
             {"acceleration", FieldQueryState::NP1},
         };
         return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
+    }
+
+    // Create stk ngp node processor for the second partial update
+    std::shared_ptr<NodeProcessorStkNgp<2>> CreateNodeProcessorSecondUpdateStkNgp() {
+        // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
+        std::array<FieldQueryData, 2> field_query_data_vec;
+        field_query_data_vec[0] = {"velocity", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"acceleration", FieldQueryState::NP1};
+        return std::make_shared<NodeProcessorStkNgp<2>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the acceleration
@@ -156,6 +175,16 @@ class ExplicitSolver : public Solver {
             {"mass", FieldQueryState::None},
         };
         return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
+    }
+
+    // Create stk ngp node processor for the acceleration
+    std::shared_ptr<NodeProcessorStkNgp<3>> CreateNodeProcessorAccelerationStkNgp() {
+        // Compute the acceleration: a^{n+1} = f^{n+1}/m
+        std::array<FieldQueryData, 3> field_query_data_vec;
+        field_query_data_vec[0] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"force", FieldQueryState::NP1};
+        field_query_data_vec[2] = {"mass", FieldQueryState::None};
+        return std::make_shared<NodeProcessorStkNgp<3>>(field_query_data_vec, mp_mesh_data);
     }
 
     /**
@@ -182,6 +211,7 @@ class ExplicitSolver : public Solver {
      * @param node_processor_acceleration The node processor for the acceleration.
      */
     void ComputeAcceleration(const std::shared_ptr<NodeProcessor> &node_processor_acceleration);
+    void ComputeAccelerationStkNgp(const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_acceleration);
 
     /**
      * @brief Computes the first partial update for the solver.
@@ -199,6 +229,7 @@ class ExplicitSolver : public Solver {
      * @param node_processor_second_update The node processor for the second update.
      */
     void ComputeSecondPartialUpdate(double half_time_step, const std::shared_ptr<NodeProcessor> &node_processor_second_update);
+    void ComputeSecondPartialUpdateStkNgp(double half_time_step, const std::shared_ptr<NodeProcessorStkNgp<2>> &node_processor_second_update);
 
     /**
      * @brief Updates the displacements.
@@ -207,6 +238,7 @@ class ExplicitSolver : public Solver {
      * @param node_processor_update_nodal_displacements The node processor for updating the nodal displacements.
      */
     void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor> &node_processor_update_nodal_displacements);
+    void UpdateDisplacementsStkNgp(double time_increment, const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_update_nodal_displacements);
 
     std::shared_ptr<NodeProcessor> m_node_processor_force;
 };
