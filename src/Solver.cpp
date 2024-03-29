@@ -164,8 +164,8 @@ void ExplicitSolver::Solve() {
         double time_next = time + time_increment;
 
         // Compute first partial update
-        // ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
-        ComputeFirstPartialUpdateStkNgp(half_time_increment, node_processor_stk_ngp_first_update);
+        ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        // ComputeFirstPartialUpdateStkNgp(half_time_increment, node_processor_stk_ngp_first_update);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {

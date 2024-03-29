@@ -1,0 +1,7 @@
+#define GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
+#define GIT_BRANCH "@GIT_BRANCH@"
+#define GIT_TAG "@GIT_TAG@"
+#define BUILD_TYPE "@BUILD_TYPE@"
+#define BUILD_DATE "@BUILD_DATE@"
+#define BUILD_TIME "@BUILD_TIME@"
+#define GIT_DIRTY "@GIT_DIRTY@"

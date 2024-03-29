@@ -6,6 +6,7 @@
 
 #include "Application.h"
 #include "LogUtils.h"
+#include "git_commit.h"
 
 void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     // Create an application object
@@ -15,17 +16,42 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     application.Run(input_filename);
 }
 
+void PrintVersion() {
+    std::cout << GIT_COMMIT_HASH << "-" << GIT_DIRTY << "-" << BUILD_TYPE << std::endl;
+}
+
+void PrintHeader() {
+    std::cout << "############################################" << std::endl;
+    std::cout << "                aperi-mech\n" << std::endl;
+    std::cout << "  Version: ";
+    PrintVersion();
+    std::cout << "  Git branch: " << GIT_BRANCH << std::endl;
+    std::cout << "  Git tag: " << GIT_TAG << std::endl;
+    std::cout << "  Build Date: " << BUILD_DATE << std::endl;
+    std::cout << "  Build Time: " << BUILD_TIME << std::endl;
+    std::cout << "############################################\n" << std::endl;
+}
+
 int main(int argc, char* argv[]) {
     // Initialize Kokkos and MPI and get communicator for the current process
     Kokkos::initialize(argc, argv);
     MPI_Init(&argc, &argv);
     MPI_Comm comm = MPI_COMM_WORLD;
 
+    // Check if the first command-line argument is "--version"
+    if (argc > 1 && std::string(argv[1]) == "--version") {
+        PrintVersion();
+        Kokkos::finalize();
+        MPI_Finalize();
+        return 0;
+    }
+
     // Get size of the current process
     int size;
     MPI_Comm_size(comm, &size);
 
-    // Print number of processes
+    // Print header and number of processes
+    PrintHeader();
     aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
 
     // Check if input filename is provided as a command-line argument
