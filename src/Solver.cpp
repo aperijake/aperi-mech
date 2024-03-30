@@ -46,7 +46,8 @@ Reference:
 
 void ExplicitSolver::ComputeForce() {
     // Set the force field to zero
-    m_node_processor_force->FillField(0.0, 0);
+    // m_node_processor_force->FillField(0.0, 0);
+    m_node_processor_force_stk_ngp->FillField(0.0, 0);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -54,6 +55,7 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
+    m_node_processor_force_stk_ngp->SyncHostToDevice();
 }
 
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor> &node_processor_acceleration) {
@@ -133,6 +135,8 @@ void ExplicitSolver::UpdateDisplacementsStkNgp(double time_increment, const std:
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_dof(update_displacements_functor);
+    node_processor_update_displacements->CommunicateFieldData(0);
+    node_processor_update_displacements->SyncDeviceToHost();
 }
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_second_update) {

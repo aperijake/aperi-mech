@@ -20,7 +20,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build/Release_gpu && make"
+        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build/Release_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",

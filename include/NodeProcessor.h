@@ -36,8 +36,12 @@ inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_d
     return &field->field_of_state(state);
 }
 
-inline stk::mesh::NgpField<double> *StkGetNgpField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    return &stk::mesh::get_updated_ngp_field<double>(*StkGetField(field_query_data, meta_data));
+inline stk::mesh::NgpField<double> StkGetNgpField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
+    return stk::mesh::get_updated_ngp_field<double>(*StkGetField(field_query_data, meta_data));
+}
+
+inline stk::mesh::NgpField<double> StkGetNgpField(stk::mesh::Field<double> *field) {
+    return stk::mesh::get_updated_ngp_field<double>(*field);
 }
 
 class NodeProcessor {
@@ -163,14 +167,21 @@ class NodeProcessor {
     stk::mesh::Selector m_selector;       // The selector for the sets
 };
 
+struct FillFieldFunctor {
+    FillFieldFunctor(double value) : m_value(value) {}
+    KOKKOS_INLINE_FUNCTION void operator()(double *value) const { *value = m_value; }
+    double m_value;
+};
+
 // A Node processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each degree of freedom of each node
 template <size_t N>
 class NodeProcessorStkNgp {
+    typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
     NodeProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {})
-        : m_fields("field_data", N) {
+        : m_ngp_fields("ngp_field_data", N) {
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         if (sets.size() > 0) {
@@ -194,7 +205,8 @@ class NodeProcessorStkNgp {
 
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
-            m_fields(i) = *StkGetNgpField(field_query_data_vec[i], meta_data);
+            m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
+            m_ngp_fields(i) = StkGetNgpField(m_fields[i]);
         }
     }
 
@@ -202,10 +214,11 @@ class NodeProcessorStkNgp {
     template <typename Func, std::size_t... Is>
     void for_each_dof_impl(const Func &func, std::index_sequence<Is...>) {
         // Clear the sync state of the fields
+        // TODO(jake): Should separate fields into modified and not modified so we don't have to communicate all fields
         for (size_t i = 0; i < N; i++) {
-            m_fields[i].clear_sync_state();
+            m_ngp_fields[i].clear_sync_state();
         }
-        auto fields = m_fields;
+        auto fields = m_ngp_fields;
 
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
@@ -218,7 +231,7 @@ class NodeProcessorStkNgp {
 
         // Modify the fields on the device
         for (size_t i = 0; i < N; i++) {
-            m_fields[i].modify_on_device();
+            m_ngp_fields[i].modify_on_device();
         }
     }
 
@@ -227,11 +240,38 @@ class NodeProcessorStkNgp {
         for_each_dof_impl(func, std::make_index_sequence<N>{});
     }
 
+    // Fill the field with a value
+    void FillField(double value, size_t field_index) {
+        FillFieldFunctor functor(value);
+        for_each_dof(functor);
+    }
+
+    // Sync host to device
+    void SyncHostToDevice() {
+        for (size_t i = 0; i < N; i++) {
+            m_ngp_fields[i].sync_to_device();
+        }
+    }
+
+    // Sync device to host
+    void SyncDeviceToHost() {
+        for (size_t i = 0; i < N; i++) {
+            m_ngp_fields[i].sync_to_host();
+        }
+    }
+
+    // Parallel communication for a single field
+    void CommunicateFieldData(int field_index) const {
+        // STK Question: Is this how I should do this? Keep separate fields and ngp fields?
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_fields[field_index]});
+    }
+
    private:
-    Kokkos::View<NgpDoubleField *> m_fields;  // The fields to process
-    stk::mesh::BulkData *m_bulk_data;         // The bulk data object.
-    stk::mesh::NgpMesh m_ngp_mesh;            // The ngp mesh object.
-    stk::mesh::Selector m_selector;           // The selector for the nodes
+    Kokkos::View<NgpDoubleField *> m_ngp_fields;  // The fields to process
+    std::vector<DoubleField *> m_fields;          // The fields to process
+    stk::mesh::BulkData *m_bulk_data;             // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
+    stk::mesh::Selector m_selector;               // The selector for the nodes
 };
 
 }  // namespace aperi

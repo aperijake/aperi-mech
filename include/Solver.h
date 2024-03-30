@@ -95,6 +95,7 @@ class ExplicitSolver : public Solver {
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
+        m_node_processor_force_stk_ngp = CreateNodeProcessorForceStkNgp();
     }
 
     ~ExplicitSolver() {}
@@ -103,6 +104,13 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor> CreateNodeProcessorForce() {
         std::vector<FieldQueryData> field_query_data_vec = {{"force", FieldQueryState::NP1}};
         return std::make_shared<NodeProcessor>(field_query_data_vec, mp_mesh_data);
+    }
+
+    // Create stk ngp node processor for force
+    std::shared_ptr<NodeProcessorStkNgp<1>> CreateNodeProcessorForceStkNgp() {
+        std::array<FieldQueryData, 1> field_query_data_vec;
+        field_query_data_vec[0] = {"force", FieldQueryState::NP1};
+        return std::make_shared<NodeProcessorStkNgp<1>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the first partial update
@@ -241,6 +249,7 @@ class ExplicitSolver : public Solver {
     void UpdateDisplacementsStkNgp(double time_increment, const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_update_nodal_displacements);
 
     std::shared_ptr<NodeProcessor> m_node_processor_force;
+    std::shared_ptr<NodeProcessorStkNgp<1>> m_node_processor_force_stk_ngp;
 };
 
 /**
