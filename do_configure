@@ -97,7 +97,7 @@ kokkos_c_path=$(spack compiler info "${kokkos_compiler}" | grep 'cc' | awk '{pri
 cmake_command+=" -D CMAKE_C_COMPILER:FILEPATH=${kokkos_c_path}"
 
 # Add the C++ flags to the cmake command
-cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated'"
+cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"
 
 # Add the path to the stk_ngp_basic source code
 cmake_command+=" ../../aperi-mech"

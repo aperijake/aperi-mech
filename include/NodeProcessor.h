@@ -180,8 +180,7 @@ class NodeProcessorStkNgp {
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
-    NodeProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {})
-        : m_ngp_fields("ngp_field_data", N) {
+    NodeProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         if (sets.size() > 0) {
@@ -206,7 +205,7 @@ class NodeProcessorStkNgp {
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
             m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
-            m_ngp_fields(i) = StkGetNgpField(m_fields[i]);
+            m_ngp_fields[i] = StkGetNgpField(m_fields[i]);
         }
     }
 
@@ -235,6 +234,26 @@ class NodeProcessorStkNgp {
         }
     }
 
+    // Loop over each node and apply the function. Just a single field.
+    template <typename Func>
+    void for_each_dof_impl(const Func &func, size_t field_index) {
+        // Clear the sync state of the fields
+        m_ngp_fields[field_index].clear_sync_state();
+        auto field = m_ngp_fields[field_index];
+
+        // Loop over all the nodes
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                for (size_t j = 0; j < 3; j++) {
+                    func(&field(entity, j));
+                }
+            });
+
+        // Modify the fields on the device
+        m_ngp_fields[field_index].modify_on_device();
+    }
+
     template <typename Func>
     void for_each_dof(const Func &func) {
         for_each_dof_impl(func, std::make_index_sequence<N>{});
@@ -243,7 +262,7 @@ class NodeProcessorStkNgp {
     // Fill the field with a value
     void FillField(double value, size_t field_index) {
         FillFieldFunctor functor(value);
-        for_each_dof(functor);
+        for_each_dof_impl(functor, field_index);
     }
 
     // Sync host to device
@@ -267,11 +286,11 @@ class NodeProcessorStkNgp {
     }
 
    private:
-    Kokkos::View<NgpDoubleField *> m_ngp_fields;  // The fields to process
-    std::vector<DoubleField *> m_fields;          // The fields to process
-    stk::mesh::BulkData *m_bulk_data;             // The bulk data object.
-    stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
-    stk::mesh::Selector m_selector;               // The selector for the nodes
+    Kokkos::Array<NgpDoubleField, N> m_ngp_fields;  // The fields to process
+    std::vector<DoubleField *> m_fields;            // The fields to process
+    stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
+    stk::mesh::Selector m_selector;                 // The selector for the nodes
 };
 
 }  // namespace aperi

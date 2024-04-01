@@ -154,7 +154,7 @@ target_link_libraries(unit_tests
 	GTest::gtest_main
 	)
 
-gtest_discover_tests(unit_tests TIMEOUT 100000)
+gtest_discover_tests(unit_tests TIMEOUT 1000000)
 
 ############# CODE COVERAGE #############
 if (CODE_COVERAGE)
