@@ -256,18 +256,19 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& e
 
 // Check that the nodal field values match the expected values
 // Expects a uniform field, values for every node are the same
-void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
-    // Field Query Data
-    aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
+void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state}};
 
     // Make a node processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::NodeProcessorStkNgp<1> node_processor_stk_ngp(field_query_data_array, mesh_data_ptr, set_names);
 
+    bool found_at_least_one_node = false;
+
     // Get the sum of the field values
     node_processor_stk_ngp.for_each_node_host([&](size_t i_node_start, std::vector<double*>& field_data) {
         for (size_t i = 0; i < 3; i++) {
+            found_at_least_one_node = true;
             if (std::abs(expected_values[i]) < 1.0e-12) {
                 EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
             } else {
@@ -275,6 +276,12 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
             }
         }
     });
+    EXPECT_TRUE(found_at_least_one_node);
+}
+void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
+    // Field Query Data
+    aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
+    CheckNodeFieldValues(mesh_data, set_names, field_name, expected_values, field_query_state);
 }
 
 // Check that the sum of the nodal field values match the expected values

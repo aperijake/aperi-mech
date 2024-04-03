@@ -13,6 +13,7 @@
 #include "FieldData.h"
 #include "MeshData.h"
 #include "NodeProcessor.h"
+#include "UnitTestUtils.h"
 
 typedef stk::mesh::Field<double> DoubleField;
 
@@ -41,7 +42,6 @@ class NodeProcessingTestFixture : public ::testing::Test {
         stk::io::StkMeshIoBroker mesh_reader;
         mesh_reader.set_bulk_data(*bulk_data);
         const std::string mesh_spec = "generated:" + std::to_string(num_elements_x) + "x" + std::to_string(num_elements_y) + "x" + std::to_string(num_elements_z);
-        expected_num_nodes = (num_elements_x + 1) * (num_elements_y + 1) * (num_elements_z + 1);
         mesh_reader.add_mesh_database(mesh_spec, stk::io::READ_MESH);
         mesh_reader.create_input_mesh();
         mesh_reader.add_all_mesh_fields_as_input_fields();
@@ -97,35 +97,12 @@ class NodeProcessingTestFixture : public ::testing::Test {
         node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     }
 
-    void CheckField(std::array<double, 3> &expected_velocity_data_np1) {
-        // TODO(jake): Get rid of this and use UnitTestUtils instead
-        node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
-        size_t num_nodes = 0;
-        for (stk::mesh::Bucket *bucket : bulk_data->buckets(stk::topology::NODE_RANK)) {
-            // Get the field data for the bucket
-            double *velocity_data_np1_for_bucket = stk::mesh::field_data(*velocity_field_np1, *bucket);
-
-            for (size_t i_node = 0, e = bucket->size(); i_node < e; i_node++) {
-                for (size_t i = 0; i < 3; i++) {
-                    size_t iI = i_node * 3 + i;
-                    ASSERT_DOUBLE_EQ(velocity_data_np1_for_bucket[iI], expected_velocity_data_np1[i]);
-                }
-                ++num_nodes;
-            }
-        }
-        size_t total_num_nodes = 0;
-        MPI_Allreduce(&num_nodes, &total_num_nodes, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-
-        EXPECT_EQ(total_num_nodes, expected_num_nodes);
-    }
-
     double time_increment = 0.123;
     double initial_velocity = -2.7;
     double initial_acceleration = 3.1;
     size_t num_elements_x = 10;
     size_t num_elements_y = 10;
     size_t num_elements_z = 10;
-    size_t expected_num_nodes;
     std::shared_ptr<stk::mesh::BulkData> bulk_data;
     DoubleField *velocity_field_np1;
     std::shared_ptr<aperi::MeshData> mesh_data;
@@ -137,8 +114,9 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
     AddMeshDatabase(num_elements_x, num_elements_y, num_elements_z);
     node_processor_stk_ngp->FillField(1.78, 0);
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
+    node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     std::array<double, 3> expected_velocity_data_np1 = {1.78, 1.78, 1.78};
-    CheckField(expected_velocity_data_np1);
+    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
 // Test for_dof_i method
@@ -148,13 +126,15 @@ TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     aperi::FillFieldFunctor fill_field_functor_1(2.89);
     node_processor_stk_ngp->for_dof_i(fill_field_functor_1, 1, 0);
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
+    node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
 
     aperi::FillFieldFunctor fill_field_functor_2(3.79);
     node_processor_stk_ngp->for_dof_i(fill_field_functor_2, 2, 0);
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
+    node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
 
     std::array<double, 3> expected_velocity_data_np1 = {0.0, 2.89, 3.79};
-    CheckField(expected_velocity_data_np1);
+    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
 // Test for_each_dof method
@@ -162,15 +142,16 @@ TEST_F(NodeProcessingTestFixture, NodeProcessorForEachDof) {
     AddMeshDatabase(num_elements_x, num_elements_y, num_elements_z);
     // Run the for_each_dof method
     ForEachEntityRun(time_increment);
+    node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     // Velocity should be updated to initial_velocity + time_increment * initial_acceleration
     double expected_velocity = initial_velocity + time_increment * initial_acceleration;
     std::array<double, 3> expected_velocity_data_np1 = {expected_velocity, expected_velocity, expected_velocity};
-    CheckField(expected_velocity_data_np1);
+    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 
     // Flipping the states should set the velocity_data_np1 to the initial_velocity
     mesh_data->UpdateFieldDataStates();  // Updates host only
     std::array<double, 3> expected_velocity_data_n = {initial_velocity, initial_velocity, initial_velocity};
-    CheckField(expected_velocity_data_n);
+    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_n, aperi::FieldQueryState::NP1);
 
     // TODO(jake): Add test for field data on device
 }
