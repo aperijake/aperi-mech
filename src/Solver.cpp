@@ -48,6 +48,8 @@ void ExplicitSolver::ComputeForce() {
     // Set the force field to zero
     // m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force_stk_ngp->FillField(0.0, 0);
+    m_node_processor_force_stk_ngp->MarkFieldModifiedOnDevice(0);
+    m_node_processor_force_stk_ngp->SyncFieldDeviceToHost(0);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -55,7 +57,8 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
-    m_node_processor_force_stk_ngp->SyncHostToDevice();
+    m_node_processor_force_stk_ngp->MarkFieldModifiedOnHost(0);
+    m_node_processor_force_stk_ngp->SyncAllFieldsHostToDevice();
 }
 
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor> &node_processor_acceleration) {
@@ -79,6 +82,7 @@ void ExplicitSolver::ComputeAccelerationStkNgp(const std::shared_ptr<NodeProcess
     // Compute acceleration: a^{n} = M^{–1}(f^{n})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_dof(compute_acceleration_functor);
+    node_processor_acceleration->MarkFieldModifiedOnDevice(0);
 }
 
 void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_first_update) {
@@ -106,6 +110,7 @@ void ExplicitSolver::ComputeFirstPartialUpdateStkNgp(double half_time_increment,
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
     node_processor_first_update->for_each_dof(compute_first_partial_update_functor);
+    node_processor_first_update->MarkFieldModifiedOnDevice(0);
 }
 
 void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor> &node_processor_update_displacements) {
@@ -135,8 +140,11 @@ void ExplicitSolver::UpdateDisplacementsStkNgp(double time_increment, const std:
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_dof(update_displacements_functor);
+    node_processor_update_displacements->MarkFieldModifiedOnDevice(0);
+    node_processor_update_displacements->SyncFieldDeviceToHost(0);  // TODO(jake): Remove this line when possible. Needed while force calc is on host.
     node_processor_update_displacements->CommunicateFieldData(0);
-    node_processor_update_displacements->SyncDeviceToHost();
+    // node_processor_update_displacements->MarkFieldModifiedOnHost(0);
+    // node_processor_update_displacements->SyncFieldHostToDevice(0);
 }
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor> &node_processor_second_update) {
@@ -163,6 +171,7 @@ void ExplicitSolver::ComputeSecondPartialUpdateStkNgp(double half_time_increment
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
     node_processor_second_update->for_each_dof(compute_second_partial_update_functor);
+    node_processor_second_update->MarkFieldModifiedOnDevice(0);
 }
 
 void ExplicitSolver::Solve() {
@@ -174,12 +183,13 @@ void ExplicitSolver::Solve() {
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
     std::shared_ptr<NodeProcessor> node_processor_first_update = CreateNodeProcessorFirstUpdate();
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_first_update = CreateNodeProcessorFirstUpdateStkNgp();
     std::shared_ptr<NodeProcessor> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_update_displacements = CreateNodeProcessorUpdateDisplacementsStkNgp();
     std::shared_ptr<NodeProcessor> node_processor_acceleration = CreateNodeProcessorAcceleration();
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_acceleration = CreateNodeProcessorAccelerationStkNgp();
     std::shared_ptr<NodeProcessor> node_processor_second_update = CreateNodeProcessorSecondUpdate();
+
+    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_first_update = CreateNodeProcessorFirstUpdateStkNgp();
+    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_update_displacements = CreateNodeProcessorUpdateDisplacementsStkNgp();
+    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_acceleration = CreateNodeProcessorAccelerationStkNgp();
     std::shared_ptr<NodeProcessorStkNgp<2>> node_processor_stk_ngp_second_update = CreateNodeProcessorSecondUpdateStkNgp();
 
     // Set the initial time, t = 0
@@ -210,7 +220,10 @@ void ExplicitSolver::Solve() {
         aperi::CoutP0() << "Starting Time Increment " << n << ". Time " << time << " to " << time + time_increment << std::endl;
 
         // Move state n+1 to state n
+        m_node_processor_all_stk_ngp->SyncAllFieldsDeviceToHost();
         mp_mesh_data->UpdateFieldDataStates();
+        m_node_processor_all_stk_ngp->MarkAllFieldsModifiedOnHost();
+        m_node_processor_all_stk_ngp->SyncAllFieldsHostToDevice();
 
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
@@ -228,6 +241,7 @@ void ExplicitSolver::Solve() {
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         // UpdateDisplacements(time_increment, node_processor_update_displacements);
         UpdateDisplacementsStkNgp(time_increment, node_processor_stk_ngp_update_displacements);
+        // node_processor_stk_ngp_update_displacements->SyncDeviceToHost();
 
         // Compute the force, f^{n+1}
         ComputeForce();
@@ -235,6 +249,7 @@ void ExplicitSolver::Solve() {
         // Compute the acceleration, a^{n+1}
         // ComputeAcceleration(node_processor_acceleration);
         ComputeAccelerationStkNgp(node_processor_stk_ngp_acceleration);
+        // node_processor_stk_ngp_acceleration->SyncDeviceToHost();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         for (const auto &boundary_condition : m_boundary_conditions) {
@@ -244,6 +259,7 @@ void ExplicitSolver::Solve() {
         // Compute the second partial update
         // ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
         ComputeSecondPartialUpdateStkNgp(half_time_increment, node_processor_stk_ngp_second_update);
+        // node_processor_stk_ngp_second_update->SyncDeviceToHost();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
@@ -260,6 +276,7 @@ void ExplicitSolver::Solve() {
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
             aperi::CoutP0() << "Writing Results at Time " << time << std::endl;
+            m_node_processor_all_stk_ngp->SyncAllFieldsDeviceToHost();
             m_io_mesh->WriteFieldResults(time);
         }
     }

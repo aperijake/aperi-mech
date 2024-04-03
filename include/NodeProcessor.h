@@ -173,6 +173,11 @@ struct FillFieldFunctor {
     double m_value;
 };
 
+struct PrintFieldFunctor {
+    PrintFieldFunctor() {}
+    KOKKOS_INLINE_FUNCTION void operator()(double *value) const { printf(" %f\n", *value); }
+};
+
 // A Node processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each degree of freedom of each node
 template <size_t N>
 class NodeProcessorStkNgp {
@@ -181,6 +186,10 @@ class NodeProcessorStkNgp {
 
    public:
     NodeProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+        // Throw an exception if the mesh data is null.
+        if (mesh_data == nullptr) {
+            throw std::runtime_error("Mesh data is null.");
+        }
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         if (sets.size() > 0) {
@@ -209,16 +218,69 @@ class NodeProcessorStkNgp {
         }
     }
 
+    // Marking modified
+    void MarkFieldModifiedOnDevice(size_t field_index) {
+        // STK QUESTION: Should I always clear sync state before marking modified?
+        m_ngp_fields[field_index].clear_sync_state();
+        m_ngp_fields[field_index].modify_on_device();
+    }
+
+    void MarkFieldModifiedOnHost(size_t field_index) {
+        // STK QUESTION: Should I always clear sync state before marking modified?
+        m_ngp_fields[field_index].clear_sync_state();
+        m_ngp_fields[field_index].modify_on_host();
+    }
+
+    void MarkAllFieldsModifiedOnDevice() {
+        for (size_t i = 0; i < N; i++) {
+            MarkFieldModifiedOnDevice(i);
+        }
+    }
+
+    void MarkAllFieldsModifiedOnHost() {
+        for (size_t i = 0; i < N; i++) {
+            MarkFieldModifiedOnHost(i);
+        }
+    }
+
+    // Syncing
+    void SyncFieldHostToDevice(size_t field_index) {
+        m_ngp_fields[field_index].sync_to_device();
+    }
+
+    void SyncFieldDeviceToHost(size_t field_index) {
+        m_ngp_fields[field_index].sync_to_host();
+    }
+
+    void SyncAllFieldsHostToDevice() {
+        for (size_t i = 0; i < N; i++) {
+            SyncFieldHostToDevice(i);
+        }
+    }
+
+    void SyncAllFieldsDeviceToHost() {
+        for (size_t i = 0; i < N; i++) {
+            SyncFieldDeviceToHost(i);
+        }
+    }
+
+    // Parallel communication
+    void CommunicateFieldData(int field_index) const {
+        // STK Question: Is this how I should do this? Keep separate fields and ngp fields?
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_fields[field_index]});
+    }
+
+    void CommunicateAllFieldData() const {
+        for (size_t i = 0; i < N; i++) {
+            CommunicateFieldData(i);
+        }
+    }
+
     // Loop over each node and apply the function
+    // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_each_dof_impl(const Func &func, std::index_sequence<Is...>) {
-        // Clear the sync state of the fields
-        // TODO(jake): Should separate fields into modified and not modified so we don't have to communicate all fields
-        for (size_t i = 0; i < N; i++) {
-            m_ngp_fields[i].clear_sync_state();
-        }
         auto fields = m_ngp_fields;
-
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -227,31 +289,86 @@ class NodeProcessorStkNgp {
                     func(&fields[Is](entity, j)...);
                 }
             });
-
-        // Modify the fields on the device
-        for (size_t i = 0; i < N; i++) {
-            m_ngp_fields[i].modify_on_device();
-        }
     }
 
     // Loop over each node and apply the function. Just a single field.
+    // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_dof_impl(const Func &func, size_t field_index) {
-        // Clear the sync state of the fields
-        m_ngp_fields[field_index].clear_sync_state();
+        assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = m_ngp_fields[field_index];
-
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                for (size_t j = 0; j < 3; j++) {
-                    func(&field(entity, j));
+                for (size_t i = 0; i < 3; i++) {
+                    double *field_ptr = &field(entity, i);
+                    KOKKOS_ASSERT(field_ptr != nullptr);
+                    func(field_ptr);
                 }
             });
+    }
 
-        // Modify the fields on the device
-        m_ngp_fields[field_index].modify_on_device();
+    // Loop over each node and apply the function to dof i. Just a single field.
+    // Does not mark anything modified. Need to do that separately.
+    template <typename Func>
+    void for_dof_i(const Func &func, size_t i, size_t field_index = 0) {
+        assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
+        auto field = m_ngp_fields[field_index];
+        // Loop over all the nodes
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                double *field_ptr = &field(entity, i);
+                KOKKOS_ASSERT(field_ptr != nullptr);
+                func(field_ptr);
+            });
+    }
+
+    // Loop over each node and apply the function. Using host data.
+    // Does not mark anything modified. Need to do that separately.
+    template <typename Func>
+    void for_each_node_host(const Func &func, const stk::mesh::Selector &selector) const {
+        size_t num_values_per_node = 3;                     // Number of values per node
+        std::vector<double *> field_data(m_fields.size());  // Array to hold field data
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
+                field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
+            }
+            // Loop over each node in the bucket
+            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                size_t i_dof_start = i_node * num_values_per_node;  // Index into the field data
+                func(i_dof_start, field_data);                      // Call the function
+            }
+        }
+    }
+
+    template <typename Func>
+    void for_each_node_host(const Func &func) const {
+        for_each_node_host(func, m_selector);
+    }
+
+    // Just print the value of dof i
+    void print_dof_i(size_t i, size_t field_index = 0) {
+        auto print_functor = PrintFieldFunctor();
+        for_dof_i(print_functor, i, field_index);
+    }
+
+    // Just print the value of dof i on the host
+    void print_dof_i_host(size_t i, size_t field_index = 0) const {
+        double *field_data;
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            field_data = stk::mesh::field_data(*m_fields[field_index], *bucket);
+            // Loop over each node in the bucket
+            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                size_t i_dof_start = i_node * 3;  // Index into the field data
+                printf(" %f\n", field_data[i_dof_start + i]);
+            }
+        }
     }
 
     template <typename Func>
@@ -263,26 +380,6 @@ class NodeProcessorStkNgp {
     void FillField(double value, size_t field_index) {
         FillFieldFunctor functor(value);
         for_each_dof_impl(functor, field_index);
-    }
-
-    // Sync host to device
-    void SyncHostToDevice() {
-        for (size_t i = 0; i < N; i++) {
-            m_ngp_fields[i].sync_to_device();
-        }
-    }
-
-    // Sync device to host
-    void SyncDeviceToHost() {
-        for (size_t i = 0; i < N; i++) {
-            m_ngp_fields[i].sync_to_host();
-        }
-    }
-
-    // Parallel communication for a single field
-    void CommunicateFieldData(int field_index) const {
-        // STK Question: Is this how I should do this? Keep separate fields and ngp fields?
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_fields[field_index]});
     }
 
    private:

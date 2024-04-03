@@ -10,7 +10,12 @@ namespace aperi {
 
 class MeshData {
    public:
-    MeshData(stk::mesh::BulkData *bulk_data) : m_bulk_data(bulk_data) {}
+    MeshData(stk::mesh::BulkData *bulk_data) : m_bulk_data(bulk_data) {
+        // Throw an exception if the bulk data is null.
+        if (m_bulk_data == nullptr) {
+            throw std::runtime_error("Bulk data is null.");
+        }
+    }
 
     stk::mesh::BulkData *GetBulkData() const { return m_bulk_data; }
 

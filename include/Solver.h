@@ -96,9 +96,24 @@ class ExplicitSolver : public Solver {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         m_node_processor_force_stk_ngp = CreateNodeProcessorForceStkNgp();
+        m_node_processor_force_states = CreateNodeProcessorForceStates();
+        m_node_processor_all_stk_ngp = CreateNodeProcessorAllStkNgp();
     }
 
     ~ExplicitSolver() {}
+
+    // Create stk ngp node processor for all fields to make syncing easier
+    std::shared_ptr<NodeProcessorStkNgp<7>> CreateNodeProcessorAllStkNgp() {
+        std::array<FieldQueryData, 7> field_query_data_vec;
+        field_query_data_vec[0] = {"force", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"displacement", FieldQueryState::N};
+        field_query_data_vec[2] = {"displacement", FieldQueryState::NP1};
+        field_query_data_vec[3] = {"velocity", FieldQueryState::N};
+        field_query_data_vec[4] = {"velocity", FieldQueryState::NP1};
+        field_query_data_vec[5] = {"acceleration", FieldQueryState::N};
+        field_query_data_vec[6] = {"acceleration", FieldQueryState::NP1};
+        return std::make_shared<NodeProcessorStkNgp<7>>(field_query_data_vec, mp_mesh_data);
+    }
 
     // Create a node processor for force
     std::shared_ptr<NodeProcessor> CreateNodeProcessorForce() {
@@ -111,6 +126,14 @@ class ExplicitSolver : public Solver {
         std::array<FieldQueryData, 1> field_query_data_vec;
         field_query_data_vec[0] = {"force", FieldQueryState::NP1};
         return std::make_shared<NodeProcessorStkNgp<1>>(field_query_data_vec, mp_mesh_data);
+    }
+
+    // Create stk ngp node processor for force
+    std::shared_ptr<NodeProcessorStkNgp<2>> CreateNodeProcessorForceStates() {
+        std::array<FieldQueryData, 2> field_query_data_vec;
+        field_query_data_vec[0] = {"force", FieldQueryState::N};
+        field_query_data_vec[1] = {"force", FieldQueryState::NP1};
+        return std::make_shared<NodeProcessorStkNgp<2>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the first partial update
@@ -250,6 +273,8 @@ class ExplicitSolver : public Solver {
 
     std::shared_ptr<NodeProcessor> m_node_processor_force;
     std::shared_ptr<NodeProcessorStkNgp<1>> m_node_processor_force_stk_ngp;
+    std::shared_ptr<NodeProcessorStkNgp<2>> m_node_processor_force_states;
+    std::shared_ptr<NodeProcessorStkNgp<7>> m_node_processor_all_stk_ngp;
 };
 
 /**

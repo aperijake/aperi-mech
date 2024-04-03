@@ -10,20 +10,30 @@
 
 namespace aperi {
 
-void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
-    // NodeProcessor(const std::vector<FieldQueryData> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
-    std::vector<FieldQueryData> field_query_data_vec;
-    field_query_data_vec.push_back({field_name, FieldQueryState::NP1});
+struct FillInitialValueFunctor {
+    FillInitialValueFunctor(double value) : m_value(value) {}
+    KOKKOS_INLINE_FUNCTION void operator()(double* value) const { *value = m_value; }
+    double m_value;
+};
 
-    NodeProcessor node_processor(field_query_data_vec, mesh_data, {set_name});
+void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
+    // Create the field query data
+    std::array<FieldQueryData, 1> field_query_data;
+    field_query_data[0] = {field_name, FieldQueryState::NP1};
 
-    // Loop over each node
-    node_processor.for_each_node({}, components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
-        // Apply the boundary condition, loop over the components
-        for (auto&& component_value : components_and_values) {
-            field_data[0][i_component_start + component_value.first] = component_value.second;
-        }
-    });
+    // Create the node processor
+    NodeProcessorStkNgp<1> node_processor(field_query_data, mesh_data, set_names);
+
+    // Loop over components and values
+    for (auto component_and_value : components_and_values) {
+        // Create the functor to fill the field
+        auto fill_inital_value_functor = FillInitialValueFunctor(component_and_value.second);
+        // Fill the field for the component
+        node_processor.for_dof_i(fill_inital_value_functor, component_and_value.first);
+    }
+
+    // Mark all fields as modified on the device
+    node_processor.MarkAllFieldsModifiedOnDevice();
 }
 
 void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::MeshData> mesh_data) {
@@ -46,10 +56,8 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
             aperi::CoutP0() << "  " << sets.back() << std::endl;
         }
 
-        // Loop over sets
-        for (const auto& set : sets) {
-            SetInitialFieldValues(mesh_data, set, type, components_and_values);
-        }
+        // Set the initial field values
+        SetInitialFieldValues(mesh_data, sets, type, components_and_values);
     }
 }
 

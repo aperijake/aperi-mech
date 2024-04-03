@@ -70,7 +70,8 @@
     "condition_variable": "cpp",
     "source_location": "cpp",
     "dense": "cpp",
-    "core": "cpp"
+    "core": "cpp",
+    "utility": "cpp"
   },
   "cSpell.words": [
     "cgns",
@@ -128,6 +129,6 @@
       }
     ]
   },
-  "gtest-adapter.debugConfig": ["Debug Test GPU"],
+  "gtest-adapter.debugConfig": ["Release Test GPU"],
   "gtest-adapter.supportLocation": true
 }

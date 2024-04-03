@@ -67,6 +67,19 @@
       }
     },
     {
+      "label": "make_relwithdebinfo_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo --gpu && cd ../aperi-mech_build/RelWithDebInfo_gpu && make -j 4"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
       "label": "make_coverage",
       "type": "shell",
       "command": "bash",
