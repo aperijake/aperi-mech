@@ -71,6 +71,14 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
     void ComputeForce() override {}
 };
 
+struct ComputeGravityForceFunctor {
+    ComputeGravityForceFunctor(double gravity_value) : m_gravity_value(gravity_value) {}
+    void operator()(double *force, const double *mass) const { *force += m_gravity_value * *mass; }
+    // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
+    // KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force = m_gravity_value * *mass; }
+    double m_gravity_value;
+};
+
 /**
  * @brief Represents an external force contribution due to gravity.
  *
@@ -86,8 +94,10 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @param components_and_values The components and values of the gravity force.
      */
     ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : ExternalForceContribution(mesh_data, components_and_values) {
-        std::vector<FieldQueryData> field_query_data = {{"force", FieldQueryState::NP1}, {"mass", FieldQueryState::None}};
-        m_node_processor = std::make_shared<aperi::NodeProcessor>(field_query_data, m_mesh_data);
+        std::array<FieldQueryData, 2> field_query_data;
+        field_query_data[0] = {"force", FieldQueryState::NP1};
+        field_query_data[1] = {"mass", FieldQueryState::None};
+        m_node_processor = std::make_shared<aperi::NodeProcessorStkNgp<2>>(field_query_data, m_mesh_data);
     }
 
     /**
@@ -100,17 +110,21 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      */
     void ComputeForce() override {
         // Loop over the nodes
-        m_node_processor->for_each_node({}, m_components_and_values, [](size_t i_component_start, const std::vector<double> &data, const std::vector<std::pair<size_t, double>> &components_and_values, std::vector<double *> &field_data) {
-            // Apply the boundary condition, loop over the components
-            for (auto &&component_value : components_and_values) {
-                size_t iI = i_component_start + component_value.first;
-                field_data[0][iI] += component_value.second * field_data[1][iI];
-            }
-        });
+        for (auto component_value : m_components_and_values) {
+            // Create the functor to compute the gravity force
+            ComputeGravityForceFunctor compute_gravity_force_functor(component_value.second);
+            // Compute the gravity force for the component
+            m_node_processor->for_dof_i_host(compute_gravity_force_functor, component_value.first);
+            // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
+            // m_node_processor->for_dof_i(compute_gravity_force_functor, component_value.first);
+        }
+        m_node_processor->MarkFieldModifiedOnHost(0);
+        // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
+        // m_node_processor->MarkFieldModifiedOnDevice(0);
     }
 
    private:
-    std::shared_ptr<aperi::NodeProcessor> m_node_processor; /**< The node processor object. */
+    std::shared_ptr<aperi::NodeProcessorStkNgp<2>> m_node_processor; /**< The node processor object. */
 };
 
 /**

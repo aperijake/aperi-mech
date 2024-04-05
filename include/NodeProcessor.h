@@ -175,7 +175,7 @@ struct FillFieldFunctor {
 
 struct PrintFieldFunctor {
     PrintFieldFunctor() {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *value) const { printf(" %f\n", *value); }
+    KOKKOS_INLINE_FUNCTION void operator()(const double *value) const { printf(" %f\n", *value); }
 };
 
 // A Node processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each degree of freedom of each node
@@ -291,6 +291,19 @@ class NodeProcessorStkNgp {
             });
     }
 
+    // Loop over each node and apply the function to dof i
+    // Does not mark anything modified. Need to do that separately.
+    template <typename Func, std::size_t... Is>
+    void for_dof_i_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
+        auto fields = m_ngp_fields;
+        // Loop over all the nodes
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                func(&fields[Is](entity, i)...);
+            });
+    }
+
     // Loop over each node and apply the function. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
@@ -312,7 +325,7 @@ class NodeProcessorStkNgp {
     // Loop over each node and apply the function to dof i. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_dof_i(const Func &func, size_t i, size_t field_index = 0) {
+    void for_dof_i(const Func &func, size_t i, size_t field_index) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = m_ngp_fields[field_index];
         // Loop over all the nodes
@@ -329,8 +342,7 @@ class NodeProcessorStkNgp {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_node_host(const Func &func, const stk::mesh::Selector &selector) const {
-        size_t num_values_per_node = 3;                     // Number of values per node
-        std::vector<double *> field_data(m_fields.size());  // Array to hold field data
+        std::array<double *, N> field_data;  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
@@ -339,8 +351,28 @@ class NodeProcessorStkNgp {
             }
             // Loop over each node in the bucket
             for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                size_t i_dof_start = i_node * num_values_per_node;  // Index into the field data
-                func(i_dof_start, field_data);                      // Call the function
+                size_t i_dof_start = i_node * 3;  // Index into the field data, 3 is number of values per node
+                func(i_dof_start, field_data);    // Call the function
+            }
+        }
+    }
+
+    // Loop over each node and apply the function to dof i. Using host data.
+    // Does not mark anything modified. Need to do that separately.
+    template <typename Func, std::size_t... Is>
+    void for_dof_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
+        assert(i < 3 && "i out of bounds");
+        std::array<double *, N> field_data;  // Array to hold field data
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            for (size_t j = 0, e = N; j < e; ++j) {
+                field_data[j] = stk::mesh::field_data(*m_fields[j], *bucket);
+            }
+            // Loop over each node in the bucket
+            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
+                size_t i_dof_start = i_node * 3;  // Index into the field data, 3 is number of values per node
+                func(&field_data[Is][i_dof_start + i]...);
             }
         }
     }
@@ -374,6 +406,16 @@ class NodeProcessorStkNgp {
     template <typename Func>
     void for_each_dof(const Func &func) {
         for_each_dof_impl(func, std::make_index_sequence<N>{});
+    }
+
+    template <typename Func>
+    void for_dof_i(const Func &func, size_t i) {
+        for_dof_i_impl(func, i, std::make_index_sequence<N>{});
+    }
+
+    template <typename Func>
+    void for_dof_i_host(const Func &func, size_t i) {
+        for_dof_i_host_impl(func, i, std::make_index_sequence<N>{});
     }
 
     // Fill the field with a value
