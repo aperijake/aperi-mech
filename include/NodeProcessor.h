@@ -357,6 +357,11 @@ class NodeProcessorStkNgp {
         }
     }
 
+    template <typename Func>
+    void for_each_owned_node_host(const Func &func) const {
+        for_each_node_host(func, m_selector & m_bulk_data->mesh_meta_data().locally_owned_part());
+    }
+
     // Loop over each node and apply the function to dof i. Using host data.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>

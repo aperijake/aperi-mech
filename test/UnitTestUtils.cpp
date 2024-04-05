@@ -288,15 +288,15 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
 void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
     // Field Query Data
     aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
-    std::vector<aperi::FieldQueryData> field_query_data = {{field_name, field_query_state}};
+    std::array<aperi::FieldQueryData, 1> field_query_data = {{field_name, field_query_state}};
 
     // Make a node processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
-    aperi::NodeProcessor node_processor(field_query_data, mesh_data_ptr, set_names);
+    aperi::NodeProcessorStkNgp<1> node_processor(field_query_data, mesh_data_ptr, set_names);
 
     // Get the sum of the field values
     std::array<double, 3> sum_values_local = {0.0, 0.0, 0.0};
-    node_processor.for_each_owned_node([&](size_t i_node_start, std::vector<double*>& field_data) {
+    node_processor.for_each_owned_node_host([&](size_t i_node_start, std::array<double*, 1>& field_data) {
         for (size_t i = 0; i < 3; i++) {
             sum_values_local[i] += field_data[0][i_node_start + i];
         }
