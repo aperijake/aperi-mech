@@ -97,7 +97,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
         std::array<FieldQueryData, 2> field_query_data;
         field_query_data[0] = {"force", FieldQueryState::NP1};
         field_query_data[1] = {"mass", FieldQueryState::None};
-        m_node_processor = std::make_shared<aperi::NodeProcessorStkNgp<2>>(field_query_data, m_mesh_data);
+        m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data, m_mesh_data);
     }
 
     /**
@@ -124,7 +124,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
     }
 
    private:
-    std::shared_ptr<aperi::NodeProcessorStkNgp<2>> m_node_processor; /**< The node processor object. */
+    std::shared_ptr<aperi::NodeProcessor<2>> m_node_processor; /**< The node processor object. */
 };
 
 /**

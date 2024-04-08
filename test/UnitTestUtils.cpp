@@ -261,7 +261,7 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
 
     // Make a node processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
-    aperi::NodeProcessorStkNgp<1> node_processor_stk_ngp(field_query_data_array, mesh_data_ptr, set_names);
+    aperi::NodeProcessor<1> node_processor_stk_ngp(field_query_data_array, mesh_data_ptr, set_names);
 
     bool found_at_least_one_node = false;
 
@@ -292,7 +292,7 @@ void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::
 
     // Make a node processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
-    aperi::NodeProcessorStkNgp<1> node_processor(field_query_data, mesh_data_ptr, set_names);
+    aperi::NodeProcessor<1> node_processor(field_query_data, mesh_data_ptr, set_names);
 
     // Get the sum of the field values
     std::array<double, 3> sum_values_local = {0.0, 0.0, 0.0};

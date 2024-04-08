@@ -67,7 +67,7 @@ struct ComputeAccelerationFunctor {
     }
 };
 
-void ExplicitSolver::ComputeAccelerationStkNgp(const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_acceleration) {
+void ExplicitSolver::ComputeAccelerationStkNgp(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration) {
     // Compute acceleration: a^{n} = M^{–1}(f^{n})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_dof(compute_acceleration_functor);
@@ -84,7 +84,7 @@ struct ComputeFirstPartialUpdateFunctor {
     double m_half_time_increment;
 };
 
-void ExplicitSolver::ComputeFirstPartialUpdateStkNgp(double half_time_increment, const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_first_update) {
+void ExplicitSolver::ComputeFirstPartialUpdateStkNgp(double half_time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update) {
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
     node_processor_first_update->for_each_dof(compute_first_partial_update_functor);
@@ -101,7 +101,7 @@ struct UpdateDisplacementsFunctor {
     double m_time_increment;
 };
 
-void ExplicitSolver::UpdateDisplacementsStkNgp(double time_increment, const std::shared_ptr<NodeProcessorStkNgp<3>> &node_processor_update_displacements) {
+void ExplicitSolver::UpdateDisplacementsStkNgp(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements) {
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_dof(update_displacements_functor);
@@ -122,7 +122,7 @@ struct ComputeSecondPartialUpdateFunctor {
     double m_half_time_increment;
 };
 
-void ExplicitSolver::ComputeSecondPartialUpdateStkNgp(double half_time_increment, const std::shared_ptr<NodeProcessorStkNgp<2>> &node_processor_second_update) {
+void ExplicitSolver::ComputeSecondPartialUpdateStkNgp(double half_time_increment, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update) {
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
     node_processor_second_update->for_each_dof(compute_second_partial_update_functor);
@@ -141,10 +141,10 @@ void ExplicitSolver::Solve() {
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_first_update = CreateNodeProcessorFirstUpdateStkNgp();
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_update_displacements = CreateNodeProcessorUpdateDisplacementsStkNgp();
-    std::shared_ptr<NodeProcessorStkNgp<3>> node_processor_stk_ngp_acceleration = CreateNodeProcessorAccelerationStkNgp();
-    std::shared_ptr<NodeProcessorStkNgp<2>> node_processor_stk_ngp_second_update = CreateNodeProcessorSecondUpdateStkNgp();
+    std::shared_ptr<NodeProcessor<3>> node_processor_stk_ngp_first_update = CreateNodeProcessorFirstUpdateStkNgp();
+    std::shared_ptr<NodeProcessor<3>> node_processor_stk_ngp_update_displacements = CreateNodeProcessorUpdateDisplacementsStkNgp();
+    std::shared_ptr<NodeProcessor<3>> node_processor_stk_ngp_acceleration = CreateNodeProcessorAccelerationStkNgp();
+    std::shared_ptr<NodeProcessor<2>> node_processor_stk_ngp_second_update = CreateNodeProcessorSecondUpdateStkNgp();
 
     // Set the initial time, t = 0
     double time = 0.0;

@@ -22,7 +22,7 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
     field_query_data[0] = {field_name, FieldQueryState::NP1};
 
     // Create the node processor
-    NodeProcessorStkNgp<1> node_processor(field_query_data, mesh_data, set_names);
+    NodeProcessor<1> node_processor(field_query_data, mesh_data, set_names);
 
     // Loop over components and values
     for (auto component_and_value : components_and_values) {

@@ -42,7 +42,7 @@ class InitialConditionUtilTest : public ApplicationTest {
         AddInitialConditions(initial_conditions, m_io_mesh->GetMeshData());
 
         // Create node processors for syncing field data
-        std::vector<aperi::NodeProcessorStkNgp<2>> node_processors;
+        std::vector<aperi::NodeProcessor<2>> node_processors;
 
         // Need to sync from device to host before updating states
         for (const auto& initial_condition : initial_conditions) {
@@ -58,7 +58,7 @@ class InitialConditionUtilTest : public ApplicationTest {
             if (initial_condition_node["sets"]) {
                 sets = initial_condition_node["sets"].as<std::vector<std::string>>();
             }
-            aperi::NodeProcessorStkNgp<2> node_processor(field_query_data, m_io_mesh->GetMeshData(), sets);
+            aperi::NodeProcessor<2> node_processor(field_query_data, m_io_mesh->GetMeshData(), sets);
             node_processor.SyncAllFieldsDeviceToHost();
             node_processors.push_back(node_processor);
         }

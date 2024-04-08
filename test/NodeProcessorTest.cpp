@@ -72,7 +72,7 @@ class NodeProcessingTestFixture : public ::testing::Test {
         field_query_data_vec[2] = {"acceleration", aperi::FieldQueryState::N};
 
         // Create the node processor
-        node_processor_stk_ngp = std::make_shared<aperi::NodeProcessorStkNgp<3>>(field_query_data_vec, mesh_data);
+        node_processor_stk_ngp = std::make_shared<aperi::NodeProcessor<3>>(field_query_data_vec, mesh_data);
 
         // Fill the fields with initial values
         FillFields();
@@ -106,7 +106,7 @@ class NodeProcessingTestFixture : public ::testing::Test {
     std::shared_ptr<stk::mesh::BulkData> bulk_data;
     DoubleField *velocity_field_np1;
     std::shared_ptr<aperi::MeshData> mesh_data;
-    std::shared_ptr<aperi::NodeProcessorStkNgp<3>> node_processor_stk_ngp;
+    std::shared_ptr<aperi::NodeProcessor<3>> node_processor_stk_ngp;
 };
 
 // Test FillFields method

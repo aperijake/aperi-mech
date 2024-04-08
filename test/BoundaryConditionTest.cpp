@@ -67,7 +67,7 @@ class BoundaryConditionTest : public ApplicationTest {
         field_query_data_vec[4] = {"acceleration", aperi::FieldQueryState::NP1};
         field_query_data_vec[5] = {"acceleration", aperi::FieldQueryState::N};
 
-        m_all_field_node_processor = std::make_shared<aperi::NodeProcessorStkNgp<6>>(field_query_data_vec, m_io_mesh->GetMeshData());
+        m_all_field_node_processor = std::make_shared<aperi::NodeProcessor<6>>(field_query_data_vec, m_io_mesh->GetMeshData());
     }
 
     void UpdateNodalDisplacements(double time_increment) {
@@ -80,7 +80,7 @@ class BoundaryConditionTest : public ApplicationTest {
         field_query_data_array[2] = {"velocity", aperi::FieldQueryState::NP1};
 
         // Create a node processor
-        aperi::NodeProcessorStkNgp<3> node_processor(field_query_data_array, m_io_mesh->GetMeshData());
+        aperi::NodeProcessor<3> node_processor(field_query_data_array, m_io_mesh->GetMeshData());
 
         auto disp_update_functor = DispUpdateFunctor(time_increment);
 
@@ -220,7 +220,7 @@ class BoundaryConditionTest : public ApplicationTest {
     std::vector<aperi::FieldData> m_field_data;
     std::shared_ptr<aperi::IoInputFile> m_io_input_file;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
-    std::shared_ptr<aperi::NodeProcessorStkNgp<6>> m_all_field_node_processor;
+    std::shared_ptr<aperi::NodeProcessor<6>> m_all_field_node_processor;
 };
 
 // Test adding a displacement boundary condition
