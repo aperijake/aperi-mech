@@ -32,5 +32,6 @@ void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& expected_owned);
+void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state);
 void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values);
 void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values);

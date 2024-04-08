@@ -11,6 +11,17 @@
 #include "NodeProcessor.h"
 #include "yaml-cpp/yaml.h"
 
+// Functor to update the nodal displacements
+struct DispUpdateFunctor {
+    DispUpdateFunctor(double time_increment) : m_time_increment(time_increment) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(double *displacement_data_np1, double *displacement_data_n, double *velocity_data_np1) const {
+        *displacement_data_np1 = *displacement_data_n + m_time_increment * *velocity_data_np1;
+    }
+    double m_time_increment;
+};
+
 // Fixture for BoundaryCondition tests
 class BoundaryConditionTest : public ApplicationTest {
    protected:
@@ -46,25 +57,36 @@ class BoundaryConditionTest : public ApplicationTest {
             std::cout << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
             m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
         }
+
+        // Create a node processor for all fields
+        std::array<aperi::FieldQueryData, 6> field_query_data_vec;
+        field_query_data_vec[0] = {"velocity", aperi::FieldQueryState::NP1};
+        field_query_data_vec[1] = {"velocity", aperi::FieldQueryState::N};
+        field_query_data_vec[2] = {"displacement", aperi::FieldQueryState::NP1};
+        field_query_data_vec[3] = {"displacement", aperi::FieldQueryState::N};
+        field_query_data_vec[4] = {"acceleration", aperi::FieldQueryState::NP1};
+        field_query_data_vec[5] = {"acceleration", aperi::FieldQueryState::N};
+
+        m_all_field_node_processor = std::make_shared<aperi::NodeProcessor<6>>(field_query_data_vec, m_io_mesh->GetMeshData());
     }
 
     void UpdateNodalDisplacements(double time_increment) {
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}A
 
         // Field query data
-        std::vector<aperi::FieldQueryData> field_query_data_vec;
-        field_query_data_vec.push_back({"displacement", aperi::FieldQueryState::NP1});
-        field_query_data_vec.push_back({"displacement", aperi::FieldQueryState::N});
-        field_query_data_vec.push_back({"velocity", aperi::FieldQueryState::NP1});
+        std::array<aperi::FieldQueryData, 3> field_query_data_array;
+        field_query_data_array[0] = {"displacement", aperi::FieldQueryState::NP1};
+        field_query_data_array[1] = {"displacement", aperi::FieldQueryState::N};
+        field_query_data_array[2] = {"velocity", aperi::FieldQueryState::NP1};
 
         // Create a node processor
-        aperi::NodeProcessor node_processor(field_query_data_vec, m_io_mesh->GetMeshData());
+        aperi::NodeProcessor<3> node_processor(field_query_data_array, m_io_mesh->GetMeshData());
+
+        auto disp_update_functor = DispUpdateFunctor(time_increment);
 
         // Loop over each node then DOF and apply the function
-        node_processor.for_each_dof({time_increment}, [](size_t iI, const std::vector<double> &data, std::vector<double *> &field_data) {
-            // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-            field_data[0][iI] = field_data[1][iI] + data[0] * field_data[2][iI];
-        });
+        node_processor.for_each_dof(disp_update_functor);
+        node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
     void CheckBoundaryConditions(std::string bc_type) {
@@ -92,15 +114,21 @@ class BoundaryConditionTest : public ApplicationTest {
         std::array<double, 3> expected_velocity = {0.0, 0.0, 0.0};
 
         // Initial time
+        m_all_field_node_processor->SyncAllFieldsDeviceToHost();
+        m_io_mesh->GetMeshData()->UpdateFieldDataStates();
+        m_all_field_node_processor->MarkAllFieldsModifiedOnHost();
+        m_all_field_node_processor->SyncAllFieldsHostToDevice();
         for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-            m_io_mesh->GetMeshData()->UpdateFieldDataStates();
             m_boundary_conditions[i]->ApplyVelocity(0);
         }
 
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
+            m_all_field_node_processor->SyncAllFieldsDeviceToHost();
+            m_io_mesh->GetMeshData()->UpdateFieldDataStates();
+            m_all_field_node_processor->MarkAllFieldsModifiedOnHost();
+            m_all_field_node_processor->SyncAllFieldsHostToDevice();
             for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-                m_io_mesh->GetMeshData()->UpdateFieldDataStates();
                 m_boundary_conditions[i]->ApplyVelocity(time);
             }
             UpdateNodalDisplacements(time_increment);
@@ -182,6 +210,7 @@ class BoundaryConditionTest : public ApplicationTest {
                 }
 
                 // Check the displacement and velocity values
+                m_all_field_node_processor->SyncAllFieldsDeviceToHost();
                 CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement);
                 CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity);
             }
@@ -191,6 +220,7 @@ class BoundaryConditionTest : public ApplicationTest {
     std::vector<aperi::FieldData> m_field_data;
     std::shared_ptr<aperi::IoInputFile> m_io_input_file;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
+    std::shared_ptr<aperi::NodeProcessor<6>> m_all_field_node_processor;
 };
 
 // Test adding a displacement boundary condition

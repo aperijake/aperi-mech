@@ -39,6 +39,24 @@
       "preLaunchTask": "make_relwithdebinfo"
     },
     {
+      "name": "ReleaseWithDebugInfo Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../aperi-mech_build/RelWithDebInfo/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/../aperi-mech_build/RelWithDebInfo",
+      "preLaunchTask": "make_relwithdebinfo"
+    },
+    {
+      "name": "ReleaseWithDebugInfo Test GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../aperi-mech_build/RelWithDebInfo_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/../aperi-mech_build/RelWithDebInfo_gpu",
+      "preLaunchTask": "make_relwithdebinfo_gpu"
+    },
+    {
       "name": "Debug",
       "type": "lldb",
       "request": "launch",
@@ -67,12 +85,11 @@
       "cwd": "${workspaceFolder}/../aperi-mech_build/Debug_gpu",
       "preLaunchTask": "make_debug_gpu"
     },
-    // TODO(jake): Fix the path to mpirun
     {
       "name": "MPI Debug Test",
       "type": "lldb",
       "request": "launch",
-      "program": "/Users/jake/projects/spack/var/spack/environments/aperi-mech/.spack-env/view/bin/mpirun",
+      "program": "${env:SPACK_ROOT}/var/spack/environments/aperi-mech/.spack-env/view/bin/mpirun",
       "args": [
         "-np",
         "3",

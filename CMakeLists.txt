@@ -70,7 +70,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Find package/
 find_package(Kokkos REQUIRED PATHS ${Kokkos_ROOT} NO_DEFAULT_PATH)
 find_package(Trilinos REQUIRED PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
-find_package(MPI REQUIRED)
 find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
 find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
@@ -78,6 +77,8 @@ find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include)
 find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib)
 find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
 find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib)
+find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include)
+find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib)
 
 ### aperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
@@ -124,6 +125,8 @@ target_include_directories(aperi-mech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
     "${CMAKE_BINARY_DIR}/generated/"
     ${MPI_INCLUDE_PATH}
+    ${MFEM_INCLUDE_DIR}
+    ${HYPRE_INCLUDE_DIR}
     )
 
 ############# TESTING #############
@@ -151,7 +154,7 @@ target_link_libraries(unit_tests
 	GTest::gtest_main
 	)
 
-gtest_discover_tests(unit_tests TIMEOUT 10000)
+gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
 ############# CODE COVERAGE #############
 if (CODE_COVERAGE)

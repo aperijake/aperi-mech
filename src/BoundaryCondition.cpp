@@ -15,12 +15,11 @@ void BoundaryCondition::ApplyVelocity(double time) {
     double time_scale = m_velocity_time_function(time);
 
     // Loop over the nodes
-    m_node_processor_velocity->for_each_node({time_scale}, m_components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
-        // Apply the boundary condition, loop over the components
-        for (auto&& component_value : components_and_values) {
-            field_data[0][i_component_start + component_value.first] = component_value.second * data[0];
-        }
-    });
+    for (auto&& component_value : m_components_and_values) {
+        auto fill_field_functor = FillFieldFunctor(component_value.second * time_scale);
+        m_node_processor_velocity->for_dof_i(fill_field_functor, component_value.first, 0);
+    }
+    m_node_processor_velocity->MarkAllFieldsModifiedOnDevice();
 }
 
 // Apply the acceleration boundary condition
@@ -29,12 +28,11 @@ void BoundaryCondition::ApplyAcceleration(double time) {
     double time_scale = m_acceleration_time_function(time);
 
     // Loop over the nodes
-    m_node_processor_acceleration->for_each_node({time_scale}, m_components_and_values, [](size_t i_component_start, const std::vector<double>& data, const std::vector<std::pair<size_t, double>>& components_and_values, std::vector<double*>& field_data) {
-        // Apply the boundary condition, loop over the components
-        for (auto&& component_value : components_and_values) {
-            field_data[0][i_component_start + component_value.first] = component_value.second * data[0];
-        }
-    });
+    for (auto&& component_value : m_components_and_values) {
+        auto fill_field_functor = FillFieldFunctor(component_value.second * time_scale);
+        m_node_processor_acceleration->for_dof_i(fill_field_functor, component_value.first, 0);
+    }
+    m_node_processor_acceleration->MarkAllFieldsModifiedOnDevice();
 }
 
 // Set the time function

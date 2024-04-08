@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build/Release && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure && cd ../aperi-mech_build/Release && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -20,7 +20,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build/Release_gpu && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --gpu && cd ../aperi-mech_build/Release_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -33,7 +33,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --build-type Debug && cd ../aperi-mech_build/Debug && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type Debug && cd ../aperi-mech_build/Debug && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -46,7 +46,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd ../aperi-mech_build/Debug_gpu && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd ../aperi-mech_build/Debug_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -59,7 +59,20 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd ../aperi-mech_build/RelWithDebInfo && make"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd ../aperi-mech_build/RelWithDebInfo && make -j 4"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "make_relwithdebinfo_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo --gpu && cd ../aperi-mech_build/RelWithDebInfo_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -72,7 +85,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "spack env activate aperi-mech && ./do_configure --code-coverage && cd ../aperi-mech_build/Debug_cov && make coverage"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --code-coverage && cd ../aperi-mech_build/Debug_cov && make -j 4"
       ],
       "group": {
         "kind": "build",

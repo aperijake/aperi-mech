@@ -17,19 +17,21 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
 }
 
 void PrintVersion() {
-    std::cout << GIT_COMMIT_HASH << "-" << GIT_DIRTY << "-" << BUILD_TYPE << std::endl;
+    aperi::CoutP0() << GIT_COMMIT_HASH << "-" << GIT_DIRTY << "-" << BUILD_TYPE << std::endl;
 }
 
 void PrintHeader() {
-    std::cout << "############################################" << std::endl;
-    std::cout << "                aperi-mech\n" << std::endl;
-    std::cout << "  Version: ";
+    aperi::CoutP0() << "############################################" << std::endl;
+    aperi::CoutP0() << "                aperi-mech\n"
+                    << std::endl;
+    aperi::CoutP0() << "  Version: ";
     PrintVersion();
-    std::cout << "  Git branch: " << GIT_BRANCH << std::endl;
-    std::cout << "  Git tag: " << GIT_TAG << std::endl;
-    std::cout << "  Build Date: " << BUILD_DATE << std::endl;
-    std::cout << "  Build Time: " << BUILD_TIME << std::endl;
-    std::cout << "############################################\n" << std::endl;
+    aperi::CoutP0() << "  Git branch: " << GIT_BRANCH << std::endl;
+    aperi::CoutP0() << "  Git tag: " << GIT_TAG << std::endl;
+    aperi::CoutP0() << "  Build Date: " << BUILD_DATE << std::endl;
+    aperi::CoutP0() << "  Build Time: " << BUILD_TIME << std::endl;
+    aperi::CoutP0() << "############################################\n"
+                    << std::endl;
 }
 
 int main(int argc, char* argv[]) {

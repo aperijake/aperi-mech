@@ -16,11 +16,11 @@ class MeshData;
  * This function sets the initial field values for a set in the mesh data.
  *
  * @param mesh_data The mesh data to set the initial field values for.
- * @param set_name The name of the set to set the initial field values for.
+ * @param set_names The names of the sets to set the initial field values for.
  * @param field_name The name of the field to set the initial field values for.
  * @param components_and_values The components and values to set the initial field values to.
  */
-void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::string& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values);
+void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string>& set_name, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values);
 
 /**
  * @brief Adds initial conditions to field data.

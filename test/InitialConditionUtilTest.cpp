@@ -7,6 +7,7 @@
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "NodeProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for InitialConditionUtil tests
@@ -36,10 +37,40 @@ class InitialConditionUtilTest : public ApplicationTest {
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
 
         // Set initial conditions
+        // Should set on device for state NP1, and mark the initial conditions NP1 fields as modified on device
         std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
         AddInitialConditions(initial_conditions, m_io_mesh->GetMeshData());
 
+        // Create node processors for syncing field data
+        std::vector<aperi::NodeProcessor<2>> node_processors;
+
+        // Need to sync from device to host before updating states
+        for (const auto& initial_condition : initial_conditions) {
+            // Get the type and initial condition node
+            std::string type = initial_condition.begin()->first.as<std::string>();
+            const YAML::Node initial_condition_node = initial_condition.begin()->second;
+
+            // Create the field query data
+            std::array<aperi::FieldQueryData, 2> field_query_data;
+            field_query_data[0] = {type, aperi::FieldQueryState::NP1};
+            field_query_data[1] = {type, aperi::FieldQueryState::N};
+            std::vector<std::string> sets;
+            if (initial_condition_node["sets"]) {
+                sets = initial_condition_node["sets"].as<std::vector<std::string>>();
+            }
+            aperi::NodeProcessor<2> node_processor(field_query_data, m_io_mesh->GetMeshData(), sets);
+            node_processor.SyncAllFieldsDeviceToHost();
+            node_processors.push_back(node_processor);
+        }
+
+        // Update the field data states. Should swap the field data states for state NP1 and N on host
         m_io_mesh->GetMeshData()->UpdateFieldDataStates();
+
+        // Need to mark as modified on host after updating states, then sync from host to device
+        for (auto& node_processor : node_processors) {
+            node_processor.MarkAllFieldsModifiedOnHost();
+            node_processor.SyncAllFieldsHostToDevice();
+        }
     }
 
     std::vector<aperi::FieldData> m_field_data;
