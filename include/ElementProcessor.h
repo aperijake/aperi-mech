@@ -118,7 +118,7 @@ class ElementProcessorStkNgp {
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
-    ElementProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, size_t nodes_per_element, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_num_nodes_per_element(nodes_per_element) {
+    ElementProcessorStkNgp(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -155,9 +155,8 @@ class ElementProcessorStkNgp {
     }
 
     // Loop over each element and apply the function
-    template <typename Func>
+    template <size_t NumNodes, typename Func>
     void for_each_element(const Func &func) {
-        size_t num_nodes_per_element = m_num_nodes_per_element;
         auto ngp_mesh = m_ngp_mesh;
         auto ngp_fields_to_gather = m_ngp_fields_to_gather;
         auto ngp_field_to_scatter = m_ngp_field_to_scatter;
@@ -168,20 +167,20 @@ class ElementProcessorStkNgp {
                 // Set up the field data to gather
                 Kokkos::Array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, N> field_data_to_gather;
                 for (size_t f = 0; f < N; ++f) {
-                    field_data_to_gather[f].resize(num_nodes_per_element, 3);
+                    field_data_to_gather[f].resize(NumNodes, 3);
                 }
 
                 // Set up the results matrix
                 Kokkos::Array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, 1> results_to_scatter;
-                results_to_scatter[0].resize(num_nodes_per_element, 3);
+                results_to_scatter[0].resize(NumNodes, 3);
 
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                assert(nodes.size() == num_nodes_per_element);
+                assert(nodes.size() == NumNodes);
 
                 // Gather the field data for each node
                 for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                    for (size_t i = 0; i < NumNodes; ++i) {
                         for (size_t j = 0; j < 3; ++j) {
                             field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](ngp_mesh.fast_mesh_index(nodes[i]), j);
                         }
@@ -191,7 +190,7 @@ class ElementProcessorStkNgp {
                 // Apply the function to the gathered data
                 func(field_data_to_gather, results_to_scatter[0]);
                 // Scatter the force to the nodes
-                for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
                         ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j) += results_to_scatter[0](i, j);
                     }
@@ -200,11 +199,10 @@ class ElementProcessorStkNgp {
     }
 
     // Loop over each element and apply the function
-    template <typename Func>
+    template <size_t NumNodes, typename Func>
     void for_each_element_debug(const Func &func) {
         printf("for_each_element_debug\n");
         // STK Question: explain capturing in for_each_entity_run. Doesn't like using member variables inside. Implicit capturing of this. Other variables are captured as const.
-        size_t num_nodes_per_element = m_num_nodes_per_element;
         auto ngp_mesh = m_ngp_mesh;
         auto ngp_fields_to_gather = m_ngp_fields_to_gather;
         auto ngp_field_to_scatter = m_ngp_field_to_scatter;
@@ -216,17 +214,17 @@ class ElementProcessorStkNgp {
 
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                assert(nodes.size() == num_nodes_per_element);
+                assert(nodes.size() == NumNodes);
 
                 // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, 4, 3>, N> field_data_to_gather;
+                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
 
                 // Set up the results matrix
-                Kokkos::Array<Eigen::Matrix<double, 4, 3>, 1> results_to_scatter;
+                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> results_to_scatter;
 
                 // Gather the field data for each node
                 for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                    for (size_t i = 0; i < NumNodes; ++i) {
                         for (size_t j = 0; j < 3; ++j) {
                             field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](ngp_mesh.fast_mesh_index(nodes[i]), j);
                         }
@@ -240,9 +238,9 @@ class ElementProcessorStkNgp {
                 printf("results_to_scatter[0](0,0): %f\n", results_to_scatter[0](0, 0));
 
                 // Scatter the force to the nodes
-                for (size_t i = 0; i < num_nodes_per_element; ++i) {
+                for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j) -= results_to_scatter[0](i, j);
+                        //ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j) -= results_to_scatter[0](i, j);
                     }
                 }
 
@@ -251,17 +249,17 @@ class ElementProcessorStkNgp {
     }
 
     // Loop over each element and apply the function on host data
-    template <typename Func>
+    template <size_t NumNodes, typename Func>
     void for_each_element_host(const Func &func) {
         // Set up the field data to gather
         std::array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, N> field_data_to_gather;
         for (size_t f = 0; f < N; ++f) {
-            field_data_to_gather[f].resize(m_num_nodes_per_element, 3);
+            field_data_to_gather[f].resize(NumNodes, 3);
         }
 
         // Set up the results matrix
         Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> results_to_scatter;
-        results_to_scatter.resize(m_num_nodes_per_element, 3);
+        results_to_scatter.resize(NumNodes, 3);
 
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
@@ -272,7 +270,7 @@ class ElementProcessorStkNgp {
 
                 // Gather the coordinates, displacements, and velocities of the nodes
                 for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < m_num_nodes_per_element; ++i) {
+                    for (size_t i = 0; i < NumNodes; ++i) {
                         double *element_node_data = stk::mesh::field_data(*m_fields_to_gather[f], element_nodes[i]);
                         for (size_t j = 0; j < 3; ++j) {
                             field_data_to_gather[f](i, j) = element_node_data[j];
@@ -283,7 +281,7 @@ class ElementProcessorStkNgp {
                 func(field_data_to_gather, results_to_scatter);
 
                 // Scatter the force to the nodes
-                for (size_t i = 0; i < m_num_nodes_per_element; ++i) {
+                for (size_t i = 0; i < NumNodes; ++i) {
                     double *element_node_data = stk::mesh::field_data(*m_field_to_scatter, element_nodes[i]);
                     for (size_t j = 0; j < 3; ++j) {
                         element_node_data[j] += results_to_scatter(i, j);
@@ -301,7 +299,6 @@ class ElementProcessorStkNgp {
     }
 
    private:
-    size_t m_num_nodes_per_element;                           // The number of nodes per element
     stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
     stk::mesh::Selector m_selector;                           // The selector
     stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.

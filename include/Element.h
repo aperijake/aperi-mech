@@ -3,10 +3,57 @@
 #include <Eigen/Dense>
 #include <memory>
 
+#include "ElementProcessor.h"
 #include "Material.h"
 #include "Kokkos_Core.hpp"
 
 namespace aperi {
+
+static constexpr int tet4_num_nodes = 4;
+
+// dN/dxi, dN/deta, dN/dzeta
+struct Tet4ComputeShapeFunctionDerivativesFunctor {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> operator()(double xi, double eta, double zeta) const {
+        Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
+        shape_function_derivatives << -1.0, -1.0, -1.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0;
+        return shape_function_derivatives;
+    }
+};
+
+template <size_t NumNodes, typename FuncShapeFunctionDerivatives>
+struct ComputeInternalForceFunctor {
+    ComputeInternalForceFunctor(FuncShapeFunctionDerivatives &func) : m_func_shape_function_derivatives(func) {}
+    KOKKOS_INLINE_FUNCTION void operator()(const Eigen::Matrix<double, NumNodes, 3> &node_coordinates, const Eigen::Matrix<double, NumNodes, 3> &node_displacements, const Eigen::Matrix<double, NumNodes, 3> &node_velocities, Eigen::Matrix<double, NumNodes, 3> &force) const {
+        // Compute the shape function derivatives
+        printf("Element::ComputeShapeFunctionDerivatives\n");
+        Eigen::Matrix<double, NumNodes, 3> shape_func_derivatives =  m_func_shape_function_derivatives(0.0, 0.0, 0.0);
+        printf("post ComputeShapeFunctionDerivatives, shape_func_derivatives(0,0): %f\n", shape_func_derivatives(0, 0));
+        // Compute the internal force
+        printf("Element::ComputeInternalForceTest\n");
+        printf("pre fill force(0,0): %f\n", force(0, 0));
+        force.fill(1.3);
+        printf("post fill force(0,0): %f\n", force(0, 0));
+        // force = ComputeInternalForce(node_coordinates, node_displacements, node_velocities, m_material);
+    }
+
+    FuncShapeFunctionDerivatives &m_func_shape_function_derivatives;
+};
+
+template <typename ComputeInternalForceFunc>
+struct Tet4ComputeForceFunctor {
+    Tet4ComputeForceFunctor(ComputeInternalForceFunc &func) : m_func(func) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, tet4_num_nodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, tet4_num_nodes, 3> &force) const {
+        // Compute the internal force
+        printf("ComputeFunc\n");
+        m_func(field_data_to_gather[0], field_data_to_gather[1], field_data_to_gather[2], force);
+        printf("post ComputeFunc, force(0,0): %f\n", force(0, 0));
+    }
+    ComputeInternalForceFunc &m_func;
+};
 
 /**
  * @brief Represents an element in a mesh.
@@ -24,7 +71,7 @@ class Element {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    Element(size_t num_nodes) : m_num_nodes(num_nodes) {}
+    Element(size_t num_nodes) : m_num_nodes(num_nodes), m_ngp_element_processor(nullptr) {}
 
     /**
      * @brief Gets the number of nodes in the element.
@@ -66,31 +113,11 @@ class Element {
      */
     Eigen::Matrix<double, 4, 3> ComputeInternalForce(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, std::shared_ptr<Material> material) const;
 
-    struct ComputeInternalForceFunctor {
-        KOKKOS_INLINE_FUNCTION void operator()(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, Eigen::Matrix<double, 4, 3> &force) const {
-            // Compute the internal force
-            printf("Element::ComputeInternalForceTest\n");
-            printf("pre fill force(0,0): %f\n", force(0, 0));
-            force.fill(1.3);
-            printf("post fill force(0,0): %f\n", force(0, 0));
-            //force = ComputeInternalForce(node_coordinates, node_displacements, node_velocities, m_material);
-        }
-    };
+    virtual void ComputeInternalForceAllElements() = 0;
 
-    ComputeInternalForceFunctor GetComputeInternalForceFunctor() {
-        return ComputeInternalForceFunctor();
+    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessorStkNgp<3>> ngp_element_processor) {
+        m_ngp_element_processor = ngp_element_processor;
     }
- //   Eigen::Matrix<double, 4, 3> ComputeInternalForceTest(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities) const;
-//KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 4, 3> Element::ComputeInternalForceTest(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities) const {
-//    printf("Element::ComputeInternalForceTest\n");
-//    Eigen::Matrix<double, 4, 3> shape_function_derivatives;
-//    shape_function_derivatives.fill(1.3);
-//    // const Eigen::Matrix<double, 4, 3> shape_function_derivatives = ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
-//    return shape_function_derivatives;
-//    //return Element::DoInternalForceCalc<4>(shape_function_derivatives, node_coordinates, node_displacements, node_velocities);
-//}
-
-
 
    protected:
     /**
@@ -109,6 +136,8 @@ class Element {
     Eigen::Matrix<double, N, 3> DoInternalForceCalc(const Eigen::Matrix<double, N, 3> &shape_function_derivatives, const Eigen::Matrix<double, N, 3> &node_coordinates, const Eigen::Matrix<double, N, 3> &node_displacements, const Eigen::Matrix<double, N, 3> &node_velocities, std::shared_ptr<Material> material) const;
 
     size_t m_num_nodes;  ///< The number of nodes in the element.
+    std::shared_ptr<aperi::ElementProcessorStkNgp<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
+    size_t m_temp;
 };
 
 /**
@@ -124,11 +153,11 @@ class Tetrahedron4 : public Element {
      * @brief Constructs a Tetrahedron4 object.
      *
      */
-    Tetrahedron4() : Element(4) {
+    Tetrahedron4() : Element(tet4_num_nodes) {
     }
 
-    Eigen::Matrix<double, 4, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
-        Eigen::Matrix<double, 4, 1> shape_functions;
+    Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
+        Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
         shape_functions << 1.0 - xi - eta - zeta,
             xi,
             eta,
@@ -137,13 +166,22 @@ class Tetrahedron4 : public Element {
     }
 
     // dN/dxi, dN/deta, dN/dzeta
-    Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
-        Eigen::Matrix<double, 4, 3> shape_function_derivatives;
+    Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
+        Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
         shape_function_derivatives << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0;
         return shape_function_derivatives;
+    }
+
+    void ComputeInternalForceAllElements() override {
+        assert(m_ngp_element_processor != nullptr);
+        printf("Tetrahedron4::ComputeInternalForceAllElements\n");
+        Tet4ComputeShapeFunctionDerivativesFunctor elem_compute_shape_function_derivatives;
+        ComputeInternalForceFunctor<tet4_num_nodes, Tet4ComputeShapeFunctionDerivativesFunctor> elem_compute_force(elem_compute_shape_function_derivatives);
+        Tet4ComputeForceFunctor<ComputeInternalForceFunctor<tet4_num_nodes, Tet4ComputeShapeFunctionDerivativesFunctor>> compute_force_functor(elem_compute_force);
+        m_ngp_element_processor->for_each_element_debug<tet4_num_nodes>(compute_force_functor);
     }
 };
 
@@ -158,7 +196,7 @@ class Tetrahedron4 : public Element {
  * @return A shared pointer to the created Element object.
  */
 inline std::shared_ptr<Element> CreateElement(size_t num_nodes) {
-    if (num_nodes == 4) {
+    if (num_nodes == tet4_num_nodes) {
         return std::make_shared<Tetrahedron4>();
     } else {
         throw std::runtime_error("Unsupported element topology");

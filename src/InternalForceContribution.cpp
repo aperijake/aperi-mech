@@ -45,6 +45,9 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
 
     // Create the element processor
     CreateElementProcessor();
+
+    // Set the element processor for the element
+    m_element->SetElementProcessor(m_ngp_element_processor);
 }
 
 void InternalForceContribution::ComputeElementInternalForce(const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &node_displacements, const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> &node_velocities, Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &force) const {
@@ -61,9 +64,10 @@ void InternalForceContribution::ComputeForce() {
     //     // Compute the internal force
     //     ComputeElementInternalForce(field_data_to_gather[0], field_data_to_gather[1], field_data_to_gather[2], force);
     // });
-    Element::ComputeInternalForceFunctor elem_compute_force = m_element->GetComputeInternalForceFunctor();
-    ComputeForceFunctor<Element::ComputeInternalForceFunctor> compute_force_functor(elem_compute_force);
-    m_ngp_element_processor->for_each_element_debug(compute_force_functor);
+    // Element::ComputeInternalForceFunctor elem_compute_force = m_element->GetComputeInternalForceFunctor();
+    // ComputeForceFunctor<Element::ComputeInternalForceFunctor> compute_force_functor(elem_compute_force);
+    // m_ngp_element_processor->for_each_element_debug(compute_force_functor);
+    m_element->ComputeInternalForceAllElements();
 }
 
 }  // namespace aperi
