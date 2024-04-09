@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "Material.h"
+#include "Kokkos_Core.hpp"
 
 namespace aperi {
 
@@ -64,6 +65,32 @@ class Element {
      * @return The internal force of the element.
      */
     Eigen::Matrix<double, 4, 3> ComputeInternalForce(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, std::shared_ptr<Material> material) const;
+
+    struct ComputeInternalForceFunctor {
+        KOKKOS_INLINE_FUNCTION void operator()(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, Eigen::Matrix<double, 4, 3> &force) const {
+            // Compute the internal force
+            printf("Element::ComputeInternalForceTest\n");
+            printf("pre fill force(0,0): %f\n", force(0, 0));
+            force.fill(1.3);
+            printf("post fill force(0,0): %f\n", force(0, 0));
+            //force = ComputeInternalForce(node_coordinates, node_displacements, node_velocities, m_material);
+        }
+    };
+
+    ComputeInternalForceFunctor GetComputeInternalForceFunctor() {
+        return ComputeInternalForceFunctor();
+    }
+ //   Eigen::Matrix<double, 4, 3> ComputeInternalForceTest(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities) const;
+//KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 4, 3> Element::ComputeInternalForceTest(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities) const {
+//    printf("Element::ComputeInternalForceTest\n");
+//    Eigen::Matrix<double, 4, 3> shape_function_derivatives;
+//    shape_function_derivatives.fill(1.3);
+//    // const Eigen::Matrix<double, 4, 3> shape_function_derivatives = ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
+//    return shape_function_derivatives;
+//    //return Element::DoInternalForceCalc<4>(shape_function_derivatives, node_coordinates, node_displacements, node_velocities);
+//}
+
+
 
    protected:
     /**

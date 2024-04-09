@@ -76,6 +76,7 @@ class InternalForceContribution : public ForceContribution {
         const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
         const std::vector<std::string> part_names = {m_part_name};
         m_element_processor = std::make_shared<ElementProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, m_num_nodes_per_element, m_mesh_data, part_names);
+        m_ngp_element_processor = std::make_shared<ElementProcessorStkNgp<3>>(field_query_data_gather_vec, field_query_data_scatter, m_num_nodes_per_element, m_mesh_data, part_names);
     }
 
    private:
@@ -85,6 +86,7 @@ class InternalForceContribution : public ForceContribution {
     size_t m_num_nodes_per_element;                                   ///< The number of nodes per element.
     std::shared_ptr<aperi::Element> m_element;                        ///< The element associated with the force contribution.
     std::shared_ptr<aperi::ElementProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
+    std::shared_ptr<aperi::ElementProcessorStkNgp<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
 };
 
 /**
