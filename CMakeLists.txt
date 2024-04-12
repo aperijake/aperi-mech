@@ -90,9 +90,9 @@ find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib)
 file(GLOB LIB_SOURCES "src/*.cpp")
 list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
-add_library(libaperi-mech ${LIB_SOURCES})
+add_library(aperimech ${LIB_SOURCES})
 
-target_link_libraries(libaperi-mech
+target_link_libraries(aperimech
 	Kokkos::kokkos
 	yaml-cpp
 	Eigen3::Eigen
@@ -103,7 +103,7 @@ target_link_libraries(libaperi-mech
 	${EXTRA_LIBS}
 	)
 
-target_include_directories(libaperi-mech PRIVATE
+target_include_directories(aperimech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
 	${Trilinos_TPL_INCLUDE_DIRS}
 	${Trilinos_INCLUDE_DIRS}
@@ -120,7 +120,7 @@ set(MAIN_SOURCES
 add_executable(aperi-mech ${MAIN_SOURCES})
 
 target_link_libraries(aperi-mech
-    libaperi-mech
+    aperimech
     ${MPI_LIBRARIES}
     )
 
@@ -156,7 +156,7 @@ target_include_directories(unit_tests PRIVATE
 	)
 
 target_link_libraries(unit_tests
-	libaperi-mech
+	aperimech
 	GTest::gtest_main
 	)
 
