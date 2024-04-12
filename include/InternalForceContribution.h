@@ -55,19 +55,6 @@ class InternalForceContribution : public ForceContribution {
      */
     void ComputeForce() override;
 
-    /**
-     * @brief Computes the internal force for an element.
-     *
-     * This is a wrapper function for the ComputeInternalForce function of the Element class.
-     *
-     * @param node_coordinates The coordinates of the nodes of the element.
-     * @param node_displacements The displacements of the nodes of the element.
-     * @param node_velocities The velocities of the nodes of the element.
-     * @param force The internal force of the element.
-     * @return The internal force of the element. By reference.
-     */
-    void ComputeElementInternalForce(const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &node_displacements, const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 4, 3> &node_velocities, Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &force) const;
-
     void CreateElementProcessor() {
         std::array<FieldQueryData, 3> field_query_data_gather_vec;
         field_query_data_gather_vec[0] = FieldQueryData{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None};
