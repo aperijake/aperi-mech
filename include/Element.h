@@ -69,7 +69,7 @@ class Element {
      *
      * @param ngp_element_processor The element processor associated with the force contribution.
      */
-    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessorStkNgp<3>> ngp_element_processor) {
+    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessor<3>> ngp_element_processor) {
         m_ngp_element_processor = ngp_element_processor;
     }
 
@@ -83,9 +83,9 @@ class Element {
     }
 
    protected:
-    size_t m_num_nodes;                                                         ///< The number of nodes in the element.
-    std::shared_ptr<aperi::ElementProcessorStkNgp<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
-    std::shared_ptr<Material> m_material;                                       ///< The material of the element.
+    size_t m_num_nodes;                                                   ///< The number of nodes in the element.
+    std::shared_ptr<aperi::ElementProcessor<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
+    std::shared_ptr<Material> m_material;                                 ///< The material of the element.
 };
 
 /**
