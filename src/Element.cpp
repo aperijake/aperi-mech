@@ -40,13 +40,12 @@ template <size_t NumNodes, typename FunctionDerivativesFunctor, typename StressF
 struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionDerivativesFunctor &function_derivatives_functor, StressFunctor &stress_functor) : m_function_derivatives_functor(function_derivatives_functor), m_stress_functor(stress_functor) {}
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
-
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
         const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
 
         // Compute the shape function derivatives
-        Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives =  m_function_derivatives_functor(0.0, 0.0, 0.0);
+        Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives = m_function_derivatives_functor(0.0, 0.0, 0.0);
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;

@@ -4,8 +4,8 @@
 #include <memory>
 
 #include "ElementProcessor.h"
-#include "Material.h"
 #include "Kokkos_Core.hpp"
+#include "Material.h"
 
 namespace aperi {
 
@@ -69,7 +69,6 @@ class Element {
     }
 
    protected:
-
     size_t m_num_nodes;                                                         ///< The number of nodes in the element.
     std::shared_ptr<aperi::ElementProcessorStkNgp<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
     std::shared_ptr<Material> m_material;                                       ///< The material of the element.

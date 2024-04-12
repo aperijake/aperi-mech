@@ -164,7 +164,6 @@ class ElementProcessorStkNgp {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 assert(nodes.size() == NumNodes);
@@ -254,7 +253,7 @@ class ElementProcessorStkNgp {
     std::array<DoubleField *, N> m_fields_to_gather;          // The fields to gather
     DoubleField *m_field_to_scatter;                          // The field to scatter
     Kokkos::Array<NgpDoubleField, N> m_ngp_fields_to_gather;  // The ngp fields to gather
-    NgpDoubleField m_ngp_field_to_scatter;                   // The ngp field to scatter
+    NgpDoubleField m_ngp_field_to_scatter;                    // The ngp field to scatter
 };
 
 }  // namespace aperi

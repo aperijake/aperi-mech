@@ -54,20 +54,34 @@ class Material {
         return m_material_properties;
     }
 
+    /**
+     * @brief Functor for getting the stress of the material.
+     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @return The stress of the material.
+     */
     struct StressFunctor {
         KOKKOS_FUNCTION
         virtual Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
     };
 
+    /**
+     * @brief Get the stress functor of the material.
+     * @return The stress functor of the material.
+     */
     StressFunctor* GetStressFunctor() {
         return m_stress_functor;
     }
 
+    /**
+     * @brief Get the stress of the material. Uses the stress functor to calculate the stress.
+     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @return The stress of the material.
+     */
     virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
 
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
-    StressFunctor* m_stress_functor; /**< The stress functor of the elastic material */
+    StressFunctor* m_stress_functor;                           /**< The stress functor of the elastic material */
 };
 
 /**
@@ -80,8 +94,6 @@ class ElasticMaterial : public Material {
      * @param material_properties The properties of the elastic material.
      */
     ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {
-        m_lambda = m_material_properties->properties.at("lambda");
-        m_two_mu = m_material_properties->properties.at("two_mu");
         CreateStressFunctor();
     }
 
@@ -90,10 +102,13 @@ class ElasticMaterial : public Material {
         Kokkos::kokkos_free(m_stress_functor);
     }
 
+    /**
+     * @brief Create the stress functor for the elastic material. Potentially on the device.
+     */
     void CreateStressFunctor() {
         StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(ElasticGetStressFunctor));
-        double lambda = m_lambda;
-        double two_mu = m_two_mu;
+        double lambda = m_material_properties->properties.at("lambda");
+        double two_mu = m_material_properties->properties.at("two_mu");
         Kokkos::parallel_for(
             "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
                 new ((ElasticGetStressFunctor*)stress_functor) ElasticGetStressFunctor(lambda, two_mu);
@@ -101,6 +116,9 @@ class ElasticMaterial : public Material {
         m_stress_functor = stress_functor;
     }
 
+    /**
+     * @brief Destroy the stress functor for the elastic material. Potentially on the device.
+     */
     void DestroyStressFunctor() {
         Kokkos::parallel_for(
             "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
@@ -108,28 +126,31 @@ class ElasticMaterial : public Material {
             });
     }
 
+    /**
+     * @brief Functor for getting the stress of the elastic material.
+     * @param green_lagrange_strain The Green-Lagrange strain of the elastic material.
+     * @return The stress of the elastic material.
+     */
     struct ElasticGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
         ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
         Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
-            // printf("lambda: %f, two_mu: %f\n", m_lambda, m_two_mu);
-            // printf("green_lagrange_strain: %f, %f, %f, %f, %f, %f\n", green_lagrange_strain(0), green_lagrange_strain(1), green_lagrange_strain(2), green_lagrange_strain(3), green_lagrange_strain(4), green_lagrange_strain(5));
             Eigen::Matrix<double, 6, 1> stress;
-            double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
+            const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
             stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
             stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
             stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
             stress(3) = m_two_mu * green_lagrange_strain(3);
             stress(4) = m_two_mu * green_lagrange_strain(4);
             stress(5) = m_two_mu * green_lagrange_strain(5);
-            // printf("stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
             return stress;
         }
 
-        double m_lambda;
-        double m_two_mu;
+       private:
+        double m_lambda; /**< The lambda parameter of the elastic material */
+        double m_two_mu; /**< The two mu parameter of the elastic material */
     };
 
     /**
@@ -138,13 +159,8 @@ class ElasticMaterial : public Material {
      * @return The stress of the elastic material.
      */
     Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
-        ElasticGetStressFunctor getStressFunctor(m_lambda, m_two_mu);
-        return getStressFunctor(green_lagrange_strain);
+        return m_stress_functor->operator()(green_lagrange_strain);
     }
-
-   private:
-    double m_lambda;                 /**< The lambda parameter of the elastic material */
-    double m_two_mu;                 /**< The two mu parameter of the elastic material */
 };
 
 /**
