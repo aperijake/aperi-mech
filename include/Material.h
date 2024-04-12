@@ -59,12 +59,15 @@ class Material {
         virtual Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
     };
 
-    virtual std::unique_ptr<StressFunctor> GetStressFunctor() const = 0;
+    StressFunctor* GetStressFunctor() {
+        return m_stress_functor;
+    }
 
     virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
 
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
+    StressFunctor* m_stress_functor; /**< The stress functor of the elastic material */
 };
 
 /**
@@ -79,12 +82,37 @@ class ElasticMaterial : public Material {
     ElasticMaterial(std::shared_ptr<MaterialProperties> material_properties) : Material(material_properties) {
         m_lambda = m_material_properties->properties.at("lambda");
         m_two_mu = m_material_properties->properties.at("two_mu");
+        CreateStressFunctor();
+    }
+
+    ~ElasticMaterial() {
+        DestroyStressFunctor();
+        Kokkos::kokkos_free(m_stress_functor);
+    }
+
+    void CreateStressFunctor() {
+        StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(ElasticGetStressFunctor));
+        double lambda = m_lambda;
+        double two_mu = m_two_mu;
+        Kokkos::parallel_for(
+            "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
+                new ((ElasticGetStressFunctor*)stress_functor) ElasticGetStressFunctor(lambda, two_mu);
+            });
+        m_stress_functor = stress_functor;
+    }
+
+    void DestroyStressFunctor() {
+        Kokkos::parallel_for(
+            "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
+                m_stress_functor->~StressFunctor();
+            });
     }
 
     struct ElasticGetStressFunctor : public StressFunctor {
+        KOKKOS_FUNCTION
         ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
-        KOKKOS_FUNCTION
+        KOKKOS_INLINE_FUNCTION
         Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
             // printf("lambda: %f, two_mu: %f\n", m_lambda, m_two_mu);
             // printf("green_lagrange_strain: %f, %f, %f, %f, %f, %f\n", green_lagrange_strain(0), green_lagrange_strain(1), green_lagrange_strain(2), green_lagrange_strain(3), green_lagrange_strain(4), green_lagrange_strain(5));
@@ -104,10 +132,6 @@ class ElasticMaterial : public Material {
         double m_two_mu;
     };
 
-    std::unique_ptr<StressFunctor> GetStressFunctor() const override {
-        return std::make_unique<ElasticGetStressFunctor>(m_lambda, m_two_mu);
-    }
-
     /**
      * @brief Get the stress of the elastic material.
      * @param green_lagrange_strain The Green-Lagrange strain of the material.
@@ -118,15 +142,9 @@ class ElasticMaterial : public Material {
         return getStressFunctor(green_lagrange_strain);
     }
 
-
-    /**
-     * @brief Virtual destructor for ElasticMaterial class.
-     */
-    virtual ~ElasticMaterial() = default;
-
    private:
-    double m_lambda; /**< The lambda parameter of the elastic material */
-    double m_two_mu; /**< The two mu parameter of the elastic material */
+    double m_lambda;                 /**< The lambda parameter of the elastic material */
+    double m_two_mu;                 /**< The two mu parameter of the elastic material */
 };
 
 /**

@@ -7,32 +7,6 @@
 
 namespace aperi {
 
-class GetStressFunctor2 {
-   public:
-    KOKKOS_FUNCTION
-    GetStressFunctor2(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
-
-    KOKKOS_INLINE_FUNCTION
-    Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1> &green_lagrange_strain) const {
-        // printf("ElasticGetStressFunctor2::operator()\n");
-        // printf("assigned lambda: %f, two_mu: %f\n", m_lambda, m_two_mu);
-        Eigen::Matrix<double, 6, 1> stress;
-        const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-        stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
-        stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
-        stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
-        stress(3) = m_two_mu * green_lagrange_strain(3);
-        stress(4) = m_two_mu * green_lagrange_strain(4);
-        stress(5) = m_two_mu * green_lagrange_strain(5);
-        // printf("stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
-        return stress;
-    }
-
-   private:
-    double m_lambda;
-    double m_two_mu;
-};
-
 // Compute (B_I F)^T, voigt notation, 3 x 6
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient) {
     Eigen::Matrix<double, 3, 6> bf_transpose;
@@ -97,13 +71,8 @@ struct ComputeInternalForceFunctor {
         Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
         green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
 
-        // printf("Green Lagrange strain tensor voigt: %f, %f, %f, %f, %f, %f\n", green_lagrange_strain_tensor_voigt(0), green_lagrange_strain_tensor_voigt(1), green_lagrange_strain_tensor_voigt(2), green_lagrange_strain_tensor_voigt(3), green_lagrange_strain_tensor_voigt(4), green_lagrange_strain_tensor_voigt(5));
-
         // Compute the stress and internal force of the element.
-        // printf("GetStress\n");
         const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
-        // printf("post GetStress\n");
-        // printf("Stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
 
         force.fill(0.0);
 
@@ -121,32 +90,16 @@ struct ComputeInternalForceFunctor {
 
 void Tetrahedron4::ComputeInternalForceAllElements() {
     assert(m_ngp_element_processor != nullptr);
+    assert(m_material != nullptr);
 
     // Functor for computing shape function derivatives
     ComputeShapeFunctionDerivativesFunctor compute_shape_function_derivatives_functor;
 
-    auto material_properties = m_material->GetMaterialProperties();
-    double lambda = material_properties->properties.at("lambda");
-    double two_mu = material_properties->properties.at("two_mu");
-
-    GetStressFunctor2 *gsf = (GetStressFunctor2 *)Kokkos::kokkos_malloc(sizeof(GetStressFunctor2));
-    Kokkos::parallel_for(
-        "CreateObjects", 1, KOKKOS_LAMBDA(const int &) {
-            new ((GetStressFunctor2 *)gsf) GetStressFunctor2(lambda, two_mu);
-        });
-
     // Functor for computing the internal force. Kinematic calculations are done in this functor. Common to all elements types.
-    ComputeInternalForceFunctor<tet4_num_nodes, ComputeShapeFunctionDerivativesFunctor, GetStressFunctor2> compute_force_functor(compute_shape_function_derivatives_functor, *gsf);
+    ComputeInternalForceFunctor<tet4_num_nodes, ComputeShapeFunctionDerivativesFunctor, Material::StressFunctor> compute_force_functor(compute_shape_function_derivatives_functor, *m_material->GetStressFunctor());
 
     // Loop over all elements and compute the internal force
     m_ngp_element_processor->for_each_element<tet4_num_nodes>(compute_force_functor);
-
-    Kokkos::parallel_for(
-        "DestroyObjects", 1, KOKKOS_LAMBDA(const int &) {
-            gsf->~GetStressFunctor2();
-        });
-
-    Kokkos::kokkos_free(gsf);
 }
 
 }  // namespace aperi
