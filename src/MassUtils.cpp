@@ -11,12 +11,13 @@
 namespace aperi {
 
 // Functor for computing the mass of an element
+// TODO(jake): this is hard-coded for 4-node tetrahedra
 struct ComputeMassFunctor {
     double density;
     size_t nodes_per_element;
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(const auto &field_data_to_gather, auto &results_to_scatter) const {
+    void operator()(const Kokkos::Array<Eigen::Matrix<double, 4, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, 4, 3> &results_to_scatter) const {
         double mass = density * TetVolume(field_data_to_gather[0]) / nodes_per_element;
         for (int i = 0; i < field_data_to_gather[0].rows(); ++i) {
             results_to_scatter.row(i) = Eigen::Vector3d::Constant(mass);

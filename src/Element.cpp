@@ -46,7 +46,7 @@ struct ComputeInternalForceFunctor {
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
-        const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
+        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
 
         // Compute the shape function derivatives
         Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives = m_function_derivatives_functor(0.0, 0.0, 0.0);

@@ -122,13 +122,13 @@ class ElementProcessor {
     template <size_t NumNodes, typename Func>
     void for_each_element_host(const Func &func) {
         // Set up the field data to gather
-        std::array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, N> field_data_to_gather;
+        Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
         for (size_t f = 0; f < N; ++f) {
             field_data_to_gather[f].resize(NumNodes, 3);
         }
 
         // Set up the results matrix
-        Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> results_to_scatter;
+        Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
         results_to_scatter.resize(NumNodes, 3);
 
         // Loop over all the buckets

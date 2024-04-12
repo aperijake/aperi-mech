@@ -45,6 +45,12 @@ set(BUILD_TYPE ${CMAKE_BUILD_TYPE})
 string(TIMESTAMP BUILD_DATE "%Y-%m-%d")
 string(TIMESTAMP BUILD_TIME "%H:%M:%S")
 
+IF(GPU)
+    set(GPU_OR_CPU "GPU")
+else()
+    set(GPU_OR_CPU "CPU")
+endif()
+
 # Generate git_commit.h with the current hash
 configure_file(
     ${CMAKE_SOURCE_DIR}/include/git_commit.h.in

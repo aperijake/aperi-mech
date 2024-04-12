@@ -73,8 +73,6 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
 
 struct ComputeGravityForceFunctor {
     ComputeGravityForceFunctor(double gravity_value) : m_gravity_value(gravity_value) {}
-    // void operator()(double *force, const double *mass) const { *force += m_gravity_value * *mass; }
-    // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
     KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force = m_gravity_value * *mass; }
     double m_gravity_value;
 };
@@ -114,12 +112,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
             // Create the functor to compute the gravity force
             ComputeGravityForceFunctor compute_gravity_force_functor(component_value.second);
             // Compute the gravity force for the component
-            // m_node_processor->for_dof_i_host(compute_gravity_force_functor, component_value.first);
-            // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
             m_node_processor->for_dof_i(compute_gravity_force_functor, component_value.first);
         }
-        // m_node_processor->MarkFieldModifiedOnHost(0);
-        // TODO(jake). Change to below. Doing on host for now as the rest of force calculations are done on host
         m_node_processor->MarkFieldModifiedOnDevice(0);
     }
 
