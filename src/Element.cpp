@@ -36,9 +36,13 @@ KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eige
     return bf_transpose;
 }
 
+// Functor for computing the internal force of an element with NumNodes nodes.
+// FunctionDerivativesFunctor is a functor that computes the shape function derivatives.
+// StressFunctor is a functor that computes the stress of the material.
 template <size_t NumNodes, typename FunctionDerivativesFunctor, typename StressFunctor>
 struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionDerivativesFunctor &function_derivatives_functor, StressFunctor &stress_functor) : m_function_derivatives_functor(function_derivatives_functor), m_stress_functor(stress_functor) {}
+
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
@@ -83,10 +87,13 @@ struct ComputeInternalForceFunctor {
             force.row(i) -= (bF_IT * stress).transpose() * jacobian_determinant / 6.0;  // weight = 1/6 for tetrahedron
         }
     }
-    FunctionDerivativesFunctor &m_function_derivatives_functor;
-    StressFunctor &m_stress_functor;
+
+    FunctionDerivativesFunctor &m_function_derivatives_functor;  ///< Functor for computing the shape function derivatives
+    StressFunctor &m_stress_functor;                             ///< Functor for computing the stress of the material
 };
 
+// Compute the internal force of all elements.
+// TODO(jake): This function probably could be templated and moved to the Element base class.
 void Tetrahedron4::ComputeInternalForceAllElements() {
     assert(m_ngp_element_processor != nullptr);
     assert(m_material != nullptr);

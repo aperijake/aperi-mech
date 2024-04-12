@@ -58,12 +58,26 @@ class Element {
      */
     virtual Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const = 0;
 
+    /**
+     * @brief Computes the internal force of the element.
+     *
+     */
     virtual void ComputeInternalForceAllElements() = 0;
 
+    /**
+     * @brief Sets the element processor associated with the force contribution.
+     *
+     * @param ngp_element_processor The element processor associated with the force contribution.
+     */
     void SetElementProcessor(std::shared_ptr<aperi::ElementProcessorStkNgp<3>> ngp_element_processor) {
         m_ngp_element_processor = ngp_element_processor;
     }
 
+    /**
+     * @brief Sets the material of the element.
+     *
+     * @param material The material of the element.
+     */
     void SetMaterial(std::shared_ptr<Material> material) {
         m_material = material;
     }
@@ -85,13 +99,23 @@ class Tetrahedron4 : public Element {
    public:
     /**
      * @brief Constructs a Tetrahedron4 object.
-     *
      */
     Tetrahedron4() : Element(tet4_num_nodes) {
     }
 
-    // dN/dxi, dN/deta, dN/dzeta
+    /**
+        * @brief Functor for computing the shape function derivatives.
+         * @param xi The xi coordinate of the element.
+         * @param eta The eta coordinate of the element.
+         * @param zeta The zeta coordinate of the element.
+         * @return The shape function derivatives of the element.
+        * This functor computes the shape function derivatives, dN/dxi, dN/deta, dN/dzeta
+
+    */
     struct ComputeShapeFunctionDerivativesFunctor {
+        /**
+         * @brief Computes the shape function derivatives of the element.
+         */
         KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> operator()(double xi, double eta, double zeta) const {
             Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
             shape_function_derivatives << -1.0, -1.0, -1.0,
@@ -102,10 +126,21 @@ class Tetrahedron4 : public Element {
         }
     };
 
+    /**
+     * @brief Calls the ComputeShapeFunctionDerivativesFunctor to compute the shape function derivatives.
+     */
     Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
         return ComputeShapeFunctionDerivativesFunctor()(xi, eta, zeta);
     }
 
+    /**
+     * @brief Computes the shape functions of the element.
+     *
+     * @param xi The xi coordinate of the element.
+     * @param eta The eta coordinate of the element.
+     * @param zeta The zeta coordinate of the element.
+     * @return The shape functions of the element.
+     */
     Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
         Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
         shape_functions << 1.0 - xi - eta - zeta,
@@ -115,6 +150,10 @@ class Tetrahedron4 : public Element {
         return shape_functions;
     }
 
+    /**
+     * @brief Computes the internal force of all elements.
+     *
+     */
     void ComputeInternalForceAllElements() override;
 };
 
