@@ -36,6 +36,8 @@ class Material {
      */
     Material(std::shared_ptr<MaterialProperties> material_properties) : m_material_properties(material_properties) {}
 
+    virtual ~Material() = default;
+
     /**
      * @brief Get the density of the material.
      * @return The density of the material.
@@ -44,12 +46,22 @@ class Material {
         return m_material_properties->density;
     }
 
-    virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
-
     /**
-     * @brief Virtual destructor for Material class.
+     * @brief Get the material properties.
+     * @return The material properties.
      */
-    virtual ~Material() = default;
+    std::shared_ptr<MaterialProperties> GetMaterialProperties() const {
+        return m_material_properties;
+    }
+
+    struct StressFunctor {
+        KOKKOS_FUNCTION
+        virtual Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
+    };
+
+    virtual std::unique_ptr<StressFunctor> GetStressFunctor() const = 0;
+
+    virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
 
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
@@ -69,17 +81,43 @@ class ElasticMaterial : public Material {
         m_two_mu = m_material_properties->properties.at("two_mu");
     }
 
-    Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
-        Eigen::Matrix<double, 6, 1> stress;
-        double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-        stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
-        stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
-        stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
-        stress(3) = m_two_mu * green_lagrange_strain(3);
-        stress(4) = m_two_mu * green_lagrange_strain(4);
-        stress(5) = m_two_mu * green_lagrange_strain(5);
-        return stress;
+    struct ElasticGetStressFunctor : public StressFunctor {
+        ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
+
+        KOKKOS_FUNCTION
+        Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
+            // printf("lambda: %f, two_mu: %f\n", m_lambda, m_two_mu);
+            // printf("green_lagrange_strain: %f, %f, %f, %f, %f, %f\n", green_lagrange_strain(0), green_lagrange_strain(1), green_lagrange_strain(2), green_lagrange_strain(3), green_lagrange_strain(4), green_lagrange_strain(5));
+            Eigen::Matrix<double, 6, 1> stress;
+            double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
+            stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
+            stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
+            stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
+            stress(3) = m_two_mu * green_lagrange_strain(3);
+            stress(4) = m_two_mu * green_lagrange_strain(4);
+            stress(5) = m_two_mu * green_lagrange_strain(5);
+            // printf("stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
+            return stress;
+        }
+
+        double m_lambda;
+        double m_two_mu;
+    };
+
+    std::unique_ptr<StressFunctor> GetStressFunctor() const override {
+        return std::make_unique<ElasticGetStressFunctor>(m_lambda, m_two_mu);
     }
+
+    /**
+     * @brief Get the stress of the elastic material.
+     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @return The stress of the elastic material.
+     */
+    Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
+        ElasticGetStressFunctor getStressFunctor(m_lambda, m_two_mu);
+        return getStressFunctor(green_lagrange_strain);
+    }
+
 
     /**
      * @brief Virtual destructor for ElasticMaterial class.

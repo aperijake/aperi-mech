@@ -9,6 +9,32 @@
 
 namespace aperi {
 
+class GetStressFunctor2 {
+   public:
+    KOKKOS_FUNCTION
+    GetStressFunctor2(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
+
+    KOKKOS_INLINE_FUNCTION
+    Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1> &green_lagrange_strain) const {
+        // printf("ElasticGetStressFunctor2::operator()\n");
+        // printf("assigned lambda: %f, two_mu: %f\n", m_lambda, m_two_mu);
+        Eigen::Matrix<double, 6, 1> stress;
+        const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
+        stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
+        stress(1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
+        stress(2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
+        stress(3) = m_two_mu * green_lagrange_strain(3);
+        stress(4) = m_two_mu * green_lagrange_strain(4);
+        stress(5) = m_two_mu * green_lagrange_strain(5);
+        // printf("stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
+        return stress;
+    }
+
+   private:
+    double m_lambda;
+    double m_two_mu;
+};
+
 // Compute (B_I F)^T, voigt notation, 3 x 6
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient) {
     Eigen::Matrix<double, 3, 6> bf_transpose;
@@ -52,19 +78,17 @@ struct Tet4ComputeShapeFunctionDerivativesFunctor {
     }
 };
 
-template <size_t NumNodes, typename FuncShapeFunctionDerivatives>
+template <size_t NumNodes, typename FunctionDerivativesFunctor, typename StressFunctor>
 struct ComputeInternalForceFunctor {
-    ComputeInternalForceFunctor(FuncShapeFunctionDerivatives &func) : m_func_shape_function_derivatives(func) {}
-    KOKKOS_INLINE_FUNCTION void operator()(const Eigen::Matrix<double, NumNodes, 3> &node_coordinates, const Eigen::Matrix<double, NumNodes, 3> &node_displacements, const Eigen::Matrix<double, NumNodes, 3> &node_velocities, Eigen::Matrix<double, NumNodes, 3> &force) const {
+    ComputeInternalForceFunctor(FunctionDerivativesFunctor &function_derivatives_functor, StressFunctor &stress_functor) : m_function_derivatives_functor(function_derivatives_functor), m_stress_functor(stress_functor) {}
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
+
+        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
+        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
+        const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
+
         // Compute the shape function derivatives
-        printf("Element::ComputeShapeFunctionDerivatives\n");
-        Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives =  m_func_shape_function_derivatives(0.0, 0.0, 0.0);
-        printf("post ComputeShapeFunctionDerivatives, shape_function_derivatives(0,0): %f\n", shape_function_derivatives(0, 0));
-        // Compute the internal force
-        printf("Element::ComputeInternalForceTest\n");
-        printf("pre fill force(0,0): %f\n", force(0, 0));
-        force.fill(1.3);
-        printf("post fill force(0,0): %f\n", force(0, 0));
+        Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives =  m_function_derivatives_functor(0.0, 0.0, 0.0);
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
@@ -89,13 +113,13 @@ struct ComputeInternalForceFunctor {
         Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
         green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
 
-        printf("Green Lagrange strain tensor voigt(0): %f\n", green_lagrange_strain_tensor_voigt(0));
-        printf("Green Lagrange strain tensor voigt(1): %f\n", green_lagrange_strain_tensor_voigt(1));
-        printf("Green Lagrange strain tensor voigt(2): %f\n", green_lagrange_strain_tensor_voigt(2));
+        // printf("Green Lagrange strain tensor voigt: %f, %f, %f, %f, %f, %f\n", green_lagrange_strain_tensor_voigt(0), green_lagrange_strain_tensor_voigt(1), green_lagrange_strain_tensor_voigt(2), green_lagrange_strain_tensor_voigt(3), green_lagrange_strain_tensor_voigt(4), green_lagrange_strain_tensor_voigt(5));
 
         // Compute the stress and internal force of the element.
-        Eigen::Matrix<double, 6, 1> stress;// = material->GetStress(green_lagrange_strain_tensor_voigt);
-        stress.fill(0.0);
+        // printf("GetStress\n");
+        const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
+        // printf("post GetStress\n");
+        // printf("Stress: %f, %f, %f, %f, %f, %f\n", stress(0), stress(1), stress(2), stress(3), stress(4), stress(5));
 
         force.fill(0.0);
 
@@ -107,21 +131,8 @@ struct ComputeInternalForceFunctor {
             force.row(i) -= (bF_IT * stress).transpose() * jacobian_determinant / 6.0;  // weight = 1/6 for tetrahedron
         }
     }
-
-    FuncShapeFunctionDerivatives &m_func_shape_function_derivatives;
-};
-
-template <typename ComputeInternalForceFunc>
-struct Tet4ComputeForceFunctor {
-    Tet4ComputeForceFunctor(ComputeInternalForceFunc &func) : m_func(func) {}
-
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, tet4_num_nodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, tet4_num_nodes, 3> &force) const {
-        // Compute the internal force
-        printf("ComputeFunc\n");
-        m_func(field_data_to_gather[0], field_data_to_gather[1], field_data_to_gather[2], force);
-        printf("post ComputeFunc, force(0,0): %f\n", force(0, 0));
-    }
-    ComputeInternalForceFunc &m_func;
+    FunctionDerivativesFunctor &m_function_derivatives_functor;
+    StressFunctor &m_stress_functor;
 };
 
 /**
@@ -188,6 +199,10 @@ class Element {
         m_ngp_element_processor = ngp_element_processor;
     }
 
+    void SetMaterial(std::shared_ptr<Material> material) {
+        m_material = material;
+    }
+
    protected:
     /**
      * @brief Template function to compute the internal force of the element. Handles the actual computation of the internal force.
@@ -204,9 +219,9 @@ class Element {
     template <size_t N>
     Eigen::Matrix<double, N, 3> DoInternalForceCalc(const Eigen::Matrix<double, N, 3> &shape_function_derivatives, const Eigen::Matrix<double, N, 3> &node_coordinates, const Eigen::Matrix<double, N, 3> &node_displacements, const Eigen::Matrix<double, N, 3> &node_velocities, std::shared_ptr<Material> material) const;
 
-    size_t m_num_nodes;  ///< The number of nodes in the element.
+    size_t m_num_nodes;                                                         ///< The number of nodes in the element.
     std::shared_ptr<aperi::ElementProcessorStkNgp<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
-    size_t m_temp;
+    std::shared_ptr<Material> m_material;                                       ///< The material of the element.
 };
 
 /**
@@ -246,11 +261,34 @@ class Tetrahedron4 : public Element {
 
     void ComputeInternalForceAllElements() override {
         assert(m_ngp_element_processor != nullptr);
-        printf("Tetrahedron4::ComputeInternalForceAllElements\n");
+        // printf("Tetrahedron4::ComputeInternalForceAllElements\n");
+
+        // Functor for computing shape function derivatives
         Tet4ComputeShapeFunctionDerivativesFunctor elem_compute_shape_function_derivatives;
-        ComputeInternalForceFunctor<tet4_num_nodes, Tet4ComputeShapeFunctionDerivativesFunctor> elem_compute_force(elem_compute_shape_function_derivatives);
-        Tet4ComputeForceFunctor<ComputeInternalForceFunctor<tet4_num_nodes, Tet4ComputeShapeFunctionDerivativesFunctor>> compute_force_functor(elem_compute_force);
+
+        auto material_properties = m_material->GetMaterialProperties();
+        double lambda = material_properties->properties.at("lambda");
+        double two_mu = material_properties->properties.at("two_mu");
+
+        GetStressFunctor2* gsf = (GetStressFunctor2*)Kokkos::kokkos_malloc(sizeof(GetStressFunctor2));
+        Kokkos::parallel_for(
+            "CreateObjects", 1, KOKKOS_LAMBDA(const int &) {
+                new ((GetStressFunctor2*)gsf) GetStressFunctor2(lambda, two_mu);
+            });
+
+
+        // Functor for computing the internal force. Kinematic calculations are done in this functor. Common to all elements types.
+        ComputeInternalForceFunctor<tet4_num_nodes, Tet4ComputeShapeFunctionDerivativesFunctor, GetStressFunctor2> compute_force_functor(elem_compute_shape_function_derivatives, *gsf);
+
+        // Loop over all elements and compute the internal force
         m_ngp_element_processor->for_each_element_debug<tet4_num_nodes>(compute_force_functor);
+
+        Kokkos::parallel_for(
+            "DestroyObjects", 1, KOKKOS_LAMBDA(const int &) {
+                gsf->~GetStressFunctor2();
+            });
+
+        Kokkos::kokkos_free(gsf);
     }
 };
 

@@ -22,6 +22,9 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
 
     // Set the element processor for the element
     m_element->SetElementProcessor(m_ngp_element_processor);
+
+    // Set the material for the element
+    m_element->SetMaterial(m_material);
 }
 
 // TODO(jake) remove this. Original CPU-only way
@@ -32,10 +35,10 @@ void InternalForceContribution::ComputeElementInternalForce(const Eigen::Matrix<
 
 void InternalForceContribution::ComputeForce() {
     // TODO(jake) remove this. Original CPU-only way
-    m_element_processor->for_each_element([&](const std::array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &force) {
-        // Compute the internal force
-        ComputeElementInternalForce(field_data_to_gather[0], field_data_to_gather[1], field_data_to_gather[2], force);
-    });
+    // m_element_processor->for_each_element([&](const std::array<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3> &force) {
+    //     // Compute the internal force
+    //     ComputeElementInternalForce(field_data_to_gather[0], field_data_to_gather[1], field_data_to_gather[2], force);
+    // });
     // TODO(jake) remove this. New stk-ngp way that only works on CPU
     // using MatrixType2 = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor, 8, 3>;
     // m_ngp_element_processor->for_each_element([&](const Kokkos::Array<MatrixType2, 3> &field_data_to_gather, MatrixType2 &force) {

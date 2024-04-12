@@ -46,10 +46,9 @@ Reference:
 
 void ExplicitSolver::ComputeForce() {
     // Set the force field to zero
-    // m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force_stk_ngp->FillField(0.0, 0);
     m_node_processor_force_stk_ngp->MarkFieldModifiedOnDevice(0);
-    m_node_processor_force_stk_ngp->SyncFieldDeviceToHost(0);
+    // m_node_processor_force_stk_ngp->SyncFieldDeviceToHost(0);
 
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
@@ -57,8 +56,9 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
-    m_node_processor_force_stk_ngp->MarkFieldModifiedOnHost(0);
-    m_node_processor_force_stk_ngp->SyncAllFieldsHostToDevice();
+    // m_node_processor_force_stk_ngp->MarkFieldModifiedOnHost(0);
+    // m_node_processor_force_stk_ngp->SyncAllFieldsHostToDevice();
+    m_node_processor_force_stk_ngp->MarkFieldModifiedOnDevice(0);
 }
 struct ComputeAccelerationFunctor {
     KOKKOS_INLINE_FUNCTION
@@ -106,10 +106,14 @@ void ExplicitSolver::UpdateDisplacementsStkNgp(double time_increment, const std:
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_dof(update_displacements_functor);
     node_processor_update_displacements->MarkFieldModifiedOnDevice(0);
-    node_processor_update_displacements->SyncFieldDeviceToHost(0);  // TODO(jake): Remove this line when possible. Needed while force calc is on host.
-    node_processor_update_displacements->CommunicateFieldData(0);
-    // node_processor_update_displacements->MarkFieldModifiedOnHost(0);
-    // node_processor_update_displacements->SyncFieldHostToDevice(0);
+
+    // If there is more than one processor, communicate the field data that other processors need
+    if (m_num_processors > 1) {
+        node_processor_update_displacements->SyncFieldDeviceToHost(0);
+        node_processor_update_displacements->CommunicateFieldData(0);
+        node_processor_update_displacements->MarkFieldModifiedOnHost(0);
+        node_processor_update_displacements->SyncFieldHostToDevice(0);
+    }
 }
 
 struct ComputeSecondPartialUpdateFunctor {
@@ -226,6 +230,14 @@ void ExplicitSolver::Solve() {
             m_io_mesh->WriteFieldResults(time);
         }
     }
+    // printf("force N\n");
+    // m_node_processor_all_stk_ngp->print_dof_i(0, 0);
+    // printf("force NP1\n");
+    // m_node_processor_all_stk_ngp->print_dof_i(0, 1);
+    // printf("host force N\n");
+    // m_node_processor_all_stk_ngp->print_dof_i_host(0, 0);
+    // printf("host force NP1\n");
+    // m_node_processor_all_stk_ngp->print_dof_i_host(0, 1);
 }
 
 }  // namespace aperi

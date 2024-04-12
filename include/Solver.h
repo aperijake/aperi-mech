@@ -36,6 +36,7 @@ class Solver {
     Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
         mp_mesh_data = m_io_mesh->GetMeshData();
+        MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
     }
 
     /**
@@ -71,6 +72,7 @@ class Solver {
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
     std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
+    int m_num_processors;                                                                           ///< The number of processors.
 };
 
 /**

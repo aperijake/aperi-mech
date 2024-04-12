@@ -201,16 +201,16 @@ class ElementProcessorStkNgp {
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
     void for_each_element_debug(const Func &func) {
-        printf("for_each_element_debug\n");
+        // printf("for_each_element_debug\n");
         // STK Question: explain capturing in for_each_entity_run. Doesn't like using member variables inside. Implicit capturing of this. Other variables are captured as const.
         auto ngp_mesh = m_ngp_mesh;
         auto ngp_fields_to_gather = m_ngp_fields_to_gather;
         auto ngp_field_to_scatter = m_ngp_field_to_scatter;
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                printf("start for_each_entity_run\n");
+                // printf("start for_each_entity_run\n");
 
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -220,7 +220,8 @@ class ElementProcessorStkNgp {
                 Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
 
                 // Set up the results matrix
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> results_to_scatter;
+                //Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> results_to_scatter;
+                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
 
                 // Gather the field data for each node
                 for (size_t f = 0; f < N; ++f) {
@@ -232,19 +233,19 @@ class ElementProcessorStkNgp {
                 }
 
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter[0]);
+                func(field_data_to_gather, results_to_scatter);
 
                 // Print the results
-                printf("results_to_scatter[0](0,0): %f\n", results_to_scatter[0](0, 0));
+                // printf("results_to_scatter(*,0): %f, %f, %f, %f\n", results_to_scatter(0, 0), results_to_scatter(1, 0), results_to_scatter(2, 0), results_to_scatter(3, 0));
 
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        //ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j) -= results_to_scatter[0](i, j);
+                        Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
                     }
                 }
 
-                printf("end for_each_entity_run\n");
+                // printf("end for_each_entity_run\n");
             });
     }
 
