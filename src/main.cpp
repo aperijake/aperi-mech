@@ -19,7 +19,7 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
 void PrintVersion() {
     std::string version;
     version += std::string(GIT_COMMIT_HASH) + "-" + std::string(BUILD_TYPE) + "-" + std::string(GPU_OR_CPU);
-    if (std::string(GIT_DIRTY) == "dirty"){
+    if (std::string(GIT_DIRTY) == "dirty") {
         version += "-uncommitted_changes";
     }
     aperi::CoutP0() << version << std::endl;

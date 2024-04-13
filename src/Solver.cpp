@@ -10,8 +10,8 @@
 #include "IoMesh.h"
 #include "LogUtils.h"
 #include "MassUtils.h"
-#include "MathUtils.h"
 #include "Material.h"
+#include "MathUtils.h"
 #include "MeshData.h"
 #include "NodeProcessor.h"
 #include "Scheduler.h"
@@ -138,7 +138,7 @@ void ExplicitSolver::UpdateFieldStates() {
     m_node_processor_all->SyncAllFieldsHostToDevice();
 }
 
-void ExplicitSolver::Solve() {
+double ExplicitSolver::Solve() {
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
@@ -279,6 +279,8 @@ void ExplicitSolver::Solve() {
                     << std::setw(20) << "End of Simulation"
                     << std::endl;
     aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+
+    return average_runtime;
 }
 
 }  // namespace aperi

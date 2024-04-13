@@ -27,7 +27,7 @@ class SolverTest : public ApplicationTest {
         ApplicationTest::SetUp();
     }
 
-    void RunSolver() {
+    double RunSolver() {
         // Create an IO input file object and read the input file
         m_io_input_file = aperi::CreateIoInputFile(m_yaml_data);
 
@@ -95,7 +95,17 @@ class SolverTest : public ApplicationTest {
         m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
 
         //// Run solver
-        m_solver->Solve();
+        return m_solver->Solve();
+    }
+
+    void ResetSolverTest() {
+        ResetApplicationTest();
+        m_io_input_file.reset();
+        m_io_mesh.reset();
+        m_internal_force_contributions.clear();
+        m_external_force_contributions.clear();
+        m_boundary_conditions.clear();
+        m_solver.reset();
     }
 
     void TearDown() override {

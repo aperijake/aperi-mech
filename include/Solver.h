@@ -46,10 +46,11 @@ class Solver {
 
     /**
      * @brief Pure virtual function for solving the mechanical problem.
+     * @return The average time taken to solve an increment of the mechanical problem.
      *
      * This function must be implemented by derived classes to provide a specific solving algorithm.
      */
-    virtual void Solve() = 0;
+    virtual double Solve() = 0;
 
     /**
      * @brief Get the mesh data object.
@@ -168,7 +169,7 @@ class ExplicitSolver : public Solver {
      *
      * This function overrides the base class function and is responsible for solving the mechanical system using an explicit time integration scheme.
      */
-    void Solve() override;
+    double Solve() override;
 
    protected:
     /**
@@ -215,7 +216,7 @@ class ExplicitSolver : public Solver {
     /**
      * @brief Updates the field states. N -> NP1 and NP1 -> N.
      *
-    */
+     */
     void UpdateFieldStates();
 
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force;

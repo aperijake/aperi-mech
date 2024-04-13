@@ -22,9 +22,21 @@ class ApplicationTest : public CaptureOutputTest {
         // Get number of mpi processes
         MPI_Comm_size(m_comm, &m_num_procs);
 
+        // Set up the test
+        SetUpApplicationTest();
+    }
+
+    void ResetApplicationTest(std::string append_to_filename = "") {
+        // Reset the test
+        TearDownApplicationTest();
+        SetUpApplicationTest(append_to_filename);
+    }
+
+    void SetUpApplicationTest(std::string append_to_filename = "") {
         // Test file names
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
         std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        test_name += append_to_filename;
         m_filename = test_suite_name + "_" + test_name + ".yaml";
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
         m_results_filename = test_suite_name + "_" + test_name + "_results.exo";
@@ -60,7 +72,7 @@ class ApplicationTest : public CaptureOutputTest {
         aperi::IoInputFile::Write(m_filename, m_yaml_data);
     }
 
-    void TearDown() override {
+    void TearDownApplicationTest() {
         // Delete the temporary input file
         CleanUp(m_filename);
 
@@ -69,6 +81,10 @@ class ApplicationTest : public CaptureOutputTest {
 
         // Delete the temporary results file
         CleanUp(m_results_filename);
+    }
+
+    void TearDown() override {
+        TearDownApplicationTest();
 
         // Run CaptureOutputTest::TearDown last
         CaptureOutputTest::TearDown();

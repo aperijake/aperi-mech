@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <memory>
 #include <string>
 
@@ -212,36 +213,142 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration);
 }
 
-// Test a large, square cross section, taylor impact test
-TEST_F(SolverTest, DISABLED_TaylorImpact) {
-    // This isn't really testing anything
-
+// Create the Taylor impact test
+YAML::Node CreateTaylorImpactYaml(double time_increment, double end_time, size_t num_elem_x = 10, size_t num_elem_y = 10, size_t num_elem_z = 30) {
     // Start with the basic explicit test
-    m_yaml_data = CreateTestYaml();
+    YAML::Node yaml_data = CreateTestYaml();
 
     // Change the time increment
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_increment"] = 0.01;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_increment"] = time_increment;
+
+    // Change the end time
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_end"] = end_time;
 
     // Remove the loads
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
 
     // Change the initial conditions
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"] = 10.0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][0] = 0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][1] = 0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][2] = 1;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["magnitude"] = 10.0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][0] = 0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][1] = 0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"]["direction"][2] = 1;
 
     // Add boundary conditions on the impact surface
-    AddDisplacementBoundaryConditions(m_yaml_data);
+    AddDisplacementBoundaryConditions(yaml_data);
     // Change boundary condition to apply to surface_1
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = "surface_1";
     // Change the magnitude and direction of the boundary condition
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = 0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = 0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = 0;
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = 1;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = 0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = 0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = 0;
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = 1;
 
-    CreateInputFile();
-    CreateTestMesh("4x4x10|sideset:z|tets");
-    RunSolver();
+    // Effectively turn off output
+    yaml_data["procedures"][0]["explicit_dynamics_procedure"]["output"]["time_increment"] = end_time;
+
+    return yaml_data;
+}
+
+// Test a large, square cross section, taylor impact test
+TEST_F(SolverTest, BenchmarkTaylorImpact1) {
+    // This isn't really testing anything, just for benchmarking
+    const bool do_benchmarking = false;
+    if (!do_benchmarking) {
+        return;
+    }
+    StopCapturingOutput();
+
+    // The time increment
+    double time_increment = 0.01;
+
+    // Number of node-steps
+    size_t num_node_steps = 8e7;
+
+    // Number of refinements and refinement factor
+    size_t num_refinements = 4;
+    size_t refinement_factor = 2;
+
+    // Initial mesh size
+    size_t initial_num_elem_x = 7;
+    size_t initial_num_elem_y = 7;
+    size_t initial_num_elem_z = 21;
+
+    // Vectors to store the number of nodes and runtimes
+    std::vector<double> num_nodes;
+    std::vector<double> runtimes;
+
+    // Mesh size vectors
+    std::vector<size_t> num_elem_x;
+    std::vector<size_t> num_elem_y;
+    std::vector<size_t> num_elem_z;
+
+    num_elem_x.push_back(initial_num_elem_x);
+    num_elem_y.push_back(initial_num_elem_y);
+    num_elem_z.push_back(initial_num_elem_z);
+
+    // Calculate the number of nodes
+    num_nodes.push_back((num_elem_x.back() + 1) * (num_elem_y.back() + 1) * (num_elem_z.back() + 1));
+
+    // Calculate the number of steps and end times
+    std::vector<size_t> num_steps;
+    std::vector<double> end_times;
+
+    // Test node-steps
+    num_steps.push_back(num_node_steps / num_nodes.back());
+    end_times.push_back(time_increment * num_steps.back());
+
+    for (size_t i = 1; i < num_refinements; ++i) {
+        // Next refinement mesh
+        num_elem_x.push_back(num_elem_x.back() * refinement_factor);
+        num_elem_y.push_back(num_elem_y.back() * refinement_factor);
+        num_elem_z.push_back(num_elem_z.back() * refinement_factor);
+        num_nodes.push_back((num_elem_x.back() + 1) * (num_elem_y.back() + 1) * (num_elem_z.back() + 1));
+        num_steps.push_back(num_node_steps / num_nodes.back());
+        end_times.push_back(time_increment * num_steps.back());
+    }
+
+    // Print the run settings before running
+    std::cout << "Number of node-steps: " << num_node_steps << std::endl;
+    std::cout << "Time increment: " << time_increment << std::endl;
+    std::cout << "Initial mesh size: " << initial_num_elem_x << "x" << initial_num_elem_y << "x" << initial_num_elem_z << std::endl;
+    std::cout << "Refinement factor: " << refinement_factor << std::endl;
+    std::cout << "Number of refinements: " << num_refinements << std::endl;
+    std::cout << "--------------------------------------------------------------------------------" << std::endl;
+    std::cout << std::setw(20) << "Mesh size" << std::setw(20) << "Number of nodes" << std::setw(20) << "Number of steps" << std::setw(20) << "End time" << std::endl;
+    for (size_t i = 0; i < num_refinements; ++i) {
+        std::cout << std::setw(20) << std::to_string(num_elem_x[i]) + "x" + std::to_string(num_elem_y[i]) + "x" + std::to_string(num_elem_z[i])
+                  << std::setw(20) << num_nodes[i]
+                  << std::setw(20) << num_steps[i]
+                  << std::setw(20) << end_times[i] << std::endl;
+    }
+    std::cout << "--------------------------------------------------------------------------------" << std::endl;
+
+    for (size_t i = 0; i < num_refinements; ++i) {
+        ASSERT_GT((int)num_steps.back(), 10) << "Number of steps is too small. Adjust the parameters.";
+    }
+
+    for (size_t i = 0; i < num_refinements; ++i) {
+        // Create the next refinement
+        m_yaml_data = CreateTaylorImpactYaml(time_increment, end_times[i], num_elem_x[i], num_elem_y[i], num_elem_z[i]);
+        CreateInputFile();
+        CreateTestMesh(std::to_string(num_elem_x[i]) + "x" + std::to_string(num_elem_y[i]) + "x" + std::to_string(num_elem_z[i]) + "|sideset:z|tets");
+
+        // Run the solver
+        double average_increment_runtime = RunSolver();
+        std::cout << "Average increment runtime: " << average_increment_runtime << " seconds" << std::endl;
+
+        // Store the results
+        runtimes.push_back(average_increment_runtime);
+
+        // Setup for the next refinement
+        ResetSolverTest();
+    }
+
+    // Output the results
+    std::ofstream file("benchmark_results.csv");
+    file << "Nodes, Runtime per increment (s)" << std::endl;
+    for (size_t i = 0; i < num_nodes.size(); ++i) {
+        file << num_nodes[i] << ", " << runtimes[i] << std::endl;
+    }
+    file.close();
 }
