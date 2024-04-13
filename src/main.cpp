@@ -17,7 +17,12 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
 }
 
 void PrintVersion() {
-    aperi::CoutP0() << GIT_COMMIT_HASH << "-" << GIT_DIRTY << "-" << BUILD_TYPE << std::endl;
+    std::string version;
+    version += std::string(GIT_COMMIT_HASH) + "-" + std::string(BUILD_TYPE) + "-" + std::string(GPU_OR_CPU);
+    if (std::string(GIT_DIRTY) == "dirty") {
+        version += "-uncommitted_changes";
+    }
+    aperi::CoutP0() << version << std::endl;
 }
 
 void PrintHeader() {
@@ -26,8 +31,8 @@ void PrintHeader() {
                     << std::endl;
     aperi::CoutP0() << "  Version: ";
     PrintVersion();
-    aperi::CoutP0() << "  Git branch: " << GIT_BRANCH << std::endl;
-    aperi::CoutP0() << "  Git tag: " << GIT_TAG << std::endl;
+    aperi::CoutP0() << "  Git Branch: " << GIT_BRANCH << std::endl;
+    aperi::CoutP0() << "  Git Tag: " << GIT_TAG << std::endl;
     aperi::CoutP0() << "  Build Date: " << BUILD_DATE << std::endl;
     aperi::CoutP0() << "  Build Time: " << BUILD_TIME << std::endl;
     aperi::CoutP0() << "############################################\n"

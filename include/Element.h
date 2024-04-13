@@ -3,9 +3,13 @@
 #include <Eigen/Dense>
 #include <memory>
 
+#include "ElementProcessor.h"
+#include "Kokkos_Core.hpp"
 #include "Material.h"
 
 namespace aperi {
+
+static constexpr int tet4_num_nodes = 4;
 
 /**
  * @brief Represents an element in a mesh.
@@ -23,7 +27,7 @@ class Element {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    Element(size_t num_nodes) : m_num_nodes(num_nodes) {}
+    Element(size_t num_nodes) : m_num_nodes(num_nodes), m_ngp_element_processor(nullptr) {}
 
     /**
      * @brief Gets the number of nodes in the element.
@@ -55,33 +59,33 @@ class Element {
     virtual Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const = 0;
 
     /**
-     * @brief Computes the internal force of the element. Wraps the actual computation of the internal force.
+     * @brief Computes the internal force of the element.
      *
-     * @param node_coordinates The coordinates of the nodes of the element.
-     * @param node_displacements The displacements of the nodes of the element.
-     * @param node_velocities The velocities of the nodes of the element.
-     * @param material The material of the element.
-     * @return The internal force of the element.
      */
-    Eigen::Matrix<double, 4, 3> ComputeInternalForce(const Eigen::Matrix<double, 4, 3> &node_coordinates, const Eigen::Matrix<double, 4, 3> &node_displacements, const Eigen::Matrix<double, 4, 3> &node_velocities, std::shared_ptr<Material> material) const;
+    virtual void ComputeInternalForceAllElements() = 0;
+
+    /**
+     * @brief Sets the element processor associated with the force contribution.
+     *
+     * @param ngp_element_processor The element processor associated with the force contribution.
+     */
+    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessor<3>> ngp_element_processor) {
+        m_ngp_element_processor = ngp_element_processor;
+    }
+
+    /**
+     * @brief Sets the material of the element.
+     *
+     * @param material The material of the element.
+     */
+    void SetMaterial(std::shared_ptr<Material> material) {
+        m_material = material;
+    }
 
    protected:
-    /**
-     * @brief Template function to compute the internal force of the element. Handles the actual computation of the internal force.
-     * @note Templating this way prevents the calling function from having to know the number of nodes in the element.
-     *       It also was a moderate performance improvement over have Eigen::Dynamic sizes on the matrices.
-     *
-     * @param shape_function_derivatives The shape function derivatives of the element.
-     * @param node_coordinates The coordinates of the nodes of the element.
-     * @param node_displacements The displacements of the nodes of the element.
-     * @param node_velocities The velocities of the nodes of the element.
-     * @param material The material of the element.
-     * @return The internal force of the element.
-     */
-    template <size_t N>
-    Eigen::Matrix<double, N, 3> DoInternalForceCalc(const Eigen::Matrix<double, N, 3> &shape_function_derivatives, const Eigen::Matrix<double, N, 3> &node_coordinates, const Eigen::Matrix<double, N, 3> &node_displacements, const Eigen::Matrix<double, N, 3> &node_velocities, std::shared_ptr<Material> material) const;
-
-    size_t m_num_nodes;  ///< The number of nodes in the element.
+    size_t m_num_nodes;                                                   ///< The number of nodes in the element.
+    std::shared_ptr<aperi::ElementProcessor<3>> m_ngp_element_processor;  ///< The element processor associated with the force contribution.
+    std::shared_ptr<Material> m_material;                                 ///< The material of the element.
 };
 
 /**
@@ -95,13 +99,50 @@ class Tetrahedron4 : public Element {
    public:
     /**
      * @brief Constructs a Tetrahedron4 object.
-     *
      */
-    Tetrahedron4() : Element(4) {
+    Tetrahedron4() : Element(tet4_num_nodes) {
     }
 
-    Eigen::Matrix<double, 4, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
-        Eigen::Matrix<double, 4, 1> shape_functions;
+    /**
+        * @brief Functor for computing the shape function derivatives.
+         * @param xi The xi coordinate of the element.
+         * @param eta The eta coordinate of the element.
+         * @param zeta The zeta coordinate of the element.
+         * @return The shape function derivatives of the element.
+        * This functor computes the shape function derivatives, dN/dxi, dN/deta, dN/dzeta
+
+    */
+    struct ComputeShapeFunctionDerivativesFunctor {
+        /**
+         * @brief Computes the shape function derivatives of the element.
+         */
+        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> operator()(double xi, double eta, double zeta) const {
+            Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
+            shape_function_derivatives << -1.0, -1.0, -1.0,
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0;
+            return shape_function_derivatives;
+        }
+    };
+
+    /**
+     * @brief Calls the ComputeShapeFunctionDerivativesFunctor to compute the shape function derivatives.
+     */
+    Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
+        return ComputeShapeFunctionDerivativesFunctor()(xi, eta, zeta);
+    }
+
+    /**
+     * @brief Computes the shape functions of the element.
+     *
+     * @param xi The xi coordinate of the element.
+     * @param eta The eta coordinate of the element.
+     * @param zeta The zeta coordinate of the element.
+     * @return The shape functions of the element.
+     */
+    Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
+        Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
         shape_functions << 1.0 - xi - eta - zeta,
             xi,
             eta,
@@ -109,15 +150,11 @@ class Tetrahedron4 : public Element {
         return shape_functions;
     }
 
-    // dN/dxi, dN/deta, dN/dzeta
-    Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
-        Eigen::Matrix<double, 4, 3> shape_function_derivatives;
-        shape_function_derivatives << -1.0, -1.0, -1.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-        return shape_function_derivatives;
-    }
+    /**
+     * @brief Computes the internal force of all elements.
+     *
+     */
+    void ComputeInternalForceAllElements() override;
 };
 
 /**
@@ -131,7 +168,7 @@ class Tetrahedron4 : public Element {
  * @return A shared pointer to the created Element object.
  */
 inline std::shared_ptr<Element> CreateElement(size_t num_nodes) {
-    if (num_nodes == 4) {
+    if (num_nodes == tet4_num_nodes) {
         return std::make_shared<Tetrahedron4>();
     } else {
         throw std::runtime_error("Unsupported element topology");

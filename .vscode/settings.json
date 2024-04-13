@@ -71,7 +71,8 @@
     "source_location": "cpp",
     "dense": "cpp",
     "core": "cpp",
-    "utility": "cpp"
+    "utility": "cpp",
+    "memory": "cpp"
   },
   "cSpell.words": [
     "cgns",
