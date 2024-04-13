@@ -212,6 +212,12 @@ class ExplicitSolver : public Solver {
      */
     void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_nodal_displacements);
 
+    /**
+     * @brief Updates the field states. N -> NP1 and NP1 -> N.
+     *
+    */
+    void UpdateFieldStates();
+
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<9>> m_node_processor_all;
 };

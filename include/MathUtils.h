@@ -104,4 +104,13 @@ double LinearInterpolation(double x, const T &abscissa, const T &ordinate) {
     throw std::runtime_error("Linear interpolation failed.");
 }
 
+template <typename T>
+int RoundDownOrderOfMagnitude(T num) {
+    if (num <= 0) {
+        throw std::invalid_argument("Input must be positive");
+    }
+    int power = std::floor(std::log10(num));
+    return std::pow(10, power);
+}
+
 }  // namespace aperi
