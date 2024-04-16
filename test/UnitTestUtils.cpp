@@ -315,7 +315,7 @@ void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::
     }
 }
 
-Eigen::Vector3d GetExpectedPatchValues(const Eigen::Vector3d& center_of_mass, const Eigen::Vector3d coordinates, const Eigen::Matrix3d& field_gradients) {
+Eigen::Vector3d GetExpectedPatchValues(const Eigen::Vector3d& center_of_mass, const Eigen::Vector3d& coordinates, const Eigen::Matrix3d& field_gradients) {
     return field_gradients * (coordinates - center_of_mass);
 }
 
@@ -337,9 +337,9 @@ void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::stri
         Eigen::Vector3d expected_values = GetExpectedPatchValues(center_of_mass, coordinates, field_gradients);
         for (size_t i = 0; i < 3; i++) {
             if (std::abs(expected_values(i)) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
             } else {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), std::abs(1.0e-12 * expected_values(i))) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), std::abs(1.0e-12 * expected_values(i))) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
             }
         }
     });
