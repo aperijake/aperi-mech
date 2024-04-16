@@ -314,3 +314,34 @@ void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::
         }
     }
 }
+
+Eigen::Vector3d GetExpectedPatchValues(const Eigen::Vector3d& center_of_mass, const Eigen::Vector3d coordinates, const Eigen::Matrix3d& field_gradients) {
+    return field_gradients * (coordinates - center_of_mass);
+}
+
+void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::string& field_name, const Eigen::Vector3d& center_of_mass, const Eigen::Matrix3d& field_gradients, aperi::FieldQueryState field_query_state) {
+    std::array<aperi::FieldQueryData, 2> field_query_data_array;
+    field_query_data_array[0] = {field_name, field_query_state};
+    field_query_data_array[1] = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+
+    // Make a node processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::NodeProcessor<2> node_processor_stk_ngp(field_query_data_array, mesh_data_ptr);
+
+    bool found_at_least_one_node = false;
+
+    // Get the sum of the field values
+    node_processor_stk_ngp.for_each_owned_node_host([&](size_t i_node_start, std::array<double*, 2>& field_data) {
+        found_at_least_one_node = true;
+        Eigen::Vector3d coordinates = {field_data[1][i_node_start], field_data[1][i_node_start + 1], field_data[1][i_node_start + 2]};
+        Eigen::Vector3d expected_values = GetExpectedPatchValues(center_of_mass, coordinates, field_gradients);
+        for (size_t i = 0; i < 3; i++) {
+            if (std::abs(expected_values(i)) < 1.0e-12) {
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+            } else {
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), std::abs(1.0e-12 * expected_values(i))) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+            }
+        }
+    });
+    EXPECT_TRUE(found_at_least_one_node);
+}
