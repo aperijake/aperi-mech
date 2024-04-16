@@ -54,20 +54,16 @@ double Normalize(T &vector) {
 // Constant interpolation
 template <typename T>
 double ConstantInterpolation(double x, const T &abscissa, const T &ordinate) {
-    if (abscissa.size() != ordinate.size()) {
-        throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
-    }
-    if (abscissa.size() == 0) {
-        throw std::runtime_error("Abscissa and ordinate vectors must have at least one element.");
-    }
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
     if (abscissa.size() == 1) {
         return ordinate[0];
     }
     if (x < abscissa[0]) {
         return 0.0;
     }
-    if (x > abscissa[abscissa.size() - 1]) {
-        return ordinate[abscissa.size() - 1];
+    if (x > abscissa.back()) {
+        return ordinate.back();
     }
     for (size_t i = 0; i < abscissa.size() - 1; ++i) {
         if (x >= abscissa[i] && x <= abscissa[i + 1]) {
@@ -80,20 +76,16 @@ double ConstantInterpolation(double x, const T &abscissa, const T &ordinate) {
 // Linear interpolation
 template <typename T>
 double LinearInterpolation(double x, const T &abscissa, const T &ordinate) {
-    if (abscissa.size() != ordinate.size()) {
-        throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
-    }
-    if (abscissa.size() == 0) {
-        throw std::runtime_error("Abscissa and ordinate vectors must have at least one element.");
-    }
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
     if (abscissa.size() == 1) {
         return ordinate[0];
     }
     if (x < abscissa[0]) {
         return ordinate[0];
     }
-    if (x > abscissa[abscissa.size() - 1]) {
-        return ordinate[abscissa.size() - 1];
+    if (x > abscissa.back()) {
+        return ordinate.back();
     }
     for (size_t i = 0; i < abscissa.size() - 1; ++i) {
         if (x >= abscissa[i] && x <= abscissa[i + 1]) {
@@ -102,6 +94,63 @@ double LinearInterpolation(double x, const T &abscissa, const T &ordinate) {
         }
     }
     throw std::runtime_error("Linear interpolation failed.");
+}
+
+// Smooth step function
+template <typename T>
+double SmoothStepInterpolation(double x, const T &abscissa, const T &ordinate) {
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
+    /* a = A_0 for t <= t_0
+         = A_0 + (A_1 - A_0) t_s^3 (10 - 15t_s + 6t_s^2) for t_0 < t < t_1
+         = A_1 for t >= t_1
+       where t_s = (t - t_0) / (t_1 - t_0)
+    */
+    if (abscissa.size() == 1 || x < abscissa[0]) {
+        return ordinate[0];
+    }
+    if (x > abscissa.back()) {
+        return ordinate.back();
+    }
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x >= abscissa[i] && x <= abscissa[i + 1]) {
+            double t_s = (x - abscissa[i]) / (abscissa[i + 1] - abscissa[i]);
+            return ordinate[i] + (ordinate[i + 1] - ordinate[i]) * t_s * t_s * t_s * (10.0 - 15.0 * t_s + 6.0 * t_s * t_s);
+        }
+    }
+    throw std::runtime_error("Smooth step interpolation failed.");
+}
+
+template <typename T>
+double SmoothStepInterpolationDerivative(double x, const T &abscissa, const T &ordinate) {
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
+    if (abscissa.size() == 1 || x < abscissa[0] || x > abscissa.back()) {
+        return 0.0;
+    }
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x >= abscissa[i] && x <= abscissa[i + 1]) {
+            double t_s = (x - abscissa[i]) / (abscissa[i + 1] - abscissa[i]);
+            return (ordinate[i + 1] - ordinate[i]) * (30.0 * t_s * t_s - 60.0 * t_s * t_s * t_s + 30.0 * t_s * t_s * t_s * t_s) / (abscissa[i + 1] - abscissa[i]);
+        }
+    }
+    throw std::runtime_error("Smooth step interpolation derivative failed.");
+}
+
+template <typename T>
+double SmoothStepInterpolationSecondDerivative(double x, const T &abscissa, const T &ordinate) {
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
+    if (abscissa.size() == 1 || x < abscissa[0] || x > abscissa.back()) {
+        return 0.0;
+    }
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x >= abscissa[i] && x <= abscissa[i + 1]) {
+            double t_s = (x - abscissa[i]) / (abscissa[i + 1] - abscissa[i]);
+            return (ordinate[i + 1] - ordinate[i]) * (60.0 * t_s - 180.0 * t_s * t_s + 120.0 * t_s * t_s * t_s) / ((abscissa[i + 1] - abscissa[i]) * (abscissa[i + 1] - abscissa[i]));
+        }
+    }
+    throw std::runtime_error("Smooth step interpolation second derivative failed.");
 }
 
 template <typename T>

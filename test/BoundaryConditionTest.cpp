@@ -89,6 +89,42 @@ class BoundaryConditionTest : public ApplicationTest {
         node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
+    void GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, std::array<double, 3> &expected_displacement, std::array<double, 3> &expected_velocity) {
+        double velocity_time_scale_factor;
+        // Interpolate the abscissa and ordinate values to get the time scale factor
+        if (bc_type == "displacement") {
+            if (ramp_type == "ramp_function") {
+                // Compute the ordinate derivative
+                std::array<double, 2> ordinate_derivate;
+                for (size_t i = 0; i < ordinate.size() - 1; ++i) {
+                    ordinate_derivate[i] = (ordinate[i + 1] - ordinate[i]) / (abscissa[i + 1] - abscissa[i]);
+                }
+                ordinate_derivate[ordinate.size() - 1] = 0.0;
+
+                velocity_time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
+            } else if (ramp_type == "smooth_step_function") {
+                velocity_time_scale_factor = aperi::SmoothStepInterpolationDerivative(time, abscissa, ordinate);
+            }
+        } else if (bc_type == "velocity") {
+            if (ramp_type == "ramp_function") {
+                velocity_time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
+            } else if (ramp_type == "smooth_step_function") {
+                velocity_time_scale_factor = aperi::SmoothStepInterpolation(time, abscissa, ordinate);
+            }
+        } else {
+            EXPECT_TRUE(false) << "Boundary condition type must be 'velocity' or 'displacement'. Found: " << bc_type << ".";
+        }
+        expected_velocity = direction;
+        aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
+        // Integrate the displacement expected values when the boundary condition
+        for (size_t i = 0; i < expected_displacement.size(); ++i) {
+            expected_displacement[i] = expected_displacement[i] + expected_velocity[i] * time_increment;
+        }
+        std::array<std::array<double, 3>, 2> expected_values;
+        expected_values[0] = expected_displacement;
+        expected_values[1] = expected_velocity;
+    }
+
     void CheckBoundaryConditions(std::string bc_type) {
         // Get the boundary condition from the yaml data
         YAML::Node boundary_condition = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -113,25 +149,18 @@ class BoundaryConditionTest : public ApplicationTest {
         std::array<double, 3> expected_displacement = {0.0, 0.0, 0.0};
         std::array<double, 3> expected_velocity = {0.0, 0.0, 0.0};
 
-        // Initial time
-        m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-        m_io_mesh->GetMeshData()->UpdateFieldDataStates();
-        m_all_field_node_processor->MarkAllFieldsModifiedOnHost();
-        m_all_field_node_processor->SyncAllFieldsHostToDevice();
-        for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-            m_boundary_conditions[i]->ApplyVelocity(0);
-        }
-
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
-            m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-            m_io_mesh->GetMeshData()->UpdateFieldDataStates();
-            m_all_field_node_processor->MarkAllFieldsModifiedOnHost();
-            m_all_field_node_processor->SyncAllFieldsHostToDevice();
             for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
                 m_boundary_conditions[i]->ApplyVelocity(time);
             }
             UpdateNodalDisplacements(time_increment);
+
+            // Sync the fields
+            m_all_field_node_processor->SyncAllFieldsDeviceToHost();
+            m_io_mesh->GetMeshData()->UpdateFieldDataStates();
+            m_all_field_node_processor->MarkAllFieldsModifiedOnHost();
+            m_all_field_node_processor->SyncAllFieldsHostToDevice();
 
             // Check the boundary conditions
             for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
@@ -169,7 +198,10 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Get the time function type
                 YAML::Node time_function = bc_node["time_function"];
-                EXPECT_TRUE(time_function.begin()->first.as<std::string>() == "ramp_function") << "Found: " << time_function.begin()->first.as<std::string>();
+                std::string function_type = time_function.begin()->first.as<std::string>();
+
+                // Make sure the time function is a ramp_function or smooth_step_function
+                EXPECT_TRUE(function_type == "ramp_function" || function_type == "smooth_step_function") << "Time function type must be 'ramp_function' or 'smooth_step_function'. Found: " << function_type << ".";
                 YAML::Node ramp_function = time_function.begin()->second;
 
                 // Check the size of the abscissa and ordinate values
@@ -180,34 +212,8 @@ class BoundaryConditionTest : public ApplicationTest {
                 std::array<double, 2> abscissa = ramp_function["abscissa_values"].as<std::array<double, 2>>();
                 std::array<double, 2> ordinate = ramp_function["ordinate_values"].as<std::array<double, 2>>();
 
-                // Compute the ordinate derivative
-                std::array<double, 2> ordinate_derivate;
-                for (size_t i = 0; i < ordinate.size() - 1; ++i) {
-                    ordinate_derivate[i] = (ordinate[i + 1] - ordinate[i]) / (abscissa[i + 1] - abscissa[i]);
-                }
-                ordinate_derivate[ordinate.size() - 1] = 0.0;
-
-                // Interpolate the abscissa and ordinate values to get the time scale factor
-                if (bc_type == "displacement") {
-                    double displacement_time_scale_factor = aperi::LinearInterpolation(time, abscissa, ordinate);
-                    expected_displacement = direction;
-                    aperi::ChangeLength(expected_displacement, magnitude * displacement_time_scale_factor);
-
-                    double velocity_time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
-                    expected_velocity = direction;
-                    aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
-                } else if (bc_type == "velocity") {
-                    double velocity_time_scale_factor = aperi::LinearInterpolation(time - time_increment, abscissa, ordinate);  // TODO(jake): Double check this. Should it be time - time_increment due to central difference?
-                    expected_velocity = direction;
-                    aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
-
-                    // Integrate the displacement expected values when the boundary condition is velocity
-                    for (size_t i = 0; i < expected_displacement.size(); ++i) {
-                        expected_displacement[i] = expected_displacement[i] + expected_velocity[i] * time_increment;
-                    }
-                } else {
-                    EXPECT_TRUE(false) << "Boundary condition type must be 'velocity' or 'displacement'. Found: " << bc_type << ".";
-                }
+                // Get the expected values
+                GetExpectedValues(time, time_increment, abscissa, ordinate, direction, magnitude, function_type, bc_type, expected_displacement, expected_velocity);
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
@@ -255,6 +261,40 @@ TEST_F(BoundaryConditionTest, AddDisplacementBoundaryConditionComponents) {
 TEST_F(BoundaryConditionTest, AddVelocityBoundaryCondition) {
     m_yaml_data = CreateTestYaml();
     AddVelocityBoundaryConditions(m_yaml_data);
+    CreateTestMesh(m_field_data);
+    CreateInputFile();
+
+    // Add boundary conditions
+    AddTestBoundaryConditions();
+
+    // Check the boundary conditions
+    CheckBoundaryConditions("velocity");
+}
+
+// Add smooth step boundary conditions, displacement
+TEST_F(BoundaryConditionTest, AddSmoothStepBoundaryConditionDisplacement) {
+    m_yaml_data = CreateTestYaml();
+
+    // Add smooth step boundary conditions
+    AddDisplacementBoundaryConditions(m_yaml_data, "smooth_step_function");
+
+    CreateTestMesh(m_field_data);
+    CreateInputFile();
+
+    // Add boundary conditions
+    AddTestBoundaryConditions();
+
+    // Check the boundary conditions
+    CheckBoundaryConditions("displacement");
+}
+
+// Add smooth step boundary conditions, velocity
+TEST_F(BoundaryConditionTest, AddSmoothStepBoundaryConditionVelocity) {
+    m_yaml_data = CreateTestYaml();
+
+    // Add smooth step boundary conditions
+    AddVelocityBoundaryConditions(m_yaml_data, "smooth_step_function");
+
     CreateTestMesh(m_field_data);
     CreateInputFile();
 

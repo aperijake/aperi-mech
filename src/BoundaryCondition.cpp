@@ -54,6 +54,12 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
         // Get the abscissa and ordinate
         std::vector<double> abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
         std::vector<double> ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
+        if (abscissa.size() != ordinate.size()) {
+            throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
+        }
+        if (abscissa.size() == 0) {
+            throw std::runtime_error("Abscissa and ordinate vectors must have at least one value.");
+        }
 
         std::vector<double> ordinate_derivate(ordinate.size());
         for (size_t i = 0; i < ordinate.size() - 1; ++i) {
@@ -80,7 +86,37 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
             // Throw an error if the type is not 'velocity' or 'displacement'. Should not happen.
             throw std::runtime_error("Boundary condition type must be 'velocity' or 'displacement'. Found: " + bc_type + ".");
         }
+    } else if (time_function_type == "smooth_step_function") {
+        // Get the abscissa and ordinate
+        std::vector<double> abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
+        std::vector<double> ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
 
+        if (abscissa.size() != ordinate.size()) {
+            throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
+        }
+        if (abscissa.size() == 0) {
+            throw std::runtime_error("Abscissa and ordinate vectors must have at least one value.");
+        }
+
+        // If type is 'displacement', convert ordinate to velocity. Will be a piecewise constant function
+        if (bc_type == "displacement") {
+            velocity_time_function = [abscissa, ordinate](double time) {
+                return aperi::SmoothStepInterpolationDerivative(time, abscissa, ordinate);
+            };
+            acceleration_time_function = [abscissa, ordinate](double time) {
+                return aperi::SmoothStepInterpolationSecondDerivative(time, abscissa, ordinate);
+            };
+        } else if (bc_type == "velocity") {
+            velocity_time_function = [abscissa, ordinate](double time) {
+                return aperi::SmoothStepInterpolation(time, abscissa, ordinate);
+            };
+            acceleration_time_function = [abscissa, ordinate](double time) {
+                return aperi::SmoothStepInterpolationDerivative(time, abscissa, ordinate);
+            };
+        } else {
+            // Throw an error if the type is not 'velocity' or 'displacement'. Should not happen.
+            throw std::runtime_error("Boundary condition type must be 'velocity' or 'displacement'. Found: " + bc_type + ".");
+        }
     } else {
         throw std::runtime_error("Time function type '" + time_function_type + "' not found.");
     }

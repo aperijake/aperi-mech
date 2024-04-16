@@ -244,9 +244,16 @@ YAML::Node GetInputSchema() {
     ramp_function_schema.AddAllOf(ordinate_values_node);
     YAML::Node ramp_function_node = ramp_function_schema.GetInputSchema();
 
+    // Smooth step function node
+    aperi::InputSchema smooth_step_function_schema("smooth_step_function", "map", "a smooth step function");
+    smooth_step_function_schema.AddAllOf(abscissa_values_node);
+    smooth_step_function_schema.AddAllOf(ordinate_values_node);
+    YAML::Node smooth_step_function_node = smooth_step_function_schema.GetInputSchema();
+
     // Time function node
     aperi::InputSchema time_function_schema("time_function", "map", "a time function");
     time_function_schema.AddOneOf(ramp_function_node);
+    time_function_schema.AddOneOf(smooth_step_function_node);
     YAML::Node time_function_node = time_function_schema.GetInputSchema();
 
     // Specified velocity node

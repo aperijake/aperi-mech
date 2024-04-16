@@ -13,7 +13,6 @@
 // Fixture for Element tests
 class ApproximationFunctionTest : public ::testing::Test {
    protected:
-
     // Create an element
     std::shared_ptr<aperi::Element> CreateElement() {
         // Create the element, tet4 by default (4 nodes)
@@ -150,7 +149,7 @@ class ElementTest : public SolverTest {
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = displacement_direction[0];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = displacement_direction[1];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = displacement_direction[2];
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["ramp_function"]["abscissa_values"][1] =  m_final_time;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["ramp_function"]["abscissa_values"][1] = m_final_time;
 
         // Change the final time
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_end"] = m_final_time;
@@ -219,17 +218,17 @@ class ElementTest : public SolverTest {
         //  Force = B S F^T
         Eigen::Vector3d expected_force;
         if (face_direction == 0) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(0,0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0,1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0,2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(1,0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1,1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1,2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(2,0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2,1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2,2);
+            expected_force(0) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0, 2);
+            expected_force(1) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1, 2);
+            expected_force(2) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2, 2);
         } else if (face_direction == 1) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0,0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(0,1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0,2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1,0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(1,1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1,2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2,0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(2,1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2,2);
+            expected_force(0) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0, 2);
+            expected_force(1) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1, 2);
+            expected_force(2) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2, 2);
         } else if (face_direction == 2) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0,0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0,1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(0,2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1,0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1,1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(1,2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2,0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2,1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(2,2);
+            expected_force(0) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(0, 2);
+            expected_force(1) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(1, 2);
+            expected_force(2) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(2, 2);
         } else {
             throw std::runtime_error("Invalid face direction");
         }
@@ -276,9 +275,9 @@ class ElementTest : public SolverTest {
 
     Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
         // 2 mu = E / (1 + nu)
-        double two_mu =  m_youngs_modulus / (1.0 + m_poissons_ratio);
+        double two_mu = m_youngs_modulus / (1.0 + m_poissons_ratio);
         // lambda = E * nu / ((1 + nu) * (1 - 2 * nu))
-        double lambda =  m_youngs_modulus * m_poissons_ratio / ((1.0 + m_poissons_ratio) * (1.0 - 2.0 * m_poissons_ratio));
+        double lambda = m_youngs_modulus * m_poissons_ratio / ((1.0 + m_poissons_ratio) * (1.0 - 2.0 * m_poissons_ratio));
 
         // Compute the Green Lagrange strain tensor. TODO(jake): Get rid of this and go straight to voigt notation
         // E = 0.5 * (H + H^T + H^T * H)
@@ -376,7 +375,6 @@ class ElementTest : public SolverTest {
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(ElementTest, Tet4PatchTests) {
-    StopCapturingOutput();
     // Set the mesh specs, 2 x 2 x 2 mesh (serial, expand for parallel)
     SetMeshSpecs(2, 2, m_num_procs + 1);
 
@@ -392,7 +390,7 @@ TEST_F(ElementTest, Tet4PatchTests) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude);
 
     // Set the deformation gradient
-    m_displacement_gradient(0,0) = 2.0 * magnitude / m_elements_x;
+    m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
 
     // Check the force balance and the other fields
     CheckPatchTest();
@@ -409,7 +407,7 @@ TEST_F(ElementTest, Tet4PatchTests) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude);
 
     // Set the deformation gradient
-    m_displacement_gradient(0,0) = 2.0 * magnitude / m_elements_x;
+    m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
 
     // Check the force balance and the other fields
     CheckPatchTest();
@@ -429,7 +427,7 @@ TEST_F(ElementTest, Tet4PatchTests) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4");
 
     // Set the deformation gradient
-    m_displacement_gradient(1,1) = 2.0 * magnitude / m_elements_y;
+    m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
 
     // Check the force balance and the other fields
     CheckPatchTest();
@@ -446,7 +444,7 @@ TEST_F(ElementTest, Tet4PatchTests) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4");
 
     // Set the deformation gradient
-    m_displacement_gradient(1,1) = 2.0 * magnitude / m_elements_y;
+    m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
 
     // Check the force balance and the other fields
     CheckPatchTest();
@@ -466,7 +464,7 @@ TEST_F(ElementTest, Tet4PatchTests) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6");
 
     // Set the deformation gradient
-    m_displacement_gradient(2,2) = 2.0 * magnitude / m_elements_z;
+    m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
 
     // Check the force balance and the other fields
     CheckPatchTest();

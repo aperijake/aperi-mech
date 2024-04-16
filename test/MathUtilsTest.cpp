@@ -145,6 +145,63 @@ TEST(MathUtilsTest, LinearInterpolation) {
     EXPECT_DOUBLE_EQ(result5, expected5);
 }
 
+// Test the smooth step interpolation
+TEST(MathUtilsTest, SmoothStepInterpolation) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
+
+    // Value at t_s = 0.75
+    double t_s_75 = 0.75 * 0.75 * 0.75 * (10.0 - 15.0 * 0.75 + 6.0 * 0.75 * 0.75);
+
+    // Value at t_s = 0.6
+    double t_s_6 = 0.6 * 0.6 * 0.6 * (10.0 - 15.0 * 0.6 + 6.0 * 0.6 * 0.6);
+
+    std::vector<double> eval_points = {-0.5, 0.0, 0.5, 0.75, 1.0, 1.5, 2.0, 2.6, 3.0};
+    std::vector<double> expected_values = {0.0, 0.0, 0.5, t_s_75, 1.0, 1.5, 2.0, t_s_6 + 2.0, 3.0};
+
+    for (size_t i = 0; i < eval_points.size(); ++i) {
+        double result = aperi::SmoothStepInterpolation(eval_points[i], abscissa, ordinate);
+        EXPECT_DOUBLE_EQ(result, expected_values[i]);
+    }
+}
+
+// Test the smooth step interpolation derivative
+TEST(MathUtilsTest, SmoothStepInterpolationDerivative) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
+
+    // lambda function for the derivative
+    auto derivative = [](double x) {
+        return 30.0 * x * x - 60.0 * x * x * x + 30.0 * x * x * x * x;
+    };
+
+    std::vector<double> eval_points = {-0.5, 0.0, 0.5, 0.75, 1.0, 1.5, 2.0, 2.6, 3.0};
+    std::vector<double> expected_values = {0.0, 0.0, derivative(0.5), derivative(0.75), 0.0, derivative(0.5), 0.0, derivative(0.6), 0.0};
+
+    for (size_t i = 0; i < eval_points.size(); ++i) {
+        double result = aperi::SmoothStepInterpolationDerivative(eval_points[i], abscissa, ordinate);
+        EXPECT_NEAR(result, expected_values[i], 1.0e-14);
+    }
+}
+
+// Test the smooth step interpolation second derivative
+TEST(MathUtilsTest, SmoothStepInterpolationSecondDerivative) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 2.0, 3.0};
+
+    // lambda function for the second derivative
+    auto second_derivative = [](double x) {
+        return 60.0 * x - 180.0 * x * x + 120.0 * x * x * x;
+    };
+    std::vector<double> eval_points = {-0.5, 0.0, 0.5, 0.75, 1.0, 1.5, 2.0, 2.6, 3.0};
+    std::vector<double> expected_values = {0.0, 0.0, second_derivative(0.5), second_derivative(0.75), 0.0, second_derivative(0.5), 0.0, second_derivative(0.6), 0.0};
+
+    for (size_t i = 0; i < eval_points.size(); ++i) {
+        double result = aperi::SmoothStepInterpolationSecondDerivative(eval_points[i], abscissa, ordinate);
+        EXPECT_NEAR(result, expected_values[i], 1.0e-14);
+    }
+}
+
 // Test normalizing a vector
 TEST(MathUtilsTest, Normalize) {
     std::array<double, 3> vector = {1.0, 1.0, 1.0};

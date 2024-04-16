@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Eigen/Dense>
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Dense>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -26,9 +26,9 @@ class MeshData;
     } while (0)
 
 YAML::Node CreateTestYaml();
-void AddDisplacementBoundaryConditions(YAML::Node& root);
-void AddDisplacementBoundaryConditionsComponents(YAML::Node& root);
-void AddVelocityBoundaryConditions(YAML::Node& root);
+void AddDisplacementBoundaryConditions(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
+void AddDisplacementBoundaryConditionsComponents(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
+void AddVelocityBoundaryConditions(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
 void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
