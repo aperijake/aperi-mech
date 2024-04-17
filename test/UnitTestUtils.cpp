@@ -258,7 +258,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& e
 
 // Check that the nodal field values match the expected values
 // Expects a uniform field, values for every node are the same
-void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state) {
+void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state, double tolerance) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state}};
 
     // Make a node processor
@@ -272,22 +272,22 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
         for (size_t i = 0; i < 3; i++) {
             found_at_least_one_node = true;
             if (std::abs(expected_values[i]) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], tolerance) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
             } else {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], std::abs(1.0e-12 * expected_values[i])) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values[i], std::abs(tolerance * expected_values[i])) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << " is incorrect";
             }
         }
     });
     EXPECT_TRUE(found_at_least_one_node);
 }
-void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
+void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, double tolerance) {
     // Field Query Data
     aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
-    CheckNodeFieldValues(mesh_data, set_names, field_name, expected_values, field_query_state);
+    CheckNodeFieldValues(mesh_data, set_names, field_name, expected_values, field_query_state, tolerance);
 }
 
 // Check that the sum of the nodal field values match the expected values
-void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values) {
+void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, double tolerance) {
     // Field Query Data
     aperi::FieldQueryState field_query_state = field_name == "mass" ? aperi::FieldQueryState::None : aperi::FieldQueryState::N;
     std::array<aperi::FieldQueryData, 1> field_query_data = {{field_name, field_query_state}};
@@ -310,9 +310,9 @@ void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::
 
     for (size_t i = 0; i < 3; i++) {
         if (std::abs(expected_values[i]) < 1.0e-12) {
-            EXPECT_NEAR(sum_values_global[i], expected_values[i], 1.0e-12) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
+            EXPECT_NEAR(sum_values_global[i], expected_values[i], tolerance) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
         } else {
-            EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(1.0e-12 * expected_values[i])) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
+            EXPECT_NEAR(sum_values_global[i], expected_values[i], std::abs(tolerance * expected_values[i])) << "Field " << field_name << " sum of values is incorrect for component " << i << std::endl;
         }
     }
 }
@@ -321,7 +321,7 @@ Eigen::Vector3d GetExpectedPatchValues(const Eigen::Vector3d& center_of_mass, co
     return field_gradients * (coordinates - center_of_mass);
 }
 
-void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::string& field_name, const Eigen::Vector3d& center_of_mass, const Eigen::Matrix3d& field_gradients, aperi::FieldQueryState field_query_state) {
+void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::string& field_name, const Eigen::Vector3d& center_of_mass, const Eigen::Matrix3d& field_gradients, aperi::FieldQueryState field_query_state, double tolerance) {
     std::array<aperi::FieldQueryData, 2> field_query_data_array;
     field_query_data_array[0] = {field_name, field_query_state};
     field_query_data_array[1] = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::None};
@@ -339,9 +339,9 @@ void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::stri
         Eigen::Vector3d expected_values = GetExpectedPatchValues(center_of_mass, coordinates, field_gradients);
         for (size_t i = 0; i < 3; i++) {
             if (std::abs(expected_values(i)) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), 1.0e-12) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), tolerance) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
             } else {
-                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), std::abs(1.0e-12 * expected_values(i))) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
+                EXPECT_NEAR(field_data[0][i_node_start + i], expected_values(i), std::abs(tolerance * expected_values(i))) << "Field " << field_name << " value at node " << i_node_start << " dof " << i << ", coordinates: " << coordinates.transpose() << ", is incorrect\n";
             }
         }
     });
