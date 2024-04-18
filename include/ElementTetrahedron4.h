@@ -23,7 +23,7 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementTetrahedron4 object.
      */
-    ElementTetrahedron4() : ElementBase(tet4_num_nodes), m_compute_shape_function_derivatives_functor(nullptr), m_integration_functor(nullptr) {
+    ElementTetrahedron4() : ElementBase(tet4_num_nodes), m_shape_functions_functor(nullptr), m_integration_functor(nullptr) {
         CreateFunctors();
     }
 
@@ -37,8 +37,8 @@ class ElementTetrahedron4 : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Functor for computing shape function derivatives
-        size_t compute_shape_function_derivatives_functor_size = sizeof(Tet4FunctionDerivativesFunctor);
-        auto compute_shape_function_derivatives_functor = (Tet4FunctionDerivativesFunctor *)Kokkos::kokkos_malloc(compute_shape_function_derivatives_functor_size);
+        size_t compute_shape_function_derivatives_functor_size = sizeof(Tet4FunctionsFunctor);
+        auto compute_shape_function_derivatives_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_shape_function_derivatives_functor_size);
         assert(compute_shape_function_derivatives_functor != nullptr);
 
         // Functor for 1-pt gauss quadrature
@@ -46,45 +46,45 @@ class ElementTetrahedron4 : public ElementBase {
         auto integration_functor = (Quadrature<1, tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
-        // Quadrature points and weights
-        const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(1.0 / 3.0);
+        // Quadrature points and weights. TODO(jake): Move to a more general location.
+        const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
         const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateElementTetraHedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((Tet4FunctionDerivativesFunctor *)compute_shape_function_derivatives_functor) Tet4FunctionDerivativesFunctor();
+                new ((Tet4FunctionsFunctor *)compute_shape_function_derivatives_functor) Tet4FunctionsFunctor();
                 new ((Quadrature<1, tet4_num_nodes> *)integration_functor) Quadrature<1, tet4_num_nodes>(gauss_points, gauss_weights);
             });
 
         // Set the functors
-        m_compute_shape_function_derivatives_functor = compute_shape_function_derivatives_functor;
+        m_shape_functions_functor = compute_shape_function_derivatives_functor;
         m_integration_functor = integration_functor;
     }
 
     void DestroyFunctors() {
         Kokkos::parallel_for(
             "DestroyTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                m_compute_shape_function_derivatives_functor->~Tet4FunctionDerivativesFunctor();
+                m_shape_functions_functor->~Tet4FunctionsFunctor();
                 m_integration_functor->~Quadrature();
             });
 
-        Kokkos::kokkos_free(m_compute_shape_function_derivatives_functor);
+        Kokkos::kokkos_free(m_shape_functions_functor);
         Kokkos::kokkos_free(m_integration_functor);
 
-        m_compute_shape_function_derivatives_functor = nullptr;
+        m_shape_functions_functor = nullptr;
         m_integration_functor = nullptr;
     }
 
     /**
-     * @brief Calls the Tet4FunctionDerivativesFunctor to compute the shape function derivatives.
+     * @brief Calls the Tet4FunctionsFunctor to compute the shape function derivatives.
      * @param xi The xi coordinate of the element.
      * @param eta The eta coordinate of the element.
      * @param zeta The zeta coordinate of the element.
      * @return The shape functions of the element.
      */
     Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
-        return Tet4FunctionDerivativesFunctor()(xi, eta, zeta);
+        return m_shape_functions_functor->derivatives(xi, eta, zeta);
     }
 
     /**
@@ -95,7 +95,7 @@ class ElementTetrahedron4 : public ElementBase {
      * @return The shape functions of the element.
      */
     Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
-        return Tet4ShapeFunctionsFunctor()(xi, eta, zeta);
+        return m_shape_functions_functor->values(xi, eta, zeta);
     }
 
     /**
@@ -108,14 +108,14 @@ class ElementTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionDerivativesFunctor, Quadrature<1, tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_shape_function_derivatives_functor, *m_integration_functor, *m_material->GetStressFunctor());
+        ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionsFunctor, Quadrature<1, tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element<tet4_num_nodes>(compute_force_functor);
     }
 
    private:
-    Tet4FunctionDerivativesFunctor *m_compute_shape_function_derivatives_functor;
+    Tet4FunctionsFunctor *m_shape_functions_functor;
     Quadrature<1, tet4_num_nodes> *m_integration_functor;
 };
 

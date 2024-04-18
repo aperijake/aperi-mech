@@ -40,10 +40,10 @@ KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eige
 // Functor for computing the internal force of an element with NumNodes nodes.
 // IntegrationFunctor is a functor that computes the B matrix and integration weight for a given gauss point.
 // StressFunctor is a functor that computes the stress of the material.
-template <size_t NumNodes, typename FunctionDerivativesFunctor, typename IntegrationFunctor, typename StressFunctor>
+template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor, typename StressFunctor>
 struct ComputeInternalForceFunctor {
-    ComputeInternalForceFunctor(FunctionDerivativesFunctor &function_derivatives_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
-        : m_function_derivatives_functor(function_derivatives_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
+    ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
+        : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
@@ -54,14 +54,8 @@ struct ComputeInternalForceFunctor {
 
         // Loop over all gauss points
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
-            // Get the gauss point
-            const Eigen::Matrix<double, 1, 3> gauss_point = m_integration_functor.GetGaussPoint(gauss_id);
-
-            // Get the shape function derivatives for the given gauss point
-            const Eigen::Matrix<double, NumNodes, 3> shape_function_derivatives = m_function_derivatives_functor(gauss_point(0), gauss_point(1), gauss_point(2));
-
             // Compute the B matrix and integration weight for a given gauss point
-            const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, gauss_id);
+            const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
@@ -86,9 +80,9 @@ struct ComputeInternalForceFunctor {
         }
     }
 
-    FunctionDerivativesFunctor &m_function_derivatives_functor;  ///< Functor for computing the shape function derivatives
-    IntegrationFunctor &m_integration_functor;                   ///< Functor for computing the B matrix and integration weight
-    StressFunctor &m_stress_functor;                             ///< Functor for computing the stress of the material
+    FunctionsFunctor &m_functions_functor;      ///< Functor for computing the shape function values and derivatives
+    IntegrationFunctor &m_integration_functor;  ///< Functor for computing the B matrix and integration weight
+    StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
 };
 
 // Functor for 1-pt gauss quadrature on a tetrahedron
@@ -96,15 +90,13 @@ template <size_t NumQuadPoints, size_t NumFunctions>
 struct Quadrature {
     KOKKOS_INLINE_FUNCTION Quadrature(const Eigen::Matrix<double, NumQuadPoints, 3> &gauss_points, const Eigen::Matrix<double, NumQuadPoints, 1> &gauss_weights) : m_gauss_points(gauss_points), m_gauss_weights(gauss_weights) {}
 
-    // Get the ith gauss point
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 1, 3> GetGaussPoint(int gauss_id) const {
-        assert(gauss_id <= NumQuadPoints);
-        return m_gauss_points.row(gauss_id);
-    }
-
     // Compute the B matrix and integration weight for a given gauss point
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, const Eigen::Matrix<double, NumFunctions, 3> &shape_function_derivatives, int gauss_id) const {
+    template <typename FunctionFunctor>
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
         assert(gauss_id <= NumQuadPoints);
+
+        // Compute shape function derivatives
+        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points(gauss_id, 0), m_gauss_points(gauss_id, 1), m_gauss_points(gauss_id, 2));
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
@@ -132,4 +124,57 @@ struct Quadrature {
     Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
 };
 
+// TODO(jake): This needs work. Rough sketch now.
+template <size_t NumFunctions>
+struct SmoothedQuadrature {
+    KOKKOS_INLINE_FUNCTION SmoothedQuadrature(const Eigen::Matrix<double, 1, 3> &gauss_points, const Eigen::Matrix<double, 1, 1> &gauss_weights) : m_gauss_points(gauss_points), m_gauss_weights(gauss_weights) {}
+
+    // Compute the B matrix and integration weight for a given gauss point
+    template <typename FunctionFunctor>
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
+        assert(gauss_id < 1);
+
+        Eigen::Matrix<double, NumFunctions, 3> smoothed_shape_function_derivatives = Eigen::Matrix<double, NumFunctions, 3>::Zero();
+
+        double volume = 0.0;
+
+        // // Loop over faces
+        // for (int j = 0; j < m_integration_functor.NumFaces(); ++j) {
+        //     // Get the area weighted face normal
+        //     Eigen::Vector3d face_normal = m_integration_functor.GetFaceNormal(j, node_coordinates);
+
+        //     // Normalize the face normal and get the face area
+        //     const double face_area = face_normal.norm();
+        //     // Compute the additional volume of the element
+        //     for (size_t k = 0; k < NumNodes; ++k) {
+        //         volume += node_coordinates.row(k).dot(face_normal);
+        //     }
+        //     face_normal /= face_area;
+
+        //     // Loop over evaluation points
+        //     for (int i = 0; i < m_integration_functor.NumEvaluationPoints(); ++i) {
+        //         // Get the evaluation point
+        //         const Eigen::Matrix<double, 1, 3> eval_point = m_integration_functor.GetEvaluationPoint(i);
+
+        //         // Get the shape functions for the evaluation point
+        //         const Eigen::Matrix<double, NumNodes, 1> shape_function_values = m_function_value_functor(eval_point(0), eval_point(1), eval_point(2));
+
+        //         // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
+        //         for (size_t k = 0; k < NumNodes; ++k) {
+        //             smoothed_shape_function_derivatives.row(k) += shape_function_values(k) * face_normal.transpose();
+        //         }
+        //     }
+        // }
+        // volume /= 3.0;
+        const Eigen::Matrix<double, NumFunctions, 3> b_matrix;
+        return Kokkos::make_pair(b_matrix, volume);
+    }
+
+    KOKKOS_INLINE_FUNCTION int NumGaussPoints() const {
+        return 1;
+    }
+
+    Eigen::Matrix<double, 1, 3> m_gauss_points;
+    Eigen::Matrix<double, 1, 1> m_gauss_weights;
+};
 }  // namespace aperi

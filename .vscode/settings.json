@@ -130,6 +130,6 @@
       }
     ]
   },
-  "gtest-adapter.debugConfig": ["Release Test GPU"],
+  "gtest-adapter.debugConfig": ["Release Test"],
   "gtest-adapter.supportLocation": true
 }

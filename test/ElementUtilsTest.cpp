@@ -15,9 +15,9 @@
 class ElementUtilsTest : public ::testing::Test {
    protected:
     // Check partition of nullity
-    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
+    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& tet4_functions_functor) {
         // Check the partition of nullity
-        double sum = shape_function_derivatives.sum();
+        double sum = tet4_functions_functor.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
@@ -40,10 +40,7 @@ class ElementUtilsTest : public ::testing::Test {
     template <typename QuadratureFunctor>
     void RunAllTestCases(QuadratureFunctor& quad1) {
         // Initialize the shape function derivatives functor
-        aperi::Tet4FunctionDerivativesFunctor tet4_function_derivatives_functor;
-
-        // Get the shape function derivatives
-        Eigen::Matrix<double, 4, 3> shape_function_derivatives = tet4_function_derivatives_functor(0.25, 0.25, 0.25);
+        aperi::Tet4FunctionsFunctor tet4_functions_functor;
 
         // ------------------------------
         // Reference tetrahedron
@@ -55,7 +52,7 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0;
 
-        Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, 0);
+        Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
 
         // Check the B matrix and weight
         Eigen::Matrix<double, 4, 3> expected_b_matrix;
@@ -75,7 +72,7 @@ class ElementUtilsTest : public ::testing::Test {
         // Set up node coordinates
         node_coordinates *= factor;
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, 0);
+        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
 
         // Check the B matrix and weight
         expected_b_matrix /= factor;
@@ -91,7 +88,7 @@ class ElementUtilsTest : public ::testing::Test {
         // Set up node coordinates
         node_coordinates.rowwise() += translation.transpose();
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, 0);
+        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
 
         CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Translated reference tetrahedron");
 
@@ -110,7 +107,7 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 0.0, 1.0;
         node_coordinates *= rotation;
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, 0);
+        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
 
         expected_b_matrix << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -134,7 +131,7 @@ class ElementUtilsTest : public ::testing::Test {
         Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
         node_coordinates *= deformation_gradient;
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, shape_function_derivatives, 0);
+        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
 
         expected_b_matrix << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,

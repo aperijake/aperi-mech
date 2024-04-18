@@ -88,20 +88,20 @@ class ElementBase {
 };
 
 /**
-    * @brief Functor for computing the shape function derivatives of a 4-node tetrahedron element.
-    * @param xi The xi coordinate of the element.
-    * @param eta The eta coordinate of the element.
-    * @param zeta The zeta coordinate of the element.
+    * @brief Functor for computing the shape function values and derivatives of a 4-node tetrahedron element.
+    * @param xi The xi, or r, coordinate of the element.
+    * @param eta The eta, or s, coordinate of the element.
+    * @param zeta The zeta, or t, coordinate of the element.
     * @return The shape function derivatives of the element.
     *
     * This functor computes the shape function derivatives, dN/dxi, dN/deta, dN/dzeta
 
 */
-struct Tet4FunctionDerivativesFunctor {
+struct Tet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> operator()(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(double xi, double eta, double zeta) const {
         Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
         shape_function_derivatives << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -109,22 +109,11 @@ struct Tet4FunctionDerivativesFunctor {
             0.0, 0.0, 1.0;
         return shape_function_derivatives;
     }
-};
 
-/**
- * @brief Functor for computing the shape functions of a 4-node tetrahedron element.
- * @param xi The xi coordinate of the element.
- * @param eta The eta coordinate of the element.
- * @param zeta The zeta coordinate of the element.
- * @return The shape functions of the element.
- *
- * This functor computes the shape functions, N
- */
-struct Tet4ShapeFunctionsFunctor {
     /**
      * @brief Computes the shape functions of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> operator()(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta) const {
         Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
         shape_functions << 1.0 - xi - eta - zeta,
             xi,
