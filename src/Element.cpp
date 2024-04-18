@@ -8,8 +8,8 @@
 namespace aperi {
 
 // Compute the internal force of all elements.
-// TODO(jake): This function probably could be templated and moved to the Element base class.
-void Tetrahedron4::ComputeInternalForceAllElements() {
+// TODO(jake): This function probably could be templated and moved to the ElementBase base class.
+void ElementTetrahedron4::ComputeInternalForceAllElements() {
     assert(m_material != nullptr);
     assert(m_element_processor != nullptr);
     assert(m_integration_functor != nullptr);

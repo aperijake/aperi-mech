@@ -10,11 +10,11 @@
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
-// Fixture for Element tests
+// Fixture for ElementBase tests
 class ApproximationFunctionTest : public ::testing::Test {
    protected:
     // Create an element
-    std::shared_ptr<aperi::Element> CreateElement() {
+    std::shared_ptr<aperi::ElementBase> CreateElement() {
         // Create the element, tet4 by default (4 nodes)
         return aperi::CreateElement(4);
     }
@@ -69,7 +69,7 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     // Create a temporary mesh file, tet4 by default
 
     // Create the tet4 element
-    std::shared_ptr<aperi::Element> element = CreateElement();
+    std::shared_ptr<aperi::ElementBase> element = CreateElement();
 
     size_t expected_num_shape_functions = 4;
 
@@ -117,7 +117,7 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 }
 
-// Fixture for Element patch tests
+// Fixture for ElementBase patch tests
 class ElementTest : public SolverTest {
    protected:
     void SetUp() override {
@@ -145,11 +145,11 @@ class ElementTest : public SolverTest {
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
         AddDisplacementBoundaryConditions(m_yaml_data, "smooth_step_function");
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = first_surface_set;
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = -magnitude * 2.0; // Only running half of smooth step so need to double the magnitude
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = -magnitude * 2.0;  // Only running half of smooth step so need to double the magnitude
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = displacement_direction[0];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = displacement_direction[1];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = displacement_direction[2];
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["smooth_step_function"]["abscissa_values"][1] = m_final_time * 2.0; // Half of smooth step
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["smooth_step_function"]["abscissa_values"][1] = m_final_time * 2.0;  // Half of smooth step
 
         // Change the final time
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_end"] = m_final_time;
@@ -234,7 +234,7 @@ class ElementTest : public SolverTest {
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
         std::array<double, 3> direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
-        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0; // Only running half of smooth step so actual magnitude is half
+        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0;  // Only running half of smooth step so actual magnitude is half
         std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
         // Peak velocity for a smooth step function (should be set to be the end of the simulation)
         std::array<double, 3> expected_velocity_positive = {1.875 * expected_displacement_positive[0] / m_final_time, 1.875 * expected_displacement_positive[1] / m_final_time, 1.875 * expected_displacement_positive[2] / m_final_time};
@@ -277,7 +277,7 @@ class ElementTest : public SolverTest {
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
         CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero);
 
-        double tolerance = 1.0e-8; // Large tolerance due to explicit dynamics
+        double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
         // Get the expected second piola kirchhoff stress
         Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = GetExpectedSecondPiolaKirchhoffStress();
@@ -318,11 +318,11 @@ class ElementTest : public SolverTest {
         CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
 
         // Check the boundary conditions
-        Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time; // Peak velocity for a smooth step function (should be set to be the end of the simulation)
+        Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
         CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9); // Large tolerance due to explicit dynamics
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4); // Large tolerance due to explicit dynamics
+        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }
@@ -419,7 +419,6 @@ TEST_F(ElementTest, Tet4PatchTestsTension) {
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(ElementTest, Tet4PatchTestsCompression) {
-
     // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
     if (m_num_procs > 1) {
         return;
@@ -476,7 +475,7 @@ TEST_F(ElementTest, Tet4PatchTestsCompression) {
     RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6");
 
     // Set the deformation gradient
-    m_displacement_gradient(2,2) = 2.0 * magnitude / m_elements_z;
+    m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
 
     // Check the force balance and the other fields
     CheckPatchTest();
@@ -487,7 +486,7 @@ TEST_F(ElementTest, Tet4PatchTestsCompression) {
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 // TODO(jake): Prescribe more of the boundary conditions to get this to work
-//TEST_F(ElementTest, Tet4PatchTestsShearX){
+// TEST_F(ElementTest, Tet4PatchTestsShearX){
 //    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
 //    if (m_num_procs > 1) {
 //        return;
