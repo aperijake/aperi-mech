@@ -12,25 +12,25 @@
 namespace aperi {
 
 /**
- * @brief Represents a 4-node tetrahedron element.
+ * @brief Represents a 4-node tetrahedron element with smoothed derivatives.
  *
  * This class inherits from the ElementBase base class and provides a specific implementation
  * for a 4-node tetrahedron element. It contains functionality to compute the internal force
  * of the element.
  */
-class ElementTetrahedron4 : public ElementBase {
+class ElementSmoothedTetrahedron4 : public ElementBase {
    public:
     /**
-     * @brief Constructs a ElementTetrahedron4 object.
+     * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementTetrahedron4() : ElementBase(tet4_num_nodes), m_compute_shape_function_derivatives_functor(nullptr), m_integration_functor(nullptr) {
+    ElementSmoothedTetrahedron4() : ElementBase(tet4_num_nodes), m_compute_shape_function_derivatives_functor(nullptr), m_integration_functor(nullptr) {
         CreateInternalForceFunctor();
     }
 
     /**
-     * @brief Destroys a ElementTetrahedron4 object.
+     * @brief Destroys a ElementSmoothedTetrahedron4 object.
      */
-    ~ElementTetrahedron4() {
+    ~ElementSmoothedTetrahedron4() {
         DestroyInternalForceFunctor();
     }
 

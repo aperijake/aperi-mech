@@ -5,6 +5,7 @@
 
 #include "ElementBase.h"
 #include "ElementTetrahedron4.h"
+#include "ElementSmoothedTetrahedron4.h"
 
 namespace aperi {
 
@@ -18,9 +19,13 @@ namespace aperi {
  * @param num_nodes The number of nodes in the element.
  * @return A shared pointer to the created ElementBase object.
  */
-inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes) {
+inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, bool use_strain_smoothing = false) {
     if (num_nodes == tet4_num_nodes) {
-        return std::make_shared<ElementTetrahedron4>();
+        if (use_strain_smoothing) {
+            return std::make_shared<ElementSmoothedTetrahedron4>();
+        } else {
+            return std::make_shared<ElementTetrahedron4>();
+        }
     } else {
         throw std::runtime_error("Unsupported element topology");
     }

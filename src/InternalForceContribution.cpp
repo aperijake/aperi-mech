@@ -14,8 +14,8 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
         throw std::runtime_error("Unsupported element topology");
     }
 
-    // Create the element
-    m_element = CreateElement(m_num_nodes_per_element);
+    // Create the element. TODO(jake): Plumb in options for switching between smoothed and non-smoothed elements
+    m_element = CreateElement(m_num_nodes_per_element, true);
 
     // Create the element processor
     CreateElementProcessor();

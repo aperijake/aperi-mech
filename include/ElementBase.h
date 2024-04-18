@@ -8,6 +8,8 @@
 
 namespace aperi {
 
+static constexpr int tet4_num_nodes = 4;
+
 /**
  * @brief Represents an element in a mesh.
  *
