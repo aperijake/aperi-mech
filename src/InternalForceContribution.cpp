@@ -21,7 +21,7 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
     CreateElementProcessor();
 
     // Set the element processor for the element
-    m_element->SetElementProcessor(m_ngp_element_processor);
+    m_element->SetElementProcessor(m_element_processor);
 
     // Set the material for the element
     m_element->SetMaterial(m_material);
