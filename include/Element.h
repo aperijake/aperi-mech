@@ -95,19 +95,19 @@ struct ComputeInternalForceFunctor {
 };
 
 // Functor for 1-pt gauss quadrature on a tetrahedron
-template <size_t NumNodes>
-struct TetOnePointGaussQuadrature {
-    KOKKOS_INLINE_FUNCTION TetOnePointGaussQuadrature() {}
+template <size_t NumQuadPoints, size_t NumFunctions>
+struct Quadrature {
+    KOKKOS_INLINE_FUNCTION Quadrature(const Eigen::Matrix<double, NumQuadPoints, 3> &gauss_points, const Eigen::Matrix<double, NumQuadPoints, 1> &gauss_weights) : m_gauss_points(gauss_points), m_gauss_weights(gauss_weights) {}
 
     // Get the ith gauss point
     KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 1, 3> GetGaussPoint(int gauss_id) const {
-        assert(gauss_id <= m_num_gauss_points);
+        assert(gauss_id <= NumQuadPoints);
         return m_gauss_points.row(gauss_id);
     }
 
     // Compute the B matrix and integration weight for a given gauss point
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumNodes, 3> &node_coordinates, const Eigen::Matrix<double, NumNodes, 3> &shape_function_derivatives, int gauss_id) const {
-        assert(gauss_id <= m_num_gauss_points);
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, const Eigen::Matrix<double, NumFunctions, 3> &shape_function_derivatives, int gauss_id) const {
+        assert(gauss_id <= NumQuadPoints);
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
@@ -119,7 +119,7 @@ struct TetOnePointGaussQuadrature {
         const Eigen::Matrix3d inverse_jacobian = jacobian.inverse();
 
         // Compute B matrix
-        const Eigen::Matrix<double, NumNodes, 3> b_matrix = shape_function_derivatives * inverse_jacobian;
+        const Eigen::Matrix<double, NumFunctions, 3> b_matrix = shape_function_derivatives * inverse_jacobian;
 
         // Compute the integration weight
         const double integration_weight = m_gauss_weights(gauss_id) * jacobian_determinant;
@@ -128,12 +128,11 @@ struct TetOnePointGaussQuadrature {
     }
 
     KOKKOS_INLINE_FUNCTION int NumGaussPoints() const {
-        return 1;
+        return NumQuadPoints;
     }
 
-    const static int m_num_gauss_points = 1;
-    Eigen::Matrix<double, 1, 3> m_gauss_points = Eigen::Matrix<double, 1, 3>::Constant(1.0 / 3.0);
-    const Eigen::Matrix<double, 1, 1> m_gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
+    Eigen::Matrix<double, NumQuadPoints, 3> m_gauss_points;
+    Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
 };
 
 /**
@@ -243,15 +242,19 @@ class Tetrahedron4 : public Element {
         assert(compute_shape_function_derivatives_functor != nullptr);
 
         // Functor for 1-pt gauss quadrature
-        size_t integration_functor_size = sizeof(TetOnePointGaussQuadrature<tet4_num_nodes>);
-        auto integration_functor = (TetOnePointGaussQuadrature<tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(Quadrature<1, tet4_num_nodes>);
+        auto integration_functor = (Quadrature<1, tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
+
+        // Quadrature points and weights
+        const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(1.0 / 3.0);
+        const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateInternalForceObjects", 1, KOKKOS_LAMBDA(const int &) {
                 new ((ComputeShapeFunctionDerivativesFunctor *)compute_shape_function_derivatives_functor) ComputeShapeFunctionDerivativesFunctor();
-                new ((TetOnePointGaussQuadrature<tet4_num_nodes> *)integration_functor) TetOnePointGaussQuadrature<tet4_num_nodes>();
+                new ((Quadrature<1, tet4_num_nodes> *)integration_functor) Quadrature<1, tet4_num_nodes>(gauss_points, gauss_weights);
             });
 
         // Set the functors
@@ -263,7 +266,7 @@ class Tetrahedron4 : public Element {
         Kokkos::parallel_for(
             "DestroyInternalForceObjects", 1, KOKKOS_LAMBDA(const int &) {
                 m_compute_shape_function_derivatives_functor->~ComputeShapeFunctionDerivativesFunctor();
-                m_integration_functor->~TetOnePointGaussQuadrature();
+                m_integration_functor->~Quadrature();
             });
 
         Kokkos::kokkos_free(m_compute_shape_function_derivatives_functor);
@@ -328,7 +331,7 @@ class Tetrahedron4 : public Element {
 
    private:
     ComputeShapeFunctionDerivativesFunctor *m_compute_shape_function_derivatives_functor;
-    TetOnePointGaussQuadrature<tet4_num_nodes> *m_integration_functor;
+    Quadrature<1, tet4_num_nodes> *m_integration_functor;
 };
 
 /**

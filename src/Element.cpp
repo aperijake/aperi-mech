@@ -15,7 +15,7 @@ void Tetrahedron4::ComputeInternalForceAllElements() {
     assert(m_integration_functor != nullptr);
 
     // Create the compute force functor
-    ComputeInternalForceFunctor<tet4_num_nodes, ComputeShapeFunctionDerivativesFunctor, TetOnePointGaussQuadrature<tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_shape_function_derivatives_functor, *m_integration_functor, *m_material->GetStressFunctor());
+    ComputeInternalForceFunctor<tet4_num_nodes, ComputeShapeFunctionDerivativesFunctor, Quadrature<1, tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_shape_function_derivatives_functor, *m_integration_functor, *m_material->GetStressFunctor());
 
     // Loop over all elements and compute the internal force
     m_element_processor->for_each_element<tet4_num_nodes>(compute_force_functor);
