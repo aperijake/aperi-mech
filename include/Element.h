@@ -4,8 +4,8 @@
 #include <memory>
 
 #include "ElementBase.h"
-#include "ElementTetrahedron4.h"
 #include "ElementSmoothedTetrahedron4.h"
+#include "ElementTetrahedron4.h"
 
 namespace aperi {
 

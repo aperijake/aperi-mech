@@ -87,4 +87,51 @@ class ElementBase {
     std::shared_ptr<Material> m_material;                             ///< The material of the element.
 };
 
+/**
+    * @brief Functor for computing the shape function derivatives of a 4-node tetrahedron element.
+    * @param xi The xi coordinate of the element.
+    * @param eta The eta coordinate of the element.
+    * @param zeta The zeta coordinate of the element.
+    * @return The shape function derivatives of the element.
+    *
+    * This functor computes the shape function derivatives, dN/dxi, dN/deta, dN/dzeta
+
+*/
+struct Tet4FunctionDerivativesFunctor {
+    /**
+     * @brief Computes the shape function derivatives of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> operator()(double xi, double eta, double zeta) const {
+        Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
+        shape_function_derivatives << -1.0, -1.0, -1.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0;
+        return shape_function_derivatives;
+    }
+};
+
+/**
+ * @brief Functor for computing the shape functions of a 4-node tetrahedron element.
+ * @param xi The xi coordinate of the element.
+ * @param eta The eta coordinate of the element.
+ * @param zeta The zeta coordinate of the element.
+ * @return The shape functions of the element.
+ *
+ * This functor computes the shape functions, N
+ */
+struct Tet4ShapeFunctionsFunctor {
+    /**
+     * @brief Computes the shape functions of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> operator()(double xi, double eta, double zeta) const {
+        Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
+        shape_functions << 1.0 - xi - eta - zeta,
+            xi,
+            eta,
+            zeta;
+        return shape_functions;
+    }
+};
+
 }  // namespace aperi
