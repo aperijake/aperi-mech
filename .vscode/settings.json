@@ -72,8 +72,16 @@
     "dense": "cpp",
     "core": "cpp",
     "utility": "cpp",
-    "memory": "cpp"
-  },
+    "memory": "cpp",
+    "*.ipp": "cpp",
+    "chrono": "cpp",
+    "compare": "cpp",
+    "functional": "cpp",
+    "*.tcc": "cpp",
+    "memory_resource": "cpp",
+    "ranges": "cpp",
+    "valarray": "cpp"
+},
   "cSpell.words": [
     "cgns",
     "exodusii",

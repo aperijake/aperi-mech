@@ -124,7 +124,6 @@ struct Quadrature {
     Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
 };
 
-// TODO(jake): This needs work. Rough sketch now.
 template <size_t NumFunctions>
 struct SmoothedQuadrature {
     KOKKOS_INLINE_FUNCTION SmoothedQuadrature() {
