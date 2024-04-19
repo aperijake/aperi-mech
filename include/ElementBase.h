@@ -88,17 +88,17 @@ class ElementBase {
 };
 
 /**
-    * @brief Functor for computing the shape function values and derivatives of a 4-node tetrahedron element.
-    *
-    * Reference:
-    *   Hughes, T.J.R. The Finite Element Method: Linear Static and Dynamic Finite Element Analysis. Dover Civil and Mechanical Engineering. Dover Publications, 2012.
-    *   Figure 3.I.8, Equations 3.I.19 to 3.I.22. ~Page 273
-    *   But, node ordering is different from the reference and is as follows.
-    *   - Node 0: at u = 1
-    *   - Node 1: at r = 1 = xi
-    *   - Node 2: at s = 1 = eta
-    *   - Node 3: at t = 1 = zeta
-*/
+ * @brief Functor for computing the shape function values and derivatives of a 4-node tetrahedron element.
+ *
+ * Reference:
+ *   Hughes, T.J.R. The Finite Element Method: Linear Static and Dynamic Finite Element Analysis. Dover Civil and Mechanical Engineering. Dover Publications, 2012.
+ *   Figure 3.I.8, Equations 3.I.19 to 3.I.22. ~Page 273
+ *   But, node ordering is different from the reference and is as follows.
+ *   - Node 0: at u = 1
+ *   - Node 1: at r = 1 = xi
+ *   - Node 2: at s = 1 = eta
+ *   - Node 3: at t = 1 = zeta
+ */
 struct Tet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.

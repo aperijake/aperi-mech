@@ -163,20 +163,20 @@ struct SmoothedQuadrature {
             const Eigen::Vector3d edge1 = node_coordinates.row(m_face_nodes(j, 1)) - node_coordinates.row(m_face_nodes(j, 0));
             const Eigen::Vector3d edge2 = node_coordinates.row(m_face_nodes(j, 2)) - node_coordinates.row(m_face_nodes(j, 0));
 
-            const Eigen::Vector3d face_normal = edge1.cross(edge2) / 2.0; // Area weighted normal
+            const Eigen::Vector3d face_normal = edge1.cross(edge2) / 2.0;  // Area weighted normal
 
             // Add the contribution of the current face to the volume
-            volume += node_coordinates.row(m_face_nodes(j,0)).dot(face_normal);
+            volume += node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
             const Eigen::Matrix<double, NumFunctions, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
             for (size_t k = 0; k < NumFunctions; ++k) {
-                 b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
+                b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
             }
         }
-        volume /= 3.0; // 3x volume
+        volume /= 3.0;  // 3x volume
         b_matrix /= volume;
 
         return Kokkos::make_pair(b_matrix, volume);

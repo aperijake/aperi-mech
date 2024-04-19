@@ -37,28 +37,24 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Functor for computing shape function derivatives
-        size_t compute_shape_function_derivatives_functor_size = sizeof(Tet4FunctionsFunctor);
-        auto compute_shape_function_derivatives_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_shape_function_derivatives_functor_size);
-        assert(compute_shape_function_derivatives_functor != nullptr);
+        size_t compute_tet4_functions_functor_functor_size = sizeof(Tet4FunctionsFunctor);
+        auto compute_tet4_functions_functor_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
+        assert(compute_tet4_functions_functor_functor != nullptr);
 
         // Functor for 1-pt gauss quadrature
-        size_t integration_functor_size = sizeof(Quadrature<1, tet4_num_nodes>);
-        auto integration_functor = (Quadrature<1, tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(SmoothedQuadrature<tet4_num_nodes>);
+        auto integration_functor = (SmoothedQuadrature<tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
-
-        // Quadrature points and weights
-        const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(1.0 / 3.0);
-        const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((Tet4FunctionsFunctor *)compute_shape_function_derivatives_functor) Tet4FunctionsFunctor();
-                new ((Quadrature<1, tet4_num_nodes> *)integration_functor) Quadrature<1, tet4_num_nodes>(gauss_points, gauss_weights);
+                new ((Tet4FunctionsFunctor *)compute_tet4_functions_functor_functor) Tet4FunctionsFunctor();
+                new ((SmoothedQuadrature<tet4_num_nodes> *)integration_functor) SmoothedQuadrature<tet4_num_nodes>();
             });
 
         // Set the functors
-        m_compute_functions_functor = compute_shape_function_derivatives_functor;
+        m_compute_functions_functor = compute_tet4_functions_functor_functor;
         m_integration_functor = integration_functor;
     }
 
@@ -66,7 +62,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
                 m_compute_functions_functor->~Tet4FunctionsFunctor();
-                m_integration_functor->~Quadrature();
+                m_integration_functor->~SmoothedQuadrature();
             });
 
         Kokkos::kokkos_free(m_compute_functions_functor);
@@ -108,7 +104,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionsFunctor, Quadrature<1, tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *m_material->GetStressFunctor());
+        ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionsFunctor, SmoothedQuadrature<tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element<tet4_num_nodes>(compute_force_functor);
@@ -116,7 +112,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
    private:
     Tet4FunctionsFunctor *m_compute_functions_functor;
-    Quadrature<1, tet4_num_nodes> *m_integration_functor;
+    SmoothedQuadrature<tet4_num_nodes> *m_integration_functor;
 };
 
 }  // namespace aperi
