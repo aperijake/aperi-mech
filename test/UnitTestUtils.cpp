@@ -30,6 +30,8 @@ YAML::Node CreateTestYaml() {
                     parts:
                       - part:
                             set: block_1
+                            formulation:
+                                integration_scheme: gauss_quadrature
                             material:
                                 elastic:
                                     density: 7850
@@ -80,8 +82,15 @@ YAML::Node CreateTestYaml() {
     material["elastic"]["youngs_modulus"] = 2.1e11;
     material["elastic"]["poissons_ratio"] = 0.3;
 
+    // Create the formulation
+    YAML::Node formulation;
+    formulation["integration_scheme"] = "gauss_quadrature";
+
     // Add the material to the part
     part["part"]["material"] = material;
+
+    // Add the formulation to the part
+    part["part"]["formulation"] = formulation;
 
     // Add the part to the parts list
     parts.push_back(part);
