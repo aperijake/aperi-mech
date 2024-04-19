@@ -302,10 +302,20 @@ YAML::Node GetInputSchema() {
     material_schema.AddOneOf(elastic_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
+    // Integration scheme node
+    aperi::InputSchema integration_scheme_schema("integration_scheme", "string", "the integration scheme");
+    YAML::Node integration_scheme_node = integration_scheme_schema.GetInputSchema();
+
+    // Formulation node
+    aperi::InputSchema formulation_schema("formulation", "map", "the formulation");
+    formulation_schema.AddOneOf(integration_scheme_node);
+    YAML::Node formulation_node = formulation_schema.GetInputSchema();
+
     // Part node
     aperi::InputSchema part_schema("part", "map", "a part");
     part_schema.AddAllOf(set_node);
     part_schema.AddAllOf(material_node);
+    part_schema.AddOptional(formulation_node);
     YAML::Node part_node = part_schema.GetInputSchema();
 
     // Parts node

@@ -27,7 +27,7 @@ class InternalForceContribution : public ForceContribution {
      * @param mesh_data A shared pointer to the MeshData object associated with the force contribution.
      * @param part_name The name of the part associated with the force contribution.
      */
-    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name);
+    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
 
     /**
      * @brief Gets the Material object associated with the force contribution.
@@ -74,6 +74,7 @@ class InternalForceContribution : public ForceContribution {
     std::shared_ptr<aperi::Material> m_material;                      ///< A shared pointer to the Material object.
     std::shared_ptr<aperi::MeshData> m_mesh_data;                     ///< The mesh data associated with the force contribution.
     std::string m_part_name;                                          ///< The name of the part associated with the force contribution.
+    bool m_use_strain_smoothing;                                      ///< Whether to use strain smoothing.
     size_t m_num_nodes_per_element;                                   ///< The number of nodes per element.
     std::shared_ptr<aperi::ElementBase> m_element;                    ///< The element associated with the force contribution.
     std::shared_ptr<aperi::ElementProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
@@ -90,8 +91,8 @@ class InternalForceContribution : public ForceContribution {
  * @param part_name The name of the part associated with the force contribution.
  * @return A shared pointer to the created InternalForceContribution object.
  */
-inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name) {
-    return std::make_shared<InternalForceContribution>(material, mesh_data, part_name);
+inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false) {
+    return std::make_shared<InternalForceContribution>(material, mesh_data, part_name, use_strain_smoothing);
 }
 
 }  // namespace aperi

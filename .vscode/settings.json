@@ -130,6 +130,8 @@
       }
     ]
   },
-  "gtest-adapter.debugConfig": ["Release Test"],
+  "gtest-adapter.debugConfig": [
+    "Debug Test"
+],
   "gtest-adapter.supportLocation": true
 }
