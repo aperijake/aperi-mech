@@ -145,12 +145,20 @@ class ElementUtilsTest : public ::testing::Test {
     }
 };
 
-// Test shape functions for a tet4 element
+// Test b matrix and weight for a 4-node tetrahedron element. This test is for a 1-point quadrature.
 TEST_F(ElementUtilsTest, Tet4BMatrixAndWeight) {
     // Initialize the quadrature. TODO(jake): Move points and weights to a more general location.
     const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
     const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
     aperi::Quadrature<1, 4> quad1(gauss_points, gauss_weights);
+
+    RunAllTestCases(quad1);
+}
+
+// Test b matrix and weight for a 4-node tetrahedron element. This test is for strain smoothing.
+TEST_F(ElementUtilsTest, Tet4StrainSmoothingBMatrixAndWeight) {
+    // Initialize the quadrature.
+    aperi::SmoothedQuadrature<4> quad1;
 
     RunAllTestCases(quad1);
 }

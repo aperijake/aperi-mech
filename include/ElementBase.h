@@ -89,17 +89,23 @@ class ElementBase {
 
 /**
     * @brief Functor for computing the shape function values and derivatives of a 4-node tetrahedron element.
-    * @param xi The xi, or r, coordinate of the element.
-    * @param eta The eta, or s, coordinate of the element.
-    * @param zeta The zeta, or t, coordinate of the element.
-    * @return The shape function derivatives of the element.
     *
-    * This functor computes the shape function derivatives, dN/dxi, dN/deta, dN/dzeta
-
+    * Reference:
+    *   Hughes, T.J.R. The Finite Element Method: Linear Static and Dynamic Finite Element Analysis. Dover Civil and Mechanical Engineering. Dover Publications, 2012.
+    *   Figure 3.I.8, Equations 3.I.19 to 3.I.22. ~Page 273
+    *   But, node ordering is different from the reference and is as follows.
+    *   - Node 0: at u = 1
+    *   - Node 1: at r = 1 = xi
+    *   - Node 2: at s = 1 = eta
+    *   - Node 3: at t = 1 = zeta
 */
 struct Tet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.
+     * @param xi The xi, or r, coordinate of the element.
+     * @param eta The eta, or s, coordinate of the element.
+     * @param zeta The zeta, or t, coordinate of the element.
+     * @return The shape function derivatives of the element.
      */
     KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(double xi, double eta, double zeta) const {
         Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
@@ -112,6 +118,10 @@ struct Tet4FunctionsFunctor {
 
     /**
      * @brief Computes the shape functions of the element.
+     * @param xi The xi, or r, coordinate of the element.
+     * @param eta The eta, or s, coordinate of the element.
+     * @param zeta The zeta, or t, coordinate of the element.
+     * @return The shape function values of the element.
      */
     KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta) const {
         Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
