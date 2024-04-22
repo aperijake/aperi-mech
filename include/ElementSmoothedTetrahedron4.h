@@ -59,10 +59,12 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
     void DestroyFunctors() {
+        auto compute_functions_functor = m_compute_functions_functor;
+        auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                m_compute_functions_functor->~Tet4FunctionsFunctor();
-                m_integration_functor->~SmoothedQuadrature();
+                compute_functions_functor->~Tet4FunctionsFunctor();
+                integration_functor->~SmoothedQuadrature();
             });
 
         Kokkos::kokkos_free(m_compute_functions_functor);

@@ -63,10 +63,12 @@ class ElementTetrahedron4 : public ElementBase {
     }
 
     void DestroyFunctors() {
+        auto shape_functions_functor = m_shape_functions_functor;
+        auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroyTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                m_shape_functions_functor->~Tet4FunctionsFunctor();
-                m_integration_functor->~Quadrature();
+                shape_functions_functor->~Tet4FunctionsFunctor();
+                integration_functor->~Quadrature();
             });
 
         Kokkos::kokkos_free(m_shape_functions_functor);

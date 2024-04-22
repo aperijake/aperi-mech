@@ -99,7 +99,6 @@ class ElasticMaterial : public Material {
 
     ~ElasticMaterial() {
         DestroyStressFunctor();
-        Kokkos::kokkos_free(m_stress_functor);
     }
 
     /**
@@ -120,10 +119,13 @@ class ElasticMaterial : public Material {
      * @brief Destroy the stress functor for the elastic material. Potentially on the device.
      */
     void DestroyStressFunctor() {
+        auto stress_functor = m_stress_functor;
         Kokkos::parallel_for(
             "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
-                m_stress_functor->~StressFunctor();
+                stress_functor->~StressFunctor();
             });
+        Kokkos::kokkos_free(m_stress_functor);
+        m_stress_functor = nullptr;
     }
 
     /**
