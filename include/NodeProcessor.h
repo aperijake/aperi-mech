@@ -218,7 +218,7 @@ class NodeProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_node_host(const Func &func, const stk::mesh::Selector &selector) const {
-        std::array<double *, N> field_data;  // Array to hold field data
+        std::array<double *, N> field_data = {};  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket

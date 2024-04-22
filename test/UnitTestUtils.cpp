@@ -240,7 +240,7 @@ void CleanUp(const std::filesystem::path& filePath) {
     }
 }
 
-void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& expected_owned) {
+void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned) {
     const stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
     constexpr unsigned k_num_ranks = static_cast<unsigned>(stk::topology::ELEM_RANK + 1);
     std::vector<size_t> global_counts(k_num_ranks, 0);
@@ -258,8 +258,8 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<int>& e
     stk::all_reduce(MPI_COMM_WORLD, stk::ReduceSum<k_num_ranks>(aura_global_counts.data()));
 
     // TODO(jake): test in parallel and add in checks for shared-not-owned and aura
-    EXPECT_EQ(global_counts.size(), 4);
-    EXPECT_EQ(expected_owned.size(), 4);
+    EXPECT_EQ(global_counts.size(), 4u);
+    EXPECT_EQ(expected_owned.size(), 4u);
     for (int i = 0, e = expected_owned.size(); i < e; ++i) {
         EXPECT_EQ(global_counts[i], expected_owned[i]);
     }

@@ -443,12 +443,12 @@ TEST_F(IoInputFileTest, Read) {
     // Check that the data read from the file matches the expected data
     EXPECT_EQ(io_input_file.GetMeshFile(0), "one_element.exo");
     EXPECT_EQ(io_input_file.GetOutputFile(0), "one_element_out.exo");
-    EXPECT_EQ(io_input_file.GetInitialConditions(0).size(), 1);
+    EXPECT_EQ(io_input_file.GetInitialConditions(0).size(), 1u);
     const YAML::Node procedure_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"];
-    EXPECT_EQ(aperi::GetValueSequence<YAML::Node>(procedure_node, "initial_conditions", false).first.size(), 1);  // another way to get initial conditions
-    EXPECT_EQ(io_input_file.GetParts(0).size(), 1);
+    EXPECT_EQ(aperi::GetValueSequence<YAML::Node>(procedure_node, "initial_conditions", false).first.size(), 1u);  // another way to get initial conditions
+    EXPECT_EQ(io_input_file.GetParts(0).size(), 1u);
     const YAML::Node geometry_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"];
-    EXPECT_EQ(aperi::GetValueSequence<YAML::Node>(geometry_node, "parts", false).first.size(), 1);  // another way to get parts conditions
+    EXPECT_EQ(aperi::GetValueSequence<YAML::Node>(geometry_node, "parts", false).first.size(), 1u);  // another way to get parts conditions
 }
 
 // Test that reading a missing input file throws an exception

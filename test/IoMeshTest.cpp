@@ -45,7 +45,7 @@ TEST_F(IoMeshTest, ReadWrite) {
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
     aperi::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
-    std::vector<int> expected_owned = {4 * (num_procs + 1), 0, 0, num_procs};
+    std::vector<size_t> expected_owned = {4u * size_t(num_procs + 1), 0u, 0u, size_t(num_procs)};
     io_mesh_read.ReadMesh(output_f_name, {"block_1"});
     CheckMeshCounts(*io_mesh_read.GetMeshData(), expected_owned);
 

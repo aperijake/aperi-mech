@@ -36,7 +36,7 @@ class ApproximationFunctionTest : public ::testing::Test {
     // Check shape functions
     void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_functions.rows(), expected_num_shape_functions);
+        EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
@@ -50,7 +50,7 @@ class ApproximationFunctionTest : public ::testing::Test {
     // Check shape function derivatives
     void CheckShapeFunctionDerivatives(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_function_derivatives.rows(), expected_num_shape_functions);
+        EXPECT_EQ((size_t)shape_function_derivatives.rows(), expected_num_shape_functions);
 
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
