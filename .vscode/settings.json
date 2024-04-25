@@ -72,8 +72,29 @@
     "dense": "cpp",
     "core": "cpp",
     "utility": "cpp",
-    "memory": "cpp"
-  },
+    "memory": "cpp",
+    "*.ipp": "cpp",
+    "chrono": "cpp",
+    "compare": "cpp",
+    "functional": "cpp",
+    "*.tcc": "cpp",
+    "memory_resource": "cpp",
+    "ranges": "cpp",
+    "valarray": "cpp",
+    "csignal": "cpp",
+    "__nullptr": "cpp",
+    "type_traits": "cpp",
+    "strstream": "cpp",
+    "bit": "cpp",
+    "cfenv": "cpp",
+    "concepts": "cpp",
+    "coroutine": "cpp",
+    "iterator": "cpp",
+    "random": "cpp",
+    "shared_mutex": "cpp",
+    "stop_token": "cpp",
+    "typeindex": "cpp"
+},
   "cSpell.words": [
     "cgns",
     "exodusii",
@@ -130,6 +151,8 @@
       }
     ]
   },
-  "gtest-adapter.debugConfig": ["Release Test GPU"],
+  "gtest-adapter.debugConfig": [
+    "Debug Test"
+],
   "gtest-adapter.supportLocation": true
 }

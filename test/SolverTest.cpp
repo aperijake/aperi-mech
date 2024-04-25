@@ -265,7 +265,7 @@ TEST_F(SolverTest, BenchmarkTaylorImpact1) {
     size_t num_node_steps = 8e7;
 
     // Number of refinements and refinement factor
-    size_t num_refinements = 4;
+    size_t num_refinements = 5;
     size_t refinement_factor = 2;
 
     // Initial mesh size

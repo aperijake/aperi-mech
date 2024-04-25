@@ -28,6 +28,10 @@ lint:
     - markdownlint@0.37.0
     - prettier@3.0.3
     - trufflehog@3.62.1
+  ignore:
+    - linters: [ALL]
+      paths:
+        - .vscode/settings.json
 actions:
   disabled:
     - trunk-announce

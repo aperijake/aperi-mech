@@ -22,7 +22,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
     aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
-    std::vector<int> expected_owned = {4 * (m_num_procs + 1), 0, 0, m_num_procs * 6};  // tet4
+    std::vector<size_t> expected_owned = {4u * size_t(m_num_procs + 1), 0u, 0u, size_t(m_num_procs * 6)};  // tet4
     io_mesh_read.ReadMesh(m_results_filename, {"block_1"});
     CheckMeshCounts(*io_mesh_read.GetMeshData(), expected_owned);
 }

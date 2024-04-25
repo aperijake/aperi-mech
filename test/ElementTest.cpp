@@ -10,11 +10,11 @@
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
-// Fixture for Element tests
+// Fixture for ElementBase tests
 class ApproximationFunctionTest : public ::testing::Test {
    protected:
     // Create an element
-    std::shared_ptr<aperi::Element> CreateElement() {
+    std::shared_ptr<aperi::ElementBase> CreateElement() {
         // Create the element, tet4 by default (4 nodes)
         return aperi::CreateElement(4);
     }
@@ -36,7 +36,7 @@ class ApproximationFunctionTest : public ::testing::Test {
     // Check shape functions
     void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_functions.rows(), expected_num_shape_functions);
+        EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
@@ -50,7 +50,7 @@ class ApproximationFunctionTest : public ::testing::Test {
     // Check shape function derivatives
     void CheckShapeFunctionDerivatives(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
         // Check the number of shape functions
-        EXPECT_EQ(shape_function_derivatives.rows(), expected_num_shape_functions);
+        EXPECT_EQ((size_t)shape_function_derivatives.rows(), expected_num_shape_functions);
 
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
@@ -69,7 +69,7 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     // Create a temporary mesh file, tet4 by default
 
     // Create the tet4 element
-    std::shared_ptr<aperi::Element> element = CreateElement();
+    std::shared_ptr<aperi::ElementBase> element = CreateElement();
 
     size_t expected_num_shape_functions = 4;
 
@@ -117,7 +117,7 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 }
 
-// Fixture for Element patch tests
+// Fixture for ElementBase patch tests
 class ElementTest : public SolverTest {
    protected:
     void SetUp() override {
@@ -138,18 +138,18 @@ class ElementTest : public SolverTest {
         SolverTest::TearDown();
     }
 
-    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set = "surface_1", const std::string& second_surface_set = "surface_2") {
+    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set, const std::string& second_surface_set, bool use_strain_smoothing = false) {
         // Displacement boundary conditions
         m_yaml_data = CreateTestYaml();
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("initial_conditions");
         AddDisplacementBoundaryConditions(m_yaml_data, "smooth_step_function");
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["sets"][0] = first_surface_set;
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = -magnitude * 2.0; // Only running half of smooth step so need to double the magnitude
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["magnitude"] = -magnitude * 2.0;  // Only running half of smooth step so need to double the magnitude
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][0] = displacement_direction[0];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][1] = displacement_direction[1];
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["vector"]["direction"][2] = displacement_direction[2];
-        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["smooth_step_function"]["abscissa_values"][1] = m_final_time * 2.0; // Half of smooth step
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"][0]["displacement"]["time_function"]["smooth_step_function"]["abscissa_values"][1] = m_final_time * 2.0;  // Half of smooth step
 
         // Change the final time
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_end"] = m_final_time;
@@ -172,6 +172,11 @@ class ElementTest : public SolverTest {
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["youngs_modulus"] = m_youngs_modulus;
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["poissons_ratio"] = m_poissons_ratio;
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 0.08;  // Each node has a mass of around 0.01
+
+        // Add strain smoothing
+        if (use_strain_smoothing) {
+            m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"]["integration_scheme"] = "strain_smoothing";
+        }
 
         CreateInputFile();
 
@@ -234,7 +239,7 @@ class ElementTest : public SolverTest {
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
         std::array<double, 3> direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
-        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0; // Only running half of smooth step so actual magnitude is half
+        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0;  // Only running half of smooth step so actual magnitude is half
         std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
         // Peak velocity for a smooth step function (should be set to be the end of the simulation)
         std::array<double, 3> expected_velocity_positive = {1.875 * expected_displacement_positive[0] / m_final_time, 1.875 * expected_displacement_positive[1] / m_final_time, 1.875 * expected_displacement_positive[2] / m_final_time};
@@ -277,7 +282,7 @@ class ElementTest : public SolverTest {
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
         CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero);
 
-        double tolerance = 1.0e-8; // Large tolerance due to explicit dynamics
+        double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
         // Get the expected second piola kirchhoff stress
         Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = GetExpectedSecondPiolaKirchhoffStress();
@@ -318,11 +323,11 @@ class ElementTest : public SolverTest {
         CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
 
         // Check the boundary conditions
-        Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time; // Peak velocity for a smooth step function (should be set to be the end of the simulation)
+        Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
         CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9); // Large tolerance due to explicit dynamics
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4); // Large tolerance due to explicit dynamics
+        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }
@@ -335,6 +340,138 @@ class ElementTest : public SolverTest {
         m_center_of_mass(0) = 0.5 * m_elements_x;
         m_center_of_mass(1) = 0.5 * m_elements_y;
         m_center_of_mass(2) = 0.5 * m_elements_z;
+    }
+
+    void RunTensionPatchTests(bool strain_smoothing = false) {
+        // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
+        if (m_num_procs > 1) {
+            return;
+        }
+
+        // Set the mesh specs, 2 x 2 x 2 mesh
+        SetMeshSpecs(2, 2, 2);
+
+        // -----------------------
+        // Tension in x
+        // magnitude of the displacement, both positive and negative sides
+        double magnitude = 0.1;
+
+        // Displacement boundary conditions
+        std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
+
+        // Run the problem, apply the displacement boundary conditions on the x faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
+
+        // -----------------------
+        // Tension in y
+
+        // Displacement boundary conditions
+        displacement_direction = {0.0, 1.0, 0.0};
+
+        // Run the problem, apply the displacement boundary conditions on the y faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
+
+        // -----------------------
+        // Tension in z
+
+        // Displacement boundary conditions
+        displacement_direction = {0.0, 0.0, 1.0};
+
+        // Run the problem, apply the displacement boundary conditions on the z faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
+    }
+
+    void RunCompressionPatchTests(bool strain_smoothing = false) {
+        // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
+        if (m_num_procs > 1) {
+            return;
+        }
+
+        // Set the mesh specs, 2 x 2 x 2 mesh
+        SetMeshSpecs(2, 2, 2);
+
+        // -----------------------
+        // Compression in x
+        // magnitude of the displacement, both positive and negative sides
+        double magnitude = -0.1;
+
+        // Displacement boundary conditions
+        std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
+
+        // Run the problem, apply the displacement boundary conditions on the x faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
+
+        // -----------------------
+        // Compression in y
+
+        // Displacement boundary conditions
+        displacement_direction = {0.0, 1.0, 0.0};
+
+        // Run the problem, apply the displacement boundary conditions on the y faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
+
+        // -----------------------
+        // Compression in z
+
+        // Displacement boundary conditions
+        displacement_direction = {0.0, 0.0, 1.0};
+
+        // Run the problem, apply the displacement boundary conditions on the z faces
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", strain_smoothing);
+
+        // Set the deformation gradient
+        m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
+
+        // Check the force balance and the other fields
+        CheckPatchTest();
+
+        ResetSolverTest();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
     }
 
     double m_youngs_modulus = 1.0;
@@ -352,142 +489,27 @@ class ElementTest : public SolverTest {
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(ElementTest, Tet4PatchTestsTension) {
-    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
-    if (m_num_procs > 1) {
-        return;
-    }
-
-    // Set the mesh specs, 2 x 2 x 2 mesh
-    SetMeshSpecs(2, 2, 2);
-
-    // -----------------------
-    // Tension in x
-    // magnitude of the displacement, both positive and negative sides
-    double magnitude = 0.1;
-
-    // Displacement boundary conditions
-    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
-
-    // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
-
-    // Set the deformation gradient
-    m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
-
-    // -----------------------
-    // Tension in y
-
-    // Displacement boundary conditions
-    displacement_direction = {0.0, 1.0, 0.0};
-
-    // Run the problem, apply the displacement boundary conditions on the y faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4");
-
-    // Set the deformation gradient
-    m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
-
-    // -----------------------
-    // Tension in z
-
-    // Displacement boundary conditions
-    displacement_direction = {0.0, 0.0, 1.0};
-
-    // Run the problem, apply the displacement boundary conditions on the z faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6");
-
-    // Set the deformation gradient
-    m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
+    RunTensionPatchTests();
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(ElementTest, Tet4PatchTestsCompression) {
+    RunCompressionPatchTests();
+}
 
-    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
-    if (m_num_procs > 1) {
-        return;
-    }
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(ElementTest, SmoothedTet4PatchTestsTension) {
+    RunTensionPatchTests(true);
+}
 
-    // Set the mesh specs, 2 x 2 x 2 mesh
-    SetMeshSpecs(2, 2, 2);
-
-    // -----------------------
-    // Compression in x
-    // magnitude of the displacement, both positive and negative sides
-    double magnitude = -0.1;
-
-    // Displacement boundary conditions
-    std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
-
-    // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
-
-    // Set the deformation gradient
-    m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
-
-    // -----------------------
-    // Compression in y
-
-    // Displacement boundary conditions
-    displacement_direction = {0.0, 1.0, 0.0};
-
-    // Run the problem, apply the displacement boundary conditions on the y faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4");
-
-    // Set the deformation gradient
-    m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
-
-    // -----------------------
-    // Compression in z
-
-    // Displacement boundary conditions
-    displacement_direction = {0.0, 0.0, 1.0};
-
-    // Run the problem, apply the displacement boundary conditions on the z faces
-    RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6");
-
-    // Set the deformation gradient
-    m_displacement_gradient(2,2) = 2.0 * magnitude / m_elements_z;
-
-    // Check the force balance and the other fields
-    CheckPatchTest();
-
-    ResetSolverTest();
-    m_displacement_gradient = Eigen::Matrix3d::Zero();
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(ElementTest, SmoothedTet4PatchTestsCompression) {
+    RunCompressionPatchTests(true);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 // TODO(jake): Prescribe more of the boundary conditions to get this to work
-//TEST_F(ElementTest, Tet4PatchTestsShearX){
+// TEST_F(ElementTest, Tet4PatchTestsShearX){
 //    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
 //    if (m_num_procs > 1) {
 //        return;
@@ -535,7 +557,7 @@ TEST_F(ElementTest, ExplicitShearYXForce) {
     double cross_section_area = m_num_procs * m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(1, 0) = 2.0 * magnitude;
@@ -568,7 +590,7 @@ TEST_F(ElementTest, ExplicitShearZXForce) {
     double cross_section_area = m_num_procs * m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(2, 0) = 2.0 * magnitude;
@@ -601,7 +623,7 @@ TEST_F(ElementTest, ExplicitShearXYForce) {
     double cross_section_area = m_num_procs * m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(0, 1) = 2.0 * magnitude;
@@ -634,7 +656,7 @@ TEST_F(ElementTest, ExplicitShearZYForce) {
     double cross_section_area = m_num_procs * m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(2, 1) = 2.0 * magnitude;
@@ -674,7 +696,7 @@ TEST_F(ElementTest, ExplicitShearXZForce) {
     double cross_section_area = m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(0, 2) = 2.0 * magnitude / m_num_procs;
@@ -713,7 +735,7 @@ TEST_F(ElementTest, ExplicitShearYZForce) {
     double cross_section_area = m_num_procs;
 
     // Run the problem, apply the displacement boundary conditions on the x faces
-    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude);
+    RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(1, 2) = 2.0 * magnitude / m_num_procs;

@@ -55,7 +55,7 @@ TEST_F(YamlUtilsTest, GetValueSequence) {
 
     auto result = aperi::GetValueSequence<int>(node, "test");
     EXPECT_EQ(result.second, 0);
-    EXPECT_EQ(result.first.size(), 3);
+    EXPECT_EQ(result.first.size(), 3u);
     EXPECT_EQ(result.first[0], 1);
     EXPECT_EQ(result.first[1], 2);
     EXPECT_EQ(result.first[2], 3);

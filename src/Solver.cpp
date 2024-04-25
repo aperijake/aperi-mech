@@ -132,10 +132,8 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, cons
 }
 
 void ExplicitSolver::UpdateFieldStates() {
-    m_node_processor_all->SyncAllFieldsDeviceToHost();
-    mp_mesh_data->UpdateFieldDataStates();
-    m_node_processor_all->MarkAllFieldsModifiedOnHost();
-    m_node_processor_all->SyncAllFieldsHostToDevice();
+    bool rotate_device_states = true;
+    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
 
 double ExplicitSolver::Solve() {

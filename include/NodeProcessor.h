@@ -35,14 +35,6 @@ inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_d
     return &field->field_of_state(state);
 }
 
-inline stk::mesh::NgpField<double> StkGetNgpField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    return stk::mesh::get_updated_ngp_field<double>(*StkGetField(field_query_data, meta_data));
-}
-
-inline stk::mesh::NgpField<double> StkGetNgpField(stk::mesh::Field<double> *field) {
-    return stk::mesh::get_updated_ngp_field<double>(*field);
-}
-
 struct FillFieldFunctor {
     FillFieldFunctor(double value) : m_value(value) {}
     KOKKOS_INLINE_FUNCTION void operator()(double *value) const { *value = m_value; }
@@ -90,21 +82,21 @@ class NodeProcessor {
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
             m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
-            m_ngp_fields[i] = StkGetNgpField(m_fields[i]);
+            m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_fields.back());
         }
     }
 
     // Marking modified
     void MarkFieldModifiedOnDevice(size_t field_index) {
         // STK QUESTION: Should I always clear sync state before marking modified?
-        m_ngp_fields[field_index].clear_sync_state();
-        m_ngp_fields[field_index].modify_on_device();
+        m_ngp_fields[field_index]->clear_sync_state();
+        m_ngp_fields[field_index]->modify_on_device();
     }
 
     void MarkFieldModifiedOnHost(size_t field_index) {
         // STK QUESTION: Should I always clear sync state before marking modified?
-        m_ngp_fields[field_index].clear_sync_state();
-        m_ngp_fields[field_index].modify_on_host();
+        m_ngp_fields[field_index]->clear_sync_state();
+        m_ngp_fields[field_index]->modify_on_host();
     }
 
     void MarkAllFieldsModifiedOnDevice() {
@@ -121,11 +113,11 @@ class NodeProcessor {
 
     // Syncing
     void SyncFieldHostToDevice(size_t field_index) {
-        m_ngp_fields[field_index].sync_to_device();
+        m_ngp_fields[field_index]->sync_to_device();
     }
 
     void SyncFieldDeviceToHost(size_t field_index) {
-        m_ngp_fields[field_index].sync_to_host();
+        m_ngp_fields[field_index]->sync_to_host();
     }
 
     void SyncAllFieldsHostToDevice() {
@@ -156,7 +148,11 @@ class NodeProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_each_dof_impl(const Func &func, std::index_sequence<Is...>) {
-        auto fields = m_ngp_fields;
+        // Create an array of ngp fields
+        Kokkos::Array<NgpDoubleField, N> fields;
+        for (size_t i = 0; i < N; ++i) {
+            fields[i] = *m_ngp_fields[i];
+        }
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -171,7 +167,11 @@ class NodeProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_dof_i_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
-        auto fields = m_ngp_fields;
+        // Create an array of ngp fields
+        Kokkos::Array<NgpDoubleField, N> fields;
+        for (size_t i = 0; i < N; ++i) {
+            fields[i] = *m_ngp_fields[i];
+        }
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -185,7 +185,8 @@ class NodeProcessor {
     template <typename Func>
     void for_each_dof_impl(const Func &func, size_t field_index) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
-        auto field = m_ngp_fields[field_index];
+        auto field = *m_ngp_fields[field_index];
+
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -203,7 +204,7 @@ class NodeProcessor {
     template <typename Func>
     void for_dof_i(const Func &func, size_t i, size_t field_index) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
-        auto field = m_ngp_fields[field_index];
+        auto field = *m_ngp_fields[field_index];
         // Loop over all the nodes
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -218,7 +219,7 @@ class NodeProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_node_host(const Func &func, const stk::mesh::Selector &selector) const {
-        std::array<double *, N> field_data;  // Array to hold field data
+        std::array<double *, N> field_data = {};  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
@@ -306,11 +307,11 @@ class NodeProcessor {
     }
 
    private:
-    Kokkos::Array<NgpDoubleField, N> m_ngp_fields;  // The fields to process
-    std::vector<DoubleField *> m_fields;            // The fields to process
-    stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
-    stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
-    stk::mesh::Selector m_selector;                 // The selector for the nodes
+    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields;  // The ngp fields to process
+    std::vector<DoubleField *> m_fields;              // The fields to process
+    stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
+    stk::mesh::Selector m_selector;                   // The selector for the nodes
 };
 
 }  // namespace aperi

@@ -93,7 +93,6 @@ list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 add_library(aperimech ${LIB_SOURCES})
 
 target_link_libraries(aperimech
-	Kokkos::kokkos
 	yaml-cpp
 	Eigen3::Eigen
 	${MFEM_LIBRARY}
@@ -101,6 +100,7 @@ target_link_libraries(aperimech
 	${Trilinos_TPL_LIBRARIES}
 	${MPI_LIBRARIES}
 	${EXTRA_LIBS}
+	Kokkos::kokkos
 	)
 
 target_include_directories(aperimech PRIVATE

@@ -33,6 +33,7 @@ spacktivate aperi-mech
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
+# Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
 spack add kokkos ~cuda ~shared cxxstd=17
 spack add trilinos +boost ~cuda +exodus +gtest +hdf5 ~shared +stk +zoltan +zoltan2 cxxstd=17
 spack add mfem +netcdf
@@ -60,6 +61,7 @@ spacktivate aperi-mech-gpu
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Add kokkos and Trilinos, adjust cuda_arch as needed for your GPU device
+# Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
 spack add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
 spack add trilinos +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add mfem +netcdf +cuda cuda_arch=75
@@ -75,6 +77,44 @@ spack install
 ---
 
 ### Notes on Specific Installs
+
+#### Ubuntu 20.04, x86_64, GPU
+
+Successfully installed on an Azure [NC4as T4 v3](https://learn.microsoft.com/en-us/azure/virtual-machines/nct4-v3-series), Ubuntu 20.04, system using `apt-get` to install prerequisites:
+
+- `gcc@10.5.0`
+- `cmake@3.27.19`
+
+The commands for a GPU build are:
+```bash
+# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
+spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
+spack add trilinos@master%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
+spack add mfem%gcc@10.5.0 +netcdf +cuda cuda_arch=75
+spack add googletest%gcc@10.5.0
+spack add yaml-cpp%gcc@10.5.0
+spack add eigen%gcc@10.5.0
+spack add lcov%gcc@10.5.0
+
+# Install Packages
+spack install --fresh
+```
+
+And, the commands for a CPU build are:
+```bash
+# If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
+# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
+spack add kokkos%gcc@10.5.0 ~cuda ~shared cxxstd=17
+spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~shared +stk +zoltan +zoltan2 cxxstd=17
+spack add mfem%gcc@10.5.0 +netcdf
+spack add googletest%gcc@10.5.0
+spack add yaml-cpp%gcc@10.5.0
+spack add eigen%gcc@10.5.0
+spack add lcov%gcc@10.5.0
+
+# Install Packages
+spack install --fresh
+```
 
 #### Ubuntu 22.04, x86_64, CPU Only
 

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <Kokkos_Core.hpp>
 #include <vector>
 
 #include "ApplicationTestFixture.h"
@@ -90,7 +91,7 @@ class BoundaryConditionTest : public ApplicationTest {
     }
 
     void GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, std::array<double, 3> &expected_displacement, std::array<double, 3> &expected_velocity) {
-        double velocity_time_scale_factor;
+        double velocity_time_scale_factor = 1.0;
         // Interpolate the abscissa and ordinate values to get the time scale factor
         if (bc_type == "displacement") {
             if (ramp_type == "ramp_function") {
@@ -104,6 +105,8 @@ class BoundaryConditionTest : public ApplicationTest {
                 velocity_time_scale_factor = aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
             } else if (ramp_type == "smooth_step_function") {
                 velocity_time_scale_factor = aperi::SmoothStepInterpolationDerivative(time, abscissa, ordinate);
+            } else {
+                EXPECT_TRUE(false) << "Ramp type must be 'ramp_function' or 'smooth_step_function'. Found: " << ramp_type << ".";
             }
         } else if (bc_type == "velocity") {
             if (ramp_type == "ramp_function") {
