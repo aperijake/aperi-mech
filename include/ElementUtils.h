@@ -93,7 +93,7 @@ struct Quadrature {
     // Compute the B matrix and integration weight for a given gauss point
     template <typename FunctionFunctor>
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
-        assert(gauss_id <= NumQuadPoints);
+        assert((size_t)gauss_id <= NumQuadPoints);
 
         // Compute shape function derivatives
         const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points(gauss_id, 0), m_gauss_points(gauss_id, 1), m_gauss_points(gauss_id, 2));

@@ -70,18 +70,22 @@ class ElementProcessor {
         // Get the fields to gather and scatter
         for (size_t i = 0; i < N; ++i) {
             m_fields_to_gather[i] = StkGetField(field_query_data_gather_vec[i], meta_data);
-            m_ngp_fields_to_gather[i] = StkGetNgpField(m_fields_to_gather[i]);
+            m_ngp_fields_to_gather[i] = &stk::mesh::get_updated_ngp_field<double>(*m_fields_to_gather[i]);
         }
         m_field_to_scatter = StkGetField(field_query_data_scatter, meta_data);
-        m_ngp_field_to_scatter = StkGetNgpField(m_field_to_scatter);
+        m_ngp_field_to_scatter = &stk::mesh::get_updated_ngp_field<double>(*m_field_to_scatter);
     }
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
     void for_each_element(const Func &func) {
         auto ngp_mesh = m_ngp_mesh;
-        auto ngp_fields_to_gather = m_ngp_fields_to_gather;
-        auto ngp_field_to_scatter = m_ngp_field_to_scatter;
+        // Get the ngp fields
+        Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
+        for (size_t i = 0; i < N; ++i) {
+            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
+        }
+        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
@@ -174,8 +178,8 @@ class ElementProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
     std::array<DoubleField *, N> m_fields_to_gather;          // The fields to gather
     DoubleField *m_field_to_scatter;                          // The field to scatter
-    Kokkos::Array<NgpDoubleField, N> m_ngp_fields_to_gather;  // The ngp fields to gather
-    NgpDoubleField m_ngp_field_to_scatter;                    // The ngp field to scatter
+    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;  // The ngp fields to gather
+    NgpDoubleField *m_ngp_field_to_scatter;                     // The ngp field to scatter
 };
 
 }  // namespace aperi
