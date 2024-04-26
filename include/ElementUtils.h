@@ -46,8 +46,9 @@ struct ComputeInternalForceFunctor {
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
-        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
-        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
+        // Will need element id when functions are stored. Used to look up the functions for the element.
+        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0]; // Not needed when functions are stored
+        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1]; // NumNodes not known at compile time for meshfree
         // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
 
         force.fill(0.0);
@@ -56,6 +57,10 @@ struct ComputeInternalForceFunctor {
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
             // Compute the B matrix and integration weight for a given gauss point
             const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
+            // const Kokkos::pair<Kokkos::View<Eigen::Vector3d *>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
+            // The above line will be replaced with the following when functions are stored. ComputeBMatrixAndWeight will take the element id as an argument. E.g.:
+            // const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(element_id, gauss_id);
+            // The rest below should be the same. Probably extract into a separate function and call it from both versions. NumNodes will not be known at compile time for meshfree so may have to change b_matrix_and_weight to be a kokkos view of eigen vectors.
 
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
@@ -124,6 +129,7 @@ struct Quadrature {
     Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
 };
 
+// For meshfree, NumFunctions is unknown at compile time
 template <size_t NumFunctions>
 struct SmoothedQuadrature {
     KOKKOS_INLINE_FUNCTION SmoothedQuadrature() {
@@ -168,10 +174,10 @@ struct SmoothedQuadrature {
             volume += node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, NumFunctions, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
+            const Eigen::Matrix<double, NumFunctions /*num functions on element*/, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
-            for (size_t k = 0; k < NumFunctions; ++k) {
+            for (size_t k = 0; k < NumFunctions /*num functions on element*/; ++k) {
                 b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
             }
         }

@@ -115,7 +115,6 @@ class ElementProcessor {
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        // STK Question: atomic_add the best way to do this?
                         Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
                     }
                 }
