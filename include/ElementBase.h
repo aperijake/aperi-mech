@@ -68,7 +68,7 @@ class ElementBase {
      *
      * @param element_processor The element processor associated with the force contribution.
      */
-    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessor<3>> element_processor) {
+    void SetElementProcessor(std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> element_processor) {
         m_element_processor = element_processor;
     }
 
@@ -83,7 +83,7 @@ class ElementBase {
 
    protected:
     size_t m_num_nodes;                                               ///< The number of nodes in the element.
-    std::shared_ptr<aperi::ElementProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
     std::shared_ptr<Material> m_material;                             ///< The material of the element.
 };
 

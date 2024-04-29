@@ -28,19 +28,19 @@ namespace aperi {
  * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
  */
 template <size_t N>
-class ElementProcessor {
+class ElementGatherScatterProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
     /**
-     * @brief Constructs an ElementProcessor object.
+     * @brief Constructs an ElementGatherScatterProcessor object.
      * @param field_query_data_gather_vec An array of FieldQueryData objects representing the fields to gather.
      * @param field_query_data_scatter A FieldQueryData object representing the field to scatter.
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementProcessor(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    ElementGatherScatterProcessor(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -64,7 +64,7 @@ class ElementProcessor {
         }
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: ElementProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: ElementGatherScatterProcessor selector is empty." << std::endl;
         }
 
         // Get the fields to gather and scatter
@@ -78,7 +78,7 @@ class ElementProcessor {
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element(const Func &func) {
+    void for_each_element_gather_scatter_nodal_data(const Func &func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
@@ -92,7 +92,8 @@ class ElementProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                assert(nodes.size() == NumNodes);
+                // assert(nodes.size() == NumNodes);
+                size_t num_nodes = nodes.size();
 
                 // Set up the field data to gather
                 Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
@@ -102,7 +103,7 @@ class ElementProcessor {
 
                 // Gather the field data for each node
                 for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < NumNodes; ++i) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
                         for (size_t j = 0; j < 3; ++j) {
                             field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](ngp_mesh.fast_mesh_index(nodes[i]), j);
                         }
@@ -110,10 +111,10 @@ class ElementProcessor {
                 }
 
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter);
+                func(field_data_to_gather, results_to_scatter, num_nodes);
 
                 // Scatter the force to the nodes
-                for (size_t i = 0; i < NumNodes; ++i) {
+                for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
                     }
@@ -123,7 +124,7 @@ class ElementProcessor {
 
     // Loop over each element and apply the function on host data
     template <size_t NumNodes, typename Func>
-    void for_each_element_host(const Func &func) {
+    void for_each_element_host_gather_scatter_nodal_data(const Func &func) {
         // Set up the field data to gather
         Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
         for (size_t f = 0; f < N; ++f) {
@@ -169,6 +170,10 @@ class ElementProcessor {
         double field_to_scatter_sum = 0.0;
         stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_selector, m_bulk_data->parallel());
         return field_to_scatter_sum;
+    }
+
+    double GetNumElements() {
+        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
    private:

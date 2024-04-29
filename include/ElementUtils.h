@@ -45,11 +45,10 @@ struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
-        // Will need element id when functions are stored. Used to look up the functions for the element.
-        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0]; // Not needed when functions are stored
-        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1]; // NumNodes not known at compile time for meshfree
-        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_nodes) const {
+        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
+        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
+        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
@@ -57,13 +56,10 @@ struct ComputeInternalForceFunctor {
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
             // Compute the B matrix and integration weight for a given gauss point
             const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
-            // const Kokkos::pair<Kokkos::View<Eigen::Vector3d *>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
-            // The above line will be replaced with the following when functions are stored. ComputeBMatrixAndWeight will take the element id as an argument. E.g.:
-            // const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(element_id, gauss_id);
-            // The rest below should be the same. Probably extract into a separate function and call it from both versions. NumNodes will not be known at compile time for meshfree so may have to change b_matrix_and_weight to be a kokkos view of eigen vectors.
 
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
+            // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
             // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
             // E = 0.5 * (H + H^T + H^T * H)
@@ -89,6 +85,58 @@ struct ComputeInternalForceFunctor {
     IntegrationFunctor &m_integration_functor;  ///< Functor for computing the B matrix and integration weight
     StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
 };
+
+//template <size_t MaxNumNodes, typename StressFunctor>
+//struct FlexibleComputeInternalForceFunctor {
+//    FlexibleComputeInternalForceFunctor(StressFunctor &stress_functor)
+//        : m_stress_functor(stress_functor) {}
+//
+//    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_nodes) const {
+//        /* From calling function, will get:
+//        - gathered_node_data:
+//            - 0: node displacements
+//            - 1: node velocities
+//
+//        */
+//        const Eigen::Matrix<double, MaxNumNodes, 3> &node_displacements = gathered_node_data[0]; // MaxNumNodes not known at compile time for meshfree
+//        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[1];
+//
+//        force.fill(0.0);
+//
+//        // Loop over all gauss points
+//        for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
+//            // Compute the B matrix and integration weight for a given gauss point
+//            // const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = b_matrix_and_weight.first.block(0, 0, actual_num_nodes, 3);  // MaxNumNodes not known at compile time for meshfree
+//            const Kokkos::pair<Eigen::Matrix<double, MaxNumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(m_functions_functor, gauss_id);
+//            // The above line will be replaced with the following when functions are stored. ComputeBMatrixAndWeight will take the element id as an argument. E.g.:
+//            // const Kokkos::pair<Eigen::Matrix<double, MaxNumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(element_id, gauss_id);
+//            // The rest below should be the same. Probably extract into a separate function and call it from both versions. MaxNumNodes will not be known at compile time for meshfree so may have to change b_matrix_and_weight to be a kokkos view of eigen vectors.
+//
+//            // Compute displacement gradient
+//            const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
+//            // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
+//
+//            // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
+//            // E = 0.5 * (H + H^T + H^T * H)
+//            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
+//
+//            // Green Lagrange strain tensor in voigt notation
+//            Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
+//            green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
+//
+//            // Compute the stress and internal force of the element.
+//            const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
+//
+//            for (size_t i = 0; i < MaxNumNodes; ++i) {
+//                // Compute (B_I F)^T
+//                const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix_and_weight.first.row(i), displacement_gradient);
+//
+//                force.row(i) -= (bF_IT * stress).transpose() * b_matrix_and_weight.second;
+//            }
+//        }
+//    }
+//    StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
+//};
 
 // Functor for 1-pt gauss quadrature on a tetrahedron
 template <size_t NumQuadPoints, size_t NumFunctions>
