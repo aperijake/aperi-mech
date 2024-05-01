@@ -62,6 +62,8 @@ spacktivate aperi-mech-gpu
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Add kokkos and Trilinos, adjust cuda_arch as needed for your GPU device
 # Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
+spack add compadre
+spack add kokkos-kernels +cuda ~shared cuda_arch=75
 spack add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
 spack add trilinos +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add mfem +netcdf +cuda cuda_arch=75
@@ -73,6 +75,10 @@ spack add eigen
 # Install Packages
 spack install
 ```
+
+### General Notes
+
+Have noticed that if a spack environment was renamed it may cause problems in finding the `nvcc` compiler. The only fix found has been to avoid renaming environments.
 
 ---
 
@@ -89,6 +95,8 @@ The commands for a GPU build are:
 
 ```bash
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
+spack add compadre@master%gcc@10.5.0
+spack add kokkos-kernels%gcc@10.5.0 +cuda ~shared cuda_arch=75
 spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code +cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
 spack add trilinos@develop%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk +uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add mfem%gcc@10.5.0 +netcdf +cuda cuda_arch=75
