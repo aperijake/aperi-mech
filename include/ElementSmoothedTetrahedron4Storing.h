@@ -79,7 +79,8 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
 
     void FindAndStoreElementNeighbors() {
         // Loop over all elements and store the neighbors
-        // m_element_processor->for_each_element_gather_scatter_nodal_data<tet4_num_nodes>(find_and_store_element_neighbors_functor);
+        aperi::MeshNeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), m_element_processor->GetSets());
+        search_processor.add_element_nodes();
     }
 
     void ComputeAndStoreShapeFunctionDerivatives() {

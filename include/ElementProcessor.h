@@ -40,7 +40,7 @@ class ElementGatherScatterProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementGatherScatterProcessor(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    ElementGatherScatterProcessor(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -176,7 +176,17 @@ class ElementGatherScatterProcessor {
         return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
+    std::shared_ptr<aperi::MeshData> GetMeshData() {
+        return m_mesh_data;
+    }
+
+    std::vector<std::string> GetSets() {
+        return m_sets;
+    }
+
    private:
+    std::shared_ptr<aperi::MeshData> m_mesh_data;             // The mesh data object.
+    std::vector<std::string> m_sets;                          // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
     stk::mesh::Selector m_selector;                           // The selector
     stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
@@ -184,6 +194,84 @@ class ElementGatherScatterProcessor {
     DoubleField *m_field_to_scatter;                          // The field to scatter
     Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;  // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                     // The ngp field to scatter
+};
+
+class MeshNeighborSearchProcessor {
+    typedef stk::mesh::Field<double> DoubleField; // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::NgpField<double> NgpDoubleField;
+
+   public:
+    MeshNeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+        // Throw an exception if the mesh data is null.
+        if (mesh_data == nullptr) {
+            throw std::runtime_error("Mesh data is null.");
+        }
+        m_bulk_data = mesh_data->GetBulkData();
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+        // Set the selector. TODO(jake) Move this to a separate function. It is the same as in NodeProcessor.
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        if (sets.size() > 0) {
+            stk::mesh::PartVector parts;
+            for (const auto &set : sets) {
+                stk::mesh::Part *part = meta_data->get_part(set);
+                if (part == nullptr) {
+                    throw std::runtime_error("Set " + set + " not found.");
+                }
+                parts.push_back(part);
+            }
+            m_selector = stk::mesh::selectUnion(parts);
+        } else {
+            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
+        }
+        // Warn if the selector is empty.
+        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
+            aperi::CoutP0() << "Warning: MeshNeighborSearchProcessor selector is empty." << std::endl;
+        }
+
+        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::N}, meta_data, stk::topology::ELEMENT_RANK);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+
+        // Get the neighbors field
+        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::N}, meta_data, stk::topology::ELEMENT_RANK);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+    }
+
+    // Loop over each element and add the element's nodes to the neighbors field
+    void add_element_nodes() {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+        // Loop over all the buckets
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the element's nodes
+                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
+                double num_nodes = nodes.size();
+
+                ngp_num_neighbors_field(elem_index, 0) = num_nodes;
+
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    ngp_neighbors_field(elem_index, i) = (double)nodes[i].local_offset();
+                }
+            });
+    }
+
+    double GetNumElements() {
+        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    }
+
+   private:
+    std::shared_ptr<aperi::MeshData> m_mesh_data;             // The mesh data object.
+    std::vector<std::string> m_sets;                          // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
+    stk::mesh::Selector m_selector;                           // The selector
+    stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
+    DoubleField *m_num_neighbors_field;                       // The number of neighbors field
+    DoubleField *m_neighbors_field;                           // The neighbors field
+    NgpDoubleField *m_ngp_num_neighbors_field;                // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_neighbors_field;                    // The ngp neighbors field
 };
 
 }  // namespace aperi

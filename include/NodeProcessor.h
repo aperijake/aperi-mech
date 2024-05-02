@@ -17,8 +17,8 @@
 
 namespace aperi {
 
-inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    stk::mesh::Field<double> *field = meta_data->get_field<double>(stk::topology::NODE_RANK, field_query_data.name);
+inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data, stk::topology::rank_t rank = stk::topology::NODE_RANK) {
+    stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
     if (field == nullptr) {
         throw std::runtime_error("Field " + field_query_data.name + " not found.");
     }
