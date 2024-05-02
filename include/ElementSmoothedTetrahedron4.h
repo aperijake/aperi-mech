@@ -23,7 +23,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4() : ElementBase(tet4_num_nodes), m_compute_functions_functor(nullptr), m_integration_functor(nullptr) {
+    ElementSmoothedTetrahedron4(std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> element_processor = nullptr, std::shared_ptr<Material> material = nullptr) : ElementBase(tet4_num_nodes, element_processor, material) {
         CreateFunctors();
     }
 

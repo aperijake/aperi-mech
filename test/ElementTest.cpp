@@ -6,18 +6,14 @@
 #include "ApplicationTestFixture.h"
 #include "Element.h"
 #include "FieldData.h"
+#include "IoMesh.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for ElementBase tests
-class ApproximationFunctionTest : public ::testing::Test {
+class ElementBasicsTest : public ::testing::Test {
    protected:
-    // Create an element
-    std::shared_ptr<aperi::ElementBase> CreateElement() {
-        // Create the element, tet4 by default (4 nodes)
-        return aperi::CreateElement(4);
-    }
 
     // Check partition of unity
     void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
@@ -65,11 +61,11 @@ class ApproximationFunctionTest : public ::testing::Test {
 };
 
 // Test shape functions for a tet4 element
-TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
+TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
     // Create a temporary mesh file, tet4 by default
 
     // Create the tet4 element
-    std::shared_ptr<aperi::ElementBase> element = CreateElement();
+    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4);
 
     size_t expected_num_shape_functions = 4;
 
@@ -117,8 +113,38 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 }
 
+
+TEST_F(ElementBasicsTest, SmoothedTet4Storing){
+    // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
+    bool use_strain_smoothing = true;
+    bool store_shape_function_derivatives = true;
+
+    // Make a mesh
+    aperi::IoMeshParameters io_mesh_parameters;
+    io_mesh_parameters.mesh_type = "generated";
+    io_mesh_parameters.compose_output = true;
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+    io_mesh->ReadMesh("1x1x1", {"block_1"}, field_data);
+    std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
+
+    // Make an element processor
+    std::array<aperi::FieldQueryData, 3> field_query_data_gather_vec; // not used, but needed for the constructor. TODO(jake) change this?
+    field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    const aperi::FieldQueryData field_query_data_scatter = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};  // not used
+    const std::vector<std::string> part_names = {"block_1"};
+    auto element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, mesh_data, part_names);
+
+    // Create the element
+    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, use_strain_smoothing, store_shape_function_derivatives, element_processor);
+
+    // CheckElementFieldValues(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+}
+
 // Fixture for ElementBase patch tests
-class ElementTest : public SolverTest {
+class ElementPatchAndForceTest : public SolverTest {
    protected:
     void SetUp() override {
         // Run SolverTest::SetUp first
@@ -488,28 +514,28 @@ class ElementTest : public SolverTest {
 };
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, Tet4PatchTestsTension) {
+TEST_F(ElementPatchAndForceTest, Tet4PatchTestsTension) {
     RunTensionPatchTests();
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, Tet4PatchTestsCompression) {
+TEST_F(ElementPatchAndForceTest, Tet4PatchTestsCompression) {
     RunCompressionPatchTests();
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, SmoothedTet4PatchTestsTension) {
+TEST_F(ElementPatchAndForceTest, SmoothedTet4PatchTestsTension) {
     RunTensionPatchTests(true);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, SmoothedTet4PatchTestsCompression) {
+TEST_F(ElementPatchAndForceTest, SmoothedTet4PatchTestsCompression) {
     RunCompressionPatchTests(true);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 // TODO(jake): Prescribe more of the boundary conditions to get this to work
-// TEST_F(ElementTest, Tet4PatchTestsShearX){
+// TEST_F(ElementPatchAndForceTest, Tet4PatchTestsShearX){
 //    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
 //    if (m_num_procs > 1) {
 //        return;
@@ -540,7 +566,7 @@ TEST_F(ElementTest, SmoothedTet4PatchTestsCompression) {
 //}
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearYXForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearYXForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -573,7 +599,7 @@ TEST_F(ElementTest, ExplicitShearYXForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearZXForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearZXForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -606,7 +632,7 @@ TEST_F(ElementTest, ExplicitShearZXForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearXYForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearXYForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -639,7 +665,7 @@ TEST_F(ElementTest, ExplicitShearXYForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearZYForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearZYForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -672,7 +698,7 @@ TEST_F(ElementTest, ExplicitShearZYForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearXZForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearXZForce) {
     // Exit if the number of processors is not 1
     // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
     // Thus, all DOFs are not constrained and some noise will be present in the fields.
@@ -712,7 +738,7 @@ TEST_F(ElementTest, ExplicitShearXZForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearYZForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearYZForce) {
     // Exit if the number of processors is not 1
     // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
     // Thus, all DOFs are not constrained and some noise will be present in the fields.

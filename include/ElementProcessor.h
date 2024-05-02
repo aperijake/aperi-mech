@@ -228,11 +228,11 @@ class MeshNeighborSearchProcessor {
             aperi::CoutP0() << "Warning: MeshNeighborSearchProcessor selector is empty." << std::endl;
         }
 
-        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::N}, meta_data, stk::topology::ELEMENT_RANK);
+        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None}, meta_data, stk::topology::ELEMENT_RANK);
         m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::N}, meta_data, stk::topology::ELEMENT_RANK);
+        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None}, meta_data, stk::topology::ELEMENT_RANK);
         m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
     }
 

@@ -26,7 +26,7 @@ class ElementBase {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    ElementBase(size_t num_nodes) : m_num_nodes(num_nodes), m_element_processor(nullptr), m_material(nullptr) {}
+    ElementBase(size_t num_nodes, std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> element_processor = nullptr, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_element_processor(element_processor), m_material(material) {}
 
     /**
      * @brief Gets the number of nodes in the element.

@@ -63,7 +63,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4Storing object.
      */
-    ElementSmoothedTetrahedron4Storing() : ElementBase(tet4_num_nodes), m_compute_functions_functor(nullptr), m_integration_functor(nullptr) {
+    ElementSmoothedTetrahedron4Storing(std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> element_processor = nullptr, std::shared_ptr<Material> material = nullptr) : ElementBase(tet4_num_nodes, element_processor, material) {
         // Find and store the element neighbors
         FindAndStoreElementNeighbors(); // For tet, loop over all elements and put nodes in the neighbors field
         ComputeAndStoreShapeFunctionDerivatives();
@@ -78,6 +78,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     }
 
     void FindAndStoreElementNeighbors() {
+        assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::MeshNeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), m_element_processor->GetSets());
         search_processor.add_element_nodes();
