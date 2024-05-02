@@ -98,7 +98,7 @@ inline std::vector<FieldData> GetFieldData() {
     field_data.push_back(FieldData("mass", FieldDataType::VECTOR, FieldDataRank::NODE, 1));
 
     field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
-    // field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, 4));
+    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, 4));
     return field_data;
 }
 

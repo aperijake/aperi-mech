@@ -144,6 +144,8 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
             field_output_type = stk::io::FieldOutputType::VECTOR_3D;
         } else if (field.data_type == FieldDataType::TENSOR) {
             field_output_type = stk::io::FieldOutputType::SYM_TENSOR_33;
+        } else if (field.data_type == FieldDataType::CUSTOM) {
+            field_output_type = stk::io::FieldOutputType::CUSTOM;
         } else {
             throw std::invalid_argument("FieldData: Invalid data type.");
         }
@@ -153,7 +155,9 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
 
         // Set the field properties
         stk::mesh::put_field_on_entire_mesh_with_initial_value(data_field, field.number_of_components, field.initial_values.data());
-        stk::io::set_field_output_type(data_field, field_output_type);
+        if (field.data_type != FieldDataType::CUSTOM) {
+            stk::io::set_field_output_type(data_field, field_output_type);
+        }
 
         // Set the field role to TRANSIENT
         stk::io::set_field_role(data_field, Ioss::Field::TRANSIENT);
