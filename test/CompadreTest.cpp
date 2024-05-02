@@ -54,15 +54,12 @@ void samplingManufacturedSolution(Kokkos::View<double**, Kokkos::DefaultExecutio
         });
 }
 
-// Test
-TEST_F(CompadreTest, Basic) {
+// Test From: https://sandialabs.github.io/compadre/_g_m_l_s_01_tutorial-example.html
+TEST_F(CompadreTest, GMLSTutorialExample) {
     StopCapturingOutput();
     int order = 1;
     int dimension = 3;
     int number_target_coords = 40e3;
-    // auto constraint_name = clp.constraint_name;
-    // auto solver_name = clp.solver_name;
-    // auto problem_name = clp.problem_name;
     int number_of_batches = 1;
     bool keep_coefficients = number_of_batches == 1;
 
@@ -144,7 +141,7 @@ TEST_F(CompadreTest, Basic) {
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(Compadre::CreatePointCloudSearch(source_coords, dimension));
 
-    double epsilon_multiplier = 1.4;
+    double epsilon_multiplier = 1.8;
 
     // neighbor_lists_device will contain all neighbor lists (for each target site) in a compressed row format
     // Initially, we do a dry-run to calculate neighborhood sizes before actually storing the result. This is

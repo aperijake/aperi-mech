@@ -76,19 +76,21 @@ ENDIF()
 # Set the path to project-specific custom modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-# Find package/
+# Find package
 find_package(Kokkos REQUIRED PATHS ${Kokkos_ROOT} NO_DEFAULT_PATH)
 find_package(Trilinos REQUIRED PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
 find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
 find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
-find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
 find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include)
 find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib)
 find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
 find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib)
 find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include)
 find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib)
+IF(GPU)
+    find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
+ENDIF()
 
 ### aperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
@@ -96,17 +98,30 @@ list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
 add_library(aperimech ${LIB_SOURCES})
 
-target_link_libraries(aperimech
-	yaml-cpp
-	Eigen3::Eigen
-	${MFEM_LIBRARY}
-	${Trilinos_LIBRARIES}
-	${Trilinos_TPL_LIBRARIES}
-	${MPI_LIBRARIES}
-	${EXTRA_LIBS}
-	Kokkos::kokkos
-	Compadre::compadre
-	)
+if(GPU)
+    target_link_libraries(aperimech
+        yaml-cpp
+        Eigen3::Eigen
+        ${MFEM_LIBRARY}
+        ${Trilinos_LIBRARIES}
+        ${Trilinos_TPL_LIBRARIES}
+        ${MPI_LIBRARIES}
+        ${EXTRA_LIBS}
+        Kokkos::kokkos
+        Compadre::compadre
+    )
+else()
+    target_link_libraries(aperimech
+        yaml-cpp
+        Eigen3::Eigen
+        ${MFEM_LIBRARY}
+        ${Trilinos_LIBRARIES}
+        ${Trilinos_TPL_LIBRARIES}
+        ${MPI_LIBRARIES}
+        ${EXTRA_LIBS}
+        Kokkos::kokkos
+    )
+endif()
 
 target_include_directories(aperimech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
@@ -147,6 +162,9 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
+if (NOT GPU)
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/CompadreTest.cpp")
+endif()
 
 # Add an executable for the unit tests
 add_executable(unit_tests
