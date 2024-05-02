@@ -82,7 +82,6 @@ find_package(Trilinos REQUIRED PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILI
 find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
 find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
-find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
 find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include)
 find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib)
 find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
@@ -148,6 +147,9 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
+if (NOT GPU)
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/CompadreTest.cpp")
+endif()
 
 # Add an executable for the unit tests
 add_executable(unit_tests
