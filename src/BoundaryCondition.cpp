@@ -17,7 +17,7 @@ void BoundaryCondition::ApplyVelocity(double time) {
     // Loop over the nodes
     for (auto&& component_value : m_components_and_values) {
         auto fill_field_functor = FillFieldFunctor(component_value.second * time_scale);
-        m_node_processor_velocity->for_dof_i(fill_field_functor, component_value.first, 0);
+        m_node_processor_velocity->for_component_i(fill_field_functor, component_value.first, 0);
     }
     m_node_processor_velocity->MarkAllFieldsModifiedOnDevice();
 }
@@ -30,7 +30,7 @@ void BoundaryCondition::ApplyAcceleration(double time) {
     // Loop over the nodes
     for (auto&& component_value : m_components_and_values) {
         auto fill_field_functor = FillFieldFunctor(component_value.second * time_scale);
-        m_node_processor_acceleration->for_dof_i(fill_field_functor, component_value.first, 0);
+        m_node_processor_acceleration->for_component_i(fill_field_functor, component_value.first, 0);
     }
     m_node_processor_acceleration->MarkAllFieldsModifiedOnDevice();
 }

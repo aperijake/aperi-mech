@@ -277,7 +277,7 @@ void CheckNodeFieldValues(const aperi::MeshData& mesh_data, const std::vector<st
     bool found_at_least_one_node = false;
 
     // Get the sum of the field values
-    node_processor_stk_ngp.for_each_node_host([&](size_t i_node_start, std::array<double*, 1>& field_data) {
+    node_processor_stk_ngp.for_each_entity_host([&](size_t i_node_start, std::array<double*, 1>& field_data) {
         for (size_t i = 0; i < 3; i++) {
             found_at_least_one_node = true;
             if (std::abs(expected_values[i]) < 1.0e-12) {
@@ -307,7 +307,7 @@ void CheckNodeFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::
 
     // Get the sum of the field values
     std::array<double, 3> sum_values_local = {0.0, 0.0, 0.0};
-    node_processor.for_each_owned_node_host([&](size_t i_node_start, std::array<double*, 1>& field_data) {
+    node_processor.for_each_owned_entity_host([&](size_t i_node_start, std::array<double*, 1>& field_data) {
         for (size_t i = 0; i < 3; i++) {
             sum_values_local[i] += field_data[0][i_node_start + i];
         }
@@ -342,7 +342,7 @@ void CheckNodeFieldPatchValues(const aperi::MeshData& mesh_data, const std::stri
     bool found_at_least_one_node = false;
 
     // Get the sum of the field values
-    node_processor_stk_ngp.for_each_owned_node_host([&](size_t i_node_start, std::array<double*, 2>& field_data) {
+    node_processor_stk_ngp.for_each_owned_entity_host([&](size_t i_node_start, std::array<double*, 2>& field_data) {
         found_at_least_one_node = true;
         Eigen::Vector3d coordinates = {field_data[1][i_node_start], field_data[1][i_node_start + 1], field_data[1][i_node_start + 2]};
         Eigen::Vector3d expected_values = GetExpectedPatchValues(center_of_mass, coordinates, field_gradients);

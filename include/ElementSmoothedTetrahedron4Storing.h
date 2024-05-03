@@ -74,7 +74,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
      * @brief Destroys a ElementSmoothedTetrahedron4Storing object.
      */
     ~ElementSmoothedTetrahedron4Storing() {
-        DestroyFunctors();
+        // DestroyFunctors();
     }
 
     void FindAndStoreElementNeighbors() {

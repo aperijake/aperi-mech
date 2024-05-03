@@ -93,7 +93,7 @@ class NodeProcessingTestFixture : public ::testing::Test {
 
     void ForEachEntityRun(double time_increment) {
         UpdateVelocity update_velocity(time_increment);
-        node_processor_stk_ngp->for_each_dof(update_velocity);
+        node_processor_stk_ngp->for_each_component(update_velocity);
         node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     }
 
@@ -119,17 +119,17 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
     CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
-// Test for_dof_i method
+// Test for_component_i method
 TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     AddMeshDatabase(num_elements_x, num_elements_y, num_elements_z);
 
     aperi::FillFieldFunctor fill_field_functor_1(2.89);
-    node_processor_stk_ngp->for_dof_i(fill_field_functor_1, 1, 0);
+    node_processor_stk_ngp->for_component_i(fill_field_functor_1, 1, 0);
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
 
     aperi::FillFieldFunctor fill_field_functor_2(3.79);
-    node_processor_stk_ngp->for_dof_i(fill_field_functor_2, 2, 0);
+    node_processor_stk_ngp->for_component_i(fill_field_functor_2, 2, 0);
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
 
@@ -137,10 +137,10 @@ TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
-// Test for_each_dof method
+// Test for_each_component method
 TEST_F(NodeProcessingTestFixture, NodeProcessorForEachDof) {
     AddMeshDatabase(num_elements_x, num_elements_y, num_elements_z);
-    // Run the for_each_dof method
+    // Run the for_each_component method
     ForEachEntityRun(time_increment);
     node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     // Velocity should be updated to initial_velocity + time_increment * initial_acceleration

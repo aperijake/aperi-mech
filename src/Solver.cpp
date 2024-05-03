@@ -68,7 +68,7 @@ struct ComputeAccelerationFunctor {
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration) {
     // Compute acceleration: a^{n} = M^{–1}(f^{n})
     ComputeAccelerationFunctor compute_acceleration_functor;
-    node_processor_acceleration->for_each_dof(compute_acceleration_functor);
+    node_processor_acceleration->for_each_component(compute_acceleration_functor);
     node_processor_acceleration->MarkFieldModifiedOnDevice(0);
 }
 
@@ -85,7 +85,7 @@ struct ComputeFirstPartialUpdateFunctor {
 void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update) {
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
-    node_processor_first_update->for_each_dof(compute_first_partial_update_functor);
+    node_processor_first_update->for_each_component(compute_first_partial_update_functor);
     node_processor_first_update->MarkFieldModifiedOnDevice(0);
 }
 
@@ -102,7 +102,7 @@ struct UpdateDisplacementsFunctor {
 void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements) {
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
-    node_processor_update_displacements->for_each_dof(update_displacements_functor);
+    node_processor_update_displacements->for_each_component(update_displacements_functor);
     node_processor_update_displacements->MarkFieldModifiedOnDevice(0);
 
     // If there is more than one processor, communicate the field data that other processors need
@@ -127,7 +127,7 @@ struct ComputeSecondPartialUpdateFunctor {
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update) {
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
-    node_processor_second_update->for_each_dof(compute_second_partial_update_functor);
+    node_processor_second_update->for_each_component(compute_second_partial_update_functor);
     node_processor_second_update->MarkFieldModifiedOnDevice(0);
 }
 

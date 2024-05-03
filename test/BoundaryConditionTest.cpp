@@ -86,7 +86,7 @@ class BoundaryConditionTest : public ApplicationTest {
         auto disp_update_functor = DispUpdateFunctor(time_increment);
 
         // Loop over each node then DOF and apply the function
-        node_processor.for_each_dof(disp_update_functor);
+        node_processor.for_each_component(disp_update_functor);
         node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
