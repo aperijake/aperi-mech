@@ -7,7 +7,7 @@
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for InitialConditionUtil tests

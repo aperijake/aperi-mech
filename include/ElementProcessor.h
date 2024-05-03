@@ -17,7 +17,7 @@
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"  // Include NodeProcessor.h to use StkGetField. TODO(jake): Move StkGetField to a separate file.
+#include "EntityProcessor.h"  // Include EntityProcessor.h to use StkGetField. TODO(jake): Move StkGetField to a separate file.
 
 namespace aperi {
 

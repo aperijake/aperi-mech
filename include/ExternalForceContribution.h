@@ -7,7 +7,7 @@
 #include "IoInputFile.h"
 #include "Material.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 
 namespace YAML {
 class Node;

@@ -10,7 +10,7 @@
 
 #include "FieldData.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 
 namespace aperi {
 class IoMesh;

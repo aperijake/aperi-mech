@@ -13,7 +13,7 @@
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
 

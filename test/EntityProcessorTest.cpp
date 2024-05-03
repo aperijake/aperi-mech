@@ -12,7 +12,7 @@
 
 #include "FieldData.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 #include "UnitTestUtils.h"
 
 typedef stk::mesh::Field<double> DoubleField;
