@@ -81,8 +81,9 @@ enum class FieldQueryState { None,
  * @brief Represents the data of a field query.
  */
 struct FieldQueryData {
-    std::string name;       // The name of the field.
-    FieldQueryState state;  // The state of the field.
+    std::string name;                          // The name of the field.
+    FieldQueryState state;                     // The state of the field.
+    FieldDataRank rank = FieldDataRank::NODE;  // The rank of the field.
 };
 
 /**

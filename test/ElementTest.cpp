@@ -5,6 +5,7 @@
 
 #include "ApplicationTestFixture.h"
 #include "Element.h"
+#include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
 #include "SolverTestFixture.h"
@@ -125,7 +126,7 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     io_mesh_parameters.compose_output = true;
     std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-    io_mesh->ReadMesh("1x1x1", {"block_1"}, field_data);
+    io_mesh->ReadMesh("1x1x1|tets", {"block_1"}, field_data);
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
     // Make an element processor
@@ -140,7 +141,13 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     // Create the element
     std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, use_strain_smoothing, store_shape_function_derivatives, element_processor);
 
-    // CheckElementFieldValues(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+    std::array<aperi::FieldQueryData, 1> elem_field_query_data_gather_vec; // not used, but needed for the constructor. TODO(jake) change this?
+    elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    auto entity_processor = std::make_shared<aperi::ElementProcessor<1>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+    entity_processor->MarkAllFieldsModifiedOnDevice();
+    entity_processor->SyncAllFieldsDeviceToHost();
+
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests
