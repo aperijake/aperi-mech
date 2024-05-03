@@ -26,9 +26,9 @@ TEST_F(SolverTest, Explicit) {
     EXPECT_GT(std::abs(magnitude), 0);
     EXPECT_GT((direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]), 0);
 
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "displacement", expected_displacement, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "velocity", expected_velocity, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration, aperi::FieldQueryState::N);
 }
 
 // Driver function for gravity tests
@@ -49,14 +49,14 @@ void TestGravity(const YAML::Node& yaml_data, std::shared_ptr<aperi::Solver> sol
         expected_displacement[i] += 0.5 * expected_acceleration[i] * final_time * final_time;
     }
 
-    CheckNodeFieldValues(*solver->GetMeshData(), {}, "displacement", expected_displacement);
-    CheckNodeFieldValues(*solver->GetMeshData(), {}, "velocity", expected_velocity);
-    CheckNodeFieldValues(*solver->GetMeshData(), {}, "acceleration", expected_acceleration);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "displacement", expected_displacement, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "velocity", expected_velocity, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "acceleration", expected_acceleration, aperi::FieldQueryState::N);
 
     double density = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
     double mass = density * num_procs * num_blocks;  // 1x1x(num_procs * num_blocks) mesh
     std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckNodeFieldSum(*solver->GetMeshData(), {}, "mass", expected_mass);
+    CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "mass", expected_mass);
 }
 
 // Test that a basic explicit problem with gravity can be solved
@@ -119,9 +119,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditions) {
     std::array<double, 3> expected_velocity = {expected_displacement[0] / final_time, expected_displacement[1] / final_time, expected_displacement[2] / final_time};
     std::array<double, 3> expected_acceleration = {0, 0, 0};
 
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "displacement", expected_displacement, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "velocity", expected_velocity, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration, aperi::FieldQueryState::N);
 }
 
 // Test that a basic explicit problem with two boundary conditions can be solved
@@ -160,9 +160,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     std::array<double, 3> expected_velocity_1 = {expected_displacement_1[0] / final_time, expected_displacement_1[1] / final_time, expected_displacement_1[2] / final_time};
     std::array<double, 3> expected_acceleration_1 = {0, 0, 0};
 
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_1);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_1);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "acceleration", expected_acceleration_1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_1, aperi::FieldQueryState::N); 
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_1, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "acceleration", expected_acceleration_1, aperi::FieldQueryState::N);
 
     // Check the boundary conditions for the second set
     double magnitude_2 = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>();
@@ -172,9 +172,9 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     std::array<double, 3> expected_acceleration_2 = {0, 0, 0};
 
     // Get selector for the second set
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_2);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_2);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "acceleration", expected_acceleration_2);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_2, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_2, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "acceleration", expected_acceleration_2, aperi::FieldQueryState::N);
 }
 
 // Test that a basic explicit problem with a velocity boundary condition can be solved
@@ -208,9 +208,9 @@ TEST_F(SolverTest, ExplicitVelocityBoundaryConditions) {
     }
     std::array<double, 3> expected_acceleration = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
 
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "displacement", expected_displacement);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "velocity", expected_velocity);
-    CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "displacement", expected_displacement, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "velocity", expected_velocity, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_acceleration, aperi::FieldQueryState::N);
 }
 
 // Create the Taylor impact test

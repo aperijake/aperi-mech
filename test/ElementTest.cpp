@@ -248,19 +248,19 @@ class ElementPatchAndForceTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, 1.0e-8);
 
         // Check the force on the first set
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, 1.0e-8);
 
         // Check the force on the second set
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, 1.0e-8);
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -272,11 +272,11 @@ class ElementPatchAndForceTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, 1.0e-9);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, 1.0e-9);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, 1.0e-4);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, 1.0e-4);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_zero);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_zero, aperi::FieldQueryState::N);
     }
 
     Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
@@ -306,7 +306,7 @@ class ElementPatchAndForceTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -319,8 +319,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, tolerance);
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
@@ -328,8 +328,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, tolerance);
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
@@ -337,8 +337,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, tolerance);
     }
 
     void CheckPatchTest() {
@@ -346,14 +346,14 @@ class ElementPatchAndForceTest : public SolverTest {
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass);
 
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }

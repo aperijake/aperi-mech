@@ -220,8 +220,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement);
-                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity);
+                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
             }
         }
     }

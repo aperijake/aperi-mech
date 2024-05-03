@@ -340,4 +340,8 @@ using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, N>;
 template <size_t N>
 using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, N>;
 
+// Change the aperi::FieldDataRank to stk::topology::rank_t and use the appropriate EntityProcessor
+template <aperi::FieldDataRank Rank, size_t N>
+using AperiEntityProcessor = std::conditional_t<Rank == aperi::FieldDataRank::NODE, NodeProcessor<N>, ElementProcessor<N>>;
+
 }  // namespace aperi

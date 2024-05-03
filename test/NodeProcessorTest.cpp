@@ -116,7 +116,7 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
     node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     std::array<double, 3> expected_velocity_data_np1 = {1.78, 1.78, 1.78};
-    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
 // Test for_component_i method
@@ -134,7 +134,7 @@ TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
 
     std::array<double, 3> expected_velocity_data_np1 = {0.0, 2.89, 3.79};
-    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
 // Test for_each_component method
@@ -146,12 +146,12 @@ TEST_F(NodeProcessingTestFixture, NodeProcessorForEachDof) {
     // Velocity should be updated to initial_velocity + time_increment * initial_acceleration
     double expected_velocity = initial_velocity + time_increment * initial_acceleration;
     std::array<double, 3> expected_velocity_data_np1 = {expected_velocity, expected_velocity, expected_velocity};
-    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 
     // Flipping the states should set the velocity_data_np1 to the initial_velocity
     mesh_data->UpdateFieldDataStates();  // Updates host only
     std::array<double, 3> expected_velocity_data_n = {initial_velocity, initial_velocity, initial_velocity};
-    CheckNodeFieldValues(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_n, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "velocity", expected_velocity_data_n, aperi::FieldQueryState::NP1);
 
     // TODO(jake): Add test for field data on device
 }
