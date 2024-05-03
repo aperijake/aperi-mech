@@ -136,7 +136,6 @@ Successfully installed on a M1 Mac with the following:
 
 - `gcc@13.2.0` from Homebrew
 - `apple-clang@15.0.0` from Xcode
-- `cmake@3.26.4` from Conda
 - `lcov@2.0_1` from Homebrew
 
 For code coverage, be sure `gcov` is using from the same version of gcc. I had to:
@@ -145,17 +144,20 @@ For code coverage, be sure `gcov` is using from the same version of gcc. I had t
 ln -s /opt/homebrew/bin/gcov-13 /opt/homebrew/bin/gcov
 ```
 
+Also, some homebrew installed tools were not in the path by default and had to be added or some package would fail to install.
+
 Spack struggled to install `lcov` due to issues installing `perl` so used the homebrew `lcov` instead
 
-Also, had some trouble with `openblas` and `gcc`. Compiled `openblas` with `apple-clang`. The commands are:
-
 ```bash
-# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
-spack add trilinos +boost +exodus +gtest +hdf5 +stk +zoltan +zoltan2 %gcc ^openblas%apple-clang
-spack add mfem +netcdf %gcc ^openblas%apple-clang
-spack add googletest %gcc
-spack add yaml-cpp %gcc
-spack add eigen %gcc
+# Add packages
+spack add compadre@master%apple-clang@15.0.0
+spack add kokkos-kernels%apple-clang@15.0.0 -cuda -shared +threads
+spack add kokkos%apple-clang@15.0.0 -cuda -shared +threads cxxstd=17
+spack add trilinos@master%apple-clang@15.0.0 -cuda +exodus +gtest +hdf5 -shared +stk +zoltan +zoltan2 cxxstd=17
+spack add mfem%apple-clang@15.0.0 +netcdf
+spack add googletest%apple-clang@15.0.0
+spack add yaml-cpp%apple-clang@15.0.0
+spack add eigen%apple-clang@15.0.0
 
 # Install Packages
 spack install
