@@ -228,12 +228,28 @@ class MeshNeighborSearchProcessor {
             aperi::CoutP0() << "Warning: MeshNeighborSearchProcessor selector is empty." << std::endl;
         }
 
+        // Get the number of neighbors field
         m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
         m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
 
         // Get the neighbors field
         m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
         m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+
+        // Get the coordinates field
+        m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
+
+        // Get the element volume field
+        m_element_volume_field = StkGetField(FieldQueryData{"volume", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+        m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
+
+        // Get the function derivatives fields
+        std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+        for (size_t i = 0; i < 3; ++i) {
+            m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
+        }
     }
 
     // Loop over each element and add the element's nodes to the neighbors field
@@ -258,20 +274,64 @@ class MeshNeighborSearchProcessor {
             });
     }
 
+    template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor>
+    void for_each_neighbor_compute_derivatives(const FunctionsFunctor &functions_functor, const IntegrationFunctor &integration_functor) {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+        auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        auto ngp_element_volume_field = *m_ngp_element_volume_field;
+        Kokkos::Array<NgpDoubleField, 3> ngp_function_derivatives_fields;
+        for (size_t i = 0; i < 3; ++i) {
+            ngp_function_derivatives_fields[i] = *m_ngp_function_derivatives_fields[i];
+        }
+        // Loop over all the buckets
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                size_t num_neighbors = ngp_num_neighbors_field(elem_index, 0);
+                Eigen::Matrix<double, NumNodes, 3> coordinates;
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    // Create the entity
+                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
+                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
+                    // Get the neighbor's coordinates
+                    for (size_t j = 0; j < 3; ++j) {
+                        coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
+                    }
+                }
+                assert(integration_functor->NumGaussPoints() == 1);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(coordinates, *functions_functor, 0);
+                ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
+                for (size_t i = 0; i < NumNodes; ++i) {
+                    for (size_t j = 0; j < 3; ++j) {
+                        ngp_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
+                    }
+                }
+            });
+    }
+
     double GetNumElements() {
         return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;             // The mesh data object.
-    std::vector<std::string> m_sets;                          // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
-    stk::mesh::Selector m_selector;                           // The selector
-    stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
-    DoubleField *m_num_neighbors_field;                       // The number of neighbors field
-    DoubleField *m_neighbors_field;                           // The neighbors field
-    NgpDoubleField *m_ngp_num_neighbors_field;                // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_neighbors_field;                    // The ngp neighbors field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
+    std::vector<std::string> m_sets;                                       // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
+    stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
+    DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
+    DoubleField *m_neighbors_field;                                        // The neighbors field
+    DoubleField *m_coordinates_field;                                      // The coordinates field
+    DoubleField *m_element_volume_field;                                   // The element volume field
+    Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
+    NgpDoubleField *m_ngp_num_neighbors_field;                             // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_neighbors_field;                                 // The ngp neighbors field
+    NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
+    NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
+    Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 }  // namespace aperi

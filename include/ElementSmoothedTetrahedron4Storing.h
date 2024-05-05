@@ -11,46 +11,6 @@
 
 namespace aperi {
 
-/*
-Options:
-- Create view of views for neighbors and shape function derivatives
-   - Pros:
-   - Cons: Look-up index for neighbors and shape function derivatives?
-- Create a StoredCell class that stores the neighbors and shape function derivatives, one for each element/cell
-   - Pros: No need to look-up index for neighbors and shape function derivatives
-   - Cons: Will stk for_each_entity be optimized for this?
-*/
-
-// Functor for computing shape function derivatives and storing them
-class ComputeAndStoreShapeFunctionsFunctor {
-   public:
-    ComputeAndStoreShapeFunctionsFunctor() = default;
-
-    // KOKKOS_INLINE_FUNCTION void operator()(const int &i) const {
-    //     // Get the element
-    //     auto element = m_element_processor->GetElement(i);
-
-    //     // Get the physical nodal coordinates
-    //     Eigen::Matrix<double, tet4_num_nodes, 3> node_coordinates;
-    //     for (size_t j = 0; j < tet4_num_nodes; ++j) {
-    //         node_coordinates.row(j) = element->GetNode(j)->GetCoordinates();
-    //     }
-
-    //     // Compute the shape function derivatives
-    //     Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives = m_compute_functions_functor->derivatives(0.0, 0.0, 0.0);
-
-    //     // Store the shape function derivatives
-    //     for (size_t j = 0; j < tet4_num_nodes; ++j) {
-    //         m_shape_function_derivatives(i, j) = shape_function_derivatives.row(j);
-    //     }
-    // }
-
-   // private:
-   //  ElementGatherScatterProcessor<tet4_num_nodes> *m_element_processor;
-   //  Tet4FunctionsFunctor *m_compute_functions_functor;
-   //  Kokkos::View<Kokkos::View<Eigen::Vector3d *> *> m_shape_function_derivatives;
-};
-
 /**
  * @brief Represents a 4-node tetrahedron element with smoothed derivatives.
  *
@@ -65,31 +25,23 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
      */
     ElementSmoothedTetrahedron4Storing(std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> element_processor = nullptr, std::shared_ptr<Material> material = nullptr) : ElementBase(tet4_num_nodes, element_processor, material) {
         // Find and store the element neighbors
-        FindAndStoreElementNeighbors(); // For tet, loop over all elements and put nodes in the neighbors field
-        ComputeAndStoreShapeFunctionDerivatives();
-        // CreateFunctors();
+        CreateFunctors();
+        ComputeNeighborValues();
     }
 
     /**
      * @brief Destroys a ElementSmoothedTetrahedron4Storing object.
      */
     ~ElementSmoothedTetrahedron4Storing() {
-        // DestroyFunctors();
+        DestroyFunctors();
     }
 
-    void FindAndStoreElementNeighbors() {
+    void ComputeNeighborValues() {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::MeshNeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), m_element_processor->GetSets());
         search_processor.add_element_nodes();
-    }
-
-    void ComputeAndStoreShapeFunctionDerivatives() {
-        /*
-            // Loop over all elements, will need to get the physical nodal coordinates for each element to compute the shape function derivatives
-            // compute_and_store_shape_function_derivatives_functor will need an integration functor
-            m_element_processor->for_each_element_gather_scatter_nodal_data<tet4_num_nodes>(compute_and_store_shape_function_derivatives_functor);
-        */
+        search_processor.for_each_neighbor_compute_derivatives<tet4_num_nodes>(m_compute_functions_functor, m_integration_functor);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -99,7 +51,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
         auto compute_tet4_functions_functor_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
         assert(compute_tet4_functions_functor_functor != nullptr);
 
-        // Functor for 1-pt gauss quadrature
+        // Functor for smooth quadrature
         size_t integration_functor_size = sizeof(SmoothedQuadrature<tet4_num_nodes>);
         auto integration_functor = (SmoothedQuadrature<tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);

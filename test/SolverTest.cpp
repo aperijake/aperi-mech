@@ -56,7 +56,7 @@ void TestGravity(const YAML::Node& yaml_data, std::shared_ptr<aperi::Solver> sol
     double density = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
     double mass = density * num_procs * num_blocks;  // 1x1x(num_procs * num_blocks) mesh
     std::array<double, 3> expected_mass = {mass, mass, mass};
-    CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "mass", expected_mass);
+    CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 }
 
 // Test that a basic explicit problem with gravity can be solved

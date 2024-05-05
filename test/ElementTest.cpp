@@ -141,13 +141,29 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     // Create the element
     std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, use_strain_smoothing, store_shape_function_derivatives, element_processor);
 
-    std::array<aperi::FieldQueryData, 1> elem_field_query_data_gather_vec; // not used, but needed for the constructor. TODO(jake) change this?
+    std::array<aperi::FieldQueryData, 5> elem_field_query_data_gather_vec;
     elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    auto entity_processor = std::make_shared<aperi::ElementProcessor<1>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+    elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
     entity_processor->MarkAllFieldsModifiedOnDevice();
     entity_processor->SyncAllFieldsDeviceToHost();
 
+    // Check the number of neighbors
     CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+
+    // TODO(jake): Check the neighbors.
+
+    // Check the volume
+    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {1.0}, aperi::FieldQueryState::None);
+
+    // Check partition of nullity for the shape function derivatives
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", {0.0}, aperi::FieldQueryState::None);
+
 }
 
 // Fixture for ElementBase patch tests
@@ -255,19 +271,19 @@ class ElementPatchAndForceTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the first set
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the second set
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -313,7 +329,7 @@ class ElementPatchAndForceTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -326,8 +342,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
@@ -335,8 +351,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
@@ -344,8 +360,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
     }
 
     void CheckPatchTest() {
@@ -353,7 +369,7 @@ class ElementPatchAndForceTest : public SolverTest {
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
