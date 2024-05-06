@@ -9,7 +9,7 @@
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Functor to update the nodal displacements
@@ -31,9 +31,9 @@ class BoundaryConditionTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+        m_field_data.push_back(aperi::FieldData("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
+        m_field_data.push_back(aperi::FieldData("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
+        m_field_data.push_back(aperi::FieldData("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
     }
 
     void TearDown() override {
@@ -86,7 +86,7 @@ class BoundaryConditionTest : public ApplicationTest {
         auto disp_update_functor = DispUpdateFunctor(time_increment);
 
         // Loop over each node then DOF and apply the function
-        node_processor.for_each_dof(disp_update_functor);
+        node_processor.for_each_component(disp_update_functor);
         node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
@@ -220,8 +220,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement);
-                CheckNodeFieldValues(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity);
+                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
             }
         }
     }

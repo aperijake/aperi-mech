@@ -1,23 +1,23 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Dense>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "ApplicationTestFixture.h"
 #include "Element.h"
+#include "EntityProcessor.h"
 #include "FieldData.h"
+#include "IoMesh.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for ElementBase tests
-class ApproximationFunctionTest : public ::testing::Test {
+class ElementBasicsTest : public ::testing::Test {
    protected:
-    // Create an element
-    std::shared_ptr<aperi::ElementBase> CreateElement() {
-        // Create the element, tet4 by default (4 nodes)
-        return aperi::CreateElement(4);
-    }
 
     // Check partition of unity
     void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
@@ -65,11 +65,11 @@ class ApproximationFunctionTest : public ::testing::Test {
 };
 
 // Test shape functions for a tet4 element
-TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
+TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
     // Create a temporary mesh file, tet4 by default
 
     // Create the tet4 element
-    std::shared_ptr<aperi::ElementBase> element = CreateElement();
+    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4);
 
     size_t expected_num_shape_functions = 4;
 
@@ -117,8 +117,58 @@ TEST_F(ApproximationFunctionTest, Tet4ShapeFunctions) {
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 }
 
+
+TEST_F(ElementBasicsTest, SmoothedTet4Storing){
+    // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
+    bool use_strain_smoothing = true;
+    bool store_shape_function_derivatives = true;
+
+    // Make a mesh
+    aperi::IoMeshParameters io_mesh_parameters;
+    io_mesh_parameters.mesh_type = "generated";
+    io_mesh_parameters.compose_output = true;
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+    io_mesh->ReadMesh("1x1x1|tets", {"block_1"}, field_data);
+    std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
+
+    // Make an element processor
+    std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3); // not used, but needed for the constructor. TODO(jake) change this?
+    field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+    const std::vector<std::string> part_names = {"block_1"};
+
+    // Create the element
+    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, field_query_data_gather_vec, part_names, mesh_data, use_strain_smoothing, store_shape_function_derivatives);
+
+    std::array<aperi::FieldQueryData, 5> elem_field_query_data_gather_vec;
+    elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+    auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+    entity_processor->MarkAllFieldsModifiedOnDevice();
+    entity_processor->SyncAllFieldsDeviceToHost();
+
+    // Check the number of neighbors
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+
+    // TODO(jake): Check the neighbors.
+
+    // Check the volume
+    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {1.0}, aperi::FieldQueryState::None);
+
+    // Check partition of nullity for the shape function derivatives
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", {0.0}, aperi::FieldQueryState::None);
+
+}
+
 // Fixture for ElementBase patch tests
-class ElementTest : public SolverTest {
+class ElementPatchAndForceTest : public SolverTest {
    protected:
     void SetUp() override {
         // Run SolverTest::SetUp first
@@ -222,19 +272,19 @@ class ElementTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the first set
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the second set
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the mass
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -246,11 +296,11 @@ class ElementTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, 1.0e-9);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, 1.0e-9);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, 1.0e-4);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, 1.0e-4);
-        CheckNodeFieldValues(*m_solver->GetMeshData(), {}, "acceleration", expected_zero);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_zero, aperi::FieldQueryState::N);
     }
 
     Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
@@ -280,7 +330,7 @@ class ElementTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "force", expected_zero);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -293,8 +343,8 @@ class ElementTest : public SolverTest {
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
@@ -302,8 +352,8 @@ class ElementTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
@@ -311,8 +361,8 @@ class ElementTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, tolerance);
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
     }
 
     void CheckPatchTest() {
@@ -320,14 +370,14 @@ class ElementTest : public SolverTest {
         double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckNodeFieldSum(*m_solver->GetMeshData(), {}, "mass", expected_mass);
+        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
-        CheckNodeFieldPatchValues(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }
@@ -488,28 +538,28 @@ class ElementTest : public SolverTest {
 };
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, Tet4PatchTestsTension) {
+TEST_F(ElementPatchAndForceTest, Tet4PatchTestsTension) {
     RunTensionPatchTests();
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, Tet4PatchTestsCompression) {
+TEST_F(ElementPatchAndForceTest, Tet4PatchTestsCompression) {
     RunCompressionPatchTests();
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, SmoothedTet4PatchTestsTension) {
+TEST_F(ElementPatchAndForceTest, SmoothedTet4PatchTestsTension) {
     RunTensionPatchTests(true);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ElementTest, SmoothedTet4PatchTestsCompression) {
+TEST_F(ElementPatchAndForceTest, SmoothedTet4PatchTestsCompression) {
     RunCompressionPatchTests(true);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 // TODO(jake): Prescribe more of the boundary conditions to get this to work
-// TEST_F(ElementTest, Tet4PatchTestsShearX){
+// TEST_F(ElementPatchAndForceTest, Tet4PatchTestsShearX){
 //    // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
 //    if (m_num_procs > 1) {
 //        return;
@@ -540,7 +590,7 @@ TEST_F(ElementTest, SmoothedTet4PatchTestsCompression) {
 //}
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearYXForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearYXForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -573,7 +623,7 @@ TEST_F(ElementTest, ExplicitShearYXForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zx. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearZXForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearZXForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -606,7 +656,7 @@ TEST_F(ElementTest, ExplicitShearZXForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearXYForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearXYForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -639,7 +689,7 @@ TEST_F(ElementTest, ExplicitShearXYForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zy. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearZYForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearZYForce) {
     // magnitude of the displacement, both positive and negative sides
     double magnitude = 0.1;
 
@@ -672,7 +722,7 @@ TEST_F(ElementTest, ExplicitShearZYForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearXZForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearXZForce) {
     // Exit if the number of processors is not 1
     // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
     // Thus, all DOFs are not constrained and some noise will be present in the fields.
@@ -712,7 +762,7 @@ TEST_F(ElementTest, ExplicitShearXZForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yz. No loads, just two displacement boundary condition. All DOFs are constrained so not a proper patch test.
-TEST_F(ElementTest, ExplicitShearYZForce) {
+TEST_F(ElementPatchAndForceTest, ExplicitShearYZForce) {
     // Exit if the number of processors is not 1
     // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
     // Thus, all DOFs are not constrained and some noise will be present in the fields.

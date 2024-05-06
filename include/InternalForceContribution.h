@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include "Element.h"
 #include "ElementProcessor.h"
@@ -30,6 +31,18 @@ class InternalForceContribution : public ForceContribution {
     InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
 
     /**
+     * @brief Computes the internal forces.
+     *
+     * This function overrides the ComputeForce function from the base class.
+     * It calculates the internal forces for the force contribution.
+     */
+    void ComputeForce() override {
+        assert(m_element != nullptr);
+        // Compute the internal force for all elements
+        m_element->ComputeInternalForceAllElements();
+    }
+
+    /**
      * @brief Gets the Material object associated with the force contribution.
      *
      * @return A shared pointer to the Material object.
@@ -47,37 +60,13 @@ class InternalForceContribution : public ForceContribution {
         return m_part_name;
     }
 
-    /**
-     * @brief Computes the internal forces.
-     *
-     * This function overrides the ComputeForce function from the base class.
-     * It calculates the internal forces for the force contribution.
-     */
-    void ComputeForce() override;
-
-    /**
-     * @brief Creates the element processor associated with the force contribution.
-     */
-    void CreateElementProcessor() {
-        std::array<FieldQueryData, 3> field_query_data_gather_vec;
-        field_query_data_gather_vec[0] = FieldQueryData{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None};
-        field_query_data_gather_vec[1] = FieldQueryData{"displacement", FieldQueryState::NP1};
-        field_query_data_gather_vec[2] = FieldQueryData{"velocity", FieldQueryState::NP1};
-        const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
-
-        const std::vector<std::string> part_names = {m_part_name};
-
-        m_element_processor = std::make_shared<ElementProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
-    }
-
-   private:
-    std::shared_ptr<aperi::Material> m_material;                      ///< A shared pointer to the Material object.
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                     ///< The mesh data associated with the force contribution.
-    std::string m_part_name;                                          ///< The name of the part associated with the force contribution.
-    bool m_use_strain_smoothing;                                      ///< Whether to use strain smoothing.
-    size_t m_num_nodes_per_element;                                   ///< The number of nodes per element.
-    std::shared_ptr<aperi::ElementBase> m_element;                    ///< The element associated with the force contribution.
-    std::shared_ptr<aperi::ElementProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
+   protected:
+    std::shared_ptr<aperi::Material> m_material;    ///< A shared pointer to the Material object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;   ///< The mesh data associated with the force contribution.
+    std::string m_part_name;                        ///< The name of the part associated with the force contribution.
+    size_t m_num_nodes_per_element;                 ///< The number of nodes per element.
+    bool m_use_strain_smoothing;                    ///< A flag indicating whether strain smoothing is used.
+    std::shared_ptr<aperi::ElementBase> m_element;  ///< The element associated with the force contribution.
 };
 
 /**

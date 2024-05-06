@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 
 namespace YAML {
 class Node;

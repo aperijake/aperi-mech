@@ -18,7 +18,8 @@
 namespace aperi {
 
 inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    stk::mesh::Field<double> *field = meta_data->get_field<double>(stk::topology::NODE_RANK, field_query_data.name);
+    stk::topology::rank_t rank = field_query_data.rank == FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
+        stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
     if (field == nullptr) {
         throw std::runtime_error("Field " + field_query_data.name + " not found.");
     }
@@ -46,14 +47,14 @@ struct PrintFieldFunctor {
     KOKKOS_INLINE_FUNCTION void operator()(const double *value) const { printf(" %f\n", *value); }
 };
 
-// A Node processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each degree of freedom of each node
-template <size_t N>
-class NodeProcessor {
+// A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
+template <stk::topology::rank_t Rank, size_t N>
+class EntityProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
-    NodeProcessor(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    EntityProcessor(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -75,8 +76,8 @@ class NodeProcessor {
             m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
         }
         // Warn if the selector is empty.
-        if (m_selector.is_empty(stk::topology::NODE_RANK)) {
-            aperi::CoutP0() << "Warning: NodeProcessor selector is empty." << std::endl;
+        if (m_selector.is_empty(Rank)) {
+            aperi::CoutP0() << "Warning: EntityProcessor selector is empty." << std::endl;
         }
 
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
@@ -144,54 +145,60 @@ class NodeProcessor {
         }
     }
 
-    // Loop over each node and apply the function
+    // Loop over each entity and apply the function
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_each_dof_impl(const Func &func, std::index_sequence<Is...>) {
+    void for_each_component_impl(const Func &func, std::index_sequence<Is...>) {
         // Create an array of ngp fields
         Kokkos::Array<NgpDoubleField, N> fields;
         for (size_t i = 0; i < N; ++i) {
             fields[i] = *m_ngp_fields[i];
         }
-        // Loop over all the nodes
+        // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            m_ngp_mesh, Rank, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                for (size_t j = 0; j < 3; j++) {
+                const size_t num_components = fields[0].get_num_components_per_entity(entity);
+                // assert each other field has same number of components
+                for (size_t i = 1; i < N; i++) {
+                    assert(fields[i].get_num_components_per_entity(entity) == num_components);
+                }
+                for (size_t j = 0; j < num_components; j++) {
                     func(&fields[Is](entity, j)...);
                 }
             });
     }
 
-    // Loop over each node and apply the function to dof i
+    // Loop over each entity and apply the function to component i
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_dof_i_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
+    void for_component_i_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
         // Create an array of ngp fields
         Kokkos::Array<NgpDoubleField, N> fields;
         for (size_t i = 0; i < N; ++i) {
             fields[i] = *m_ngp_fields[i];
         }
-        // Loop over all the nodes
+        // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            m_ngp_mesh, Rank, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 func(&fields[Is](entity, i)...);
             });
     }
 
-    // Loop over each node and apply the function. Just a single field.
+    // Loop over each entity and apply the function. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_each_dof_impl(const Func &func, size_t field_index) {
+    void for_each_component_impl(const Func &func, size_t field_index) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
 
-        // Loop over all the nodes
+        // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            m_ngp_mesh, Rank, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                for (size_t i = 0; i < 3; i++) {
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                for (size_t i = 0; i < num_components; i++) {
                     double *field_ptr = &field(entity, i);
                     KOKKOS_ASSERT(field_ptr != nullptr);
                     func(field_ptr);
@@ -199,15 +206,15 @@ class NodeProcessor {
             });
     }
 
-    // Loop over each node and apply the function to dof i. Just a single field.
+    // Loop over each entity and apply the function to component i. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_dof_i(const Func &func, size_t i, size_t field_index) {
+    void for_component_i(const Func &func, size_t i, size_t field_index) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
-        // Loop over all the nodes
+        // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            m_ngp_mesh, Rank, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 double *field_ptr = &field(entity, i);
                 KOKKOS_ASSERT(field_ptr != nullptr);
@@ -215,95 +222,107 @@ class NodeProcessor {
             });
     }
 
-    // Loop over each node and apply the function. Using host data.
+    // Loop over each entity and apply the function. Using host data.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_each_node_host(const Func &func, const stk::mesh::Selector &selector) const {
+    void for_each_entity_host(const Func &func, const stk::mesh::Selector &selector) const {
         std::array<double *, N> field_data = {};  // Array to hold field data
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
+            const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
+            // assert each other field has same number of components
+            for (size_t i = 1; i < N; i++) {
+                assert(stk::mesh::field_scalars_per_entity(*m_fields[i], *bucket) == num_components);
+            }
             // Get the field data for the bucket
             for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
                 field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
             }
-            // Loop over each node in the bucket
-            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                size_t i_dof_start = i_node * 3;  // Index into the field data, 3 is number of values per node
-                func(i_dof_start, field_data);    // Call the function
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_component_start = i_entity * num_components;  // Index into the field data
+                func(i_component_start, num_components, field_data);    // Call the function
             }
         }
     }
 
     template <typename Func>
-    void for_each_owned_node_host(const Func &func) const {
-        for_each_node_host(func, m_selector & m_bulk_data->mesh_meta_data().locally_owned_part());
+    void for_each_owned_entity_host(const Func &func) const {
+        for_each_entity_host(func, m_selector & m_bulk_data->mesh_meta_data().locally_owned_part());
     }
 
-    // Loop over each node and apply the function to dof i. Using host data.
+    // Loop over each entity and apply the function to component i. Using host data.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_dof_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
-        assert(i < 3 && "i out of bounds");
+    void for_component_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
         std::array<double *, N> field_data;  // Array to hold field data
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
+            const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
+            assert(i < num_components && "i out of bounds");
+            // assert each other field has same number of components
+            for (size_t j = 1; j < N; i++) {
+                assert(stk::mesh::field_scalars_per_entity(*m_fields[j], *bucket) == num_components);
+            }
             // Get the field data for the bucket
             for (size_t j = 0, e = N; j < e; ++j) {
                 field_data[j] = stk::mesh::field_data(*m_fields[j], *bucket);
             }
-            // Loop over each node in the bucket
-            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                size_t i_dof_start = i_node * 3;  // Index into the field data, 3 is number of values per node
-                func(&field_data[Is][i_dof_start + i]...);
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_component_start = i_entity * num_components; // Index into the field data
+                func(&field_data[Is][i_component_start + i]...);
             }
         }
     }
 
     template <typename Func>
-    void for_each_node_host(const Func &func) const {
-        for_each_node_host(func, m_selector);
+    void for_each_entity_host(const Func &func) const {
+        for_each_entity_host(func, m_selector);
     }
 
-    // Just print the value of dof i
-    void print_dof_i(size_t i, size_t field_index = 0) {
+    // Just print the value of component i
+    void print_component_i(size_t i, size_t field_index = 0) {
         auto print_functor = PrintFieldFunctor();
-        for_dof_i(print_functor, i, field_index);
+        for_component_i(print_functor, i, field_index);
     }
 
-    // Just print the value of dof i on the host
-    void print_dof_i_host(size_t i, size_t field_index = 0) const {
+    // Just print the value of component i on the host
+    void print_component_i_host(size_t i, size_t field_index = 0) const {
         double *field_data;
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
+            const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[field_index], *bucket);
+            assert(i < num_components && "i out of bounds");
             // Get the field data for the bucket
             field_data = stk::mesh::field_data(*m_fields[field_index], *bucket);
-            // Loop over each node in the bucket
-            for (size_t i_node = 0; i_node < bucket->size(); i_node++) {
-                size_t i_dof_start = i_node * 3;  // Index into the field data
-                printf(" %f\n", field_data[i_dof_start + i]);
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_component_start = i_entity * num_components;  // Index into the field data
+                printf(" %f\n", field_data[i_component_start + i]);
             }
         }
     }
 
     template <typename Func>
-    void for_each_dof(const Func &func) {
-        for_each_dof_impl(func, std::make_index_sequence<N>{});
+    void for_each_component(const Func &func) {
+        for_each_component_impl(func, std::make_index_sequence<N>{});
     }
 
     template <typename Func>
-    void for_dof_i(const Func &func, size_t i) {
-        for_dof_i_impl(func, i, std::make_index_sequence<N>{});
+    void for_component_i(const Func &func, size_t i) {
+        for_component_i_impl(func, i, std::make_index_sequence<N>{});
     }
 
     template <typename Func>
-    void for_dof_i_host(const Func &func, size_t i) {
-        for_dof_i_host_impl(func, i, std::make_index_sequence<N>{});
+    void for_component_i_host(const Func &func, size_t i) {
+        for_component_i_host_impl(func, i, std::make_index_sequence<N>{});
     }
 
     // Fill the field with a value
     void FillField(double value, size_t field_index) {
         FillFieldFunctor functor(value);
-        for_each_dof_impl(functor, field_index);
+        for_each_component_impl(functor, field_index);
     }
 
    private:
@@ -311,7 +330,19 @@ class NodeProcessor {
     std::vector<DoubleField *> m_fields;              // The fields to process
     stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
     stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
-    stk::mesh::Selector m_selector;                   // The selector for the nodes
+    stk::mesh::Selector m_selector;                   // The selector for the entities
 };
+
+// Node processor
+template <size_t N>
+using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, N>;
+
+// Element processor
+template <size_t N>
+using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, N>;
+
+// Change the aperi::FieldDataRank to stk::topology::rank_t and use the appropriate EntityProcessor
+template <aperi::FieldDataRank Rank, size_t N>
+using AperiEntityProcessor = std::conditional_t<Rank == aperi::FieldDataRank::NODE, NodeProcessor<N>, ElementProcessor<N>>;
 
 }  // namespace aperi

@@ -6,7 +6,7 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 
 namespace aperi {
 
@@ -29,7 +29,7 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
         // Create the functor to fill the field
         auto fill_inital_value_functor = FillInitialValueFunctor(component_and_value.second);
         // Fill the field for the component
-        node_processor.for_dof_i(fill_inital_value_functor, component_and_value.first, 0);
+        node_processor.for_component_i(fill_inital_value_functor, component_and_value.first, 0);
     }
 
     // Mark all fields as modified on the device

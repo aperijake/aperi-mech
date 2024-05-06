@@ -8,7 +8,7 @@
 
 namespace aperi {
 
-static constexpr int tet4_num_nodes = 4;
+static constexpr size_t tet4_num_nodes = 4;
 
 /**
  * @brief Represents an element in a mesh.
@@ -26,7 +26,7 @@ class ElementBase {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    ElementBase(size_t num_nodes) : m_num_nodes(num_nodes), m_element_processor(nullptr), m_material(nullptr) {}
+    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_material(material) {}
 
     /**
      * @brief Gets the number of nodes in the element.
@@ -64,15 +64,6 @@ class ElementBase {
     virtual void ComputeInternalForceAllElements() = 0;
 
     /**
-     * @brief Sets the element processor associated with the force contribution.
-     *
-     * @param element_processor The element processor associated with the force contribution.
-     */
-    void SetElementProcessor(std::shared_ptr<aperi::ElementProcessor<3>> element_processor) {
-        m_element_processor = element_processor;
-    }
-
-    /**
      * @brief Sets the material of the element.
      *
      * @param material The material of the element.
@@ -83,7 +74,6 @@ class ElementBase {
 
    protected:
     size_t m_num_nodes;                                               ///< The number of nodes in the element.
-    std::shared_ptr<aperi::ElementProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
     std::shared_ptr<Material> m_material;                             ///< The material of the element.
 };
 

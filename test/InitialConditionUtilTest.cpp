@@ -7,7 +7,7 @@
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for InitialConditionUtil tests
@@ -18,9 +18,9 @@ class InitialConditionUtilTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.push_back({"velocity", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"displacement", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
-        m_field_data.push_back({"acceleration", aperi::FieldDataType::VECTOR, 2, {0.0, 0.0, 0.0}});
+        m_field_data.push_back(aperi::FieldData("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
+        m_field_data.push_back(aperi::FieldData("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
+        m_field_data.push_back(aperi::FieldData("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
     }
 
     void TearDown() override {
@@ -93,7 +93,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
     // Check the field values
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test AddInitialConditions function with valid input, using component values instead of vector
@@ -118,7 +118,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInputComponentValues) 
     AddTestInitialConditions();
 
     // Check the field values
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test initial conditions on multiple sets
@@ -145,10 +145,10 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsMultipleSets) {
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
     // Check the field values for the first set
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
 
     // Check the field values for the second set
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test Adding two initial conditions
@@ -189,7 +189,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     EXPECT_GT(expected_values_1[0] * expected_values_1[0] + expected_values_1[1] * expected_values_1[1] + expected_values_1[2] * expected_values_1[2], 0.0);
 
     // Check the field values for the first set
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values_1);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values_1, aperi::FieldQueryState::N);
 
     // Get the initial condition values
     double magnitude_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["magnitude"].as<double>();
@@ -198,7 +198,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     EXPECT_GT(expected_values_2[0] * expected_values_2[0] + expected_values_2[1] * expected_values_2[1] + expected_values_2[2] * expected_values_2[2], 0.0);
 
     // Check the field values for the second set
-    CheckNodeFieldValues(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values_2);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values_2, aperi::FieldQueryState::N);
 }
 
 // Test AddInitialConditions function with invalid type

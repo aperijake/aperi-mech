@@ -7,7 +7,7 @@
 #include "IoInputFile.h"
 #include "Material.h"
 #include "MeshData.h"
-#include "NodeProcessor.h"
+#include "EntityProcessor.h"
 
 namespace YAML {
 class Node;
@@ -112,7 +112,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
             // Create the functor to compute the gravity force
             ComputeGravityForceFunctor compute_gravity_force_functor(component_value.second);
             // Compute the gravity force for the component
-            m_node_processor->for_dof_i(compute_gravity_force_functor, component_value.first);
+            m_node_processor->for_component_i(compute_gravity_force_functor, component_value.first);
         }
         m_node_processor->MarkFieldModifiedOnDevice(0);
     }

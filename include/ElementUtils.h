@@ -45,10 +45,15 @@ struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &force) const {
-        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = field_data_to_gather[0];
-        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = field_data_to_gather[1];
-        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = field_data_to_gather[2];
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_nodes) const {
+        // Throw an error, not implemented
+        assert(false);
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_nodes) const {
+        const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
+        const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
+        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
@@ -59,6 +64,7 @@ struct ComputeInternalForceFunctor {
 
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
+            // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
             // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
             // E = 0.5 * (H + H^T + H^T * H)
@@ -82,6 +88,50 @@ struct ComputeInternalForceFunctor {
 
     FunctionsFunctor &m_functions_functor;      ///< Functor for computing the shape function values and derivatives
     IntegrationFunctor &m_integration_functor;  ///< Functor for computing the B matrix and integration weight
+    StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
+};
+
+template <size_t MaxNumNodes, typename StressFunctor>
+struct FlexibleComputeInternalForceFunctor {
+    FlexibleComputeInternalForceFunctor(StressFunctor &stress_functor)
+        : m_stress_functor(stress_functor) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_nodes) const {
+        // Throw an error, not implemented
+        assert(false);
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_nodes) const {
+        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_coordinates = gathered_node_data[0]; // Not used when derivatives are precomputed
+        const Eigen::Matrix<double, MaxNumNodes, 3> &node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
+        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[2];
+
+        force.fill(0.0);
+
+        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_nodes, 3);
+        // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
+
+        // Compute displacement gradient
+        const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix;
+
+        // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
+        // E = 0.5 * (H + H^T + H^T * H)
+        const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
+
+        // Green Lagrange strain tensor in voigt notation
+        Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
+        green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
+
+        // Compute the stress and internal force of the element.
+        const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
+
+        for (size_t i = 0; i < MaxNumNodes; ++i) {
+            // Compute (B_I F)^T
+            const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
+
+            force.row(i) -= (bF_IT * stress).transpose() * volume;
+        }
+    }
     StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
 };
 
@@ -124,6 +174,7 @@ struct Quadrature {
     Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
 };
 
+// For meshfree, NumFunctions is unknown at compile time
 template <size_t NumFunctions>
 struct SmoothedQuadrature {
     KOKKOS_INLINE_FUNCTION SmoothedQuadrature() {
@@ -168,10 +219,10 @@ struct SmoothedQuadrature {
             volume += node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, NumFunctions, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
+            const Eigen::Matrix<double, NumFunctions /*num functions on element*/, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
-            for (size_t k = 0; k < NumFunctions; ++k) {
+            for (size_t k = 0; k < NumFunctions /*num functions on element*/; ++k) {
                 b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
             }
         }

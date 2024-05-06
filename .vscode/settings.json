@@ -152,7 +152,7 @@
     ]
   },
   "gtest-adapter.debugConfig": [
-    "Debug Test"
+    "Release Test"
 ],
   "gtest-adapter.supportLocation": true
 }

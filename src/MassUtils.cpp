@@ -31,9 +31,9 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const
     std::array<FieldQueryData, 1> field_query_data_gather_vec = {FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
     FieldQueryData field_query_data_scatter = {"mass", FieldQueryState::None};
 
-    ElementProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+    ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
     ComputeMassFunctor compute_mass_functor{density, nodes_per_element};
-    element_processor.for_each_element_host<4>(compute_mass_functor);  // Can be on device as well. Would need to change the summing and printing below
+    element_processor.for_each_element_host_gather_scatter_nodal_data<4>(compute_mass_functor);  // Can be on device as well. Would need to change the summing and printing below
 
     // Parallel sum
     double mass_sum_global = element_processor.GetFieldToScatterSum() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
