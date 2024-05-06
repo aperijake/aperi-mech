@@ -264,6 +264,11 @@ TEST_F(SolverTest, BenchmarkTaylorImpact1) {
     // Number of node-steps
     size_t num_node_steps = 8e7;
 
+    // If running on GPU, increase the number of node-steps
+    if (Kokkos::DefaultExecutionSpace::concurrency() > 1) {
+        num_node_steps *= 10;
+    }
+
     // Number of refinements and refinement factor
     size_t num_refinements = 5;
     size_t refinement_factor = 2;

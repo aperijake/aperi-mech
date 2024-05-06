@@ -45,6 +45,11 @@ struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_nodes) const {
+        // Throw an error, not implemented
+        assert(false);
+    }
+
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_nodes) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
@@ -91,18 +96,23 @@ struct FlexibleComputeInternalForceFunctor {
     FlexibleComputeInternalForceFunctor(StressFunctor &stress_functor)
         : m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, Eigen::Matrix<double, 3, MaxNumNodes> &B, double volume, size_t actual_num_nodes) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_nodes) const {
+        // Throw an error, not implemented
+        assert(false);
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_nodes) const {
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_coordinates = gathered_node_data[0]; // Not used when derivatives are precomputed
         const Eigen::Matrix<double, MaxNumNodes, 3> &node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
-        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = B.block(0, 0, actual_num_nodes, 3);
+        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_nodes, 3);
         // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
         // Compute displacement gradient
-        const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * B;
+        const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix;
 
         // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
         // E = 0.5 * (H + H^T + H^T * H)
@@ -117,7 +127,7 @@ struct FlexibleComputeInternalForceFunctor {
 
         for (size_t i = 0; i < MaxNumNodes; ++i) {
             // Compute (B_I F)^T
-            const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(B.row(i), displacement_gradient);
+            const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
 
             force.row(i) -= (bF_IT * stress).transpose() * volume;
         }

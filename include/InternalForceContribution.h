@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include "Element.h"
 #include "ElementProcessor.h"
@@ -16,7 +17,7 @@ namespace aperi {
  * @brief Represents an internal force contribution.
  *
  * This class inherits from the base class ForceContribution and provides
- * functionality to compute internal forces.
+ * functionality to compute internal forces. It is a base class for all internal force contributions.
  */
 class InternalForceContribution : public ForceContribution {
    public:
@@ -27,7 +28,14 @@ class InternalForceContribution : public ForceContribution {
      * @param mesh_data A shared pointer to the MeshData object associated with the force contribution.
      * @param part_name The name of the part associated with the force contribution.
      */
-    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
+    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false)
+        : m_material(material), m_mesh_data(mesh_data), m_part_name(part_name), m_use_strain_smoothing(use_strain_smoothing) {
+        // Get the number of nodes per element
+        m_num_nodes_per_element = m_mesh_data->GetNumNodesPerElement(part_name);
+        if (m_num_nodes_per_element != 4) {
+            throw std::runtime_error("Unsupported element topology");
+        }
+    }
 
     /**
      * @brief Gets the Material object associated with the force contribution.
@@ -47,42 +55,80 @@ class InternalForceContribution : public ForceContribution {
         return m_part_name;
     }
 
+   protected:
+    std::shared_ptr<aperi::Material> m_material;                      ///< A shared pointer to the Material object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                     ///< The mesh data associated with the force contribution.
+    std::string m_part_name;                                          ///< The name of the part associated with the force contribution.
+    size_t m_num_nodes_per_element;                                   ///< The number of nodes per element.
+    bool m_use_strain_smoothing;                                      ///< A flag indicating whether strain smoothing is used.
+};
+
+/**
+ * @brief Represents an internal force contribution. No precomputation of functions is done.
+ *
+ * This class inherits from the base class InternalForceContribution and provides
+ * functionality to compute internal forces. Function derivatives are computed each
+ * time the ComputeForce function is called (commonly done for FEA).
+ */
+class InternalForceContributionNoPrecompute : public InternalForceContribution {
+   public:
+    /**
+     * @brief Constructs an InternalForceContributionNoPrecompute object.
+     *
+     * @param material A shared pointer to the Material object associated with the force contribution.
+     * @param mesh_data A shared pointer to the MeshData object associated with the force contribution.
+     * @param part_name The name of the part associated with the force contribution.
+     */
+    InternalForceContributionNoPrecompute(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
+
     /**
      * @brief Computes the internal forces.
      *
      * This function overrides the ComputeForce function from the base class.
      * It calculates the internal forces for the force contribution.
      */
-    void ComputeForce() override;
-
-    /**
-     * @brief Creates the element processor associated with the force contribution.
-     */
-    void CreateElementProcessor(bool use_precomputed_values = false) {
-        std::array<FieldQueryData, 3> field_query_data_gather_vec;
-        field_query_data_gather_vec[0] = FieldQueryData{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None};
-        field_query_data_gather_vec[1] = FieldQueryData{"displacement", FieldQueryState::NP1};
-        field_query_data_gather_vec[2] = FieldQueryData{"velocity", FieldQueryState::NP1};
-        const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
-
-        const std::vector<std::string> part_names = {m_part_name};
-
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
-        // if (use_precomputed_values) {
-        //     m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, true>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
-        // } else {
-        //     m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, false>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
-        // }
+    void ComputeForce() override {
+        assert(m_element != nullptr);
+        // Compute the internal force for all elements
+        m_element->ComputeInternalForceAllElements();
     }
 
    private:
-    std::shared_ptr<aperi::Material> m_material;                      ///< A shared pointer to the Material object.
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                     ///< The mesh data associated with the force contribution.
-    std::string m_part_name;                                          ///< The name of the part associated with the force contribution.
-    bool m_use_strain_smoothing;                                      ///< Whether to use strain smoothing.
-    size_t m_num_nodes_per_element;                                   ///< The number of nodes per element.
-    std::shared_ptr<aperi::ElementBase> m_element;                    ///< The element associated with the force contribution.
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<3>> m_element_processor;  ///< The element processor associated with the force contribution.
+    std::shared_ptr<aperi::ElementBase> m_element;  ///< The element associated with the force contribution.
+};
+
+/**
+ * @brief Represents an internal force contribution. Precomputation of functions is done.
+ *
+ * This class inherits from the base class InternalForceContribution and provides
+ * functionality to compute internal forces for finite element analysis. Function
+ * derivatives are precomputed and stored in field data objects.
+ */
+class InternalForceContributionPrecompute : public InternalForceContribution {
+   public:
+    /**
+     * @brief Constructs an InternalForceContributionPrecompute object.
+     *
+     * @param material A shared pointer to the Material object associated with the force contribution.
+     * @param mesh_data A shared pointer to the MeshData object associated with the force contribution.
+     * @param part_name The name of the part associated with the force contribution.
+     */
+    InternalForceContributionPrecompute(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
+
+    /**
+     * @brief Computes the internal forces.
+     *
+     * This function overrides the ComputeForce function from the base class.
+     * It calculates the internal forces for the force contribution.
+     */
+    void ComputeForce() override {
+        assert(m_element != nullptr);
+        // Compute the internal force for all elements
+        m_element->ComputeInternalForceAllElements();
+    }
+
+   private:
+    std::shared_ptr<aperi::ElementBase> m_element;  ///< The element associated with the force contribution.
 };
 
 /**
@@ -97,7 +143,13 @@ class InternalForceContribution : public ForceContribution {
  * @return A shared pointer to the created InternalForceContribution object.
  */
 inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false) {
-    return std::make_shared<InternalForceContribution>(material, mesh_data, part_name, use_strain_smoothing);
+    // Hard-coding precomputing to use_strain_smoothing for now. TODO(jake): Implement input for this or remove an option.
+    if (use_strain_smoothing) {
+        return std::make_shared<InternalForceContributionPrecompute>(material, mesh_data, part_name, use_strain_smoothing);
+    } else {
+        return std::make_shared<InternalForceContributionNoPrecompute>(material, mesh_data, part_name, use_strain_smoothing);
+    }
+    return nullptr;
 }
 
 }  // namespace aperi

@@ -40,7 +40,8 @@ class ElementGatherScatterProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementGatherScatterProcessor(const std::array<FieldQueryData, N> field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    template<typename T>
+    ElementGatherScatterProcessor(const T& field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -195,10 +196,10 @@ class ElementGatherScatterProcessor {
                 }
 
                 // Build the B matrix
-                Eigen::Matrix<double, 3, NumNodes> B;
+                Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        B(j, i) = ngp_function_derivatives_fields[j](elem_index, i);
+                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
                     }
                 }
 
@@ -211,7 +212,7 @@ class ElementGatherScatterProcessor {
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
+                        Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
                     }
                 }
             });
@@ -221,9 +222,9 @@ class ElementGatherScatterProcessor {
     template <size_t NumNodes, typename Func>
     void for_each_element_gather_scatter_nodal_data(const Func &func) {
         if constexpr (UsePrecomputedDerivatives) {
-            for_each_element_gather_scatter_nodal_data_precomputed<NumNodes>(func);
+            for_each_element_gather_scatter_nodal_data_precomputed<NumNodes, Func>(func);
         } else {
-            for_each_element_gather_scatter_nodal_data_not_precomputed<NumNodes>(func);
+            for_each_element_gather_scatter_nodal_data_not_precomputed<NumNodes, Func>(func);
         }
     }
 

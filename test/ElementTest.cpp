@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Dense>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "ApplicationTestFixture.h"
@@ -130,16 +133,14 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
     // Make an element processor
-    std::array<aperi::FieldQueryData, 3> field_query_data_gather_vec; // not used, but needed for the constructor. TODO(jake) change this?
+    std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3); // not used, but needed for the constructor. TODO(jake) change this?
     field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
     field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
     field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-    const aperi::FieldQueryData field_query_data_scatter = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};  // not used
     const std::vector<std::string> part_names = {"block_1"};
-    auto element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, mesh_data, part_names);
 
     // Create the element
-    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, use_strain_smoothing, store_shape_function_derivatives, element_processor);
+    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, field_query_data_gather_vec, part_names, mesh_data, use_strain_smoothing, store_shape_function_derivatives);
 
     std::array<aperi::FieldQueryData, 5> elem_field_query_data_gather_vec;
     elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
