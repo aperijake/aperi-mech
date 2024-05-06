@@ -117,6 +117,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
 
         // Create the compute force functor
         ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionsFunctor, SmoothedQuadrature<tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *m_material->GetStressFunctor());
+        //FlexibleComputeInternalForceFunctor<tet4_num_nodes, Material::StressFunctor> flexible_compute_force_functor(*m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element_gather_scatter_nodal_data<tet4_num_nodes>(compute_force_functor);

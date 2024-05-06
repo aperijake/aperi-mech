@@ -27,7 +27,7 @@ namespace aperi {
  * This class provides functionality to process elements in a mesh.
  * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
  */
-template <size_t N>
+template <size_t N, bool UsePrecomputedDerivatives = false>
 class ElementGatherScatterProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
@@ -74,11 +74,32 @@ class ElementGatherScatterProcessor {
         }
         m_field_to_scatter = StkGetField(field_query_data_scatter, meta_data);
         m_ngp_field_to_scatter = &stk::mesh::get_updated_ngp_field<double>(*m_field_to_scatter);
+
+        if constexpr (UsePrecomputedDerivatives) {
+            // Get the element volume field
+            m_element_volume = StkGetField(FieldQueryData{"volume", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
+
+            // Get the function derivatives fields
+            std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+            for (size_t i = 0; i < 3; ++i) {
+                m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+                m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
+            }
+
+            // Get the number of neighbors field
+            m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+
+            // Get the neighbors field
+            m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+        }
     }
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data(const Func &func) {
+    void for_each_element_gather_scatter_nodal_data_not_precomputed(const Func &func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
@@ -122,9 +143,97 @@ class ElementGatherScatterProcessor {
             });
     }
 
+    // Loop over each element and apply the function
+    template <size_t NumNodes, typename Func>
+    void for_each_element_gather_scatter_nodal_data_precomputed(const Func &func) {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
+        for (size_t i = 0; i < N; ++i) {
+            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
+        }
+
+        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
+
+        auto ngp_element_volume = *m_ngp_element_volume;
+
+        Kokkos::Array<NgpDoubleField, 3> ngp_function_derivatives_fields;
+        for (size_t i = 0; i < 3; ++i) {
+            ngp_function_derivatives_fields[i] = *m_ngp_function_derivatives_fields[i];
+        }
+
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+
+        // Loop over all the buckets
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the number of neighbors
+                size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
+
+                // Get the neighbors
+                Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
+                    nodes[i] = ngp_mesh.fast_mesh_index(entity);
+                }
+
+                // Set up the field data to gather
+                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
+
+                // Set up the results matrix
+                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
+
+                // Gather the field data for each node
+                for (size_t f = 0; f < N; ++f) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        for (size_t j = 0; j < 3; ++j) {
+                            field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](nodes[i], j);
+                        }
+                    }
+                }
+
+                // Build the B matrix
+                Eigen::Matrix<double, 3, NumNodes> B;
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    for (size_t j = 0; j < 3; ++j) {
+                        B(j, i) = ngp_function_derivatives_fields[j](elem_index, i);
+                    }
+                }
+
+                // Get the element volume
+                double element_volume = ngp_element_volume(elem_index, 0);
+
+                // Apply the function to the gathered data
+                func(field_data_to_gather, results_to_scatter, B, element_volume, num_nodes);
+
+                // Scatter the force to the nodes
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    for (size_t j = 0; j < 3; ++j) {
+                        Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
+                    }
+                }
+            });
+    }
+
+    // Loop over each element and apply the function
+    template <size_t NumNodes, typename Func>
+    void for_each_element_gather_scatter_nodal_data(const Func &func) {
+        if constexpr (UsePrecomputedDerivatives) {
+            for_each_element_gather_scatter_nodal_data_precomputed<NumNodes>(func);
+        } else {
+            for_each_element_gather_scatter_nodal_data_not_precomputed<NumNodes>(func);
+        }
+    }
+
     // Loop over each element and apply the function on host data
     template <size_t NumNodes, typename Func>
     void for_each_element_host_gather_scatter_nodal_data(const Func &func) {
+        // Throw if trying to use precomputed derivatives
+        if constexpr (UsePrecomputedDerivatives) {
+            throw std::invalid_argument("for_each_element_host_gather_scatter_nodal_data does not support precomputed derivatives.");
+        }
         // Set up the field data to gather
         Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
         for (size_t f = 0; f < N; ++f) {
@@ -185,15 +294,23 @@ class ElementGatherScatterProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;             // The mesh data object.
-    std::vector<std::string> m_sets;                          // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
-    stk::mesh::Selector m_selector;                           // The selector
-    stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
-    std::array<DoubleField *, N> m_fields_to_gather;          // The fields to gather
-    DoubleField *m_field_to_scatter;                          // The field to scatter
-    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;  // The ngp fields to gather
-    NgpDoubleField *m_ngp_field_to_scatter;                     // The ngp field to scatter
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
+    std::vector<std::string> m_sets;                                       // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
+    stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
+    std::array<DoubleField *, N> m_fields_to_gather;                       // The fields to gather
+    DoubleField *m_field_to_scatter;                                       // The field to scatter
+    DoubleField *m_element_volume;                                         // The element volume field
+    std::array<DoubleField *, 3> m_function_derivatives_fields;            // The function derivatives fields
+    DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
+    DoubleField *m_neighbors_field;                                        // The neighbors field
+    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;             // The ngp fields to gather
+    NgpDoubleField *m_ngp_field_to_scatter;                                // The ngp field to scatter
+    NgpDoubleField *m_ngp_element_volume;                                  // The ngp element volume field
+    Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
+    NgpDoubleField *m_ngp_num_neighbors_field;                             // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_neighbors_field;                                 // The ngp neighbors field
 };
 
 class MeshNeighborSearchProcessor {

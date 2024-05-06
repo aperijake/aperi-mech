@@ -14,11 +14,14 @@ InternalForceContribution::InternalForceContribution(std::shared_ptr<Material> m
         throw std::runtime_error("Unsupported element topology");
     }
 
+    // TODO(jake): Either implement input for this or hardcode it
+    bool use_precomputed_derivatives = false;
+
     // Create the element processor
-    CreateElementProcessor();
+    CreateElementProcessor(use_precomputed_derivatives);
 
     // Create the element.
-    m_element = CreateElement(m_num_nodes_per_element, m_use_strain_smoothing, false, m_element_processor, m_material);
+    m_element = CreateElement(m_num_nodes_per_element, m_use_strain_smoothing, use_precomputed_derivatives, m_element_processor, m_material);
 }
 
 void InternalForceContribution::ComputeForce() {

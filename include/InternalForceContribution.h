@@ -58,7 +58,7 @@ class InternalForceContribution : public ForceContribution {
     /**
      * @brief Creates the element processor associated with the force contribution.
      */
-    void CreateElementProcessor() {
+    void CreateElementProcessor(bool use_precomputed_values = false) {
         std::array<FieldQueryData, 3> field_query_data_gather_vec;
         field_query_data_gather_vec[0] = FieldQueryData{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None};
         field_query_data_gather_vec[1] = FieldQueryData{"displacement", FieldQueryState::NP1};
@@ -68,6 +68,11 @@ class InternalForceContribution : public ForceContribution {
         const std::vector<std::string> part_names = {m_part_name};
 
         m_element_processor = std::make_shared<ElementGatherScatterProcessor<3>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
+        // if (use_precomputed_values) {
+        //     m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, true>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
+        // } else {
+        //     m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, false>>(field_query_data_gather_vec, field_query_data_scatter, m_mesh_data, part_names);
+        // }
     }
 
    private:
