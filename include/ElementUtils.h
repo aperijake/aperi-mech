@@ -132,7 +132,7 @@ struct FlexibleComputeInternalForceFunctor {
             force.row(i) -= (bF_IT * stress).transpose() * volume;
         }
     }
-    StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material
+    StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };
 
 // Functor for 1-pt gauss quadrature on a tetrahedron

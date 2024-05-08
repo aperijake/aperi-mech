@@ -18,7 +18,6 @@
 // Fixture for ElementBase tests
 class ElementBasicsTest : public ::testing::Test {
    protected:
-
     // Check partition of unity
     void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
         // Check the partition of unity
@@ -117,8 +116,7 @@ TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 }
 
-
-TEST_F(ElementBasicsTest, SmoothedTet4Storing){
+TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
     bool use_strain_smoothing = true;
     bool store_shape_function_derivatives = true;
@@ -133,7 +131,7 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
     // Make an element processor
-    std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3); // not used, but needed for the constructor. TODO(jake) change this?
+    std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3);  // not used, but needed for the constructor. TODO(jake) change this?
     field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
     field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
     field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
@@ -164,7 +162,6 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing){
     CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);
     CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", {0.0}, aperi::FieldQueryState::None);
     CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", {0.0}, aperi::FieldQueryState::None);
-
 }
 
 // Fixture for ElementBase patch tests

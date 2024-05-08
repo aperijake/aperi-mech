@@ -46,7 +46,7 @@ class ElementTetrahedron4 : public ElementBase {
      */
     void CreateElementProcessor() {
         // Create the element processor
-        if (!m_mesh_data){
+        if (!m_mesh_data) {
             // Allowing for testing
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
             return;

@@ -86,6 +86,7 @@ Successfully installed on an Azure [NC4as T4 v3](https://learn.microsoft.com/en-
 - `cmake@3.27.19`
 
 The commands for a GPU build are:
+
 ```bash
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
@@ -101,6 +102,7 @@ spack install --fresh
 ```
 
 And, the commands for a CPU build are:
+
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen

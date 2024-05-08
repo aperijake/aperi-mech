@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-
 #include "ElementBase.h"
 #include "ElementProcessor.h"
 #include "ElementUtils.h"

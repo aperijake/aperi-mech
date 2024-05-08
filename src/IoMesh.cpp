@@ -125,7 +125,6 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     }
 
     for (const FieldData &field : field_data) {
-
         // Get the topology. TODO(jake): Move this to a separate function, general location
         stk::topology::rank_t rank;
         if (field.data_rank == FieldDataRank::NODE) {

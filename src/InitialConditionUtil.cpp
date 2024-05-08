@@ -2,11 +2,11 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include "EntityProcessor.h"
 #include "IoInputFile.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 
 namespace aperi {
 

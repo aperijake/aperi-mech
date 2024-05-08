@@ -4,8 +4,8 @@
 #include <memory>
 #include <vector>
 
-#include "MeshData.h"
 #include "EntityProcessor.h"
+#include "MeshData.h"
 
 namespace YAML {
 class Node;

@@ -4,6 +4,7 @@
 #include <numeric>
 
 #include "BoundaryCondition.h"
+#include "EntityProcessor.h"
 #include "ExternalForceContribution.h"
 #include "FieldData.h"
 #include "InternalForceContribution.h"
@@ -13,7 +14,6 @@
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
 

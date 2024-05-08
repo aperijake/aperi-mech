@@ -160,7 +160,7 @@ TEST_F(SolverTest, ExplicitBoundaryConditionsTwoSets) {
     std::array<double, 3> expected_velocity_1 = {expected_displacement_1[0] / final_time, expected_displacement_1[1] / final_time, expected_displacement_1[2] / final_time};
     std::array<double, 3> expected_acceleration_1 = {0, 0, 0};
 
-    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_1, aperi::FieldQueryState::N); 
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_1, aperi::FieldQueryState::N);
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_1, aperi::FieldQueryState::N);
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "acceleration", expected_acceleration_1, aperi::FieldQueryState::N);
 

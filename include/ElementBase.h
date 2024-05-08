@@ -73,8 +73,8 @@ class ElementBase {
     }
 
    protected:
-    size_t m_num_nodes;                                               ///< The number of nodes in the element.
-    std::shared_ptr<Material> m_material;                             ///< The material of the element.
+    size_t m_num_nodes;                    ///< The number of nodes in the element.
+    std::shared_ptr<Material> m_material;  ///< The material of the element.
 };
 
 /**

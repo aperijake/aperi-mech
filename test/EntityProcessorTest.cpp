@@ -10,9 +10,9 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Types.hpp>
 
+#include "EntityProcessor.h"
 #include "FieldData.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 #include "UnitTestUtils.h"
 
 typedef stk::mesh::Field<double> DoubleField;

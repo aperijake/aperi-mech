@@ -26,7 +26,6 @@ enum class FieldDataRank { NODE,
  * @brief Represents the data of a field.
  */
 struct FieldData {
-
     // For non-custom fields
     FieldData(std::string name_in, FieldDataType data_type_in, FieldDataRank data_rank_in, size_t number_of_states_in, std::vector<double> initial_values_in = {})
         : name(name_in), data_type(data_type_in), data_rank(data_rank_in), number_of_states(number_of_states_in), initial_values(initial_values_in) {
@@ -63,8 +62,8 @@ struct FieldData {
     std::string name;                    ///< The name of the field.
     FieldDataType data_type;             ///< The data type of the field.
     FieldDataRank data_rank;             ///< The rank of the field.
-    size_t number_of_states;                ///< The number of states of the field.
-    size_t number_of_components;            ///< The number of components of the field.
+    size_t number_of_states;             ///< The number of states of the field.
+    size_t number_of_components;         ///< The number of components of the field.
     std::vector<double> initial_values;  ///< The initial values of the field. Only used to apply to entire mesh. Not used for individual sets.
 };
 

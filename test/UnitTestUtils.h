@@ -8,9 +8,9 @@
 #include <string>
 #include <vector>
 
+#include "EntityProcessor.h"
 #include "FieldData.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 
 namespace aperi {
 class IoMesh;

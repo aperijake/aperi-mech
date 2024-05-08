@@ -14,10 +14,10 @@
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_topology/topology.hpp>
 
+#include "EntityProcessor.h"  // Include EntityProcessor.h to use StkGetField. TODO(jake): Move StkGetField to a separate file.
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"  // Include EntityProcessor.h to use StkGetField. TODO(jake): Move StkGetField to a separate file.
 
 namespace aperi {
 
@@ -40,8 +40,8 @@ class ElementGatherScatterProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    template<typename T>
-    ElementGatherScatterProcessor(const T& field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    template <typename T>
+    ElementGatherScatterProcessor(const T &field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -315,7 +315,7 @@ class ElementGatherScatterProcessor {
 };
 
 class MeshNeighborSearchProcessor {
-    typedef stk::mesh::Field<double> DoubleField; // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:

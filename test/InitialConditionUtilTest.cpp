@@ -3,11 +3,11 @@
 #include <vector>
 
 #include "ApplicationTestFixture.h"
+#include "EntityProcessor.h"
 #include "FieldData.h"
 #include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 #include "yaml-cpp/yaml.h"
 
 // Fixture for InitialConditionUtil tests

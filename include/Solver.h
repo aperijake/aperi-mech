@@ -3,9 +3,9 @@
 #include <memory>
 #include <vector>
 
+#include "EntityProcessor.h"
 #include "IoMesh.h"
 #include "MeshData.h"
-#include "EntityProcessor.h"
 
 namespace aperi {
 

@@ -19,7 +19,7 @@ namespace aperi {
 
 inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
     stk::topology::rank_t rank = field_query_data.rank == FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
-        stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
+    stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
     if (field == nullptr) {
         throw std::runtime_error("Field " + field_query_data.name + " not found.");
     }
@@ -241,7 +241,7 @@ class EntityProcessor {
             // Loop over each entity in the bucket
             for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
                 size_t i_component_start = i_entity * num_components;  // Index into the field data
-                func(i_component_start, num_components, field_data);    // Call the function
+                func(i_component_start, num_components, field_data);   // Call the function
             }
         }
     }
@@ -270,7 +270,7 @@ class EntityProcessor {
             }
             // Loop over each entity in the bucket
             for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
-                size_t i_component_start = i_entity * num_components; // Index into the field data
+                size_t i_component_start = i_entity * num_components;  // Index into the field data
                 func(&field_data[Is][i_component_start + i]...);
             }
         }
