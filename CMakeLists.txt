@@ -88,9 +88,7 @@ find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
 find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib)
 find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include)
 find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib)
-IF(GPU)
-    find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
-ENDIF()
+find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
 
 ### aperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
@@ -98,30 +96,17 @@ list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 
 add_library(aperimech ${LIB_SOURCES})
 
-if(GPU)
-    target_link_libraries(aperimech
-        yaml-cpp
-        Eigen3::Eigen
-        ${MFEM_LIBRARY}
-        ${Trilinos_LIBRARIES}
-        ${Trilinos_TPL_LIBRARIES}
-        ${MPI_LIBRARIES}
-        ${EXTRA_LIBS}
-        Kokkos::kokkos
-        Compadre::compadre
-    )
-else()
-    target_link_libraries(aperimech
-        yaml-cpp
-        Eigen3::Eigen
-        ${MFEM_LIBRARY}
-        ${Trilinos_LIBRARIES}
-        ${Trilinos_TPL_LIBRARIES}
-        ${MPI_LIBRARIES}
-        ${EXTRA_LIBS}
-        Kokkos::kokkos
-    )
-endif()
+target_link_libraries(aperimech
+    yaml-cpp
+    Eigen3::Eigen
+    ${MFEM_LIBRARY}
+    ${Trilinos_LIBRARIES}
+    ${Trilinos_TPL_LIBRARIES}
+    ${MPI_LIBRARIES}
+    ${EXTRA_LIBS}
+    Kokkos::kokkos
+    Compadre::compadre
+)
 
 target_include_directories(aperimech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
@@ -162,9 +147,6 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
-if (NOT GPU)
-    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/CompadreTest.cpp")
-endif()
 
 # Add an executable for the unit tests
 add_executable(unit_tests

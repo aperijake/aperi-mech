@@ -35,7 +35,7 @@ double trueSolution(double x, double y, double z, int order, int dimension) {
         }
     }
     return ans;
-};
+}
 
 KOKKOS_INLINE_FUNCTION
 void samplingManufacturedSolution(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device,
