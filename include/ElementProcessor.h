@@ -408,19 +408,35 @@ class MeshNeighborSearchProcessor {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the element's nodes
+                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
+                size_t num_nodes = nodes.size();
+                assert(num_nodes == 4); // TODO(jake): Support other element topologies. (tet4 is hardcoded here.)
+
+                // Set up the field data to gather
+                Eigen::Matrix<double, 4 /*tet4 hard code for now*/, 3> cell_node_coordinates;
+
+                // Gather the field data for each node
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
+                    for (size_t j = 0; j < 3; ++j) {
+                        cell_node_coordinates(i, j) = ngp_coordinates_field(node_index, j);
+                    }
+                }
+
                 size_t num_neighbors = ngp_num_neighbors_field(elem_index, 0);
-                Eigen::Matrix<double, NumNodes, 3> coordinates;
+                Eigen::Matrix<double, NumNodes, 3> neighbor_coordinates;
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
                     // Get the neighbor's coordinates
                     for (size_t j = 0; j < 3; ++j) {
-                        coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
+                        neighbor_coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
                     }
                 }
                 assert(integration_functor->NumGaussPoints() == 1);
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(coordinates, *functions_functor, 0);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, *functions_functor, 0);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
                 for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {

@@ -46,8 +46,7 @@ struct ComputeInternalForceFunctor {
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_nodes) const {
-        // Throw an error, not implemented
-        assert(false);
+        Kokkos::abort("Not implemented");
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_nodes) const {
@@ -97,8 +96,7 @@ struct FlexibleComputeInternalForceFunctor {
         : m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_nodes) const {
-        // Throw an error, not implemented
-        assert(false);
+        Kokkos::abort("Not implemented");
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_nodes) const {
@@ -142,6 +140,13 @@ struct Quadrature {
 
     // Compute the B matrix and integration weight for a given gauss point
     template <typename FunctionFunctor>
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &cell_node_coordinates, const Eigen::Matrix<double, 4, 3> &neighbor_node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
+        Kokkos::abort("Not implemented");
+        return Kokkos::make_pair(Eigen::Matrix<double, NumFunctions, 3>::Zero(), 0.0);
+    }
+
+    // Compute the B matrix and integration weight for a given gauss point
+    template <typename FunctionFunctor>
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
         assert((size_t)gauss_id <= NumQuadPoints);
 
@@ -175,7 +180,7 @@ struct Quadrature {
 };
 
 // For meshfree, NumFunctions is unknown at compile time
-template <size_t NumFunctions>
+template <size_t MaxNumNeighbors>
 struct SmoothedQuadrature {
     KOKKOS_INLINE_FUNCTION SmoothedQuadrature() {
         /* Face ordering
@@ -200,29 +205,36 @@ struct SmoothedQuadrature {
 
     // Compute the B matrix and integration weight for a given gauss point
     template <typename FunctionFunctor>
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, MaxNumNeighbors, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
+        Kokkos::abort("Not implemented");
+        return Kokkos::make_pair(Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero(), 0.0);
+    }
+
+    // Compute the B matrix and integration weight for a given gauss point
+    template <typename FunctionFunctor>
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3> &neighbor_node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
         assert(gauss_id < 1);
 
-        Eigen::Matrix<double, NumFunctions, 3> b_matrix = Eigen::Matrix<double, NumFunctions, 3>::Zero();
+        Eigen::Matrix<double, MaxNumNeighbors, 3> b_matrix = Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
 
         double volume = 0.0;
 
         // Loop over faces
         for (size_t j = 0; j < m_num_faces; ++j) {
             // Get the area weighted face normal, cross product of two edges
-            const Eigen::Vector3d edge1 = node_coordinates.row(m_face_nodes(j, 1)) - node_coordinates.row(m_face_nodes(j, 0));
-            const Eigen::Vector3d edge2 = node_coordinates.row(m_face_nodes(j, 2)) - node_coordinates.row(m_face_nodes(j, 0));
+            const Eigen::Vector3d edge1 = cell_node_coordinates.row(m_face_nodes(j, 1)) - cell_node_coordinates.row(m_face_nodes(j, 0));
+            const Eigen::Vector3d edge2 = cell_node_coordinates.row(m_face_nodes(j, 2)) - cell_node_coordinates.row(m_face_nodes(j, 0));
 
             const Eigen::Vector3d face_normal = edge1.cross(edge2) / 2.0;  // Area weighted normal
 
             // Add the contribution of the current face to the volume
-            volume += node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
+            volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, NumFunctions /*num functions on element*/, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
+            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
-            for (size_t k = 0; k < NumFunctions /*num functions on element*/; ++k) {
+            for (size_t k = 0; k < MaxNumNeighbors; ++k) {
                 b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
             }
         }
