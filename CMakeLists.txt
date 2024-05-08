@@ -147,9 +147,6 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
-if (NOT GPU)
-    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/CompadreTest.cpp")
-endif()
 
 # Add an executable for the unit tests
 add_executable(unit_tests

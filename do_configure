@@ -79,9 +79,7 @@ cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
 cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
-if [[ ${GPU} == true ]]; then
-    cmake_command+=" -D COMPADRE_PATH:FILEPATH=$(spack location -i compadre)"
-fi
+cmake_command+=" -D COMPADRE_PATH:FILEPATH=$(spack location -i compadre)"
 
 # Add the lcov path to the cmake command
 [[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
