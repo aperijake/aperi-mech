@@ -151,7 +151,7 @@ struct Quadrature {
         assert((size_t)gauss_id <= NumQuadPoints);
 
         // Compute shape function derivatives
-        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points(gauss_id, 0), m_gauss_points(gauss_id, 1), m_gauss_points(gauss_id, 2));
+        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points.row(gauss_id));
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
@@ -231,7 +231,7 @@ struct SmoothedQuadrature {
             volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2), cell_node_coordinates, neighbor_node_coordinates);
+            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points.row(j), cell_node_coordinates, neighbor_node_coordinates);
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
             for (size_t k = 0; k < MaxNumNeighbors; ++k) {

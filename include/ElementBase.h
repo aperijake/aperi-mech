@@ -38,26 +38,6 @@ class ElementBase {
     }
 
     /**
-     * @brief Computes the shape functions of the element.
-     *
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape functions of the element.
-     */
-    virtual Eigen::Matrix<double, 4, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const = 0;
-
-    /**
-     * @brief Computes the shape function derivatives of the element.
-     *
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape function derivatives of the element.
-     */
-    virtual Eigen::Matrix<double, 4, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const = 0;
-
-    /**
      * @brief Computes the internal force of the element.
      *
      */
@@ -92,12 +72,10 @@ class ElementBase {
 struct Tet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.
-     * @param xi The xi, or r, coordinate of the element.
-     * @param eta The eta, or s, coordinate of the element.
-     * @param zeta The zeta, or t, coordinate of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Eigen::Matrix<double, tet4_num_nodes, 3> shape_function_derivatives;
         shape_function_derivatives << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -108,57 +86,64 @@ struct Tet4FunctionsFunctor {
 
     /**
      * @brief Computes the shape functions of the element.
-     * @param xi The xi, or r, coordinate of the element.
-     * @param eta The eta, or s, coordinate of the element.
-     * @param zeta The zeta, or t, coordinate of the element.
-     * @return The shape function values of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
+     * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Eigen::Matrix<double, tet4_num_nodes, 1> shape_functions;
-        shape_functions << 1.0 - xi - eta - zeta,
-            xi,
-            eta,
-            zeta;
+        shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
+            parametric_coordinates(0),
+            parametric_coordinates(1),
+            parametric_coordinates(2);
         return shape_functions;
     }
 
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta, const Eigen::Matrix<double, tet4_num_nodes, 3>& node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
+    /**
+     * @brief Computes the shape functions of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
+     * @param node_coordinates The physical coordinates of the nodes of the element (not needed for Tet4FunctionsFunctor)
+     * @return The shape function derivatives of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
         // Node coordinates and neighbor coordinates are not used in this function, but needed for the interface.
-        return values(xi, eta, zeta);
+        return values(parametric_coordinates);
     }
+
 };
 
 struct ReproducingKernelOnTet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.
-     * @param xi The xi, or r, coordinate of the element.
-     * @param eta The eta, or s, coordinate of the element.
-     * @param zeta The zeta, or t, coordinate of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Kokkos::abort("Not implemented. Should not be calling derivatives on ReproducingKernelOnTet4FunctionsFunctor now.");
         return Eigen::Matrix<double, tet4_num_nodes, 3>::Zero();
     }
 
     /**
      * @brief Computes the shape functions of the element.
-     * @param xi The xi, or r, coordinate of the element.
-     * @param eta The eta, or s, coordinate of the element.
-     * @param zeta The zeta, or t, coordinate of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function values of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Kokkos::abort("Not implemented. Reproducing kernel needs physical coordinates. Call 'values' with physical coordinates.");
         return Eigen::Matrix<double, tet4_num_nodes, 1>::Zero();
     }
 
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
+
+    /**
+     * @brief Computes the shape functions of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
+     * @param cell_node_coordinates The physical coordinates of the nodes of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
         Eigen::Matrix<double, 1, tet4_num_nodes> shape_functions;
-        shape_functions << 1.0 - xi - eta - zeta,
-            xi,
-            eta,
-            zeta;
+        shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
+            parametric_coordinates(0),
+            parametric_coordinates(1),
+            parametric_coordinates(2);
         Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = shape_functions * cell_node_coordinates;
 
         // Allocate moment matrix (M) and M^-1
@@ -201,6 +186,7 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
 
         return function_values;
     }
+
 };
 
 }  // namespace aperi

@@ -100,28 +100,6 @@ class ElementTetrahedron4 : public ElementBase {
     }
 
     /**
-     * @brief Calls the Tet4FunctionsFunctor to compute the shape function derivatives.
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape functions of the element.
-     */
-    Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
-        return m_shape_functions_functor->derivatives(xi, eta, zeta);
-    }
-
-    /**
-     * @brief Computes the shape functions of the element.
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape functions of the element.
-     */
-    Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
-        return m_shape_functions_functor->values(xi, eta, zeta);
-    }
-
-    /**
      * @brief Computes the internal force of all elements.
      *
      */

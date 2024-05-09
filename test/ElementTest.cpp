@@ -8,6 +8,7 @@
 
 #include "ApplicationTestFixture.h"
 #include "Element.h"
+#include "ElementBase.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
@@ -65,19 +66,18 @@ class ElementBasicsTest : public ::testing::Test {
 
 // Test shape functions for a tet4 element
 TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
-    // Create a temporary mesh file, tet4 by default
-
-    // Create the tet4 element
-    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4);
+    // Create the tet4 functions functor
+    aperi::Tet4FunctionsFunctor functions_functor;
 
     size_t expected_num_shape_functions = 4;
 
     // Check the shape functions
-    Eigen::Matrix<double, 4, 1> shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 0.0);
+    Eigen::Matrix<double, 3, 1> evaluation_parametric_coordinates = {0.0, 0.0, 0.0};
+    Eigen::Matrix<double, 4, 1> shape_functions = functions_functor.values(evaluation_parametric_coordinates);
     Eigen::Matrix<double, 4, 1> expected_shape_functions = {1.0, 0.0, 0.0, 0.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     // Check the shape function derivatives
-    Eigen::Matrix<double, 4, 3> shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
+    Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
     expected_shape_function_derivatives << -1.0, -1.0, -1.0,
         1.0, 0.0, 0.0,
@@ -85,32 +85,37 @@ TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
         0.0, 0.0, 1.0;
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    shape_functions = element->ComputeShapeFunctions(1.0, 0.0, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(1.0, 0.0, 0.0);
+    evaluation_parametric_coordinates = {1.0, 0.0, 0.0};
+    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
+    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     expected_shape_functions = {0.0, 1.0, 0.0, 0.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    shape_functions = element->ComputeShapeFunctions(0.0, 1.0, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 1.0, 0.0);
+    evaluation_parametric_coordinates = {0.0, 1.0, 0.0};
+    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
+    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     expected_shape_functions = {0.0, 0.0, 1.0, 0.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 1.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 1.0);
+    evaluation_parametric_coordinates = {0.0, 0.0, 1.0};
+    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
+    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     expected_shape_functions = {0.0, 0.0, 0.0, 1.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    shape_functions = element->ComputeShapeFunctions(0.5, 0.5, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.5, 0.5, 0.0);
+    evaluation_parametric_coordinates = {0.5, 0.5, 0.0};
+    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
+    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     expected_shape_functions = {0.0, 0.5, 0.5, 0.0};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    shape_functions = element->ComputeShapeFunctions(0.25, 0.25, 0.25);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.25, 0.25, 0.25);
+    evaluation_parametric_coordinates = {0.25, 0.25, 0.25};
+    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
+    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
     expected_shape_functions = {0.25, 0.25, 0.25, 0.25};
     CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
     CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
