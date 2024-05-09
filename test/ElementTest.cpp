@@ -19,6 +19,25 @@
 // Fixture for ElementBase tests
 class ElementBasicsTest : public ::testing::Test {
    protected:
+    // Setup
+    void SetUp() override {
+        m_evaluation_points_parametric_coordinates = {
+            {0.0, 0.0, 0.0},
+            {1.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0},
+            {0.0, 0.0, 1.0},
+            {0.5, 0.5, 0.0},
+            {0.25, 0.25, 0.25}};
+
+        m_expected_values = {
+            {1.0, 0.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0, 0.0},
+            {0.0, 0.0, 1.0, 0.0},
+            {0.0, 0.0, 0.0, 1.0},
+            {0.0, 0.5, 0.5, 0.0},
+            {0.25, 0.25, 0.25, 0.25}};
+    }
+
     // Check partition of unity
     void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
         // Check the partition of unity
@@ -33,13 +52,28 @@ class ElementBasicsTest : public ::testing::Test {
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
+    // Check linear completeness
+    void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
+        // Check the linear completeness
+        const Eigen::Matrix<double, 1, 3>& calculated_physical_coordinates = shape_functions.transpose() * neighbor_coordinates;
+        for (size_t i = 0; i < 3; ++i) {
+            EXPECT_NEAR(calculated_physical_coordinates(0, i), evaluation_point_phyiscal_coordinates(0, i), 1.0e-12);
+        }
+    }
+
     // Check shape functions
-    void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
+    void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates, size_t expected_num_shape_functions) {
         // Check the number of shape functions
         EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
+
+        // Calculate the physical coordinates of the evaluation point
+        const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates = shape_functions.transpose() * node_coordinates;
+
+        // Check the linear completeness
+        CheckLinearCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates);
 
         // Check the shape functions
         for (size_t i = 0; i < expected_num_shape_functions; ++i) {
@@ -62,6 +96,33 @@ class ElementBasicsTest : public ::testing::Test {
             CheckPartitionOfNullity(shape_function_derivatives.col(j));
         }
     }
+
+    template<typename FunctionsFunctor>
+    void TestFunctionsFunctorValues(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const size_t expected_num_shape_functions = 4) {
+        for (size_t i = 0; i < m_evaluation_points_parametric_coordinates.size(); ++i){
+            // Check the shape functions
+            Eigen::Matrix<double, Eigen::Dynamic, 1> shape_functions = functions_functor.values(m_evaluation_points_parametric_coordinates[i], node_coordinates, neighbor_coordinates);
+            CheckShapeFunctions(shape_functions, m_expected_values[i], node_coordinates, neighbor_coordinates, m_evaluation_points_parametric_coordinates[i], expected_num_shape_functions);
+        }
+    }
+
+    template<typename FunctionsFunctor>
+    void TestFunctionsFunctorDerivatives(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& node_coordinates, const size_t expected_num_shape_functions = 4) {
+        // Expected shape function derivatives
+        Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
+        expected_shape_function_derivatives << -1.0, -1.0, -1.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0;
+        // Check the shape function derivatives
+        for (size_t i = 0; i < m_evaluation_points_parametric_coordinates.size(); ++i) {
+            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(m_evaluation_points_parametric_coordinates[i]);
+            CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+        }
+    }
+
+    std::vector<Eigen::Matrix<double, 3, 1>> m_evaluation_points_parametric_coordinates;
+    std::vector<Eigen::Matrix<double, 4, 1>> m_expected_values;
 };
 
 // Test shape functions for a tet4 element
@@ -69,56 +130,28 @@ TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
     // Create the tet4 functions functor
     aperi::Tet4FunctionsFunctor functions_functor;
 
-    size_t expected_num_shape_functions = 4;
+    const Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
+    TestFunctionsFunctorDerivatives(functions_functor, node_coordinates);
+}
 
-    // Check the shape functions
-    Eigen::Matrix<double, 3, 1> evaluation_parametric_coordinates = {0.0, 0.0, 0.0};
-    Eigen::Matrix<double, 4, 1> shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    Eigen::Matrix<double, 4, 1> expected_shape_functions = {1.0, 0.0, 0.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    // Check the shape function derivatives
-    Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
-    expected_shape_function_derivatives << -1.0, -1.0, -1.0,
-        1.0, 0.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 0.0, 1.0;
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
 
-    evaluation_parametric_coordinates = {1.0, 0.0, 0.0};
-    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    expected_shape_functions = {0.0, 1.0, 0.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+// Test reproducing kernel shape functions on a tet4 element
+TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctions) {
+    // Create the tet4 functions functor
+    aperi::ReproducingKernelOnTet4FunctionsFunctor functions_functor;
 
-    evaluation_parametric_coordinates = {0.0, 1.0, 0.0};
-    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    expected_shape_functions = {0.0, 0.0, 1.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
 
-    evaluation_parametric_coordinates = {0.0, 0.0, 1.0};
-    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    expected_shape_functions = {0.0, 0.0, 0.0, 1.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    // Randomize the node coordinates
+    node_coordinates = Eigen::Matrix<double, 4, 3>::Random();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
 
-    evaluation_parametric_coordinates = {0.5, 0.5, 0.0};
-    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    expected_shape_functions = {0.0, 0.5, 0.5, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
-
-    evaluation_parametric_coordinates = {0.25, 0.25, 0.25};
-    shape_functions = functions_functor.values(evaluation_parametric_coordinates);
-    shape_function_derivatives = functions_functor.derivatives(evaluation_parametric_coordinates);
-    expected_shape_functions = {0.25, 0.25, 0.25, 0.25};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    // // Add neighbors TODO(jake): need to adjust rk a bit to allow this.
+    // node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    // Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
+    // TestFunctionsFunctorValues(functions_functor, node_coordinates, neighbor_coordinates, 8);
 }
 
 TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
