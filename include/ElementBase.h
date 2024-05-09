@@ -9,6 +9,7 @@
 namespace aperi {
 
 static constexpr size_t tet4_num_nodes = 4;
+static constexpr size_t max_num_neighbors = 20;
 
 /**
  * @brief Represents an element in a mesh.
@@ -104,22 +105,22 @@ struct Tet4FunctionsFunctor {
      * @param node_coordinates The physical coordinates of the nodes of the element (not needed for Tet4FunctionsFunctor)
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates, size_t actual_num_neighbors = 4) const {
         // Node coordinates and neighbor coordinates are not used in this function, but needed for the interface.
         return values(parametric_coordinates);
     }
-
 };
 
+template <size_t MaxNumNeighbors>
 struct ReproducingKernelOnTet4FunctionsFunctor {
     /**
      * @brief Computes the shape function derivatives of the element.
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Kokkos::abort("Not implemented. Should not be calling derivatives on ReproducingKernelOnTet4FunctionsFunctor now.");
-        return Eigen::Matrix<double, tet4_num_nodes, 3>::Zero();
+        return Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
     }
 
     /**
@@ -127,24 +128,23 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function values of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Kokkos::abort("Not implemented. Reproducing kernel needs physical coordinates. Call 'values' with physical coordinates.");
-        return Eigen::Matrix<double, tet4_num_nodes, 1>::Zero();
+        return Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
     }
-
 
     /**
      * @brief Computes the shape functions of the element.
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @param cell_node_coordinates The physical coordinates of the nodes of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
-        Eigen::Matrix<double, 1, tet4_num_nodes> shape_functions;
-        shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+        Eigen::Matrix<double, 1, tet4_num_nodes> cell_shape_functions;
+        cell_shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
             parametric_coordinates(0),
             parametric_coordinates(1),
             parametric_coordinates(2);
-        Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = shape_functions * cell_node_coordinates;
+        Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = cell_shape_functions * cell_node_coordinates;
 
         // Allocate moment matrix (M) and M^-1
         Eigen::Matrix<double, 4, 4> M = Eigen::Matrix<double, 4, 4>::Zero();
@@ -155,7 +155,7 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
         H(0) = 1.0;
 
         // Loop over neighbor nodes
-        for (size_t i = 0; i < 4; i++) {
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
             // Compute basis vector (H)
             H(1) = evaluation_point_physical_coordinates(0) - neighbor_coordinates(i, 0);
             H(2) = evaluation_point_physical_coordinates(1) - neighbor_coordinates(i, 1);
@@ -164,15 +164,15 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
             double phi_z = 1.0;
 
             // Compute moment matrix (M)
-            M += phi_z *  H * H.transpose();
+            M += phi_z * H * H.transpose();
         }
 
         // Compute M^-1
         M_inv = M.fullPivLu().inverse();
 
         // Loop over neighbor nodes again
-        Eigen::Matrix<double, tet4_num_nodes, 1> function_values;
-        for (size_t i = 0; i < 4; i++) {
+        Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
             // Compute basis vector (H)
             H(1) = evaluation_point_physical_coordinates(0) - neighbor_coordinates(i, 0);
             H(2) = evaluation_point_physical_coordinates(1) - neighbor_coordinates(i, 1);
@@ -186,7 +186,6 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
 
         return function_values;
     }
-
 };
 
 }  // namespace aperi

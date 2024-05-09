@@ -45,7 +45,7 @@ class ElementUtilsTest : public ::testing::Test {
     // TODO(jake): Generalize to more than tet4 elements
     template <typename QuadratureFunctor, typename FunctionsFunctor>
     Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> ComputeCellBMatrixAndWeight(QuadratureFunctor& quad1, const Eigen::Matrix<double, 4, 3>& cell_node_coordinates, const Eigen::Matrix<double, 4, 3>& neighbor_coordinates, FunctionsFunctor& functions_functor) {
-        return quad1.ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, functions_functor, 0);
+        return quad1.ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, functions_functor, 0, 4);
     }
 
     template <typename QuadratureFunctor, typename FunctionsFunctor>
@@ -61,8 +61,8 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 0.0, 1.0;
 
         Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight;
-        if (use_strain_smoothing){
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -85,8 +85,8 @@ class ElementUtilsTest : public ::testing::Test {
         // Set up node coordinates
         node_coordinates *= factor;
 
-        if (use_strain_smoothing){
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -105,8 +105,8 @@ class ElementUtilsTest : public ::testing::Test {
         // Set up node coordinates
         node_coordinates.rowwise() += translation.transpose();
 
-        if (use_strain_smoothing){
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -128,8 +128,8 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 0.0, 1.0;
         node_coordinates *= rotation;
 
-        if (use_strain_smoothing){
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -156,8 +156,8 @@ class ElementUtilsTest : public ::testing::Test {
         Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
         node_coordinates *= deformation_gradient;
 
-        if (use_strain_smoothing){
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -205,7 +205,7 @@ TEST_F(ElementUtilsTest, ReproducingKernelOnTet4BMatrixAndWeight) {
 
     bool use_strain_smoothing = true;
 
-    aperi::ReproducingKernelOnTet4FunctionsFunctor functions_functor;
+    aperi::ReproducingKernelOnTet4FunctionsFunctor<4> functions_functor;
 
     RunAllTestCases(quad1, functions_functor, use_strain_smoothing);
 }

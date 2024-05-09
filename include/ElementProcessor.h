@@ -411,7 +411,7 @@ class MeshNeighborSearchProcessor {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 size_t num_nodes = nodes.size();
-                assert(num_nodes == 4); // TODO(jake): Support other element topologies. (tet4 is hardcoded here.)
+                assert(num_nodes == 4);  // TODO(jake): Support other element topologies. (tet4 is hardcoded here.)
 
                 // Set up the field data to gather
                 Eigen::Matrix<double, 4 /*tet4 hard code for now*/, 3> cell_node_coordinates;
@@ -436,7 +436,7 @@ class MeshNeighborSearchProcessor {
                     }
                 }
                 assert(integration_functor->NumGaussPoints() == 1);
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, *functions_functor, 0);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, *functions_functor, 0, num_neighbors);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
                 for (size_t i = 0; i < NumNodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
