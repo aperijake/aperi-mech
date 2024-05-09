@@ -121,6 +121,86 @@ struct Tet4FunctionsFunctor {
             zeta;
         return shape_functions;
     }
+
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta, const Eigen::Matrix<double, tet4_num_nodes, 3>& node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
+        // Node coordinates and neighbor coordinates are not used in this function, but needed for the interface.
+        return values(xi, eta, zeta);
+    }
+};
+
+struct ReproducingKernelOnTet4FunctionsFunctor {
+    /**
+     * @brief Computes the shape function derivatives of the element.
+     * @param xi The xi, or r, coordinate of the element.
+     * @param eta The eta, or s, coordinate of the element.
+     * @param zeta The zeta, or t, coordinate of the element.
+     * @return The shape function derivatives of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 3> derivatives(double xi, double eta, double zeta) const {
+        Kokkos::abort("Not implemented. Should not be calling derivatives on ReproducingKernelOnTet4FunctionsFunctor now.");
+        return Eigen::Matrix<double, tet4_num_nodes, 3>::Zero();
+    }
+
+    /**
+     * @brief Computes the shape functions of the element.
+     * @param xi The xi, or r, coordinate of the element.
+     * @param eta The eta, or s, coordinate of the element.
+     * @param zeta The zeta, or t, coordinate of the element.
+     * @return The shape function values of the element.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta) const {
+        Kokkos::abort("Not implemented. Reproducing kernel needs physical coordinates. Call 'values' with physical coordinates.");
+        return Eigen::Matrix<double, tet4_num_nodes, 1>::Zero();
+    }
+
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, tet4_num_nodes, 1> values(double xi, double eta, double zeta, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& neighbor_coordinates) const {
+        Eigen::Matrix<double, 1, tet4_num_nodes> shape_functions;
+        shape_functions << 1.0 - xi - eta - zeta,
+            xi,
+            eta,
+            zeta;
+        Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = shape_functions * cell_node_coordinates;
+
+        // Allocate moment matrix (M) and M^-1
+        Eigen::Matrix<double, 4, 4> M = Eigen::Matrix<double, 4, 4>::Zero();
+        Eigen::Matrix<double, 4, 4> M_inv;
+
+        // Allocate basis vector (H)
+        Eigen::Vector<double, 4> H = Eigen::Vector<double, 4>::Zero();
+        H(0) = 1.0;
+
+        // Loop over neighbor nodes
+        for (size_t i = 0; i < 4; i++) {
+            // Compute basis vector (H)
+            H(1) = evaluation_point_physical_coordinates(0) - neighbor_coordinates(i, 0);
+            H(2) = evaluation_point_physical_coordinates(1) - neighbor_coordinates(i, 1);
+            H(3) = evaluation_point_physical_coordinates(2) - neighbor_coordinates(i, 2);
+
+            double phi_z = 1.0;
+
+            // Compute moment matrix (M)
+            M += phi_z *  H * H.transpose();
+        }
+
+        // Compute M^-1
+        M_inv = M.fullPivLu().inverse();
+
+        // Loop over neighbor nodes again
+        Eigen::Matrix<double, tet4_num_nodes, 1> function_values;
+        for (size_t i = 0; i < 4; i++) {
+            // Compute basis vector (H)
+            H(1) = evaluation_point_physical_coordinates(0) - neighbor_coordinates(i, 0);
+            H(2) = evaluation_point_physical_coordinates(1) - neighbor_coordinates(i, 1);
+            H(3) = evaluation_point_physical_coordinates(2) - neighbor_coordinates(i, 2);
+
+            double phi_z = 1.0;
+
+            // Compute shape function value
+            function_values(i, 0) = (M_inv.row(0) * H * phi_z)(0);
+        }
+
+        return function_values;
+    }
 };
 
 }  // namespace aperi

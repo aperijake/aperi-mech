@@ -231,7 +231,7 @@ struct SmoothedQuadrature {
             volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
             // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
+            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2), cell_node_coordinates, neighbor_node_coordinates);
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
             for (size_t k = 0; k < MaxNumNeighbors; ++k) {
