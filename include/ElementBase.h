@@ -111,6 +111,16 @@ struct Tet4FunctionsFunctor {
     }
 };
 
+KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen::Matrix<double, 4, 4>& mat) {
+#ifndef KOKKOS_ENABLE_CUDA
+    assert(mat.fullPivLu().isInvertible());
+    // Compute M^-1
+    return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
+#else
+    return mat.inverse();
+#endif
+}
+
 template <size_t MaxNumNeighbors>
 struct ReproducingKernelOnTet4FunctionsFunctor {
     /**
@@ -168,7 +178,7 @@ struct ReproducingKernelOnTet4FunctionsFunctor {
         }
 
         // Compute M^-1
-        M_inv = M.fullPivLu().inverse();
+        M_inv = InvertMatrix(M);
 
         // Loop over neighbor nodes again
         Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();

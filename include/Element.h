@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "ElementBase.h"
+#include "ElementReproducingKernel.h"
 #include "ElementSmoothedTetrahedron4.h"
 #include "ElementSmoothedTetrahedron4Storing.h"
 #include "ElementTetrahedron4.h"
@@ -30,7 +31,8 @@ inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, std::vector<
     if (num_nodes == tet4_num_nodes) {
         if (use_strain_smoothing) {
             if (store_shape_function_derivatives) {
-                return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
+                //return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
+                return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material);
             } else {
                 return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
             }

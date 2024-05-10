@@ -52,7 +52,7 @@ class ElementReproducingKernel : public ElementBase {
         // Loop over all elements and store the neighbors
         aperi::MeshNeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         search_processor.add_element_nodes();
-        search_processor.for_each_neighbor_compute_derivatives<tet4_num_nodes>(m_compute_functions_functor, m_integration_functor);
+        search_processor.for_each_neighbor_compute_derivatives<max_num_neighbors>(m_compute_functions_functor, m_integration_functor);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -63,15 +63,15 @@ class ElementReproducingKernel : public ElementBase {
         assert(compute_tet4_functions_functor_functor != nullptr);
 
         // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadrature<tet4_num_nodes>);
-        auto integration_functor = (SmoothedQuadrature<tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(SmoothedQuadrature<max_num_neighbors>);
+        auto integration_functor = (SmoothedQuadrature<max_num_neighbors> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
                 new ((ReproducingKernelOnTet4FunctionsFunctor<max_num_neighbors> *)compute_tet4_functions_functor_functor) ReproducingKernelOnTet4FunctionsFunctor<max_num_neighbors>();
-                new ((SmoothedQuadrature<tet4_num_nodes> *)integration_functor) SmoothedQuadrature<tet4_num_nodes>();
+                new ((SmoothedQuadrature<max_num_neighbors> *)integration_functor) SmoothedQuadrature<max_num_neighbors>();
             });
 
         // Set the functors
@@ -113,7 +113,7 @@ class ElementReproducingKernel : public ElementBase {
 
    private:
     ReproducingKernelOnTet4FunctionsFunctor<max_num_neighbors> *m_compute_functions_functor;
-    SmoothedQuadrature<tet4_num_nodes> *m_integration_functor;
+    SmoothedQuadrature<max_num_neighbors> *m_integration_functor;
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;

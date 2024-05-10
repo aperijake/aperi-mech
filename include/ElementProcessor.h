@@ -438,7 +438,7 @@ class MeshNeighborSearchProcessor {
                 assert(integration_functor->NumGaussPoints() == 1);
                 Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, *functions_functor, 0, num_neighbors);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
-                for (size_t i = 0; i < NumNodes; ++i) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
                         ngp_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
                     }
