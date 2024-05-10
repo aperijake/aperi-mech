@@ -3,13 +3,11 @@
 #include <Eigen/Dense>
 #include <memory>
 
+#include "Constants.h"
 #include "ElementProcessor.h"
 #include "Material.h"
 
 namespace aperi {
-
-static constexpr size_t tet4_num_nodes = 4;
-static constexpr size_t max_num_neighbors = 20;
 
 /**
  * @brief Represents an element in a mesh.
