@@ -7,6 +7,8 @@
 #include "Element.h"
 #include "ElementUtils.h"
 #include "FieldData.h"
+#include "ShapeFunctionsFunctorReproducingKernel.h"
+#include "ShapeFunctionsFunctorTet4.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
@@ -181,7 +183,7 @@ TEST_F(ElementUtilsTest, Tet4BMatrixAndWeight) {
     const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
     aperi::Quadrature<1, 4> quad1(gauss_points, gauss_weights);
 
-    aperi::Tet4FunctionsFunctor tet4_functions_functor;
+    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
 
     RunAllTestCases(quad1, tet4_functions_functor);
 }
@@ -193,7 +195,7 @@ TEST_F(ElementUtilsTest, Tet4StrainSmoothingBMatrixAndWeight) {
 
     bool use_strain_smoothing = true;
 
-    aperi::Tet4FunctionsFunctor tet4_functions_functor;
+    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
 
     RunAllTestCases(quad1, tet4_functions_functor, use_strain_smoothing);
 }
@@ -205,7 +207,7 @@ TEST_F(ElementUtilsTest, ReproducingKernelOnTet4BMatrixAndWeight) {
 
     bool use_strain_smoothing = true;
 
-    aperi::ReproducingKernelOnTet4FunctionsFunctor<4> functions_functor;
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
 
     RunAllTestCases(quad1, functions_functor, use_strain_smoothing);
 }

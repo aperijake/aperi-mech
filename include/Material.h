@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include "Kokkos_Core.hpp"
+
 namespace aperi {
 
 /**

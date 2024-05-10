@@ -12,6 +12,7 @@
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
+#include "ShapeFunctionsFunctorTet4.h"
 
 namespace aperi {
 
@@ -58,8 +59,8 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Functor for computing shape function derivatives
-        size_t compute_tet4_functions_functor_functor_size = sizeof(Tet4FunctionsFunctor);
-        auto compute_tet4_functions_functor_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
+        size_t compute_tet4_functions_functor_functor_size = sizeof(ShapeFunctionsFunctorTet4);
+        auto compute_tet4_functions_functor_functor = (ShapeFunctionsFunctorTet4 *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
         assert(compute_tet4_functions_functor_functor != nullptr);
 
         // Functor for smooth quadrature
@@ -70,7 +71,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((Tet4FunctionsFunctor *)compute_tet4_functions_functor_functor) Tet4FunctionsFunctor();
+                new ((ShapeFunctionsFunctorTet4 *)compute_tet4_functions_functor_functor) ShapeFunctionsFunctorTet4();
                 new ((SmoothedQuadrature<tet4_num_nodes> *)integration_functor) SmoothedQuadrature<tet4_num_nodes>();
             });
 
@@ -84,7 +85,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
         auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                compute_functions_functor->~Tet4FunctionsFunctor();
+                compute_functions_functor->~ShapeFunctionsFunctorTet4();
                 integration_functor->~SmoothedQuadrature();
             });
 
@@ -112,7 +113,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     }
 
    private:
-    Tet4FunctionsFunctor *m_compute_functions_functor;
+    ShapeFunctionsFunctorTet4 *m_compute_functions_functor;
     SmoothedQuadrature<tet4_num_nodes> *m_integration_functor;
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;

@@ -12,6 +12,8 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "ShapeFunctionsFunctorReproducingKernel.h"
+#include "ShapeFunctionsFunctorTet4.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
@@ -67,7 +69,7 @@ class ElementBasicsTest : public ::testing::Test {
         CheckPartitionOfUnity(shape_functions);
 
         // Calculate the physical coordinates of the evaluation point
-        aperi::Tet4FunctionsFunctor functions_functor;
+        aperi::ShapeFunctionsFunctorTet4 functions_functor;
         // Calculate the shape functions at the evaluation point
         Eigen::Matrix<double, Eigen::Dynamic, 1> cell_shape_functions = functions_functor.values(evaluation_points_parametric_coordinates, node_coordinates, node_coordinates, 4);
         const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates = cell_shape_functions.transpose() * node_coordinates;
@@ -145,7 +147,7 @@ class ElementBasicsTest : public ::testing::Test {
 // Test shape functions for a tet4 element
 TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
     // Create the tet4 functions functor
-    aperi::Tet4FunctionsFunctor functions_functor;
+    aperi::ShapeFunctionsFunctorTet4 functions_functor;
 
     const Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
@@ -155,7 +157,7 @@ TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
 // Test reproducing kernel shape functions on a tet4 element
 TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
     // Create the tet4 functions functor
-    aperi::ReproducingKernelOnTet4FunctionsFunctor<4> functions_functor;
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
@@ -168,7 +170,7 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
 // Test reproducing kernel shape functions on a tet4 element
 TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
     // Create the tet4 functions functor
-    aperi::ReproducingKernelOnTet4FunctionsFunctor<8> functions_functor;
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<8> functions_functor;
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
     TestFunctionsFunctorValues(functions_functor, node_coordinates, neighbor_coordinates, 8, false);
