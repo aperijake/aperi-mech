@@ -58,7 +58,7 @@ cd "${BUILD_DIR}" || exit
 
 # Check for cmake in the spack environment, if not found, use the system cmake
 if spack find -p cmake; then
-	cmake=$(spack location -i cmake)/bin/cmake
+	cmake=$(spack location -i --first cmake)/bin/cmake
 else
 	cmake=cmake
 fi

@@ -142,6 +142,10 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
+# If this is a GPU build, remove StkSearchTest.cpp from the list of test sources. Need an update to trilinos to fix this.
+if (GPU)
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/StkSearchTest.cpp")
+endif()
 
 # Add an executable for the unit tests
 add_executable(unit_tests
