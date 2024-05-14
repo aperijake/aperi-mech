@@ -117,7 +117,7 @@ The commands for a CPU build with openmp are below. There was some trouble buidl
 spack add kokkos%gcc@10.5.0 ~cuda ~shared +openmp cxxstd=17
 spack add kokkos-kernels%gcc@10.5.0 ~cuda ~shared +openmp
 spack add compadre@master%gcc@10.5.0 ~tests
-spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 +openmp ~shared +stk +zoltan +zoltan2 cxxstd=17
+spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~muelu +openmp ~sacado ~shared +stk +zoltan +zoltan2 cxxstd=17
 spack add mfem%gcc@10.5.0 +netcdf
 spack add googletest%gcc@10.5.0
 spack add yaml-cpp%gcc@10.5.0
