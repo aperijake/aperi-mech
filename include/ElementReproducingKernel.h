@@ -12,6 +12,7 @@
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
+#include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 
 namespace aperi {

@@ -7,6 +7,8 @@
 #include "Element.h"
 #include "ElementUtils.h"
 #include "FieldData.h"
+#include "QuadratureGaussian.h"
+#include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
 #include "SolverTestFixture.h"

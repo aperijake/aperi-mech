@@ -13,6 +13,7 @@
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "MeshData.h"
+#include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
 
 namespace aperi {
