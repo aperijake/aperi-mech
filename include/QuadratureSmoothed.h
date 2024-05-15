@@ -18,17 +18,18 @@ struct SmoothedQuadrature {
             1, 2, 3,
             0, 3, 2,
             0, 2, 1;
+
         /*
-        Evaluation points. 1/3 for each node on face. Set to 1/3 everywhere below. Override the values that should be zero here.
-        In shape function evaluation, the nodes are ordered as follows:
+        Evaluation points are the the nodes of the tetrahedron.
+        The nodes are ordered as follows:
         - 1: u
         - 2: r = xi
         - 3: s = eta
         - 4: t = zeta
         */
-        m_eval_points(0, 1) = 0.0;
-        m_eval_points(2, 0) = 0.0;
-        m_eval_points(3, 2) = 0.0;
+        m_cell_node_parent_coordinates(1, 0) = 1.0;
+        m_cell_node_parent_coordinates(2, 1) = 1.0;
+        m_cell_node_parent_coordinates(3, 2) = 1.0;
     }
 
     // Compute the B matrix and integration weight for a given gauss point
@@ -45,6 +46,12 @@ struct SmoothedQuadrature {
 
         Eigen::Matrix<double, MaxNumNeighbors, 3> b_matrix = Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
 
+        // Compute the shape function values at the nodes of the cell
+        Eigen::Matrix<double, MaxNumNeighbors, 4> cell_node_function_values;
+        for (size_t j = 0; j < 4; ++j) {
+            cell_node_function_values.col(j) = function_functor.values(m_cell_node_parent_coordinates.row(j), cell_node_coordinates, neighbor_node_coordinates, actual_num_neighbors);
+        }
+
         double volume = 0.0;
 
         // Loop over faces
@@ -58,12 +65,14 @@ struct SmoothedQuadrature {
             // Add the contribution of the current face to the volume
             volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
-            // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, MaxNumNeighbors, 1> shape_function_values = function_functor.values(m_eval_points.row(j), cell_node_coordinates, neighbor_node_coordinates, actual_num_neighbors);
-
-            // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
-            for (size_t k = 0; k < MaxNumNeighbors; ++k) {
-                b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
+            // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
+            for (size_t k = 0; k < actual_num_neighbors; ++k) {
+                double shape_function_value = 0.0;
+                for (size_t l = 0; l < 3; ++l) { // Loop over nodes per face
+                    shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
+                }
+                shape_function_value /= 3.0;  // for the average of the 3 nodes
+                b_matrix.row(k) += shape_function_value * face_normal.transpose();
             }
         }
         volume /= 3.0;  // 3x volume
@@ -76,7 +85,7 @@ struct SmoothedQuadrature {
         return 1;
     }
 
-    Eigen::Matrix<double, 4, 3> m_eval_points = Eigen::Matrix<double, 4, 3>::Constant(1.0 / 3.0);
+    Eigen::Matrix<double, 4, 3> m_cell_node_parent_coordinates = Eigen::Matrix<double, 4, 3>::Zero();
     Eigen::Matrix<int, 4, 3> m_face_nodes;
     size_t m_num_faces = 4;
 };
