@@ -123,7 +123,7 @@ struct FlexibleComputeInternalForceFunctor {
         // Compute the stress and internal force of the element.
         const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
 
-        for (size_t i = 0; i < MaxNumNodes; ++i) {
+        for (size_t i = 0; i < actual_num_neighbors; ++i) {
             // Compute (B_I F)^T
             const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
 

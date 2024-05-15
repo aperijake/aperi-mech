@@ -2,7 +2,8 @@
 
 namespace aperi {
 
-static constexpr size_t tet4_num_nodes = 4;
-static constexpr size_t max_num_neighbors = 20;
+static constexpr size_t TET4_NUM_NODES = 4;
+static constexpr size_t MAX_CELL_NUM_NEIGHBORS = 30;
+static constexpr size_t MAX_NODE_NUM_NEIGHBORS = 20;
 
 }  // namespace aperi

@@ -28,7 +28,7 @@ namespace aperi {
  * @return A shared pointer to the created ElementBase object.
  */
 inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, std::vector<FieldQueryData> field_query_data_gather = {}, std::vector<std::string> part_names = {}, std::shared_ptr<aperi::MeshData> mesh_data = nullptr, bool use_strain_smoothing = false, bool store_shape_function_derivatives = false, std::shared_ptr<Material> material = nullptr) {
-    if (num_nodes == tet4_num_nodes) {
+    if (num_nodes == TET4_NUM_NODES) {
         if (use_strain_smoothing) {
             if (store_shape_function_derivatives) {
                 //return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);

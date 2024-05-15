@@ -31,7 +31,7 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementTetrahedron4 object.
      */
-    ElementTetrahedron4(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(tet4_num_nodes, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementTetrahedron4(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateElementProcessor();
         CreateFunctors();
     }
@@ -65,8 +65,8 @@ class ElementTetrahedron4 : public ElementBase {
         assert(compute_shape_function_derivatives_functor != nullptr);
 
         // Functor for 1-pt gauss quadrature
-        size_t integration_functor_size = sizeof(Quadrature<1, tet4_num_nodes>);
-        auto integration_functor = (Quadrature<1, tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(Quadrature<1, TET4_NUM_NODES>);
+        auto integration_functor = (Quadrature<1, TET4_NUM_NODES> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Quadrature points and weights. TODO(jake): Move to a more general location.
@@ -77,7 +77,7 @@ class ElementTetrahedron4 : public ElementBase {
         Kokkos::parallel_for(
             "CreateElementTetraHedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
                 new ((ShapeFunctionsFunctorTet4 *)compute_shape_function_derivatives_functor) ShapeFunctionsFunctorTet4();
-                new ((Quadrature<1, tet4_num_nodes> *)integration_functor) Quadrature<1, tet4_num_nodes>(gauss_points, gauss_weights);
+                new ((Quadrature<1, TET4_NUM_NODES> *)integration_functor) Quadrature<1, TET4_NUM_NODES>(gauss_points, gauss_weights);
             });
 
         // Set the functors
@@ -111,15 +111,15 @@ class ElementTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        ComputeInternalForceFunctor<tet4_num_nodes, ShapeFunctionsFunctorTet4, Quadrature<1, tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+        ComputeInternalForceFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<tet4_num_nodes>(compute_force_functor);
+        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
     }
 
    private:
     ShapeFunctionsFunctorTet4 *m_shape_functions_functor;
-    Quadrature<1, tet4_num_nodes> *m_integration_functor;
+    Quadrature<1, TET4_NUM_NODES> *m_integration_functor;
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;

@@ -101,10 +101,10 @@ inline std::vector<FieldData> GetFieldData() {
 
     field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
     field_data.push_back(FieldData("volume", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
-    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, max_num_neighbors));
-    field_data.push_back(FieldData("function_derivatives_x", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, max_num_neighbors));
-    field_data.push_back(FieldData("function_derivatives_y", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, max_num_neighbors));
-    field_data.push_back(FieldData("function_derivatives_z", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, max_num_neighbors));
+    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("function_derivatives_x", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("function_derivatives_y", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("function_derivatives_z", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
     return field_data;
 }
 

@@ -53,8 +53,8 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @param cell_node_coordinates The physical coordinates of the nodes of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, tet4_num_nodes, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
-        Eigen::Matrix<double, 1, tet4_num_nodes> cell_shape_functions;
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+        Eigen::Matrix<double, 1, TET4_NUM_NODES> cell_shape_functions;
         cell_shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
             parametric_coordinates(0),
             parametric_coordinates(1),
