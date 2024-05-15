@@ -52,9 +52,10 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     void ComputeNeighborValues() {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
-        aperi::MeshNeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
-        search_processor.add_element_nodes();
-        search_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_compute_functions_functor, m_integration_functor);
+        aperi::NeighborSearchProcessor<aperi::FieldDataRank::ELEMENT> search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        search_processor.add_ring_0_nodes();
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_compute_functions_functor, m_integration_functor);
     }
 
     // Create and destroy functors. Must be public to run on device.

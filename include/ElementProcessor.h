@@ -314,12 +314,12 @@ class ElementGatherScatterProcessor {
     NgpDoubleField *m_ngp_neighbors_field;                                 // The ngp neighbors field
 };
 
-class MeshNeighborSearchProcessor {
+class StrainSmoothingProcessor {
     typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
-    MeshNeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -343,7 +343,7 @@ class MeshNeighborSearchProcessor {
         }
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: MeshNeighborSearchProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
         }
 
         // Get the number of neighbors field
@@ -368,28 +368,6 @@ class MeshNeighborSearchProcessor {
             m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
             m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
         }
-    }
-
-    // Loop over each element and add the element's nodes to the neighbors field
-    void add_element_nodes() {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element's nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                double num_nodes = nodes.size();
-
-                ngp_num_neighbors_field(elem_index, 0) = num_nodes;
-
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    ngp_neighbors_field(elem_index, i) = (double)nodes[i].local_offset();
-                }
-            });
     }
 
     template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor>

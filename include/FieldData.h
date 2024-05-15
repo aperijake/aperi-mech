@@ -93,14 +93,24 @@ struct FieldQueryData {
  */
 inline std::vector<FieldData> GetFieldData() {
     std::vector<FieldData> field_data;
+
+    // Node data
     field_data.push_back(FieldData("velocity", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
     field_data.push_back(FieldData("displacement", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
     field_data.push_back(FieldData("acceleration", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
     field_data.push_back(FieldData("force", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
     field_data.push_back(FieldData("mass", FieldDataType::VECTOR, FieldDataRank::NODE, 1));
 
-    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
+    // Element data
     field_data.push_back(FieldData("volume", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
+
+    // Node neighbor data. TODO(jake): Add ability to turn this off if running FEM
+    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::NODE, 1));
+    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("function_values", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
+
+    // Cell neighbor data. TODO(jake): Add ability to turn this off if running FEM
+    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
     field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
     field_data.push_back(FieldData("function_derivatives_x", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
     field_data.push_back(FieldData("function_derivatives_y", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));

@@ -5,7 +5,6 @@
 #include <string>
 
 #include "Element.h"
-#include "ElementProcessor.h"
 #include "FieldData.h"
 #include "ForceContribution.h"
 #include "Material.h"

@@ -203,6 +203,12 @@ TEST(KernelTest, KernelValue) {
 }
 
 TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
+    // Get number of processors
+    std::cout << "Starting test"  << std::endl;
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    std::cout << "Number of processors: " << num_procs << std::endl;
+
     // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
     bool use_strain_smoothing = true;
     bool store_shape_function_derivatives = true;
@@ -213,7 +219,7 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     io_mesh_parameters.compose_output = true;
     std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-    io_mesh->ReadMesh("1x1x1|tets", {"block_1"}, field_data);
+    io_mesh->ReadMesh("1x1x" + std::to_string(num_procs) + "|tets", {"block_1"}, field_data);
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
     // Make an element processor
@@ -237,12 +243,13 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     entity_processor->SyncAllFieldsDeviceToHost();
 
     // Check the number of neighbors
-    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+    std::array<int, 1> expected_num_neighbors = {4};
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 
     // TODO(jake): Check the neighbors.
 
     // Check the volume
-    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {1.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {(double)num_procs}, aperi::FieldQueryState::None);
 
     // Check partition of nullity for the shape function derivatives
     CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);

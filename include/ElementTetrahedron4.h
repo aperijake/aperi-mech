@@ -14,6 +14,7 @@
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
+#include "NeighborSearchProcessor.h"
 #include "QuadratureGaussian.h"
 #include "ShapeFunctionsFunctorTet4.h"
 
