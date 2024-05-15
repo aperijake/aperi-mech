@@ -27,6 +27,79 @@ KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vect
 }
 
 template <size_t MaxNumNeighbors>
+struct ShapeFunctionsFunctorReproducingKernel{
+    /**
+     * @brief Computes the shape functions of the element.
+     * @param evaluation_point_physical_coordinates The physical coordinates of the evaluation point.
+     * @param neighbor_coordinates The physical coordinates of the neighbors.
+     * @param actual_num_neighbors The actual number of neighbors.
+     * @return The shape function values at the evaluation point.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+        // Allocate function values
+        Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
+
+        if (actual_num_neighbors == 0) {
+            return function_values;
+        } else if (actual_num_neighbors == 1) {
+            function_values(0, 0) = 1.0;
+            return function_values;
+        }
+
+        // Allocate moment matrix (M) and M^-1
+        Eigen::Matrix<double, 4, 4> M = Eigen::Matrix<double, 4, 4>::Zero();
+        Eigen::Matrix<double, 4, 4> M_inv;
+
+        // Allocate basis vector (H)
+        Eigen::Vector<double, 4> H = Eigen::Vector<double, 4>::Zero();
+        H(0) = 1.0;
+
+        // Loop over neighbor nodes
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
+            // Vector from neighbor to evaluation_point
+            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
+
+            // Compute kernel value 
+            double phi_z = ComputeKernel(vector_neighbor_to_point);
+
+            if (phi_z == 0.0) {
+                continue;
+            }
+
+            // Compute basis vector (H)
+            H.segment(1, 3) = vector_neighbor_to_point;
+
+            // Compute moment matrix (M)
+            M += phi_z * H * H.transpose();
+        }
+
+        // Compute M^-1
+        M_inv = InvertMatrix(M);
+
+        // Loop over neighbor nodes again
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
+            // Vector from neighbor to evaluation_point
+            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
+
+            // Compute kernel value
+            double phi_z = ComputeKernel(vector_neighbor_to_point);
+
+            if (phi_z == 0.0) {
+                continue;
+            }
+            
+            // Compute basis vector (H)
+            H.segment(1, 3) = vector_neighbor_to_point;
+
+            // Compute shape function value
+            function_values(i, 0) = (M_inv.row(0) * H * phi_z)(0);
+        }
+
+        return function_values;
+    }
+};
+
+template <size_t MaxNumNeighbors>
 struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
     /**
      * @brief Computes the shape function derivatives of the element.
@@ -61,57 +134,10 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
             parametric_coordinates(2);
         Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = cell_shape_functions * cell_node_coordinates;
 
-        // Allocate moment matrix (M) and M^-1
-        Eigen::Matrix<double, 4, 4> M = Eigen::Matrix<double, 4, 4>::Zero();
-        Eigen::Matrix<double, 4, 4> M_inv;
+        // Construct a ShapeFunctionsFunctorReproducingKernel object
+        ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> shape_functions_functor_reproducing_kernel;
 
-        // Allocate basis vector (H)
-        Eigen::Vector<double, 4> H = Eigen::Vector<double, 4>::Zero();
-        H(0) = 1.0;
-
-        // Loop over neighbor nodes
-        for (size_t i = 0; i < actual_num_neighbors; i++) {
-            // Vector from neighbor to evaluation_point
-            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
-
-            // Compute kernel value 
-            double phi_z = ComputeKernel(vector_neighbor_to_point);
-
-            if (phi_z == 0.0) {
-                continue;
-            }
-
-            // Compute basis vector (H)
-            H.segment(1, 3) = vector_neighbor_to_point;
-
-            // Compute moment matrix (M)
-            M += phi_z * H * H.transpose();
-        }
-
-        // Compute M^-1
-        M_inv = InvertMatrix(M);
-
-        // Loop over neighbor nodes again
-        Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
-        for (size_t i = 0; i < actual_num_neighbors; i++) {
-            // Vector from neighbor to evaluation_point
-            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
-
-            // Compute kernel value
-            double phi_z = ComputeKernel(vector_neighbor_to_point);
-
-            if (phi_z == 0.0) {
-                continue;
-            }
-            
-            // Compute basis vector (H)
-            H.segment(1, 3) = vector_neighbor_to_point;
-
-            // Compute shape function value
-            function_values(i, 0) = (M_inv.row(0) * H * phi_z)(0);
-        }
-
-        return function_values;
+        return shape_functions_functor_reproducing_kernel.values(evaluation_point_physical_coordinates, neighbor_coordinates, actual_num_neighbors);
     }
 };
 
