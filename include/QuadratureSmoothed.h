@@ -40,17 +40,10 @@ struct SmoothedQuadrature {
     }
 
     // Compute the B matrix and integration weight for a given gauss point
-    template <typename FunctionFunctor>
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3> &neighbor_node_coordinates, FunctionFunctor &function_functor, int gauss_id, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 4> &cell_node_function_values, int gauss_id, size_t actual_num_neighbors) const {
         assert(gauss_id < 1);
 
         Eigen::Matrix<double, MaxNumNeighbors, 3> b_matrix = Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
-
-        // Compute the shape function values at the nodes of the cell
-        Eigen::Matrix<double, MaxNumNeighbors, 4> cell_node_function_values;
-        for (size_t j = 0; j < 4; ++j) {
-            cell_node_function_values.col(j) = function_functor.values(m_cell_node_parent_coordinates.row(j), cell_node_coordinates, neighbor_node_coordinates, actual_num_neighbors);
-        }
 
         double volume = 0.0;
 
@@ -79,6 +72,18 @@ struct SmoothedQuadrature {
         b_matrix /= volume;
 
         return Kokkos::make_pair(b_matrix, volume);
+    }
+
+    // Compute the B matrix and integration weight for a given gauss point
+    template <typename FunctionFunctor>
+    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3> &neighbor_node_coordinates, FunctionFunctor &function_functor, int gauss_id, size_t actual_num_neighbors) const {
+        assert(gauss_id < 1);
+        // Compute the shape function values at the nodes of the cell
+        Eigen::Matrix<double, MaxNumNeighbors, 4> cell_node_function_values;
+        for (size_t j = 0; j < 4; ++j) {
+            cell_node_function_values.col(j) = function_functor.values(m_cell_node_parent_coordinates.row(j), cell_node_coordinates, neighbor_node_coordinates, actual_num_neighbors);
+        }
+        return ComputeBMatrixAndWeight(cell_node_coordinates, cell_node_function_values, gauss_id, actual_num_neighbors);
     }
 
     KOKKOS_INLINE_FUNCTION int NumGaussPoints() const {

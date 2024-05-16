@@ -191,6 +191,10 @@ class NeighborSearchProcessor {
                 // Sort the node neighbors and remove duplicates
                 total_num_neighbors = SortAndRemoveDuplicates(node_neighbors, total_num_neighbors);
 
+                // Make sure we don't exceed the maximum number of neighbors
+                // TODO(jake): Make ways of handling this
+                KOKKOS_ASSERT(total_num_neighbors <= MAX_CELL_NUM_NEIGHBORS);
+
                 // Set the element neighbors
                 ngp_element_num_neighbors_field(elem_index, 0) = total_num_neighbors;
                 for (size_t i = 0; i < total_num_neighbors; ++i) {

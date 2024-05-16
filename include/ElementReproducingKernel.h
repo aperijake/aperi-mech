@@ -55,17 +55,20 @@ class ElementReproducingKernel : public ElementBase {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
-        search_processor.add_elements_ring_0_nodes();
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
-        strain_smoothing_processor.for_each_neighbor_compute_derivatives<MAX_CELL_NUM_NEIGHBORS>(m_compute_functions_functor, m_integration_functor);
+        search_processor.add_nodes_ring_0_nodes();
+        aperi::FunctionValueStorageProcessor function_value_storage_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(*m_compute_node_functions_functor);
+        search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
+        aperi::StrainSmoothingFromStoredNodeValuesProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        strain_smoothing_processor.for_each_neighbor_compute_derivatives<MAX_CELL_NUM_NEIGHBORS>(m_integration_functor);
     }
 
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
-        // Functor for computing shape function derivatives
-        size_t compute_tet4_functions_functor_functor_size = sizeof(ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS>);
-        auto compute_tet4_functions_functor_functor = (ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS> *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
-        assert(compute_tet4_functions_functor_functor != nullptr);
+        // Functor for computing shape function values at nodes
+        size_t compute_node_functions_functor_size = sizeof(ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>);
+        auto compute_node_functions_functor = (ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *)Kokkos::kokkos_malloc(compute_node_functions_functor_size);
+        assert(compute_node_functions_functor != nullptr);
 
         // Functor for smooth quadrature
         size_t integration_functor_size = sizeof(SmoothedQuadrature<MAX_CELL_NUM_NEIGHBORS>);
@@ -75,28 +78,28 @@ class ElementReproducingKernel : public ElementBase {
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS> *)compute_tet4_functions_functor_functor) ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS>();
+                new ((ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *)compute_node_functions_functor) ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>();
                 new ((SmoothedQuadrature<MAX_CELL_NUM_NEIGHBORS> *)integration_functor) SmoothedQuadrature<MAX_CELL_NUM_NEIGHBORS>();
             });
 
         // Set the functors
-        m_compute_functions_functor = compute_tet4_functions_functor_functor;
+        m_compute_node_functions_functor = compute_node_functions_functor;
         m_integration_functor = integration_functor;
     }
 
     void DestroyFunctors() {
-        auto compute_functions_functor = m_compute_functions_functor;
+        auto compute_node_functions_functor = m_compute_node_functions_functor;
         auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                compute_functions_functor->~ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS>();
+                compute_node_functions_functor->~ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>();
                 integration_functor->~SmoothedQuadrature();
             });
 
-        Kokkos::kokkos_free(m_compute_functions_functor);
+        Kokkos::kokkos_free(m_compute_node_functions_functor);
         Kokkos::kokkos_free(m_integration_functor);
 
-        m_compute_functions_functor = nullptr;
+        m_compute_node_functions_functor = nullptr;
         m_integration_functor = nullptr;
     }
 
@@ -117,7 +120,7 @@ class ElementReproducingKernel : public ElementBase {
     }
 
    private:
-    ShapeFunctionsFunctorReproducingKernelOnTet4<MAX_CELL_NUM_NEIGHBORS> *m_compute_functions_functor;
+    ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *m_compute_node_functions_functor;
     SmoothedQuadrature<MAX_CELL_NUM_NEIGHBORS> *m_integration_functor;
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
