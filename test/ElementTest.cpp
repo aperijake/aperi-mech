@@ -204,10 +204,8 @@ TEST(KernelTest, KernelValue) {
 
 TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     // Get number of processors
-    std::cout << "Starting test"  << std::endl;
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    std::cout << "Number of processors: " << num_procs << std::endl;
 
     // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
     bool use_strain_smoothing = true;

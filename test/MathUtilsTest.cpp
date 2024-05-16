@@ -217,3 +217,66 @@ TEST(MathUtilsTest, Normalize) {
     std::array<double, 3> expected3 = {1.0, 0.0, 0.0};
     EXPECT_EQ(vector3, expected3);
 }
+
+void RunSortAndRemoveDuplicatesTestDevice(const std::vector<double> &values, const std::vector<double> &expected) {
+    // Test on device with Kokkos
+    Kokkos::View<double *> values_view("values_view", values.size());
+
+    // Set up host views
+    Kokkos::View<double *>::HostMirror values_host = Kokkos::create_mirror_view(values_view);
+
+    // Set up values on host
+    for (size_t i = 0; i < values.size(); ++i) {
+        values_host(i) = values[i];
+    }
+
+    // Copy to device
+    Kokkos::deep_copy(values_view, values_host);
+
+    // Create a view for num_unique
+    Kokkos::View<size_t *> num_unique("num_unique", 1);
+
+    // Run the sort and remove duplicates function
+    Kokkos::parallel_for(
+        "SortAndRemoveDuplicates", Kokkos::RangePolicy<>(0, 1), KOKKOS_LAMBDA(int) {
+            num_unique(0) = aperi::SortAndRemoveDuplicates(values_view, values_view.size());
+        });
+
+    // Copy num_unique back to the host
+    Kokkos::View<size_t *>::HostMirror num_unique_host = Kokkos::create_mirror_view(num_unique);
+    Kokkos::deep_copy(num_unique_host, num_unique);
+
+    // Now you can use h_num_unique_view() on the host
+    EXPECT_EQ(num_unique_host(0), expected.size());
+
+    Kokkos::fence();
+
+    // Copy values back to host
+    Kokkos::deep_copy(values_host, values_view);
+
+    // Check the results
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_DOUBLE_EQ(values_host(i), expected[i]);
+    }
+}
+
+void RunSortAndRemoveDuplicatesTest(const std::vector<double> &values, const std::vector<double> &expected) {
+    std::vector<double> sorted_values = values;
+    size_t num_unique = aperi::SortAndRemoveDuplicates(sorted_values, sorted_values.size());
+    EXPECT_EQ(num_unique, expected.size());
+    sorted_values.resize(num_unique);
+    EXPECT_EQ(sorted_values, expected);
+}
+
+// Test the sort and remove duplicates function
+TEST(MathUtilsTest, SortAndRemoveDuplicates) {
+    std::vector<double> values = {1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    std::vector<double> expected = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    RunSortAndRemoveDuplicatesTest(values, expected);
+    RunSortAndRemoveDuplicatesTestDevice(values, expected);
+
+    std::vector<double> values2 = {6.0, 5.0, 4.0, 3.0, 2.0, 1.0};
+    std::vector<double> expected2 = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    RunSortAndRemoveDuplicatesTest(values2, expected2);
+    RunSortAndRemoveDuplicatesTestDevice(values2, expected2);
+}

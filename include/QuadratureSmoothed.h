@@ -68,7 +68,7 @@ struct SmoothedQuadrature {
             // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
             for (size_t k = 0; k < actual_num_neighbors; ++k) {
                 double shape_function_value = 0.0;
-                for (size_t l = 0; l < 3; ++l) { // Loop over nodes per face
+                for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
                     shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
                 }
                 shape_function_value /= 3.0;  // for the average of the 3 nodes

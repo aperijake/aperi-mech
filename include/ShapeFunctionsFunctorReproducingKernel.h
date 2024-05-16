@@ -15,19 +15,19 @@ KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen
 #endif
 }
 
-KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vector_neighbor_to_point, double R = 4.0, double alpha = 1.6) { // TODO(jake): Make R and alpha parameters
+KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vector_neighbor_to_point, double R = 4.0, double alpha = 1.6) {  // TODO(jake): Make R and alpha parameters
     const double normalized_radius = vector_neighbor_to_point.norm() / (R * alpha);
     // Calculate the kernel value using a cubic b-spline kernel
     if (normalized_radius < 0.5) {
         return 1.0 + 6.0 * normalized_radius * normalized_radius * (-1.0 + normalized_radius);
     } else if (normalized_radius < 1.0) {
-        return 2.0 * ( 1.0 + normalized_radius * ( -3.0 + 3.0 * normalized_radius - 1.0 * normalized_radius * normalized_radius));
+        return 2.0 * (1.0 + normalized_radius * (-3.0 + 3.0 * normalized_radius - 1.0 * normalized_radius * normalized_radius));
     }
     return 0.0;
 }
 
 template <size_t MaxNumNeighbors>
-struct ShapeFunctionsFunctorReproducingKernel{
+struct ShapeFunctionsFunctorReproducingKernel {
     /**
      * @brief Computes the shape functions of the element.
      * @param evaluation_point_physical_coordinates The physical coordinates of the evaluation point.
@@ -59,7 +59,7 @@ struct ShapeFunctionsFunctorReproducingKernel{
             // Vector from neighbor to evaluation_point
             Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
 
-            // Compute kernel value 
+            // Compute kernel value
             double phi_z = ComputeKernel(vector_neighbor_to_point);
 
             if (phi_z == 0.0) {
@@ -87,7 +87,7 @@ struct ShapeFunctionsFunctorReproducingKernel{
             if (phi_z == 0.0) {
                 continue;
             }
-            
+
             // Compute basis vector (H)
             H.segment(1, 3) = vector_neighbor_to_point;
 

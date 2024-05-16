@@ -62,9 +62,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_mesh_data = std::make_shared<aperi::MeshData>(m_bulk_data.get());
 
         // Create the NeighborSearchProcessor
-        m_element_search_processor = std::make_shared<aperi::NeighborSearchProcessor<aperi::FieldDataRank::ELEMENT>>(m_mesh_data);
-        m_node_search_processor = std::make_shared<aperi::NeighborSearchProcessor<aperi::FieldDataRank::NODE>>(m_mesh_data);
-
+        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data);
     }
 
     size_t m_num_elements_x = 1;
@@ -77,11 +75,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_element_num_neighbors_field;
     DoubleField *m_element_neighbors_field;
-    std::shared_ptr<aperi::NeighborSearchProcessor<aperi::FieldDataRank::ELEMENT>> m_element_search_processor;
-    std::shared_ptr<aperi::NeighborSearchProcessor<aperi::FieldDataRank::NODE>> m_node_search_processor;
+    std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
 };
 
-TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement){
+TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -89,15 +86,14 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement){
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_element_search_processor->add_ring_0_nodes();
-    m_element_search_processor->MarkAndSyncFieldsToHost();
-    m_element_search_processor->CommunicateAllFieldData();
+    m_search_processor->add_elements_ring_0_nodes();
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
     std::array<double, 1> expected_num_neighbors_data = {4};
     CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 }
 
-
-TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode){
+TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -105,14 +101,32 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode){
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_node_search_processor->add_ring_0_nodes();
-    m_node_search_processor->MarkAndSyncFieldsToHost();
-    m_node_search_processor->CommunicateAllFieldData();
+    m_search_processor->add_nodes_ring_0_nodes();
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
     std::array<double, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 }
 
-class FunctionValueStorageProcessorTestFixture :  public NeighborSearchProcessorTestFixture {
+TEST_F(NeighborSearchProcessorTestFixture, TestFillingElementFromNodeRing0Search) {
+    // Skip if running with more than 4 processes
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    m_search_processor->add_nodes_ring_0_nodes();
+    m_search_processor->set_element_neighbors_from_node_neighbors<4>();
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
+    std::array<double, aperi::MAX_CELL_NUM_NEIGHBORS> expected_neighbors_data;
+    expected_neighbors_data.fill(0.0);
+    std::array<double, 1> expected_num_neighbors_data = {4};
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+}
+
+class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorTestFixture {
    protected:
     void SetUp() override {
         NeighborSearchProcessorTestFixture::SetUp();
@@ -130,7 +144,7 @@ class FunctionValueStorageProcessorTestFixture :  public NeighborSearchProcessor
     std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
 };
 
-TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage){
+TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -138,9 +152,9 @@ TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage){
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_node_search_processor->add_ring_0_nodes();
-    m_node_search_processor->MarkAndSyncFieldsToHost();
-    m_node_search_processor->CommunicateAllFieldData();
+    m_search_processor->add_nodes_ring_0_nodes();
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
 
     BuildFunctors();
 
