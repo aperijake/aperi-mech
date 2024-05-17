@@ -14,7 +14,7 @@
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_topology/topology.hpp>
 
-#include "EntityProcessor.h"  // Include EntityProcessor.h to use StkGetField. TODO(jake): Move StkGetField to a separate file.
+#include "AperiStkUtils.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
@@ -48,21 +48,8 @@ class ElementGatherScatterProcessor {
         }
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        // Set the selector. TODO(jake) Move this to a separate function. It is the same as in NodeProcessor.
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        if (sets.size() > 0) {
-            stk::mesh::PartVector parts;
-            for (const auto &set : sets) {
-                stk::mesh::Part *part = meta_data->get_part(set);
-                if (part == nullptr) {
-                    throw std::runtime_error("Set " + set + " not found.");
-                }
-                parts.push_back(part);
-            }
-            m_selector = stk::mesh::selectUnion(parts);
-        } else {
-            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
-        }
+        m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: ElementGatherScatterProcessor selector is empty." << std::endl;
@@ -327,21 +314,8 @@ class StrainSmoothingProcessor {
         }
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        // Set the selector. TODO(jake) Move this to a separate function. It is the same as in NodeProcessor.
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        if (sets.size() > 0) {
-            stk::mesh::PartVector parts;
-            for (const auto &set : sets) {
-                stk::mesh::Part *part = meta_data->get_part(set);
-                if (part == nullptr) {
-                    throw std::runtime_error("Set " + set + " not found.");
-                }
-                parts.push_back(part);
-            }
-            m_selector = stk::mesh::selectUnion(parts);
-        } else {
-            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
-        }
+        m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
@@ -459,21 +433,8 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
         }
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        // Set the selector. TODO(jake) Move this to a separate function. It is the same as in NodeProcessor.
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        if (sets.size() > 0) {
-            stk::mesh::PartVector parts;
-            for (const auto &set : sets) {
-                stk::mesh::Part *part = meta_data->get_part(set);
-                if (part == nullptr) {
-                    throw std::runtime_error("Set " + set + " not found.");
-                }
-                parts.push_back(part);
-            }
-            m_selector = stk::mesh::selectUnion(parts);
-        } else {
-            m_selector = stk::mesh::Selector(m_bulk_data->mesh_meta_data().universal_part());
-        }
+        m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;

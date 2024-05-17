@@ -179,26 +179,26 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
 // Test kernel value
 TEST(KernelTest, KernelValue) {
     Eigen::Vector3d vector_neighbor_to_point = {0.0, 0.0, 0.0};
-    double R = 2.0;
+    double r = 2.0;
     double alpha = 1.6;
-    double kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, R, alpha);
+    double kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
     EXPECT_NEAR(kernel_value, 1.0, 1.0e-12);
 
-    vector_neighbor_to_point = {R * alpha, 0.0, 0.0};
-    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, R, alpha);
+    vector_neighbor_to_point = {r * alpha, 0.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
     EXPECT_NEAR(kernel_value, 0.0, 1.0e-12);
 
-    vector_neighbor_to_point = {0.0, R * alpha / 2.0, 0.0};
-    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, R, alpha);
+    vector_neighbor_to_point = {0.0, r * alpha / 2.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
     EXPECT_NEAR(kernel_value, 0.25, 1.0e-12);
 
     double epsilon = 1.0e-6;
     vector_neighbor_to_point(1) += epsilon;
-    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, R, alpha);
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
     EXPECT_NEAR(kernel_value, 0.25, epsilon);
 
     vector_neighbor_to_point(1) -= 2.0 * epsilon;
-    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, R, alpha);
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
     EXPECT_NEAR(kernel_value, 0.25, epsilon);
 }
 
@@ -247,7 +247,7 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     // TODO(jake): Check the neighbors.
 
     // Check the volume
-    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {(double)num_procs}, aperi::FieldQueryState::None);
+    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {static_cast<double>(num_procs)}, aperi::FieldQueryState::None);
 
     // Check partition of nullity for the shape function derivatives
     CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);

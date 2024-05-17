@@ -1,17 +1,17 @@
 #pragma once
 
-#include <memory>
-#include <stk_mesh/base/BulkData.hpp>
+#include <stdexcept>
 #include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/GetNgpField.hpp>
-#include <stk_mesh/base/GetNgpMesh.hpp>
+#include <stk_mesh/base/FieldBase.hpp>
+#include <stk_mesh/base/FieldState.hpp>
 #include <stk_mesh/base/MetaData.hpp>
-#include <stk_mesh/base/NgpField.hpp>
-#include <stk_mesh/base/NgpForEachEntity.hpp>
-#include <stk_mesh/base/NgpMesh.hpp>
+#include <stk_mesh/base/Part.hpp>
+#include <stk_mesh/base/Selector.hpp>
+#include <string>
+#include <vector>
 
 #include "FieldData.h"
-#include "MeshData.h"
+#include "LogUtils.h"
 
 namespace aperi {
 
@@ -32,6 +32,22 @@ inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_d
         }
     }
     return &field->field_of_state(state);
+}
+
+// Get a stk::mesh::Selector from a list of set names.
+inline stk::mesh::Selector StkGetSelector(const std::vector<std::string> &sets, stk::mesh::MetaData *meta_data) {
+    if (sets.size() == 0) {
+        return stk::mesh::Selector(meta_data->universal_part());
+    }
+    stk::mesh::PartVector parts;
+    for (const auto &set : sets) {
+        stk::mesh::Part *part = meta_data->get_part(set);
+        if (part == nullptr) {
+            throw std::runtime_error("Set " + set + " not found.");
+        }
+        parts.push_back(part);
+    }
+    return stk::mesh::selectUnion(parts);
 }
 
 }  // namespace aperi

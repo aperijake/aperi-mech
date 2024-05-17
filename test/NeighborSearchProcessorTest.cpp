@@ -18,8 +18,8 @@
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "UnitTestUtils.h"
 
-typedef stk::mesh::Field<double> DoubleField;
-typedef stk::mesh::NgpField<double> NgpDoubleField;
+using DoubleField = stk::mesh::Field<double>;
+using NgpDoubleField = stk::mesh::NgpField<double>;
 
 class NeighborSearchProcessorTestFixture : public ::testing::Test {
    protected:
@@ -27,10 +27,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     }
 
     void AddMeshDatabase(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z) {
-        MPI_Comm communicator = MPI_COMM_WORLD;
-        m_bulk_data = stk::mesh::MeshBuilder(communicator).create();
+        MPI_Comm p_communicator = MPI_COMM_WORLD;
+        m_bulk_data = stk::mesh::MeshBuilder(p_communicator).create();
         m_bulk_data->mesh_meta_data().use_simple_fields();
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        stk::mesh::MetaData *p_meta_data = &m_bulk_data->mesh_meta_data();
 
         stk::io::StkMeshIoBroker mesh_reader;
         mesh_reader.set_bulk_data(*m_bulk_data);
@@ -40,20 +40,20 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         mesh_reader.add_all_mesh_fields_as_input_fields();
 
         // Create the fields, start with nodes
-        m_node_num_neighbors_field = &meta_data->declare_field<double>(stk::topology::NODE_RANK, "num_neighbors", 1);
+        m_node_num_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_num_neighbors_field, 1);
 
-        m_node_neighbors_field = &meta_data->declare_field<double>(stk::topology::NODE_RANK, "neighbors", 1);
+        m_node_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
-        m_node_neighbors_function_values_field = &meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
+        m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_function_values_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
         // Create the fields, same thing for elements
-        m_element_num_neighbors_field = &meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "num_neighbors", 1);
+        m_element_num_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_element_num_neighbors_field, 1);
 
-        m_element_neighbors_field = &meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "neighbors", 1);
+        m_element_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_element_neighbors_field, aperi::MAX_CELL_NUM_NEIGHBORS);
 
         mesh_reader.populate_bulk_data();
