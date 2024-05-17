@@ -12,29 +12,11 @@
 #include <vector>
 
 #include "FieldData.h"
+#include "FieldUtils.h"
 #include "LogUtils.h"
 #include "MeshData.h"
 
 namespace aperi {
-
-inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    stk::topology::rank_t rank = field_query_data.rank == FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
-    stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
-    if (field == nullptr) {
-        throw std::runtime_error("Field " + field_query_data.name + " not found.");
-    }
-    stk::mesh::FieldState state = stk::mesh::StateNone;
-    if (field_query_data.state == FieldQueryState::N) {
-        state = stk::mesh::StateN;
-    } else if (field_query_data.state == FieldQueryState::NP1) {
-        state = stk::mesh::StateNP1;
-    } else {
-        if (field_query_data.state != FieldQueryState::None) {
-            throw std::runtime_error("Invalid field state");
-        }
-    }
-    return &field->field_of_state(state);
-}
 
 struct FillFieldFunctor {
     FillFieldFunctor(double value) : m_value(value) {}

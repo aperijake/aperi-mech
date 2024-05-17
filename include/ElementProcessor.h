@@ -590,19 +590,19 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
     stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
     stk::mesh::Selector m_selector;                                        // The selector
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    DoubleField *m_node_num_neighbors_field;                                    // The number of neighbors field
-    DoubleField *m_node_neighbors_field;                                        // The neighbors field
-    DoubleField *m_node_function_values_field;                                   // The function values field
-    DoubleField *m_element_num_neighbors_field;                                    // The number of neighbors field
-    DoubleField *m_element_neighbors_field;                                        // The neighbors field
+    DoubleField *m_node_num_neighbors_field;                               // The number of neighbors field
+    DoubleField *m_node_neighbors_field;                                   // The neighbors field
+    DoubleField *m_node_function_values_field;                             // The function values field
+    DoubleField *m_element_num_neighbors_field;                            // The number of neighbors field
+    DoubleField *m_element_neighbors_field;                                // The neighbors field
     DoubleField *m_coordinates_field;                                      // The coordinates field
     DoubleField *m_element_volume_field;                                   // The element volume field
     Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
-    NgpDoubleField *m_ngp_node_num_neighbors_field;                             // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_node_neighbors_field;                                 // The ngp neighbors field
-    NgpDoubleField *m_ngp_node_function_values_field;                            // The ngp function values field
-    NgpDoubleField *m_ngp_element_num_neighbors_field;                             // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_element_neighbors_field;                                 // The ngp neighbors field
+    NgpDoubleField *m_ngp_node_num_neighbors_field;                        // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_node_neighbors_field;                            // The ngp neighbors field
+    NgpDoubleField *m_ngp_node_function_values_field;                      // The ngp function values field
+    NgpDoubleField *m_ngp_element_num_neighbors_field;                     // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_element_neighbors_field;                         // The ngp neighbors field
     NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields

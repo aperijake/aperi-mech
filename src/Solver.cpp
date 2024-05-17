@@ -136,6 +136,31 @@ void ExplicitSolver::UpdateFieldStates() {
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
 
+void LogHeader() {
+    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+    aperi::CoutP0() << std::setw(20) << "Increment Number"
+                    << std::setw(20) << "Time"
+                    << std::setw(25) << "Mean Runtime/Increment"
+                    << std::setw(20) << "Event" << std::endl;
+    aperi::CoutP0() << std::setw(20) << "(N)"
+                    << std::setw(20) << "(seconds)"
+                    << std::setw(25) << "(seconds)"
+                    << std::setw(20) << " " << std::endl;
+    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+}
+
+void LogFooter() {
+    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+}
+
+void LogEvent(const size_t n, const double time, const double average_runtime, const std::string &event = "") {
+    aperi::CoutP0() << std::setw(20) << n
+                    << std::setw(20) << time
+                    << std::setw(25) << average_runtime
+                    << std::setw(20) << event
+                    << std::endl;
+}
+
 double ExplicitSolver::Solve() {
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
@@ -184,16 +209,7 @@ double ExplicitSolver::Solve() {
     aperi::CoutP0() << "Number of Nodes: " << num_nodes << std::endl;
 
     // Print the table header before the loop
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
-    aperi::CoutP0() << std::setw(20) << "Increment Number"
-                    << std::setw(20) << "Time"
-                    << std::setw(25) << "Mean Runtime/Increment"
-                    << std::setw(20) << "Event" << std::endl;
-    aperi::CoutP0() << std::setw(20) << "(N)"
-                    << std::setw(20) << "(seconds)"
-                    << std::setw(25) << "(seconds)"
-                    << std::setw(20) << " " << std::endl;
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+    LogHeader();
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
@@ -201,10 +217,7 @@ double ExplicitSolver::Solve() {
     // Loop over time steps
     while (m_time_stepper->AtEnd(time) == false) {
         if (log_scheduler.AtNextEvent(total_runtime)) {
-            aperi::CoutP0() << std::setw(20) << n
-                            << std::setw(20) << time
-                            << std::setw(25) << average_runtime
-                            << std::endl;
+            LogEvent(n, time, average_runtime, "");
         }
 
         // Benchmarking
@@ -262,21 +275,13 @@ double ExplicitSolver::Solve() {
 
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
-            aperi::CoutP0() << std::setw(20) << n
-                            << std::setw(20) << time
-                            << std::setw(25) << average_runtime
-                            << std::setw(20) << "Write Field Output"
-                            << std::endl;
+            LogEvent(n, time, average_runtime, "Write Field Output");
             m_node_processor_all->SyncAllFieldsDeviceToHost();
             m_io_mesh->WriteFieldResults(time);
         }
     }
-    aperi::CoutP0() << std::setw(20) << n
-                    << std::setw(20) << time
-                    << std::setw(25) << average_runtime
-                    << std::setw(20) << "End of Simulation"
-                    << std::endl;
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+    LogEvent(n, time, average_runtime, "End of Simulation");
+    LogFooter();
 
     return average_runtime;
 }

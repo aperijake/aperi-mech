@@ -6,6 +6,9 @@ BUILD_TYPE="Release"
 CODE_COVERAGE=false
 GPU=false
 
+# Get the current directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
 	key="$1"
@@ -34,7 +37,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build directory base
-BUILD_DIR="../aperi-mech_build/"
+BUILD_DIR="build/"
 
 # Append to build directory based on build type
 BUILD_DIR+="${BUILD_TYPE}"
@@ -99,8 +102,11 @@ cmake_command+=" -D CMAKE_C_COMPILER:FILEPATH=${kokkos_c_path}"
 # Add the C++ flags to the cmake command
 cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"
 
-# Add the path to the stk_ngp_basic source code
-cmake_command+=" ../../aperi-mech"
+# Add the flag to export compile commands to the cmake command
+cmake_command+=" -D CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON"
+
+# Add the script path to the stk_ngp_basic source code
+cmake_command+=" ${SCRIPT_DIR}"
 
 # Print and execute the cmake command
 echo "CMake Command: ${cmake_command}"
