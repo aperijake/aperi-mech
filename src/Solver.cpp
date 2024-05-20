@@ -14,6 +14,7 @@
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "NeighborSearchProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
 
@@ -136,6 +137,34 @@ void ExplicitSolver::UpdateFieldStates() {
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
 
+void ExplicitSolver::WriteOutput(double time){
+    /** We are done with state N at this point. For fields that are generalized, calculate values from the stored function value coefficients:
+    //   - Rotate states to put N into NP1
+    //   - Calculate physical quantities at the temporary NP1
+    //   - Write output (along with any other fields that are not generalized)
+    //   - Rotate back
+    */
+    std::array<aperi::FieldQueryData, 3> dest_field_query_data;
+    dest_field_query_data[0] = {"displacement", FieldQueryState::NP1};
+    dest_field_query_data[1] = {"velocity", FieldQueryState::NP1};
+    dest_field_query_data[2] = {"acceleration", FieldQueryState::NP1};
+    bool rotate_device_states = true;
+    mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
+
+    std::array<aperi::FieldQueryData, 3> src_field_query_data;
+    src_field_query_data[0] = {"displacement", FieldQueryState::N};
+    src_field_query_data[1] = {"velocity", FieldQueryState::N};
+    src_field_query_data[2] = {"acceleration", FieldQueryState::N};
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+    value_from_generalized_field_processor->compute_value_from_generalized_field();
+    value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+
+    m_node_processor_all->SyncAllFieldsDeviceToHost();
+    m_io_mesh->WriteFieldResults(time);
+
+    mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
+}
+
 void LogHeader() {
     aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
     aperi::CoutP0() << std::setw(20) << "Increment Number"
@@ -190,13 +219,6 @@ double ExplicitSolver::Solve() {
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     ComputeAcceleration(node_processor_acceleration);
 
-    // Output initial state
-    aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
-    if (m_output_scheduler->AtNextEvent(time)) {
-        aperi::CoutP0() << "Writing Results at Time 0.0" << std::endl;
-        m_io_mesh->WriteFieldResults(time);
-    }
-
     // Get the initial time step
     double time_increment = m_time_stepper->GetTimeIncrement(time);
 
@@ -213,6 +235,13 @@ double ExplicitSolver::Solve() {
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
+
+    // Output initial state
+    aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
+    if (m_output_scheduler->AtNextEvent(time)) {
+        LogEvent(n, time, average_runtime, "Write Field Output");
+        WriteOutput(time);
+    }
 
     // Loop over time steps
     while (m_time_stepper->AtEnd(time) == false) {
@@ -276,8 +305,7 @@ double ExplicitSolver::Solve() {
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
             LogEvent(n, time, average_runtime, "Write Field Output");
-            m_node_processor_all->SyncAllFieldsDeviceToHost();
-            m_io_mesh->WriteFieldResults(time);
+            WriteOutput(time);
         }
     }
     LogEvent(n, time, average_runtime, "End of Simulation");

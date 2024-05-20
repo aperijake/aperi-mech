@@ -221,6 +221,11 @@ class ExplicitSolver : public Solver {
 
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<9>> m_node_processor_all;
+
+    /**
+     * @brief Writes the output.
+    */
+    void WriteOutput(double time);
 };
 
 /**

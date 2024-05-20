@@ -221,6 +221,8 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
         node_processor->for_component_i(fill_linear_field_x_functor, 0);
         node_processor->for_component_i(fill_linear_field_y_functor, 1);
         node_processor->for_component_i(fill_linear_field_z_functor, 2);
+        node_processor->MarkAllFieldsModifiedOnDevice();
+        node_processor->SyncAllFieldsDeviceToHost();
     }
 
     std::vector<aperi::FieldQueryData> src_and_dest_field_query_data;
@@ -244,6 +246,8 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFi
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
 
     m_value_from_generalized_field_processor->compute_value_from_generalized_field();
+    m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
     CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, src_and_dest_field_query_data[0].name, src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }

@@ -415,6 +415,16 @@ class ValueFromGeneralizedFieldProcessor {
                 // Get the number of neighbors
                 double num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
+                // If there are no neighbors, set the destination field to the source field
+                if (num_neighbors == 0) {
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < 3; ++j) { // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+                            ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                        }
+                    }
+                }
+
+                // If there are neighbors, compute the destination field from the function values and source fields
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
