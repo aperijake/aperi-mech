@@ -350,4 +350,148 @@ class FunctionValueStorageProcessor {
     NgpDoubleField *m_ngp_function_values_field;   // The ngp function values field
 };
 
+template <size_t NumFields>
+class ValueFromGeneralizedFieldProcessor {
+    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::NgpField<double> NgpDoubleField;
+
+   public:
+    ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData, NumFields> source_field_query_data, const std::array<FieldQueryData, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+        // Throw an exception if the mesh data is null.
+        if (mesh_data == nullptr) {
+            throw std::runtime_error("Mesh data is null.");
+        }
+        m_bulk_data = mesh_data->GetBulkData();
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        m_selector = StkGetSelector(sets, meta_data);
+        // Warn if the selector is empty.
+        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
+            aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
+        }
+
+        stk::mesh::Selector full_local_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
+        m_local_selector = m_selector & full_local_selector;
+
+        // Get the number of neighbors field
+        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+
+        // Get the neighbors field
+        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+
+        // Get the function values field
+        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
+
+        // Get the source (generalized) and destination fields
+        for (size_t i = 0; i < NumFields; ++i) {
+            m_source_fields.push_back(StkGetField(source_field_query_data[i], meta_data));
+            m_ngp_source_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_source_fields.back());
+            m_destination_fields.push_back(StkGetField(destination_field_query_data[i], meta_data));
+            m_ngp_destination_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_destination_fields.back());
+        }
+    }
+
+    void compute_value_from_generalized_field() {
+        // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
+
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+        auto ngp_function_values_field = *m_ngp_function_values_field;
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        for (size_t i = 0; i < NumFields; i++) {
+            ngp_source_fields[i] = *m_ngp_source_fields[i];
+            ngp_destination_fields[i] = *m_ngp_destination_fields[i];
+        }
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the number of neighbors
+                double num_neighbors = ngp_num_neighbors_field(node_index, 0);
+
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    // Create the entity
+                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
+                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
+
+                    // Get the function value
+                    double function_value = ngp_function_values_field(node_index, i);
+
+                    // Get the source field values
+                    for (size_t j = 0; j < NumFields; ++j) {
+                        // Zero out the destination field
+                        for (size_t k = 0; k < 3; ++k) { // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+                            ngp_destination_fields[j](node_index, k) = 0.0;
+                        }
+                        for (size_t k = 0; k < 3; ++k) { // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+                            double source_value = ngp_source_fields[j](neighbor_index, k);
+                            ngp_destination_fields[j](node_index, k) += source_value * function_value;
+                        }
+                    }
+                }
+            });
+    }
+
+
+    // Marking modified
+    void MarkDestinationFieldModifiedOnDevice(size_t field_index) {
+        // STK QUESTION: Should I always clear sync state before marking modified?
+        m_ngp_destination_fields[field_index]->clear_sync_state();
+        m_ngp_destination_fields[field_index]->modify_on_device();
+    }
+
+    void MarkAllDestinationFieldsModifiedOnDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkDestinationFieldModifiedOnDevice(i);
+        }
+    }
+
+    // Syncing
+    void SyncDestinationFieldDeviceToHost(size_t field_index) {
+        m_ngp_destination_fields[field_index]->sync_to_host();
+    }
+
+    void SyncAllDestinationFieldsDeviceToHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncDestinationFieldDeviceToHost(i);
+        }
+    }
+
+    // Parallel communication
+    void CommunicateDestinationFieldData(int field_index) const {
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_destination_fields[field_index]});
+    }
+
+    void CommunicateAllDestinationFieldData() const {
+        for (size_t i = 0; i < NumFields; i++) {
+            CommunicateDestinationFieldData(i);
+        }
+    }
+
+
+   private:
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                         // The mesh data object.
+    std::vector<std::string> m_sets;                                      // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                     // The bulk data object.
+    stk::mesh::Selector m_selector;                                       // The selector
+    stk::mesh::Selector m_local_selector;                                 // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                        // The ngp mesh object.
+    DoubleField *m_num_neighbors_field;                                   // The number of neighbors field
+    DoubleField *m_neighbors_field;                                       // The neighbors field
+    DoubleField *m_function_values_field;                                 // The function values field
+    NgpDoubleField *m_ngp_num_neighbors_field;                            // The ngp number of neighbors field
+    NgpDoubleField *m_ngp_neighbors_field;                                // The ngp neighbors field
+    NgpDoubleField *m_ngp_function_values_field;                          // The ngp function values field
+    std::vector<DoubleField *> m_source_fields;                           // The fields to process
+    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
+    std::vector<DoubleField *> m_destination_fields;                      // The fields to process
+    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
+};
+
 }  // namespace aperi

@@ -64,6 +64,33 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
     EXPECT_TRUE(found_at_least_one_entity);
 }
 
+// Check that two fields' values match the expected values
+template <aperi::FieldDataRank Rank>
+void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_1_name, const std::string& field_2_name, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
+    std::array<aperi::FieldQueryData, 2> field_query_data_array;
+    field_query_data_array[0] = {field_1_name, field_query_state, Rank};
+    field_query_data_array[1] = {field_2_name, field_query_state, Rank};
+
+    // Make a entity processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::AperiEntityProcessor<Rank, 2> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+
+    bool found_at_least_one_entity = false;
+
+    // Get the sum of the field values
+    entity_processor.for_each_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 2>& field_data) {
+        for (size_t i = 0; i < num_components; i++) {
+            found_at_least_one_entity = true;
+            if (std::abs(field_data[0][i_entity_start + i]) < 1.0e-12) {
+                EXPECT_NEAR(field_data[0][i_entity_start + i], field_data[1][i_entity_start + i], tolerance) << "Field " << field_1_name << " and " << field_2_name << " values do not match";
+            } else {
+                EXPECT_NEAR(field_data[0][i_entity_start + i], field_data[1][i_entity_start + i], std::abs(tolerance * field_data[0][i_entity_start + i])) << "Field " << field_1_name << " and " << field_2_name << " values do not match";
+            }
+        }
+    });
+    EXPECT_TRUE(found_at_least_one_entity);
+}
+
 // Check that the sum of different field values for an entity match the expected values
 template <aperi::FieldDataRank Rank>
 void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, double expected_value, aperi::FieldQueryState field_query_state, bool verify_nonuniform = true, double tolerance = 1.0e-12) {
