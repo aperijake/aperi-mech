@@ -64,6 +64,41 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
     EXPECT_TRUE(found_at_least_one_entity);
 }
 
+// Check that the number of field values with an expected value matches the expected count
+template <aperi::FieldDataRank Rank, typename T>
+void CheckEntityFieldValueCount(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
+    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state, Rank}};
+
+    // Make a entity processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::AperiEntityProcessor<Rank, 1> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+
+    std::vector<int> actual_count(expected_values.size(), 0);
+
+    bool found_at_least_one_entity = false;
+
+    // Get the sum of the field values
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& field_data) {
+        for (size_t i = 0; i < num_components; i++) {
+            found_at_least_one_entity = true;
+            for (size_t j = 0; j < expected_values.size(); j++) {
+                if (std::abs(field_data[0][i_entity_start + i] - expected_values[j].first) < tolerance) {
+                    actual_count[j]++;
+                }
+            }
+        }
+    });
+    EXPECT_TRUE(found_at_least_one_entity);
+
+    // Parallel sum
+    std::vector<int> actual_count_global(actual_count.size(), 0);
+    MPI_Allreduce(actual_count.data(), actual_count_global.data(), actual_count.size(), MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    for (size_t i = 0; i < expected_values.size(); i++) {
+        EXPECT_EQ(actual_count_global[i], expected_values[i].second) << "Field " << field_name << " value count for value " << expected_values[i].first << " is incorrect";
+    }
+}
+
 // Check that two fields' values match the expected values
 template <aperi::FieldDataRank Rank>
 void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_1_name, const std::string& field_2_name, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {

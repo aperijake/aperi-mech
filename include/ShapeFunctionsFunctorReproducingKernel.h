@@ -15,7 +15,7 @@ KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen
 #endif
 }
 
-KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vector_neighbor_to_point, double R = 4.0, double alpha = 1.6) {  // TODO(jake): Make R and alpha parameters
+KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vector_neighbor_to_point, double R = 1.1, double alpha = 1.6) {  // TODO(jake): Make R and alpha parameters
     const double normalized_radius = vector_neighbor_to_point.norm() / (R * alpha);
     // Calculate the kernel value using a cubic b-spline kernel
     if (normalized_radius < 0.5) {

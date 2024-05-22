@@ -115,6 +115,59 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode) {
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 }
 
+#ifndef KOKKOS_ENABLE_CUDA
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall){
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    m_search_processor->add_nodes_neighbors_within_ball(0.5); // Small ball radius, only neighbor is itself
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
+    std::array<double, 1> expected_num_neighbors_data = {1};
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+}
+
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge){
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Diagonal length of the mesh
+    double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
+    m_search_processor->add_nodes_neighbors_within_ball(1.01 * diagonal_length); // Large ball radius, all nodes are neighbors
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
+    // Num nodes
+    double num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    std::array<double, 1> expected_num_neighbors_data = {num_nodes};
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+}
+
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid){
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    CreateMeshAndProcessors(2, 2, 4);
+    m_search_processor->add_nodes_neighbors_within_ball(1.01); // Mid ball radius
+    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->CommunicateAllFieldData();
+    // 8 corners of the mesh = 4 neighbors
+    // 20 edges of the mesh = 5 neighbors
+    // 14 faces of the mesh = 6 neighbors
+    // 3 interior nodes = 7 neighbors
+    // Make a pair with value (num neighbors) and expected count
+    std::vector<std::pair<double, size_t>> expected_num_neighbors_data = {{4, 8}, {5, 20}, {6, 14}, {7, 3}};
+    CheckEntityFieldValueCount<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+}
+#endif
+
 TEST_F(NeighborSearchProcessorTestFixture, TestFillingElementFromNodeRing0Search) {
     // Skip if running with more than 4 processes
     int num_procs;

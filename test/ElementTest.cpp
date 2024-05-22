@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Dense>
+#include <cstdlib>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -38,6 +39,8 @@ class ElementBasicsTest : public ::testing::Test {
             {0.0, 0.0, 0.0, 1.0},
             {0.0, 0.5, 0.5, 0.0},
             {0.25, 0.25, 0.25, 0.25}};
+        // Seed the random number generator
+        std::srand(42);
     }
 
     // Check partition of unity
@@ -164,6 +167,12 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
 
     // Randomize the node coordinates
     node_coordinates = Eigen::Matrix<double, 4, 3>::Random();
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = node_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = node_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    node_coordinates = (node_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
     TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
 }
 
@@ -173,6 +182,12 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
     aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<8> functions_functor;
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = neighbor_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = neighbor_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    neighbor_coordinates = (neighbor_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
     TestFunctionsFunctorValues(functions_functor, node_coordinates, neighbor_coordinates, 8, false);
 }
 
