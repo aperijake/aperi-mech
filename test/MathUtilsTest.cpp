@@ -218,12 +218,13 @@ TEST(MathUtilsTest, Normalize) {
     EXPECT_EQ(vector3, expected3);
 }
 
-void RunSortAndRemoveDuplicatesTestDevice(const std::vector<double> &values, const std::vector<double> &expected) {
+template <typename T>
+void RunSortAndRemoveDuplicatesTestDevice(const std::vector<T> &values, const std::vector<T> &expected) {
     // Test on device with Kokkos
-    Kokkos::View<double *> values_view("values_view", values.size());
+    Kokkos::View<T *> values_view("values_view", values.size());
 
     // Set up host views
-    Kokkos::View<double *>::HostMirror values_host = Kokkos::create_mirror_view(values_view);
+    auto values_host = Kokkos::create_mirror_view(values_view);
 
     // Set up values on host
     for (size_t i = 0; i < values.size(); ++i) {
@@ -256,12 +257,13 @@ void RunSortAndRemoveDuplicatesTestDevice(const std::vector<double> &values, con
 
     // Check the results
     for (size_t i = 0; i < expected.size(); ++i) {
-        EXPECT_DOUBLE_EQ(values_host(i), expected[i]);
+        EXPECT_EQ(values_host(i), expected[i]);
     }
 }
 
-void RunSortAndRemoveDuplicatesTest(const std::vector<double> &values, const std::vector<double> &expected) {
-    std::vector<double> sorted_values = values;
+template <typename T>
+void RunSortAndRemoveDuplicatesTest(const std::vector<T> &values, const std::vector<T> &expected) {
+    std::vector<T> sorted_values = values;
     size_t num_unique = aperi::SortAndRemoveDuplicates(sorted_values, sorted_values.size());
     EXPECT_EQ(num_unique, expected.size());
     sorted_values.resize(num_unique);
@@ -279,4 +281,9 @@ TEST(MathUtilsTest, SortAndRemoveDuplicates) {
     std::vector<double> expected2 = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
     RunSortAndRemoveDuplicatesTest(values2, expected2);
     RunSortAndRemoveDuplicatesTestDevice(values2, expected2);
+
+    std::vector<size_t> values3 = {10, 19, 20, 22, 28, 14, 20, 22, 23, 24, 26, 32, 13, 19, 22, 23, 25, 31, 23, 29, 31, 32, 33, 35, 41};
+    std::vector<size_t> expected3 = {10, 13, 14, 19, 20, 22, 23, 24, 25, 26, 28, 29, 31, 32, 33, 35, 41};
+    RunSortAndRemoveDuplicatesTest(values3, expected3);
+    RunSortAndRemoveDuplicatesTestDevice(values3, expected3);
 }

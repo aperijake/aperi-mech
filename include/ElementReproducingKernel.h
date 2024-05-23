@@ -56,9 +56,11 @@ class ElementReproducingKernel : public ElementBase {
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         search_processor.add_nodes_ring_0_nodes();
+        // search_processor.add_nodes_neighbors_within_ball(1.6);
+        search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
+        search_processor.PrintNumNeighborsStats();
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(*m_compute_node_functions_functor);
-        search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
         aperi::StrainSmoothingFromStoredNodeValuesProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<MAX_CELL_NUM_NEIGHBORS>(m_integration_functor);
     }

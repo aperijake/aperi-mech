@@ -90,7 +90,7 @@ The commands for a GPU build are:
 ```bash
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
-spack add trilinos@master%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
+spack add trilinos@develop%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add mfem%gcc@10.5.0 +netcdf +cuda cuda_arch=75
 spack add googletest%gcc@10.5.0
 spack add yaml-cpp%gcc@10.5.0
@@ -107,7 +107,7 @@ And, the commands for a CPU build are:
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 spack add kokkos%gcc@10.5.0 ~cuda ~shared cxxstd=17
-spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~shared +stk +zoltan +zoltan2 cxxstd=17
+spack add trilinos@develop%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk +zoltan +zoltan2 cxxstd=17
 spack add mfem%gcc@10.5.0 +netcdf
 spack add googletest%gcc@10.5.0
 spack add yaml-cpp%gcc@10.5.0

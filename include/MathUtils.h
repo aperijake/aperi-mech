@@ -169,16 +169,13 @@ KOKKOS_INLINE_FUNCTION size_t SortAndRemoveDuplicates(T &arr, size_t relevant_le
     if (relevant_length == 0) return 0;
     // Sort the array
     bool swapped;
-    for (size_t i = 0; i < relevant_length; ++i) {
+    for (size_t i = 0; i < relevant_length - 1; ++i) {
         swapped = false;
-        for (size_t j = i + 1; j < relevant_length; ++j) {
-            if (arr[i] > arr[j]) {
-                auto temp = arr[i];
-                arr[i] = arr[j];
-                arr[j] = temp;
-                swapped = true;
-            } else if (arr[i] == arr[j]) {
-                // Not swapping, but still need to set swapped to true to avoid early termination
+        for (size_t j = 0; j < relevant_length - i - 1; ++j) {
+            if (arr[j] > arr[j + 1]) {
+                auto temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
                 swapped = true;
             }
         }

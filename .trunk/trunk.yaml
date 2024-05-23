@@ -19,16 +19,16 @@ lint:
     - bandit@1.7.8
     - black@24.4.2
     - isort@5.13.2
-    - ruff@0.4.4
+    - ruff@0.4.5
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
     - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.51.1
+    - trivy@0.51.2
     - yamllint@1.35.1
-    - checkov@3.2.94
+    - checkov@3.2.106
     - git-diff-check
     - markdownlint@0.40.0
     - prettier@3.2.5

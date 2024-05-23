@@ -89,7 +89,7 @@
       "name": "MPI Debug Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${env:SPACK_ROOT}/var/spack/environments/aperi-mech/.spack-env/view/bin/mpirun",
+      "program": "${env:SPACK_ROOT}/var/spack/environments/aperi-mech-gpu/.spack-env/view/bin/mpirun",
       "args": [
         "-np",
         "3",

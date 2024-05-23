@@ -50,7 +50,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
     bool found_at_least_one_entity = false;
 
     // Get the sum of the field values
-    entity_processor.for_each_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& field_data) {
         ASSERT_EQ(num_components, expected_values.size()) << "Number of components is not consistent";
         for (size_t i = 0; i < num_components; i++) {
             found_at_least_one_entity = true;
@@ -113,7 +113,7 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
     bool found_at_least_one_entity = false;
 
     // Get the sum of the field values
-    entity_processor.for_each_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 2>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 2>& field_data) {
         for (size_t i = 0; i < num_components; i++) {
             found_at_least_one_entity = true;
             if (std::abs(field_data[0][i_entity_start + i]) < 1.0e-12) {
@@ -137,8 +137,11 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
 
     bool found_at_least_one_entity = false;
 
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     // Get the sum of the field values
-    entity_processor.for_each_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& field_data) {
         double sum = 0.0;
         double min_value = field_data[0][i_entity_start];
         double max_value = field_data[0][i_entity_start];
@@ -149,12 +152,12 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
             max_value = std::max(max_value, field_data[0][i_entity_start + i]);
         }
         if (std::abs(expected_value) < 1.0e-12) {
-            EXPECT_NEAR(sum, expected_value, tolerance) << "Field " << field_name << " sum of values is incorrect";
+            EXPECT_NEAR(sum, expected_value, tolerance) << "Field " << field_name << " sum of values is incorrect. Rank: " << rank;
         } else {
-            EXPECT_NEAR(sum, expected_value, std::abs(tolerance * expected_value)) << "Field " << field_name << " sum of values is incorrect";
+            EXPECT_NEAR(sum, expected_value, std::abs(tolerance * expected_value)) << "Field " << field_name << " sum of values is incorrect. Rank: " << rank;
         }
         if (verify_nonuniform) {
-            EXPECT_NE(min_value, max_value) << "Field " << field_name << " values are uniform";
+            EXPECT_NE(min_value, max_value) << "Field " << field_name << " values are uniform. Rank: " << rank;
         }
     });
     EXPECT_TRUE(found_at_least_one_entity);

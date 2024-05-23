@@ -64,8 +64,8 @@ class NeighborSearchProcessor {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
         }
 
-        stk::mesh::Selector full_local_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_local_selector = m_selector & full_local_selector;
+        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
+        m_owned_selector = m_selector & full_owned_selector;
 
         // Get the node number of neighbors field
         m_node_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
@@ -88,9 +88,10 @@ class NeighborSearchProcessor {
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
     }
 
-    FastMeshIndicesViewType GetLocalEntityIndices(stk::mesh::EntityRank rank) {
+    // Create local entities on host and copy to device
+    FastMeshIndicesViewType GetLocalEntityIndices(stk::mesh::EntityRank rank, stk::mesh::Selector selector){
         std::vector<stk::mesh::Entity> local_entities;
-        stk::mesh::get_entities(*m_bulk_data, rank, m_local_selector, local_entities);
+        stk::mesh::get_entities(*m_bulk_data, rank, selector, local_entities);
 
         FastMeshIndicesViewType mesh_indices("mesh_indices", local_entities.size());
         FastMeshIndicesViewType::HostMirror host_mesh_indices = Kokkos::create_mirror_view(Kokkos::WithoutInitializing, mesh_indices);
@@ -104,9 +105,11 @@ class NeighborSearchProcessor {
         return mesh_indices;
     }
 
+    // Sphere domain. Will be used to find the nodes within a ball defined by the sphere.
+    // The identifiers will be the global node ids.
     DomainViewType CreateNodeSpheres(double radius) {
         const stk::mesh::MetaData& meta = m_bulk_data->mesh_meta_data();
-        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, meta.locally_owned_part());
+        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
         DomainViewType node_spheres("node_spheres", num_local_nodes);
 
 #ifndef KOKKOS_ENABLE_CUDA
@@ -114,23 +117,24 @@ class NeighborSearchProcessor {
         const stk::mesh::NgpMesh& ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK);
+        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
         const int my_rank = m_bulk_data->parallel_rank();
 
         Kokkos::parallel_for(stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned& i) {
           stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
           stk::search::Point<double> center(coords[0], coords[1], coords[2]);
           stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-          node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(node.local_offset(), my_rank)};
+          node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
           });
 
 #endif
         return node_spheres;
     }
 
+    // The range will be the nodes. Search will find the nodes within the spheres from above.
+    // The identifiers will be the global node ids.
     RangeViewType CreateNodePoints() {
-        const stk::mesh::MetaData& meta = m_bulk_data->mesh_meta_data();
-        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, meta.locally_owned_part());
+        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector);
         RangeViewType node_points("node_points", num_local_nodes);
 
 #ifndef KOKKOS_ENABLE_CUDA
@@ -138,7 +142,7 @@ class NeighborSearchProcessor {
         const stk::mesh::NgpMesh& ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK);
+        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector);
         const int my_rank = m_bulk_data->parallel_rank();
 
         Kokkos::parallel_for(stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned& i) {
@@ -151,35 +155,7 @@ class NeighborSearchProcessor {
         return node_points;
     }
 
-    template <class ExecSpace>
-    void UnpackSearchResultsIntoField(const ResultViewType &search_results, ExecSpace &exec_space) {
-#ifndef KOKKOS_ENABLE_CUDA
-        ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
-
-        const int my_rank = m_bulk_data->parallel_rank();
-
-        for (size_t i = 0; i < host_search_results.size(); ++i) {
-            auto result = host_search_results(i);
-            if (result.domainIdentProc.proc() == my_rank) {
-                stk::mesh::Entity node(result.domainIdentProc.id());
-                stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
-                double* p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-                double& num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-                if ((size_t)num_neighbors >= MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %d has too many neighbors\n", node.local_offset()); // TODO(jake): Handle this better
-                    return;
-                }
-                p_neighbor_data[(size_t)num_neighbors] = (double)neighbor.local_offset();
-                num_neighbors += 1;
-            }
-        }
-        m_node_neighbors_field->modify_on_host();
-        m_node_num_neighbors_field->modify_on_host();
-        m_node_neighbors_field->sync_to_device();
-        m_node_num_neighbors_field->sync_to_device();
-#endif
-    }
-
+    // Ghost the neighbors to the nodes processor
     template <class ExecSpace>
     void GhostNodeNeighbors(const ResultViewType& search_results, ExecSpace& exec_space) {
 #ifndef KOKKOS_ENABLE_CUDA
@@ -201,6 +177,38 @@ class NeighborSearchProcessor {
 
         m_bulk_data->change_ghosting(neighbor_ghosting, nodes_to_ghost);
         m_bulk_data->modification_end();
+#endif
+    }
+
+    // Put the search results into the neighbors field. The neighbors field is a field of global node ids.
+    template <class ExecSpace>
+    void UnpackSearchResultsIntoField(const ResultViewType &search_results, ExecSpace &exec_space) {
+#ifndef KOKKOS_ENABLE_CUDA
+        ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
+
+        const int my_rank = m_bulk_data->parallel_rank();
+
+        for (size_t i = 0; i < host_search_results.size(); ++i) {
+            auto result = host_search_results(i);
+            if (result.domainIdentProc.proc() == my_rank) {
+                stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
+                stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+                double* p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
+                double& num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+                if ((size_t)num_neighbors >= MAX_NODE_NUM_NEIGHBORS) {
+                    printf("Node %ld has too many neighbors\n", m_bulk_data->identifier(node)); // TODO(jake): handle this better
+                    return;
+                }
+                // Store local offset, probably;
+                p_neighbor_data[(size_t)num_neighbors] = (double)neighbor.local_offset(); // Store the local offset
+                num_neighbors += 1;
+            }
+        }
+        // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
+        m_node_neighbors_field->modify_on_host();
+        m_node_num_neighbors_field->modify_on_host();
+        m_node_neighbors_field->sync_to_device();
+        m_node_num_neighbors_field->sync_to_device();
 #endif
     }
 
@@ -238,21 +246,6 @@ class NeighborSearchProcessor {
         auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
 
         // Add itself to the neighbors field
-
-        // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        // FastMeshIndicesViewType local_node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK);
-
-        // const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_local_selector);
-
-        // Kokkos::parallel_for(stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
-        //     stk::mesh::Entity node = m_ngp_mesh.get_entity(stk::topology::NODE_RANK, local_node_indices(i));
-        //     stk::mesh::EntityFieldData<double> entity_num_neighbors = ngp_num_neighbors_field(local_node_indices(i));
-        //     stk::mesh::EntityFieldData<double> entity_neighbors = ngp_neighbors_field(local_node_indices(i));
-        //     double starting_num_nodes = entity_num_neighbors[0];
-        //     entity_num_neighbors[0] += 1;
-        //     entity_neighbors[starting_num_nodes] = (double)node.local_offset();
-        // });
-
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
@@ -285,6 +278,7 @@ class NeighborSearchProcessor {
 #endif
     }
 
+    // Create the element neighbors from the node neighbors. Neighbors are local offsets.
     template <size_t NumCellNodes>
     void set_element_neighbors_from_node_neighbors() {
         auto ngp_mesh = m_ngp_mesh;
@@ -296,7 +290,7 @@ class NeighborSearchProcessor {
 
         // Add the nodes attached to the element
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -329,6 +323,79 @@ class NeighborSearchProcessor {
             });
     }
 
+    std::map<std::string, double> GetNumNeighborStats(const aperi::FieldDataRank &rank) {
+        // Initialize the min and max values
+        double max_num_neighbors = 0;
+        double min_num_neighbors = std::numeric_limits<double>::max();
+        double total_num_neighbors = 0;
+        double num_entities = 0;
+        NgpDoubleField ngp_num_neighbors_field;
+
+        stk::topology::rank_t rank_type;
+        if (rank == aperi::FieldDataRank::ELEMENT) {
+            num_entities = GetNumOwnedElements();
+            ngp_num_neighbors_field = *m_ngp_element_num_neighbors_field;
+            rank_type = stk::topology::ELEMENT_RANK;
+        } else if (rank == aperi::FieldDataRank::NODE) {
+            num_entities = GetNumOwnedNodes();
+            ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+            rank_type = stk::topology::NODE_RANK;
+        } else {
+            throw std::runtime_error("Invalid rank type. Must be aperi::FieldDataRank::ELEMENT or aperi::FieldDataRank::NODE.");
+        }
+
+        FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(rank_type, m_owned_selector);
+
+        // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
+        Kokkos::parallel_reduce(
+            "calculate_stats",
+            num_entities,
+            KOKKOS_LAMBDA(int i, double& max_num_neighbors, double& min_num_neighbors, double& total_num_neighbors) {
+                stk::mesh::EntityFieldData<double> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
+                double num_neighbors = num_neighbors_field[0];
+                max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
+                min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);
+                total_num_neighbors += num_neighbors;
+            },
+            Kokkos::Max<double>(max_num_neighbors),
+            Kokkos::Min<double>(min_num_neighbors),
+            Kokkos::Sum<double>(total_num_neighbors)
+        );
+
+        // Use MPI_Allreduce to calculate the min, max, and sum across all MPI ranks
+        MPI_Allreduce(MPI_IN_PLACE, &max_num_neighbors, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &min_num_neighbors, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &total_num_neighbors, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &num_entities, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+        std::map<std::string, double> stats;
+        stats["max_num_neighbors"] = max_num_neighbors;
+        stats["min_num_neighbors"] = min_num_neighbors;
+        stats["avg_num_neighbors"] = total_num_neighbors / num_entities;
+        stats["num_entities"] = num_entities;
+        return stats;
+    }
+
+    void PrintNumNeighborsStats(){
+        // Node
+        std::map<std::string, double> node_stats = GetNumNeighborStats(aperi::FieldDataRank::NODE);
+
+        aperi::CoutP0() << "Node Stats: " << std::endl;
+        aperi::CoutP0() << "    Total Num Nodes: " << node_stats["num_entities"] << std::endl;
+        aperi::CoutP0() << "  Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "  Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "  Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
+
+        // Element
+        std::map<std::string, double> element_stats = GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
+
+        aperi::CoutP0() << "Element Stats: " << std::endl;
+        aperi::CoutP0() << "  Total Num Elements: " << element_stats["num_entities"] << std::endl;
+        aperi::CoutP0() << "   Max Num Neighbors: " << element_stats["max_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "   Min Num Neighbors: " << element_stats["min_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "   Avg Num Neighbors: " << element_stats["avg_num_neighbors"] << std::endl;
+    }
+
     void MarkAndSyncFieldsToHost() {
         m_ngp_node_neighbors_field->modify_on_device();
         m_ngp_node_num_neighbors_field->modify_on_device();
@@ -352,11 +419,26 @@ class NeighborSearchProcessor {
     }
 
     void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_node_neighbors_field, m_node_num_neighbors_field, m_element_neighbors_field, m_element_num_neighbors_field});
+        // Should not communicate these fields. The shared nodes need to have a processor local value and not the value of the owning processor.
+        // This is because the neighbors field is a local offset and not a global id.
+        // Throw an exception if this is called.
+        throw std::runtime_error("NeighborSearchProcessor::CommunicateAllFieldData should not be called.");
     }
 
     double GetNumElements() {
         return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    }
+
+    double GetNumOwnedElements() {
+        return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    }
+
+    double GetNumNodes() {
+        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
+    }
+
+    double GetNumOwnedNodes() {
+        return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
     }
 
    private:
@@ -364,7 +446,7 @@ class NeighborSearchProcessor {
     std::vector<std::string> m_sets;                    // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                   // The bulk data object.
     stk::mesh::Selector m_selector;                     // The selector
-    stk::mesh::Selector m_local_selector;               // The local selector
+    stk::mesh::Selector m_owned_selector;               // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                      // The ngp mesh object.
     DoubleField *m_coordinates_field;                   // The coordinates field
     DoubleField *m_node_num_neighbors_field;            // The number of neighbors field
@@ -397,8 +479,8 @@ class FunctionValueStorageProcessor {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
         }
 
-        stk::mesh::Selector full_local_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_local_selector = m_selector & full_local_selector;
+        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
+        m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
         m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
@@ -451,7 +533,6 @@ class FunctionValueStorageProcessor {
                 // Compute the function values
                 Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(coordinates, neighbor_coordinates, num_neighbors);
 
-                // Store the function values
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);
                 }
@@ -477,7 +558,7 @@ class FunctionValueStorageProcessor {
     std::vector<std::string> m_sets;               // The sets to process.
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_local_selector;          // The local selector
+    stk::mesh::Selector m_owned_selector;          // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
     DoubleField *m_num_neighbors_field;            // The number of neighbors field
     DoubleField *m_neighbors_field;                // The neighbors field
@@ -509,8 +590,8 @@ class ValueFromGeneralizedFieldProcessor {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
         }
 
-        stk::mesh::Selector full_local_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_local_selector = m_selector & full_local_selector;
+        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
+        m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
         m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
@@ -590,7 +671,6 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Marking modified
     void MarkDestinationFieldModifiedOnDevice(size_t field_index) {
-        // STK QUESTION: Should I always clear sync state before marking modified?
         m_ngp_destination_fields[field_index]->clear_sync_state();
         m_ngp_destination_fields[field_index]->modify_on_device();
     }
@@ -629,7 +709,7 @@ class ValueFromGeneralizedFieldProcessor {
     std::vector<std::string> m_sets;                                      // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                                     // The bulk data object.
     stk::mesh::Selector m_selector;                                       // The selector
-    stk::mesh::Selector m_local_selector;                                 // The local selector
+    stk::mesh::Selector m_owned_selector;                                 // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                                        // The ngp mesh object.
     DoubleField *m_num_neighbors_field;                                   // The number of neighbors field
     DoubleField *m_neighbors_field;                                       // The neighbors field
