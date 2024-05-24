@@ -45,12 +45,11 @@ struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_nodes) const {
-        // Throw an error, not implemented
-        assert(false);
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_neighbors) const {
+        Kokkos::abort("Not implemented");
     }
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_nodes) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_neighbors) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
         // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = gathered_node_data[2];
@@ -96,19 +95,18 @@ struct FlexibleComputeInternalForceFunctor {
     FlexibleComputeInternalForceFunctor(StressFunctor &stress_functor)
         : m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_nodes) const {
-        // Throw an error, not implemented
-        assert(false);
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, size_t actual_num_neighbors) const {
+        Kokkos::abort("Not implemented");
     }
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_nodes) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_neighbors) const {
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_coordinates = gathered_node_data[0]; // Not used when derivatives are precomputed
         const Eigen::Matrix<double, MaxNumNodes, 3> &node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
-        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_nodes, 3);
+        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_neighbors, 3);
         // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
         // Compute displacement gradient
@@ -125,7 +123,7 @@ struct FlexibleComputeInternalForceFunctor {
         // Compute the stress and internal force of the element.
         const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
 
-        for (size_t i = 0; i < MaxNumNodes; ++i) {
+        for (size_t i = 0; i < actual_num_neighbors; ++i) {
             // Compute (B_I F)^T
             const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
 
@@ -135,109 +133,4 @@ struct FlexibleComputeInternalForceFunctor {
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };
 
-// Functor for 1-pt gauss quadrature on a tetrahedron
-template <size_t NumQuadPoints, size_t NumFunctions>
-struct Quadrature {
-    KOKKOS_INLINE_FUNCTION Quadrature(const Eigen::Matrix<double, NumQuadPoints, 3> &gauss_points, const Eigen::Matrix<double, NumQuadPoints, 1> &gauss_weights) : m_gauss_points(gauss_points), m_gauss_weights(gauss_weights) {}
-
-    // Compute the B matrix and integration weight for a given gauss point
-    template <typename FunctionFunctor>
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
-        assert((size_t)gauss_id <= NumQuadPoints);
-
-        // Compute shape function derivatives
-        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points(gauss_id, 0), m_gauss_points(gauss_id, 1), m_gauss_points(gauss_id, 2));
-
-        // Compute Jacobian matrix
-        const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
-
-        // Compute Jacobian determinant
-        const double jacobian_determinant = jacobian.determinant();
-
-        // Compute inverse of Jacobian matrix
-        const Eigen::Matrix3d inverse_jacobian = jacobian.inverse();
-
-        // Compute B matrix
-        const Eigen::Matrix<double, NumFunctions, 3> b_matrix = shape_function_derivatives * inverse_jacobian;
-
-        // Compute the integration weight
-        const double integration_weight = m_gauss_weights(gauss_id) * jacobian_determinant;
-
-        return Kokkos::make_pair(b_matrix, integration_weight);
-    }
-
-    KOKKOS_INLINE_FUNCTION int NumGaussPoints() const {
-        return NumQuadPoints;
-    }
-
-    Eigen::Matrix<double, NumQuadPoints, 3> m_gauss_points;
-    Eigen::Matrix<double, NumQuadPoints, 1> m_gauss_weights;
-};
-
-// For meshfree, NumFunctions is unknown at compile time
-template <size_t NumFunctions>
-struct SmoothedQuadrature {
-    KOKKOS_INLINE_FUNCTION SmoothedQuadrature() {
-        /* Face ordering
-        4-node tetrahedron face node ordering per Seacas: https://sandialabs.github.io/seacas-docs/html/element_types.html
-        */
-        m_face_nodes << 0, 1, 3,
-            1, 2, 3,
-            0, 3, 2,
-            0, 2, 1;
-        /*
-        Evaluation points. 1/3 for each node on face. Set to 1/3 everywhere below. Override the values that should be zero here.
-        In shape function evaluation, the nodes are ordered as follows:
-        - 1: u
-        - 2: r = xi
-        - 3: s = eta
-        - 4: t = zeta
-        */
-        m_eval_points(0, 1) = 0.0;
-        m_eval_points(2, 0) = 0.0;
-        m_eval_points(3, 2) = 0.0;
-    }
-
-    // Compute the B matrix and integration weight for a given gauss point
-    template <typename FunctionFunctor>
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
-        assert(gauss_id < 1);
-
-        Eigen::Matrix<double, NumFunctions, 3> b_matrix = Eigen::Matrix<double, NumFunctions, 3>::Zero();
-
-        double volume = 0.0;
-
-        // Loop over faces
-        for (size_t j = 0; j < m_num_faces; ++j) {
-            // Get the area weighted face normal, cross product of two edges
-            const Eigen::Vector3d edge1 = node_coordinates.row(m_face_nodes(j, 1)) - node_coordinates.row(m_face_nodes(j, 0));
-            const Eigen::Vector3d edge2 = node_coordinates.row(m_face_nodes(j, 2)) - node_coordinates.row(m_face_nodes(j, 0));
-
-            const Eigen::Vector3d face_normal = edge1.cross(edge2) / 2.0;  // Area weighted normal
-
-            // Add the contribution of the current face to the volume
-            volume += node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
-
-            // Get the shape functions for the evaluation point. Only one evaluation point per face now.
-            const Eigen::Matrix<double, NumFunctions /*num functions on element*/, 1> shape_function_values = function_functor.values(m_eval_points(j, 0), m_eval_points(j, 1), m_eval_points(j, 2));
-
-            // Compute the smoothed shape function derivatives. Add the contribution of the current evaluation point to the smoothed shape function derivatives.
-            for (size_t k = 0; k < NumFunctions /*num functions on element*/; ++k) {
-                b_matrix.row(k) += shape_function_values(k) * face_normal.transpose();
-            }
-        }
-        volume /= 3.0;  // 3x volume
-        b_matrix /= volume;
-
-        return Kokkos::make_pair(b_matrix, volume);
-    }
-
-    KOKKOS_INLINE_FUNCTION int NumGaussPoints() const {
-        return 1;
-    }
-
-    Eigen::Matrix<double, 4, 3> m_eval_points = Eigen::Matrix<double, 4, 3>::Constant(1.0 / 3.0);
-    Eigen::Matrix<int, 4, 3> m_face_nodes;
-    size_t m_num_faces = 4;
-};
 }  // namespace aperi

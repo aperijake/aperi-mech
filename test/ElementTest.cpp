@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Dense>
+#include <cstdlib>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -8,9 +9,12 @@
 
 #include "ApplicationTestFixture.h"
 #include "Element.h"
+#include "ElementBase.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "ShapeFunctionsFunctorReproducingKernel.h"
+#include "ShapeFunctionsFunctorTet4.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
@@ -18,36 +22,87 @@
 // Fixture for ElementBase tests
 class ElementBasicsTest : public ::testing::Test {
    protected:
+    // Setup
+    void SetUp() override {
+        m_evaluation_points_parametric_coordinates = {
+            {0.0, 0.0, 0.0},
+            {1.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0},
+            {0.0, 0.0, 1.0},
+            {0.5, 0.5, 0.0},
+            {0.25, 0.25, 0.25}};
+
+        m_expected_values = {
+            {1.0, 0.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0, 0.0},
+            {0.0, 0.0, 1.0, 0.0},
+            {0.0, 0.0, 0.0, 1.0},
+            {0.0, 0.5, 0.5, 0.0},
+            {0.25, 0.25, 0.25, 0.25}};
+        // Seed the random number generator
+        std::srand(42);
+    }
+
     // Check partition of unity
-    void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
+    static void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
         // Check the partition of unity
         double sum = shape_functions.sum();
         EXPECT_NEAR(sum, 1.0, 1.0e-12);
     }
 
     // Check partition of nullity
-    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
+    static void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
         // Check the partition of nullity
         double sum = shape_function_derivatives.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
-    // Check shape functions
-    void CheckShapeFunctions(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
-        // Check the number of shape functions
-        EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
+    // Check linear completeness
+    static void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
+        // Check the linear completeness
+        const Eigen::Matrix<double, 1, 3>& calculated_physical_coordinates = shape_functions.transpose() * neighbor_coordinates;
+        for (size_t i = 0; i < 3; ++i) {
+            EXPECT_NEAR(calculated_physical_coordinates(0, i), evaluation_point_phyiscal_coordinates(0, i), 1.0e-12);
+        }
+    }
 
+    // Check shape function completeness
+    static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
 
-        // Check the shape functions
+        // Calculate the physical coordinates of the evaluation point
+        aperi::ShapeFunctionsFunctorTet4 functions_functor;
+        // Calculate the shape functions at the evaluation point
+        Eigen::Matrix<double, Eigen::Dynamic, 1> cell_shape_functions = functions_functor.values(evaluation_points_parametric_coordinates, node_coordinates, node_coordinates, 4);
+        const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates = cell_shape_functions.transpose() * node_coordinates;
+
+        // Check the linear completeness
+        CheckLinearCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates);
+    }
+
+    // Check shape function values
+    static void CheckShapeFunctionValues(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
+        // Check the number of shape functions
+        EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
+
+        // Check the shape function values
         for (size_t i = 0; i < expected_num_shape_functions; ++i) {
             EXPECT_NEAR(shape_functions[i], expected_shape_functions[i], 1.0e-12);
         }
     }
 
-    // Check shape function derivatives
-    void CheckShapeFunctionDerivatives(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
+    // Check shape function derivative completeness
+    static void CheckShapeFunctionDerivativeCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives) {
+        // Check the shape function derivatives
+        for (size_t j = 0; j < 3; ++j) {
+            // Check the partition of nullity
+            CheckPartitionOfNullity(shape_function_derivatives.col(j));
+        }
+    }
+
+    // Check shape function derivative values
+    static void CheckShapeFunctionDerivativeValues(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
         // Check the number of shape functions
         EXPECT_EQ((size_t)shape_function_derivatives.rows(), expected_num_shape_functions);
 
@@ -57,66 +112,116 @@ class ElementBasicsTest : public ::testing::Test {
             for (size_t i = 0; i < expected_num_shape_functions; ++i) {
                 EXPECT_NEAR(shape_function_derivatives(i, j), expected_shape_function_derivatives(i, j), 1.0e-12);
             }
-            // Check the partition of nullity
-            CheckPartitionOfNullity(shape_function_derivatives.col(j));
         }
     }
+
+    template <typename FunctionsFunctor>
+    void TestFunctionsFunctorValues(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const size_t expected_num_shape_functions = 4, bool check_values = true) {
+        for (size_t i = 0; i < m_evaluation_points_parametric_coordinates.size(); ++i) {
+            // Check the shape functions
+            Eigen::Matrix<double, Eigen::Dynamic, 1> shape_functions = functions_functor.values(m_evaluation_points_parametric_coordinates[i], node_coordinates, neighbor_coordinates, expected_num_shape_functions);
+            CheckShapeFunctionCompleteness(shape_functions, node_coordinates, neighbor_coordinates, m_evaluation_points_parametric_coordinates[i]);
+            if (check_values) {
+                CheckShapeFunctionValues(shape_functions, m_expected_values[i], expected_num_shape_functions);
+            }
+        }
+    }
+
+    template <typename FunctionsFunctor>
+    void TestFunctionsFunctorDerivatives(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& /*node_coordinates*/, const size_t expected_num_shape_functions = 4) {
+        // Expected shape function derivatives
+        Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
+        expected_shape_function_derivatives << -1.0, -1.0, -1.0,
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0;
+        // Check the shape function derivatives
+        for (auto& m_evaluation_points_parametric_coordinate : m_evaluation_points_parametric_coordinates) {
+            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(m_evaluation_points_parametric_coordinate);
+            CheckShapeFunctionDerivativeCompleteness(shape_function_derivatives);
+            CheckShapeFunctionDerivativeValues(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+        }
+    }
+
+    std::vector<Eigen::Matrix<double, 3, 1>> m_evaluation_points_parametric_coordinates;
+    std::vector<Eigen::Matrix<double, 4, 1>> m_expected_values;
 };
 
 // Test shape functions for a tet4 element
 TEST_F(ElementBasicsTest, Tet4ShapeFunctions) {
-    // Create a temporary mesh file, tet4 by default
+    // Create the tet4 functions functor
+    aperi::ShapeFunctionsFunctorTet4 functions_functor;
 
-    // Create the tet4 element
-    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4);
+    const Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
+    TestFunctionsFunctorDerivatives(functions_functor, node_coordinates);
+}
 
-    size_t expected_num_shape_functions = 4;
+// Test reproducing kernel shape functions on a tet4 element
+TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
+    // Create the tet4 functions functor
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
 
-    // Check the shape functions
-    Eigen::Matrix<double, 4, 1> shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 0.0);
-    Eigen::Matrix<double, 4, 1> expected_shape_functions = {1.0, 0.0, 0.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    // Check the shape function derivatives
-    Eigen::Matrix<double, 4, 3> shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 0.0);
-    Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
-    expected_shape_function_derivatives << -1.0, -1.0, -1.0,
-        1.0, 0.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 0.0, 1.0;
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
 
-    shape_functions = element->ComputeShapeFunctions(1.0, 0.0, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(1.0, 0.0, 0.0);
-    expected_shape_functions = {0.0, 1.0, 0.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    // Randomize the node coordinates
+    node_coordinates = Eigen::Matrix<double, 4, 3>::Random();
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = node_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = node_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    node_coordinates = (node_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
+}
 
-    shape_functions = element->ComputeShapeFunctions(0.0, 1.0, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 1.0, 0.0);
-    expected_shape_functions = {0.0, 0.0, 1.0, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+// Test reproducing kernel shape functions on a tet4 element
+TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
+    // Create the tet4 functions functor
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<8> functions_functor;
+    Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = neighbor_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = neighbor_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    neighbor_coordinates = (neighbor_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+    TestFunctionsFunctorValues(functions_functor, node_coordinates, neighbor_coordinates, 8, false);
+}
 
-    shape_functions = element->ComputeShapeFunctions(0.0, 0.0, 1.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.0, 0.0, 1.0);
-    expected_shape_functions = {0.0, 0.0, 0.0, 1.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+// Test kernel value
+TEST(KernelTest, KernelValue) {
+    Eigen::Vector3d vector_neighbor_to_point = {0.0, 0.0, 0.0};
+    double r = 2.0;
+    double alpha = 1.6;
+    double kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
+    EXPECT_NEAR(kernel_value, 1.0, 1.0e-12);
 
-    shape_functions = element->ComputeShapeFunctions(0.5, 0.5, 0.0);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.5, 0.5, 0.0);
-    expected_shape_functions = {0.0, 0.5, 0.5, 0.0};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    vector_neighbor_to_point = {r * alpha, 0.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
+    EXPECT_NEAR(kernel_value, 0.0, 1.0e-12);
 
-    shape_functions = element->ComputeShapeFunctions(0.25, 0.25, 0.25);
-    shape_function_derivatives = element->ComputeShapeFunctionDerivatives(0.25, 0.25, 0.25);
-    expected_shape_functions = {0.25, 0.25, 0.25, 0.25};
-    CheckShapeFunctions(shape_functions, expected_shape_functions, expected_num_shape_functions);
-    CheckShapeFunctionDerivatives(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
+    vector_neighbor_to_point = {0.0, r * alpha / 2.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
+    EXPECT_NEAR(kernel_value, 0.25, 1.0e-12);
+
+    double epsilon = 1.0e-6;
+    vector_neighbor_to_point(1) += epsilon;
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
+    EXPECT_NEAR(kernel_value, 0.25, epsilon);
+
+    vector_neighbor_to_point(1) -= 2.0 * epsilon;
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r, alpha);
+    EXPECT_NEAR(kernel_value, 0.25, epsilon);
 }
 
 TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
+    // Get number of processors
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
     // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
     bool use_strain_smoothing = true;
     bool store_shape_function_derivatives = true;
@@ -127,7 +232,7 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     io_mesh_parameters.compose_output = true;
     std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-    io_mesh->ReadMesh("1x1x1|tets", {"block_1"}, field_data);
+    io_mesh->ReadMesh("1x1x" + std::to_string(num_procs) + "|tets", {"block_1"}, field_data);
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
     // Make an element processor
@@ -151,17 +256,18 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     entity_processor->SyncAllFieldsDeviceToHost();
 
     // Check the number of neighbors
-    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", {4}, aperi::FieldQueryState::None);
+    std::array<int, 1> expected_num_neighbors = {4};
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 
     // TODO(jake): Check the neighbors.
 
     // Check the volume
-    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {1.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {static_cast<double>(num_procs)}, aperi::FieldQueryState::None);
 
     // Check partition of nullity for the shape function derivatives
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", {0.0}, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests
@@ -232,7 +338,7 @@ class ElementPatchAndForceTest : public SolverTest {
         RunSolver();
     }
 
-    Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix<double, 6, 1>& expected_second_piola_kirchhoff_stress, const Eigen::Matrix3d& expected_displacement_gradient) {
+    static Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix<double, 6, 1>& expected_second_piola_kirchhoff_stress, const Eigen::Matrix3d& expected_displacement_gradient) {
         const Eigen::Matrix3d expected_deformation_gradient = expected_displacement_gradient + Eigen::Matrix3d::Identity();
         // S = P * F^-T
         // P = S F^T
@@ -278,14 +384,14 @@ class ElementPatchAndForceTest : public SolverTest {
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the mass
-        double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+        auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-        std::array<double, 3> direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
+        auto direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
         double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0;  // Only running half of smooth step so actual magnitude is half
         std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
         // Peak velocity for a smooth step function (should be set to be the end of the simulation)
@@ -364,7 +470,7 @@ class ElementPatchAndForceTest : public SolverTest {
 
     void CheckPatchTest() {
         // Check the mass
-        double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+        auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);

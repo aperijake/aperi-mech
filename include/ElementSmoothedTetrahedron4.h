@@ -13,6 +13,8 @@
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "MeshData.h"
+#include "QuadratureSmoothed.h"
+#include "ShapeFunctionsFunctorTet4.h"
 
 namespace aperi {
 
@@ -28,7 +30,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(tet4_num_nodes, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateElementProcessor();
         CreateFunctors();
     }
@@ -49,20 +51,20 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Functor for computing shape function derivatives
-        size_t compute_tet4_functions_functor_functor_size = sizeof(Tet4FunctionsFunctor);
-        auto compute_tet4_functions_functor_functor = (Tet4FunctionsFunctor *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
+        size_t compute_tet4_functions_functor_functor_size = sizeof(ShapeFunctionsFunctorTet4);
+        auto compute_tet4_functions_functor_functor = (ShapeFunctionsFunctorTet4 *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
         assert(compute_tet4_functions_functor_functor != nullptr);
 
         // Functor for 1-pt gauss quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadrature<tet4_num_nodes>);
-        auto integration_functor = (SmoothedQuadrature<tet4_num_nodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(SmoothedQuadrature<TET4_NUM_NODES>);
+        auto integration_functor = (SmoothedQuadrature<TET4_NUM_NODES> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((Tet4FunctionsFunctor *)compute_tet4_functions_functor_functor) Tet4FunctionsFunctor();
-                new ((SmoothedQuadrature<tet4_num_nodes> *)integration_functor) SmoothedQuadrature<tet4_num_nodes>();
+                new ((ShapeFunctionsFunctorTet4 *)compute_tet4_functions_functor_functor) ShapeFunctionsFunctorTet4();
+                new ((SmoothedQuadrature<TET4_NUM_NODES> *)integration_functor) SmoothedQuadrature<TET4_NUM_NODES>();
             });
 
         // Set the functors
@@ -75,7 +77,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                compute_functions_functor->~Tet4FunctionsFunctor();
+                compute_functions_functor->~ShapeFunctionsFunctorTet4();
                 integration_functor->~SmoothedQuadrature();
             });
 
@@ -84,28 +86,6 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         m_compute_functions_functor = nullptr;
         m_integration_functor = nullptr;
-    }
-
-    /**
-     * @brief Calls the Tet4FunctionsFunctor to compute the shape function derivatives.
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape functions of the element.
-     */
-    Eigen::Matrix<double, tet4_num_nodes, 3> ComputeShapeFunctionDerivatives(double xi, double eta, double zeta) const override {
-        return m_compute_functions_functor->derivatives(xi, eta, zeta);
-    }
-
-    /**
-     * @brief Computes the shape functions of the element.
-     * @param xi The xi coordinate of the element.
-     * @param eta The eta coordinate of the element.
-     * @param zeta The zeta coordinate of the element.
-     * @return The shape functions of the element.
-     */
-    Eigen::Matrix<double, tet4_num_nodes, 1> ComputeShapeFunctions(double xi, double eta, double zeta) const override {
-        return m_compute_functions_functor->values(xi, eta, zeta);
     }
 
     /**
@@ -118,15 +98,15 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        ComputeInternalForceFunctor<tet4_num_nodes, Tet4FunctionsFunctor, SmoothedQuadrature<tet4_num_nodes>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+        ComputeInternalForceFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, SmoothedQuadrature<TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<tet4_num_nodes>(compute_force_functor);
+        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
     }
 
    private:
-    Tet4FunctionsFunctor *m_compute_functions_functor;
-    SmoothedQuadrature<tet4_num_nodes> *m_integration_functor;
+    ShapeFunctionsFunctorTet4 *m_compute_functions_functor;
+    SmoothedQuadrature<TET4_NUM_NODES> *m_integration_functor;
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;

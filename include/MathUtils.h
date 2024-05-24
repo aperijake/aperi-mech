@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Kokkos_Core.hpp>
 #include <array>
 #include <cmath>
 #include <stdexcept>
@@ -160,6 +161,39 @@ int RoundDownOrderOfMagnitude(T num) {
     }
     int power = std::floor(std::log10(num));
     return std::pow(10, power);
+}
+
+template <typename T>
+KOKKOS_INLINE_FUNCTION size_t SortAndRemoveDuplicates(T &arr, size_t relevant_length) {
+    // Bubble sort. TODO(jake): Replace with a more efficient algorithm
+    if (relevant_length == 0) return 0;
+    // Sort the array
+    bool swapped;
+    for (size_t i = 0; i < relevant_length - 1; ++i) {
+        swapped = false;
+        for (size_t j = 0; j < relevant_length - i - 1; ++j) {
+            if (arr[j] > arr[j + 1]) {
+                auto temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+                swapped = true;
+            }
+        }
+        if (!swapped) {
+            break;
+        }
+    }
+
+    // Remove duplicates
+    size_t index = 1;
+    for (size_t i = 1; i < relevant_length; ++i) {
+        if (arr[i] != arr[i - 1]) {
+            arr[index++] = arr[i];
+        }
+    }
+
+    // Return the number of unique elements
+    return index;
 }
 
 }  // namespace aperi

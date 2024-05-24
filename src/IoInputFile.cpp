@@ -60,7 +60,8 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
                 ++found_count;
             }
             continue;
-        } else if (type == "float") {
+        }
+        if (type == "float") {
             std::pair<double, int> scalar_pair = GetScalarValue<double>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
@@ -92,7 +93,7 @@ std::map<std::string, std::string> ParseSubitemSchema(const YAML::Node& schema_i
     // Get the requested subitem
     std::pair<std::vector<YAML::Node>, int> schema_subitems_pair = GetValueSequence<YAML::Node>(schema_item_node, subitem_string, verbose);
     if (schema_subitems_pair.second) {
-        std::string subitem_name = schema_item_node.begin()->first.as<std::string>();
+        auto subitem_name = schema_item_node.begin()->first.as<std::string>();
         throw std::runtime_error("Schema Error: '" + subitem_string + "' node not found in '" + subitem_name + "'. Function: " + __FUNCTION__ + ", Line: " + std::to_string(__LINE__));
     }
     std::vector<YAML::Node> schema_subitems = schema_subitems_pair.first;
@@ -100,7 +101,7 @@ std::map<std::string, std::string> ParseSubitemSchema(const YAML::Node& schema_i
     std::map<std::string, std::string> schema_subitems_names_types;  // map from schema_subitem name to type
     for (const auto& schema_item : schema_subitems) {
         // Get schema info
-        std::string node_name = schema_item.begin()->first.as<std::string>();
+        auto node_name = schema_item.begin()->first.as<std::string>();
         std::pair<YAML::Node, int> node_pair = GetNode(schema_item, node_name);
         if (node_pair.second) {
             throw std::runtime_error("Schema Error: items node '" + node_name + "' not found. Function: " + __FUNCTION__ + ", Line: " + std::to_string(__LINE__));
@@ -112,7 +113,7 @@ std::map<std::string, std::string> ParseSubitemSchema(const YAML::Node& schema_i
         schema_subitems_names_types.emplace(node_name, type_pair.first);
     }
     // Check schema correctness
-    if (schema_subitems_names_types.size() == 0) {
+    if (schema_subitems_names_types.empty()) {
         throw std::runtime_error("Schema Error: '" + subitem_string + "' node must have at least one item. Schema item: " + schema_item_node.begin()->first.as<std::string>() + ". Function: " + __FUNCTION__ + ", Line: " + std::to_string(__LINE__));
     }
     return schema_subitems_names_types;
@@ -126,7 +127,7 @@ void AddFoundNodesToMap(const std::map<std::string, YAML::Node>& found_nodes, co
         if (node_pair.second) {
             throw std::runtime_error("Schema Error: items node '" + name + "' not found. Function: " + __FUNCTION__ + ", Line: " + std::to_string(__LINE__));
         }
-        found_nodes_and_associated_schema.push_back(std::make_pair(found_node.second, node_pair.first));
+        found_nodes_and_associated_schema.emplace_back(found_node.second, node_pair.first);
     }
 }
 
@@ -190,7 +191,7 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                 std::pair<std::map<std::string, YAML::Node>, int> found_all_of_pair = GetInputNodes(input_node, all_of_names_types, verbose, optional);
 
                 // Make sure all subitems are found
-                if (found_all_of_pair.second != (int)all_of_names_types.size()) {
+                if (found_all_of_pair.second != static_cast<int>(all_of_names_types.size())) {
                     std::cerr << "Error: 'all_of' subitems must have all subitems." << std::endl;
                     return_code = 1;
                 }
@@ -223,7 +224,7 @@ int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAM
     // Get schema subitems
     std::pair<std::vector<YAML::Node>, int> schema_sub_node_subitems_pair = GetValueOrValueSequence(schema_sub_node, "subitems", verbose);
     if (schema_sub_node_subitems_pair.second) {
-        std::string sub_node_name = schema_sub_node.begin()->first.as<std::string>();
+        auto sub_node_name = schema_sub_node.begin()->first.as<std::string>();
         throw std::runtime_error("Schema Error: 'subitems' node not found in '" + sub_node_name + "'. Function: " + __FUNCTION__ + ", Line: " + std::to_string(__LINE__));
     }
     std::vector<YAML::Node> schema_sub_node_subitems = schema_sub_node_subitems_pair.first;

@@ -5,7 +5,6 @@
 #include <string>
 
 #include "Element.h"
-#include "ElementProcessor.h"
 #include "FieldData.h"
 #include "ForceContribution.h"
 #include "Material.h"
@@ -28,7 +27,7 @@ class InternalForceContribution : public ForceContribution {
      * @param mesh_data A shared pointer to the MeshData object associated with the force contribution.
      * @param part_name The name of the part associated with the force contribution.
      */
-    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, std::string part_name, bool use_strain_smoothing = false);
+    InternalForceContribution(std::shared_ptr<Material> material, std::shared_ptr<aperi::MeshData> mesh_data, const std::string& part_name, bool use_strain_smoothing = false);
 
     /**
      * @brief Computes the internal forces.

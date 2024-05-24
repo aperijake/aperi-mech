@@ -2,11 +2,16 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <cstdlib>
 #include <vector>
 
 #include "Element.h"
 #include "ElementUtils.h"
 #include "FieldData.h"
+#include "QuadratureGaussian.h"
+#include "QuadratureSmoothed.h"
+#include "ShapeFunctionsFunctorReproducingKernel.h"
+#include "ShapeFunctionsFunctorTet4.h"
 #include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
@@ -14,15 +19,21 @@
 // Fixture for ElementBase tests
 class ElementUtilsTest : public ::testing::Test {
    protected:
-    // Check partition of nullity
-    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& tet4_functions_functor) {
+    // Set up the test fixture
+    void SetUp() override {
+        // Seed the random number generator
+        std::srand(42);
+    }
+
+    // check partition of nullity
+    static void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& function_vals) {
         // Check the partition of nullity
-        double sum = tet4_functions_functor.sum();
+        double sum = function_vals.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
     // Check b matrix and weight
-    void CheckBMatrixAndWeight(const Kokkos::pair<Eigen::Matrix<double, 4, 3>, double>& b_matrix_and_weight, const Eigen::Matrix<double, 4, 3>& expected_b_matrix, const double expected_weight, std::string message = "") {
+    static void CheckBMatrixAndWeight(const Kokkos::pair<Eigen::Matrix<double, 4, 3>, double>& b_matrix_and_weight, const Eigen::Matrix<double, 4, 3>& expected_b_matrix, const double expected_weight, const std::string& message = "") {
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
             // Check the shape function derivatives
@@ -37,11 +48,19 @@ class ElementUtilsTest : public ::testing::Test {
         EXPECT_NEAR(b_matrix_and_weight.second, expected_weight, 1.0e-12) << message;
     }
 
-    template <typename QuadratureFunctor>
-    void RunAllTestCases(QuadratureFunctor& quad1) {
-        // Initialize the shape function derivatives functor
-        aperi::Tet4FunctionsFunctor tet4_functions_functor;
+    template <typename QuadratureFunctor, typename FunctionsFunctor>
+    Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> ComputeElementBMatrixAndWeight(QuadratureFunctor& quad1, const Eigen::Matrix<double, 4, 3>& node_coordinates, FunctionsFunctor& functions_functor) {
+        return quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+    }
 
+    // TODO(jake): Generalize to more than tet4 elements
+    template <typename QuadratureFunctor, typename FunctionsFunctor>
+    Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> ComputeCellBMatrixAndWeight(QuadratureFunctor& quad1, const Eigen::Matrix<double, 4, 3>& cell_node_coordinates, const Eigen::Matrix<double, 4, 3>& neighbor_coordinates, FunctionsFunctor& functions_functor) {
+        return quad1.ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, functions_functor, 0, 4);
+    }
+
+    template <typename QuadratureFunctor, typename FunctionsFunctor>
+    void RunAllTestCases(QuadratureFunctor& quad1, FunctionsFunctor& functions_functor, bool use_strain_smoothing = false) {
         // ------------------------------
         // Reference tetrahedron
         // ------------------------------
@@ -52,7 +71,12 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0;
 
-        Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+        Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight;
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+        } else {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        }
 
         // Check the B matrix and weight
         Eigen::Matrix<double, 4, 3> expected_b_matrix;
@@ -65,14 +89,18 @@ class ElementUtilsTest : public ::testing::Test {
         CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Reference tetrahedron");
 
         // ------------------------------
-        // Dilated reference tetrahedron
+        // Contracted (dilation < 1) reference tetrahedron
         // ------------------------------
-        double factor = 1.27;
+        double factor = 0.78;
 
         // Set up node coordinates
         node_coordinates *= factor;
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+        } else {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        }
 
         // Check the B matrix and weight
         expected_b_matrix /= factor;
@@ -88,7 +116,11 @@ class ElementUtilsTest : public ::testing::Test {
         // Set up node coordinates
         node_coordinates.rowwise() += translation.transpose();
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+        } else {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        }
 
         CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Translated reference tetrahedron");
 
@@ -107,7 +139,11 @@ class ElementUtilsTest : public ::testing::Test {
             0.0, 0.0, 1.0;
         node_coordinates *= rotation;
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+        } else {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        }
 
         expected_b_matrix << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -130,8 +166,19 @@ class ElementUtilsTest : public ::testing::Test {
 
         Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
         node_coordinates *= deformation_gradient;
+        // Find the bounding box of the deformed tetrahedron
+        Eigen::Matrix<double, 3, 1> min = node_coordinates.colwise().minCoeff();
+        Eigen::Matrix<double, 3, 1> max = node_coordinates.colwise().maxCoeff();
+        Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+        // Scale to be within the unit cube
+        node_coordinates = (node_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+        deformation_gradient = deformation_gradient * bounding_box_dimensions.asDiagonal().inverse();
 
-        b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+        if (use_strain_smoothing) {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+        } else {
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        }
 
         expected_b_matrix << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -152,7 +199,9 @@ TEST_F(ElementUtilsTest, Tet4BMatrixAndWeight) {
     const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
     aperi::Quadrature<1, 4> quad1(gauss_points, gauss_weights);
 
-    RunAllTestCases(quad1);
+    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
+
+    RunAllTestCases(quad1, tet4_functions_functor);
 }
 
 // Test b matrix and weight for a 4-node tetrahedron element. This test is for strain smoothing.
@@ -160,5 +209,21 @@ TEST_F(ElementUtilsTest, Tet4StrainSmoothingBMatrixAndWeight) {
     // Initialize the quadrature.
     aperi::SmoothedQuadrature<4> quad1;
 
-    RunAllTestCases(quad1);
+    bool use_strain_smoothing = true;
+
+    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
+
+    RunAllTestCases(quad1, tet4_functions_functor, use_strain_smoothing);
+}
+
+// Test b matrix and weight for reproducing kernel strain smoothed on a 4-node tetrahedron element.
+TEST_F(ElementUtilsTest, ReproducingKernelOnTet4BMatrixAndWeight) {
+    // Initialize the quadrature.
+    aperi::SmoothedQuadrature<4> quad1;
+
+    bool use_strain_smoothing = true;
+
+    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
+
+    RunAllTestCases(quad1, functions_functor, use_strain_smoothing);
 }

@@ -14,10 +14,10 @@
 
 // Functor to update the nodal displacements
 struct DispUpdateFunctor {
-    DispUpdateFunctor(double time_increment) : m_time_increment(time_increment) {}
+    explicit DispUpdateFunctor(double time_increment) : m_time_increment(time_increment) {}
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(double *displacement_data_np1, double *displacement_data_n, double *velocity_data_np1) const {
+    void operator()(double *displacement_data_np1, const double *displacement_data_n, const double *velocity_data_np1) const {
         *displacement_data_np1 = *displacement_data_n + m_time_increment * *velocity_data_np1;
     }
     double m_time_increment;
@@ -31,9 +31,9 @@ class BoundaryConditionTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.push_back(aperi::FieldData("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
-        m_field_data.push_back(aperi::FieldData("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
-        m_field_data.push_back(aperi::FieldData("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2));
+        m_field_data.emplace_back("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
+        m_field_data.emplace_back("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
+        m_field_data.emplace_back("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
     }
 
     void TearDown() override {
@@ -54,7 +54,7 @@ class BoundaryConditionTest : public ApplicationTest {
 
         // Loop over boundary conditions and add them to the vector of boundary conditions
         for (auto boundary_condition : boundary_conditions) {
-            std::string name = boundary_condition.begin()->first.as<std::string>();
+            auto name = boundary_condition.begin()->first.as<std::string>();
             std::cout << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
             m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
         }
@@ -90,7 +90,7 @@ class BoundaryConditionTest : public ApplicationTest {
         node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
-    void GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, std::array<double, 3> &expected_displacement, std::array<double, 3> &expected_velocity) {
+    static void GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, std::array<double, 3> &expected_displacement, std::array<double, 3> &expected_velocity) {
         double velocity_time_scale_factor = 1.0;
         // Interpolate the abscissa and ordinate values to get the time scale factor
         if (bc_type == "displacement") {
@@ -128,7 +128,7 @@ class BoundaryConditionTest : public ApplicationTest {
         expected_values[1] = expected_velocity;
     }
 
-    void CheckBoundaryConditions(std::string bc_type) {
+    void CheckBoundaryConditions(const std::string &bc_type) {
         // Get the boundary condition from the yaml data
         YAML::Node boundary_condition = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
 
@@ -139,10 +139,10 @@ class BoundaryConditionTest : public ApplicationTest {
         EXPECT_EQ(m_io_input_file->GetTimeStepper(0).begin()->first.as<std::string>(), "direct_time_stepper");
 
         // Get the time increment
-        double time_increment = time_stepper["time_increment"].as<double>();
+        auto time_increment = time_stepper["time_increment"].as<double>();
 
         // Get the final time
-        double final_time = time_stepper["time_end"].as<double>();
+        auto final_time = time_stepper["time_end"].as<double>();
 
         // Check the length of the boundary conditions
         EXPECT_EQ(m_boundary_conditions.size(), boundary_condition.size());
@@ -154,8 +154,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
-            for (size_t i = 0; i < m_boundary_conditions.size(); ++i) {
-                m_boundary_conditions[i]->ApplyVelocity(time);
+            for (auto &m_boundary_condition : m_boundary_conditions) {
+                m_boundary_condition->ApplyVelocity(time);
             }
             UpdateNodalDisplacements(time_increment);
 
@@ -171,8 +171,8 @@ class BoundaryConditionTest : public ApplicationTest {
                 YAML::Node bc_node = boundary_condition[i].begin()->second;
 
                 // Get the part and selector for the boundary condition
-                std::vector<std::string> sets = bc_node["sets"].as<std::vector<std::string>>();
-                EXPECT_TRUE(sets.size() > 0);
+                auto sets = bc_node["sets"].as<std::vector<std::string>>();
+                EXPECT_TRUE(!sets.empty());
 
                 // Get the boundary condition magnitude
                 double magnitude = 0;
@@ -201,7 +201,7 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Get the time function type
                 YAML::Node time_function = bc_node["time_function"];
-                std::string function_type = time_function.begin()->first.as<std::string>();
+                auto function_type = time_function.begin()->first.as<std::string>();
 
                 // Make sure the time function is a ramp_function or smooth_step_function
                 EXPECT_TRUE(function_type == "ramp_function" || function_type == "smooth_step_function") << "Time function type must be 'ramp_function' or 'smooth_step_function'. Found: " << function_type << ".";
@@ -212,8 +212,8 @@ class BoundaryConditionTest : public ApplicationTest {
                 EXPECT_TRUE(ramp_function["ordinate_values"].size() == 2);
 
                 // Get the abscissa values and ordinate values
-                std::array<double, 2> abscissa = ramp_function["abscissa_values"].as<std::array<double, 2>>();
-                std::array<double, 2> ordinate = ramp_function["ordinate_values"].as<std::array<double, 2>>();
+                auto abscissa = ramp_function["abscissa_values"].as<std::array<double, 2>>();
+                auto ordinate = ramp_function["ordinate_values"].as<std::array<double, 2>>();
 
                 // Get the expected values
                 GetExpectedValues(time, time_increment, abscissa, ordinate, direction, magnitude, function_type, bc_type, expected_displacement, expected_velocity);

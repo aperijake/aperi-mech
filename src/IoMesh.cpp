@@ -24,7 +24,7 @@
 
 namespace aperi {
 
-IoMesh::IoMesh(const MPI_Comm &comm, IoMeshParameters io_mesh_parameters)
+IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
     : m_add_edges(io_mesh_parameters.add_edges),
       m_add_faces(io_mesh_parameters.add_faces),
       m_upward_connectivity(io_mesh_parameters.upward_connectivity),
@@ -68,14 +68,14 @@ void IoMesh::Finalize() {
 }
 
 void IoMesh::SetIoProperties() const {
-    mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", m_lower_case_variable_names));
+    mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", static_cast<int>(m_lower_case_variable_names)));
 
     if (!m_decomp_method.empty()) {
         mp_io_broker->property_add(Ioss::Property("DECOMPOSITION_METHOD", m_decomp_method));
     }
 
     if (m_compose_output) {
-        mp_io_broker->property_add(Ioss::Property("COMPOSE_RESULTS", true));
+        mp_io_broker->property_add(Ioss::Property("COMPOSE_RESULTS", 1));
     }
 
     if (!m_parallel_io.empty()) {
@@ -101,7 +101,7 @@ void IoMesh::SetIoProperties() const {
     }
 }
 
-void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::vector<aperi::FieldData> field_data) {
+void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data) {
     // Make sure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
@@ -117,9 +117,9 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
 
     // Add all parts to the meta data
     for (const std::string &part_name : part_names) {
-        stk::mesh::Part *part = &meta_data.declare_part(part_name, stk::topology::ELEMENT_RANK);
+        stk::mesh::Part *p_part = &meta_data.declare_part(part_name, stk::topology::ELEMENT_RANK);
         // Make sure the part exists in the mesh file. If not, throw an exception
-        if (part->id() == stk::mesh::Part::INVALID_ID) {
+        if (p_part->id() == stk::mesh::Part::INVALID_ID) {
             throw std::runtime_error("Part '" + part_name + "' does not exist in the mesh file.");
         }
     }
@@ -180,10 +180,10 @@ void IoMesh::CreateFieldResultsFile(const std::string &filename) {
 
     // Iterate all fields and set them as results fields...
     const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
-    for (size_t i = 0; i < fields.size(); i++) {
-        const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*fields[i]);
+    for (auto *p_field : fields) {
+        const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*p_field);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            mp_io_broker->add_field(m_results_index, *fields[i]);  // results output
+            mp_io_broker->add_field(m_results_index, *p_field);  // results output
         }
     }
 }

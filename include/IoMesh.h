@@ -29,11 +29,11 @@ struct IoMeshParameters {
 
 class IoMesh {
    public:
-    IoMesh(const stk::ParallelMachine &comm, aperi::IoMeshParameters io_mesh_parameters);
+    IoMesh(const stk::ParallelMachine &comm, const aperi::IoMeshParameters &io_mesh_parameters);
 
     void Finalize();
 
-    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, std::vector<aperi::FieldData> field_data = {});
+    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data = {});
 
     void CreateFieldResultsFile(const std::string &filename);
 
