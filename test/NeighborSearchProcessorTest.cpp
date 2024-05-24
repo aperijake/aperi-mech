@@ -26,7 +26,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     void SetUp() override {
     }
 
-    void CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::vector<aperi::FieldQueryData> extra_fields = {}) {
+    void CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, const std::vector<aperi::FieldQueryData> &extra_fields = {}) {
         MPI_Comm p_communicator = MPI_COMM_WORLD;
         m_bulk_data = stk::mesh::MeshBuilder(p_communicator).create();
         m_bulk_data->mesh_meta_data().use_simple_fields();
@@ -58,8 +58,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         // Create the extra fields
         for (const auto &field_query_data : extra_fields) {
-            stk::mesh::Field<double> *field = &p_meta_data->declare_field<double>(field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK, field_query_data.name, 1);
-            stk::mesh::put_field_on_entire_mesh(*field, 3);  // Hardcoded to 3 components. TODO(jake): Make this more flexible
+            stk::mesh::Field<double> *p_field = &p_meta_data->declare_field<double>(field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK, field_query_data.name, 1);
+            stk::mesh::put_field_on_entire_mesh(*p_field, 3);  // Hardcoded to 3 components. TODO(jake): Make this more flexible
         }
 
         mesh_reader.populate_bulk_data();
@@ -331,8 +331,8 @@ TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage) {
 }
 
 struct FillLinearFieldFunctor {
-    FillLinearFieldFunctor(double slope) : m_slope(slope) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *coordinate, double *src_value, double *dest_value) const { *src_value = m_slope * *coordinate; }
+    explicit FillLinearFieldFunctor(double slope) : m_slope(slope) {}
+    KOKKOS_INLINE_FUNCTION void operator()(const double *coordinate, double *src_value, double * /*dest_value*/) const { *src_value = m_slope * *coordinate; }
     double m_slope;
 };
 
@@ -340,44 +340,44 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
    protected:
     void SetUp() override {
         FunctionValueStorageProcessorTestFixture::SetUp();
-        src_and_dest_field_query_data.resize(2);
-        src_and_dest_field_query_data[0] = {"src_field", aperi::FieldQueryState::None};
-        src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None};
+        m_src_and_dest_field_query_data.resize(2);
+        m_src_and_dest_field_query_data[0] = {"src_field", aperi::FieldQueryState::None};
+        m_src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None};
     }
 
     void BuildValueFromGeneralizedFieldProcessor() {
-        NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, src_and_dest_field_query_data);
+        NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, m_src_and_dest_field_query_data);
         FunctionValueStorageProcessorTestFixture::BuildFunctionValueStorageProcessor();
         // Create the ValueFromGeneralizedFieldProcessor
-        std::array<aperi::FieldQueryData, 1> src_field = {src_and_dest_field_query_data[0]};
-        std::array<aperi::FieldQueryData, 1> dest_field = {src_and_dest_field_query_data[1]};
+        std::array<aperi::FieldQueryData, 1> src_field = {m_src_and_dest_field_query_data[0]};
+        std::array<aperi::FieldQueryData, 1> dest_field = {m_src_and_dest_field_query_data[1]};
         m_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field, dest_field, m_mesh_data);
 
         // Create the field query data, coordinates and the src and dest fields
         std::array<aperi::FieldQueryData, 3> field_query_data_vec;
         field_query_data_vec[0] = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-        field_query_data_vec[1] = src_and_dest_field_query_data[0];
-        field_query_data_vec[2] = src_and_dest_field_query_data[1];
+        field_query_data_vec[1] = m_src_and_dest_field_query_data[0];
+        field_query_data_vec[2] = m_src_and_dest_field_query_data[1];
 
         // Create the node processor
-        node_processor = std::make_shared<aperi::NodeProcessor<3>>(field_query_data_vec, m_mesh_data);
+        m_node_processor = std::make_shared<aperi::NodeProcessor<3>>(field_query_data_vec, m_mesh_data);
     }
 
     void FillSrcFieldWithLinearFieldsValues(const double constant_value, const std::array<double, 3> &slope) {
-        node_processor->FillField(constant_value, 1);
+        m_node_processor->FillField(constant_value, 1);
         FillLinearFieldFunctor fill_linear_field_x_functor(slope[0]);
         FillLinearFieldFunctor fill_linear_field_y_functor(slope[1]);
         FillLinearFieldFunctor fill_linear_field_z_functor(slope[2]);
-        node_processor->for_component_i(fill_linear_field_x_functor, 0);
-        node_processor->for_component_i(fill_linear_field_y_functor, 1);
-        node_processor->for_component_i(fill_linear_field_z_functor, 2);
-        node_processor->MarkAllFieldsModifiedOnDevice();
-        node_processor->SyncAllFieldsDeviceToHost();
+        m_node_processor->for_component_i(fill_linear_field_x_functor, 0);
+        m_node_processor->for_component_i(fill_linear_field_y_functor, 1);
+        m_node_processor->for_component_i(fill_linear_field_z_functor, 2);
+        m_node_processor->MarkAllFieldsModifiedOnDevice();
+        m_node_processor->SyncAllFieldsDeviceToHost();
     }
 
-    std::vector<aperi::FieldQueryData> src_and_dest_field_query_data;
+    std::vector<aperi::FieldQueryData> m_src_and_dest_field_query_data;
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_value_from_generalized_field_processor;
-    std::shared_ptr<aperi::NodeProcessor<3>> node_processor;
+    std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor;
 };
 
 // Test the ValueFromGeneralizedFieldProcessor
@@ -399,5 +399,5 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFi
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, src_and_dest_field_query_data[0].name, src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }

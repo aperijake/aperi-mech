@@ -41,7 +41,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
 // Expects a uniform field, values for every entity are the same
 template <aperi::FieldDataRank Rank, typename T>
 void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
-    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state, Rank}};
+    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
@@ -67,7 +67,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
 // Check that the number of field values with an expected value matches the expected count
 template <aperi::FieldDataRank Rank, typename T>
 void CheckEntityFieldValueCount(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
-    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state, Rank}};
+    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
@@ -129,7 +129,7 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
 // Check that the sum of different field values for an entity match the expected values
 template <aperi::FieldDataRank Rank>
 void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, double expected_value, aperi::FieldQueryState field_query_state, bool verify_nonuniform = true, double tolerance = 1.0e-12) {
-    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{field_name, field_query_state, Rank}};
+    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
@@ -167,7 +167,7 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
 template <aperi::FieldDataRank Rank>
 void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
     // Field Query Data
-    std::array<aperi::FieldQueryData, 1> field_query_data = {{field_name, field_query_state, Rank}};
+    std::array<aperi::FieldQueryData, 1> field_query_data = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);

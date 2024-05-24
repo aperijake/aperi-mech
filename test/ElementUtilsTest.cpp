@@ -26,14 +26,14 @@ class ElementUtilsTest : public ::testing::Test {
     }
 
     // check partition of nullity
-    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& function_vals) {
+    static void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& function_vals) {
         // Check the partition of nullity
         double sum = function_vals.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
     // Check b matrix and weight
-    void CheckBMatrixAndWeight(const Kokkos::pair<Eigen::Matrix<double, 4, 3>, double>& b_matrix_and_weight, const Eigen::Matrix<double, 4, 3>& expected_b_matrix, const double expected_weight, std::string message = "") {
+    static void CheckBMatrixAndWeight(const Kokkos::pair<Eigen::Matrix<double, 4, 3>, double>& b_matrix_and_weight, const Eigen::Matrix<double, 4, 3>& expected_b_matrix, const double expected_weight, const std::string& message = "") {
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
             // Check the shape function derivatives

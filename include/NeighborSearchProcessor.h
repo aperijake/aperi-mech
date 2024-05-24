@@ -175,7 +175,6 @@ class NeighborSearchProcessor {
 
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
-
         const int my_rank = m_bulk_data->parallel_rank();
 
         for (size_t i = 0; i < host_search_results.size(); ++i) {

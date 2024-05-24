@@ -13,7 +13,7 @@
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 
-void run_for_each(const stk::mesh::MetaData& meta, const stk::mesh::NgpMesh& ngp_mesh, stk::mesh::NgpField<int>& ngp_field, int field_val, stk::mesh::EntityRank rank) {
+void RunForEach(const stk::mesh::MetaData& meta, const stk::mesh::NgpMesh& ngp_mesh, stk::mesh::NgpField<int>& ngp_field, int field_val, stk::mesh::EntityRank rank) {
     stk::mesh::for_each_entity_run(
         ngp_mesh, rank, meta.universal_part(), KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& entity) {
             ngp_field(entity, 0) = field_val;
@@ -42,7 +42,7 @@ TEST(NgpMesh, MeshIndices) {
     stk::mesh::NgpField<int>& ngp_field = stk::mesh::get_updated_ngp_field<int>(field);
     int field_val = 5;
 
-    run_for_each(meta, ngp_mesh, ngp_field, field_val, rank);
+    RunForEach(meta, ngp_mesh, ngp_field, field_val, rank);
 
     ngp_field.modify_on_device();
     ngp_field.sync_to_host();

@@ -44,21 +44,21 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     // Check partition of unity
-    void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
+    static void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
         // Check the partition of unity
         double sum = shape_functions.sum();
         EXPECT_NEAR(sum, 1.0, 1.0e-12);
     }
 
     // Check partition of nullity
-    void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
+    static void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
         // Check the partition of nullity
         double sum = shape_function_derivatives.sum();
         EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
     // Check linear completeness
-    void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
+    static void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
         // Check the linear completeness
         const Eigen::Matrix<double, 1, 3>& calculated_physical_coordinates = shape_functions.transpose() * neighbor_coordinates;
         for (size_t i = 0; i < 3; ++i) {
@@ -67,7 +67,7 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     // Check shape function completeness
-    void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
+    static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions);
 
@@ -82,7 +82,7 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     // Check shape function values
-    void CheckShapeFunctionValues(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
+    static void CheckShapeFunctionValues(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 1>& expected_shape_functions, size_t expected_num_shape_functions) {
         // Check the number of shape functions
         EXPECT_EQ((size_t)shape_functions.rows(), expected_num_shape_functions);
 
@@ -93,7 +93,7 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     // Check shape function derivative completeness
-    void CheckShapeFunctionDerivativeCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives) {
+    static void CheckShapeFunctionDerivativeCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives) {
         // Check the shape function derivatives
         for (size_t j = 0; j < 3; ++j) {
             // Check the partition of nullity
@@ -102,7 +102,7 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     // Check shape function derivative values
-    void CheckShapeFunctionDerivativeValues(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
+    static void CheckShapeFunctionDerivativeValues(const Eigen::Matrix<double, Eigen::Dynamic, 3>& shape_function_derivatives, const Eigen::Matrix<double, Eigen::Dynamic, 3>& expected_shape_function_derivatives, size_t expected_num_shape_functions) {
         // Check the number of shape functions
         EXPECT_EQ((size_t)shape_function_derivatives.rows(), expected_num_shape_functions);
 
@@ -128,7 +128,7 @@ class ElementBasicsTest : public ::testing::Test {
     }
 
     template <typename FunctionsFunctor>
-    void TestFunctionsFunctorDerivatives(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& node_coordinates, const size_t expected_num_shape_functions = 4) {
+    void TestFunctionsFunctorDerivatives(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& /*node_coordinates*/, const size_t expected_num_shape_functions = 4) {
         // Expected shape function derivatives
         Eigen::Matrix<double, 4, 3> expected_shape_function_derivatives;
         expected_shape_function_derivatives << -1.0, -1.0, -1.0,
@@ -136,8 +136,8 @@ class ElementBasicsTest : public ::testing::Test {
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0;
         // Check the shape function derivatives
-        for (size_t i = 0; i < m_evaluation_points_parametric_coordinates.size(); ++i) {
-            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(m_evaluation_points_parametric_coordinates[i]);
+        for (auto& m_evaluation_points_parametric_coordinate : m_evaluation_points_parametric_coordinates) {
+            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(m_evaluation_points_parametric_coordinate);
             CheckShapeFunctionDerivativeCompleteness(shape_function_derivatives);
             CheckShapeFunctionDerivativeValues(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
         }
@@ -265,9 +265,9 @@ TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
     CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {static_cast<double>(num_procs)}, aperi::FieldQueryState::None);
 
     // Check partition of nullity for the shape function derivatives
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", {0.0}, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", {0.0}, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", {0.0}, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
+    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests
@@ -338,7 +338,7 @@ class ElementPatchAndForceTest : public SolverTest {
         RunSolver();
     }
 
-    Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix<double, 6, 1>& expected_second_piola_kirchhoff_stress, const Eigen::Matrix3d& expected_displacement_gradient) {
+    static Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix<double, 6, 1>& expected_second_piola_kirchhoff_stress, const Eigen::Matrix3d& expected_displacement_gradient) {
         const Eigen::Matrix3d expected_deformation_gradient = expected_displacement_gradient + Eigen::Matrix3d::Identity();
         // S = P * F^-T
         // P = S F^T
@@ -384,14 +384,14 @@ class ElementPatchAndForceTest : public SolverTest {
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the mass
-        double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+        auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-        std::array<double, 3> direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
+        auto direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
         double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0;  // Only running half of smooth step so actual magnitude is half
         std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
         // Peak velocity for a smooth step function (should be set to be the end of the simulation)
@@ -470,7 +470,7 @@ class ElementPatchAndForceTest : public SolverTest {
 
     void CheckPatchTest() {
         // Check the mass
-        double density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+        auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);

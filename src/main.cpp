@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     // Initialize Kokkos and MPI and get communicator for the current process
     Kokkos::initialize(argc, argv);
     MPI_Init(&argc, &argv);
-    MPI_Comm comm = MPI_COMM_WORLD;
+    MPI_Comm p_comm = MPI_COMM_WORLD;
 
     // Check if the first command-line argument is "--version"
     if (argc > 1 && std::string(argv[1]) == "--version") {
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
     // Get size of the current process
     int size;
-    MPI_Comm_size(comm, &size);
+    MPI_Comm_size(p_comm, &size);
 
     // Print header and number of processes
     PrintHeader();
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     std::string input_filename = argv[1];
 
     // Run the application
-    RunApplication(input_filename, comm);
+    RunApplication(input_filename, p_comm);
 
     aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
 
