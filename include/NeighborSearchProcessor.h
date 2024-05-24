@@ -112,7 +112,6 @@ class NeighborSearchProcessor {
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
         DomainViewType node_spheres("node_spheres", num_local_nodes);
 
-#ifndef KOKKOS_ENABLE_CUDA
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
@@ -128,7 +127,6 @@ class NeighborSearchProcessor {
                 node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-#endif
         return node_spheres;
     }
 
@@ -138,7 +136,6 @@ class NeighborSearchProcessor {
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector);
         RangeViewType node_points("node_points", num_local_nodes);
 
-#ifndef KOKKOS_ENABLE_CUDA
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
@@ -153,13 +150,11 @@ class NeighborSearchProcessor {
                 node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-#endif
         return node_points;
     }
 
     // Ghost the neighbors to the nodes processor
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
-#ifndef KOKKOS_ENABLE_CUDA
         m_bulk_data->modification_begin();
         stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
         std::vector<stk::mesh::EntityProc> nodes_to_ghost;
@@ -176,12 +171,10 @@ class NeighborSearchProcessor {
 
         m_bulk_data->change_ghosting(neighbor_ghosting, nodes_to_ghost);
         m_bulk_data->modification_end();
-#endif
     }
 
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
-#ifndef KOKKOS_ENABLE_CUDA
 
         const int my_rank = m_bulk_data->parallel_rank();
 
@@ -206,7 +199,6 @@ class NeighborSearchProcessor {
         m_node_num_neighbors_field->modify_on_host();
         m_node_neighbors_field->sync_to_device();
         m_node_num_neighbors_field->sync_to_device();
-#endif
     }
 
     // Loop over each element and add the element's nodes to the neighbors field
@@ -255,7 +247,6 @@ class NeighborSearchProcessor {
     }
 
     void add_nodes_neighbors_within_ball(double ball_radius) {
-#ifndef KOKKOS_ENABLE_CUDA
         DomainViewType node_spheres = CreateNodeSpheres(ball_radius);
         RangeViewType node_points = CreateNodePoints();
 
@@ -272,9 +263,6 @@ class NeighborSearchProcessor {
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
-#else
-        throw std::runtime_error("NeighborSearchProcessor::add_nodes_neighbors_within_ball is not implemented for CUDA.");
-#endif
     }
 
     // Create the element neighbors from the node neighbors. Neighbors are local offsets.

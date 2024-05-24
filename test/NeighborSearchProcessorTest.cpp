@@ -181,7 +181,6 @@ TEST_F(NeighborSearchProcessorTestFixture, TestFillingElementFromNodeRing0Search
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-#ifndef KOKKOS_ENABLE_CUDA
 TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -286,7 +285,6 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
-#endif
 
 class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorTestFixture {
    protected:
