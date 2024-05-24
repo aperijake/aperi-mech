@@ -59,7 +59,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         // Create the extra fields
         for (const auto &field_query_data : extra_fields) {
             stk::mesh::Field<double> *field = &p_meta_data->declare_field<double>(field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK, field_query_data.name, 1);
-            stk::mesh::put_field_on_entire_mesh(*field, 3); // Hardcoded to 3 components. TODO(jake): Make this more flexible
+            stk::mesh::put_field_on_entire_mesh(*field, 3);  // Hardcoded to 3 components. TODO(jake): Make this more flexible
         }
 
         mesh_reader.populate_bulk_data();
@@ -101,7 +101,7 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement) {
     // Check the neighbor stats
     // - Node
     std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataRank::NODE);
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 0); // 0 because these were not filled
+    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 0);  // 0 because these were not filled
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 0);
     EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 0);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
@@ -112,7 +112,7 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement) {
     EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 4);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
@@ -140,10 +140,10 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode) {
 
     // - Element
     std::map<std::string, double> element_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
-    EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 0); // 0 because these were not filled
+    EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 0);  // 0 because these were not filled
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 0);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 0);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
@@ -177,19 +177,19 @@ TEST_F(NeighborSearchProcessorTestFixture, TestFillingElementFromNodeRing0Search
     EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 4);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
 #ifndef KOKKOS_ENABLE_CUDA
-TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall){
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(0.5); // Small ball radius, only neighbor is itself
+    m_search_processor->add_nodes_neighbors_within_ball(0.5);  // Small ball radius, only neighbor is itself
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
     std::array<double, 1> expected_num_neighbors_data = {1};
@@ -209,11 +209,11 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall){
     EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 4);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 4);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge){
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
@@ -222,7 +222,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge){
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     // Diagonal length of the mesh
     double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(1.01 * diagonal_length); // Large ball radius, all nodes are neighbors
+    m_search_processor->add_nodes_neighbors_within_ball(1.01 * diagonal_length);  // Large ball radius, all nodes are neighbors
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
     // Num nodes
@@ -243,11 +243,11 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge){
     EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], num_nodes);
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], num_nodes);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], num_nodes);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid){
+TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
@@ -257,7 +257,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid){
     m_num_elements_y = 2;
     m_num_elements_z = 4;
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(1.01); // Mid ball radius
+    m_search_processor->add_nodes_neighbors_within_ball(1.01);  // Mid ball radius
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
     // 8 corners of the mesh = 4 neighbors
@@ -283,7 +283,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid){
     EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 12);
     EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 18);
     EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 15);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6; // 6 tets per hex
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 #endif
@@ -331,7 +331,6 @@ TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage) {
     expected_function_values_data[0] = 1.0;
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 }
-
 
 struct FillLinearFieldFunctor {
     FillLinearFieldFunctor(double slope) : m_slope(slope) {}

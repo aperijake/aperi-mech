@@ -29,7 +29,7 @@ class MeshData {
 
     void UpdateFieldDataStates(bool rotate_device_states = false) { m_bulk_data->update_field_data_states(rotate_device_states); }
 
-    template<typename T>
+    template <typename T>
     void UpdateFieldDataStates(const T &query, bool rotate_device_states = false) {
         for (auto &field_query_data : query) {
             stk::mesh::Field<double> *field = StkGetField(field_query_data, &m_bulk_data->mesh_meta_data());

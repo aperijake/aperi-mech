@@ -89,8 +89,8 @@ The commands for a GPU build are:
 
 ```bash
 # Add Trilinos, googletest, lcov, yaml-cpp, and eigen
-spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
-spack add trilinos@develop%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
+spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code +cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
+spack add trilinos@develop%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk +uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add mfem%gcc@10.5.0 +netcdf +cuda cuda_arch=75
 spack add googletest%gcc@10.5.0
 spack add yaml-cpp%gcc@10.5.0
