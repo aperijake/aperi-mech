@@ -43,8 +43,8 @@ class NeighborSearchProcessor {
     using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<double>, NodeIdentProc>;
     using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
 
-    using DomainViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
-    using RangeViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
+    using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
+    using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
     using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
 
     using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
@@ -105,12 +105,12 @@ class NeighborSearchProcessor {
         return mesh_indices;
     }
 
-    // Sphere domain. Will be used to find the nodes within a ball defined by the sphere.
+    // The domain will be the nodes. Search will find the nodes within the spheres from above.
     // The identifiers will be the global node ids.
-    DomainViewType CreateNodeSpheres(double radius) {
+    DomainViewType CreateNodePoints() {
         const stk::mesh::MetaData &meta = m_bulk_data->mesh_meta_data();
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
-        DomainViewType node_spheres("node_spheres", num_local_nodes);
+        DomainViewType node_points("node_points", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
@@ -122,19 +122,18 @@ class NeighborSearchProcessor {
         Kokkos::parallel_for(
             stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
-                stk::search::Point<double> center(coords[0], coords[1], coords[2]);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-                node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+                node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-        return node_spheres;
+        return node_points;
     }
 
-    // The range will be the nodes. Search will find the nodes within the spheres from above.
+    // Sphere range. Will be used to find the nodes within a ball defined by the sphere.
     // The identifiers will be the global node ids.
-    RangeViewType CreateNodePoints() {
+    RangeViewType CreateNodeSpheres(double radius) {
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector);
-        RangeViewType node_points("node_points", num_local_nodes);
+        RangeViewType node_spheres("node_spheres", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
@@ -146,11 +145,12 @@ class NeighborSearchProcessor {
         Kokkos::parallel_for(
             stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
+                stk::search::Point<double> center(coords[0], coords[1], coords[2]);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-                node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+                node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-        return node_points;
+        return node_spheres;
     }
 
     // Ghost the neighbors to the nodes processor
@@ -246,8 +246,8 @@ class NeighborSearchProcessor {
     }
 
     void add_nodes_neighbors_within_ball(double ball_radius) {
-        DomainViewType node_spheres = CreateNodeSpheres(ball_radius);
-        RangeViewType node_points = CreateNodePoints();
+        DomainViewType node_points = CreateNodePoints();
+        RangeViewType node_spheres = CreateNodeSpheres(ball_radius);
 
         ResultViewType search_results;
         stk::search::SearchMethod search_method = stk::search::MORTON_LBVH;
@@ -255,7 +255,7 @@ class NeighborSearchProcessor {
         stk::ngp::ExecSpace exec_space = Kokkos::DefaultExecutionSpace{};
         const bool results_parallel_symmetry = true;
 
-        stk::search::coarse_search(node_spheres, node_points, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
+        stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
 
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
 
