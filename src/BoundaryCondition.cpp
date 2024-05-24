@@ -41,7 +41,7 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
     const YAML::Node time_function_node = boundary_condition["time_function"].begin()->second;
 
     // Get the type of time function
-    std::string time_function_type = boundary_condition["time_function"].begin()->first.as<std::string>();
+    auto time_function_type = boundary_condition["time_function"].begin()->first.as<std::string>();
 
     // Create a velocity vs time function
     std::function<double(double)> velocity_time_function;
@@ -52,12 +52,12 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
     // Set the time function
     if (time_function_type == "ramp_function") {
         // Get the abscissa and ordinate
-        std::vector<double> abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
-        std::vector<double> ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
+        auto abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
+        auto ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
         if (abscissa.size() != ordinate.size()) {
             throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
         }
-        if (abscissa.size() == 0) {
+        if (abscissa.empty()) {
             throw std::runtime_error("Abscissa and ordinate vectors must have at least one value.");
         }
 
@@ -72,7 +72,7 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
             velocity_time_function = [abscissa, ordinate_derivate](double time) {
                 return aperi::ConstantInterpolation(time, abscissa, ordinate_derivate);
             };
-            acceleration_time_function = [abscissa, ordinate_derivate](double time) {
+            acceleration_time_function = [abscissa, ordinate_derivate](double /*time*/) {
                 return 0.0;
             };
         } else if (bc_type == "velocity") {
@@ -88,13 +88,13 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
         }
     } else if (time_function_type == "smooth_step_function") {
         // Get the abscissa and ordinate
-        std::vector<double> abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
-        std::vector<double> ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
+        auto abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
+        auto ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
 
         if (abscissa.size() != ordinate.size()) {
             throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
         }
-        if (abscissa.size() == 0) {
+        if (abscissa.empty()) {
             throw std::runtime_error("Abscissa and ordinate vectors must have at least one value.");
         }
 
@@ -123,7 +123,7 @@ std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeF
     return std::make_pair(velocity_time_function, acceleration_time_function);
 }
 
-std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, std::shared_ptr<aperi::MeshData> mesh_data) {
+std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, const std::shared_ptr<aperi::MeshData>& mesh_data) {
     // Get the boundary condition node
     const YAML::Node boundary_condition_node = boundary_condition.begin()->second;
 
@@ -131,7 +131,7 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     std::vector<std::pair<size_t, double>> component_value_vector = aperi::GetComponentsAndValues(boundary_condition_node);
 
     // Get the type of boundary condition, lowercase
-    std::string type = boundary_condition.begin()->first.as<std::string>();
+    auto type = boundary_condition.begin()->first.as<std::string>();
     std::transform(type.begin(), type.end(), type.begin(), ::tolower);
 
     // Get the velocity and acceleration time functions

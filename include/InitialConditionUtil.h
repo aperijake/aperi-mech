@@ -32,6 +32,6 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
  * @param initial_conditions A vector of YAML nodes representing the initial conditions.
  * @param mesh_data A shared pointer to a MeshData object.
  */
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::MeshData> mesh_data);
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std::shared_ptr<aperi::MeshData>& mesh_data);
 
 }  // namespace aperi

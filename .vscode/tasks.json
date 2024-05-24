@@ -20,7 +20,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --gpu && cd build/Release_gpu && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --gpu && cd build/Release_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -46,7 +46,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",

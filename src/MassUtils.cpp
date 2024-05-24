@@ -26,7 +26,7 @@ struct ComputeMassFunctor {
 };
 
 // Compute the diagonal mass matrix
-double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> mesh_data, const std::string &part_name, double density) {
+double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density) {
     size_t nodes_per_element = mesh_data->GetNumNodesPerElement(part_name);
     std::array<FieldQueryData, 1> field_query_data_gather_vec = {FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
     FieldQueryData field_query_data_scatter = {"mass", FieldQueryState::None};

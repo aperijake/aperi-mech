@@ -45,7 +45,7 @@ BUILD_DIR+="${BUILD_TYPE}"
 # Set build directory and Spack environment based on GPU option
 if ${GPU}; then
 	BUILD_DIR+="_gpu"
-	spack env activate aperi-mech-gpu
+	spack env activate aperi-mech-gpu-develop
 else
 	spack env activate aperi-mech
 fi

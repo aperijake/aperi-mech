@@ -74,7 +74,7 @@ void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>>
 }
 
 struct ComputeFirstPartialUpdateFunctor {
-    ComputeFirstPartialUpdateFunctor(double half_time_increment) : m_half_time_increment(half_time_increment) {}
+    explicit ComputeFirstPartialUpdateFunctor(double half_time_increment) : m_half_time_increment(half_time_increment) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(double *velocity_data_np1, const double *velocity_data_n, const double *acceleration_data_n) const {
@@ -91,7 +91,7 @@ void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const
 }
 
 struct UpdateDisplacementsFunctor {
-    UpdateDisplacementsFunctor(double time_increment) : m_time_increment(time_increment) {}
+    explicit UpdateDisplacementsFunctor(double time_increment) : m_time_increment(time_increment) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(double *displacement_data_np1, const double *displacement_data_n, const double *velocity_data_np1) const {
@@ -116,7 +116,7 @@ void ExplicitSolver::UpdateDisplacements(double time_increment, const std::share
 }
 
 struct ComputeSecondPartialUpdateFunctor {
-    ComputeSecondPartialUpdateFunctor(double half_time_increment) : m_half_time_increment(half_time_increment) {}
+    explicit ComputeSecondPartialUpdateFunctor(double half_time_increment) : m_half_time_increment(half_time_increment) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(double *velocity_data_np1, const double *acceleration_data_np1) const {
@@ -137,7 +137,7 @@ void ExplicitSolver::UpdateFieldStates() {
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
 
-void ExplicitSolver::WriteOutput(double time){
+void ExplicitSolver::WriteOutput(double time) {
     /** We are done with state N at this point. For fields that are generalized, calculate values from the stored function value coefficients:
     //   - Rotate states to put N into NP1
     //   - Calculate physical quantities at the temporary NP1
@@ -244,7 +244,7 @@ double ExplicitSolver::Solve() {
     }
 
     // Loop over time steps
-    while (m_time_stepper->AtEnd(time) == false) {
+    while (!m_time_stepper->AtEnd(time)) {
         if (log_scheduler.AtNextEvent(total_runtime)) {
             LogEvent(n, time, average_runtime, "");
         }

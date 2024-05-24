@@ -34,6 +34,7 @@ void Application::Run(const std::string& input_filename) {
 
     // Get part names
     std::vector<std::string> part_names;
+    part_names.reserve(parts.size());
     for (auto part : parts) {
         part_names.push_back(part["set"].as<std::string>());
     }
@@ -51,7 +52,7 @@ void Application::Run(const std::string& input_filename) {
     for (auto part : parts) {
         YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
         std::shared_ptr<aperi::Material> material = CreateMaterial(material_node);
-        std::string part_location = part["set"].as<std::string>();
+        auto part_location = part["set"].as<std::string>();
         bool use_strain_smoothing = false;
         std::string integration_scheme = "gauss_quadrature";
         if (part["formulation"] && part["formulation"]["integration_scheme"]) {
@@ -71,7 +72,7 @@ void Application::Run(const std::string& input_filename) {
 
     // Loop over loads and add them to force contributions
     for (auto load : loads) {
-        std::string name = load.begin()->first.as<std::string>();
+        auto name = load.begin()->first.as<std::string>();
         aperi::CoutP0() << "Adding load " << name << " to force contributions" << std::endl;
         m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMeshData()));
     }
@@ -85,7 +86,7 @@ void Application::Run(const std::string& input_filename) {
 
     // Loop over boundary conditions and add them to the vector of boundary conditions
     for (auto boundary_condition : boundary_conditions) {
-        std::string name = boundary_condition.begin()->first.as<std::string>();
+        auto name = boundary_condition.begin()->first.as<std::string>();
         aperi::CoutP0() << "Adding boundary condition " << name << " to boundary conditions" << std::endl;
         m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
     }

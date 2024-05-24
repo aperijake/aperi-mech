@@ -38,6 +38,6 @@ class BoundaryCondition {
     std::shared_ptr<aperi::NodeProcessor<1>> m_node_processor_acceleration;
 };
 
-std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, std::shared_ptr<aperi::MeshData> mesh_data);
+std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, const std::shared_ptr<aperi::MeshData>& mesh_data);
 
 }  // namespace aperi

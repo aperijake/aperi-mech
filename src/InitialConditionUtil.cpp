@@ -2,6 +2,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <utility>
+
 #include "EntityProcessor.h"
 #include "IoInputFile.h"
 #include "LogUtils.h"
@@ -11,7 +13,7 @@
 namespace aperi {
 
 struct FillInitialValueFunctor {
-    FillInitialValueFunctor(double value) : m_value(value) {}
+    explicit FillInitialValueFunctor(double value) : m_value(value) {}
     KOKKOS_INLINE_FUNCTION void operator()(double* value) const { *value = m_value; }
     double m_value;
 };
@@ -22,7 +24,7 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
     field_query_data[0] = {field_name, FieldQueryState::NP1};
 
     // Create the node processor
-    NodeProcessor<1> node_processor(field_query_data, mesh_data, set_names);
+    NodeProcessor<1> node_processor(field_query_data, std::move(mesh_data), set_names);
 
     // Loop over components and values
     for (auto component_and_value : components_and_values) {
@@ -36,7 +38,7 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
     node_processor.MarkAllFieldsModifiedOnDevice();
 }
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::MeshData> mesh_data) {
+void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std::shared_ptr<aperi::MeshData>& mesh_data) {
     // Loop over initial conditions
     for (const auto& initial_condition : initial_conditions) {
         // Get this initial condition node
@@ -46,7 +48,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, std::shar
         std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
 
         // Get the type of initial condition
-        const std::string type = initial_condition.begin()->first.as<std::string>();
+        const auto type = initial_condition.begin()->first.as<std::string>();
 
         // Loop over sets from initial condition
         aperi::CoutP0() << "Adding initial condition for sets:" << std::endl;

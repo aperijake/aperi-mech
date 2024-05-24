@@ -187,7 +187,7 @@ class ExplicitSolver : public Solver {
      *
      * @param node_processor_acceleration The node processor for the acceleration.
      */
-    void ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration);
+    static void ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration);
 
     /**
      * @brief Computes the first partial update for the solver.
@@ -195,7 +195,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_first_update The node processor for the first update.
      */
-    void ComputeFirstPartialUpdate(double half_time_step, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update);
+    static void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update);
 
     /**
      * @brief Computes the second partial update for the solver.
@@ -203,7 +203,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_second_update The node processor for the second update.
      */
-    void ComputeSecondPartialUpdate(double half_time_step, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update);
+    static void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update);
 
     /**
      * @brief Updates the displacements.
@@ -211,7 +211,7 @@ class ExplicitSolver : public Solver {
      * @param time_increment The time increment.
      * @param node_processor_update_nodal_displacements The node processor for updating the nodal displacements.
      */
-    void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_nodal_displacements);
+    void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements);
 
     /**
      * @brief Updates the field states. N -> NP1 and NP1 -> N.
@@ -224,7 +224,7 @@ class ExplicitSolver : public Solver {
 
     /**
      * @brief Writes the output.
-    */
+     */
     void WriteOutput(double time);
 };
 
