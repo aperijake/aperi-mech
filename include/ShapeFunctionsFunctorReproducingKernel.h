@@ -30,12 +30,11 @@ template <size_t MaxNumNeighbors>
 struct ShapeFunctionsFunctorReproducingKernel {
     /**
      * @brief Computes the shape functions of the element.
-     * @param evaluation_point_physical_coordinates The physical coordinates of the evaluation point.
-     * @param neighbor_coordinates The physical coordinates of the neighbors.
+     * @param shifted_neighbor_coordinates The physical coordinates of the neighbors relative to the evaluation point (evaluation_point_physical_coordinates - neighbor_coordinates).
      * @param actual_num_neighbors The actual number of neighbors.
      * @return The shape function values at the evaluation point.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
         // Allocate function values
         Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
 
@@ -56,18 +55,15 @@ struct ShapeFunctionsFunctorReproducingKernel {
 
         // Loop over neighbor nodes
         for (size_t i = 0; i < actual_num_neighbors; i++) {
-            // Vector from neighbor to evaluation_point
-            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
-
             // Compute kernel value
-            double phi_z = ComputeKernel(vector_neighbor_to_point);
+            double phi_z = ComputeKernel(shifted_neighbor_coordinates.row(i));
 
             if (phi_z == 0.0) {
                 continue;
             }
 
             // Compute basis vector (H)
-            H.segment(1, 3) = vector_neighbor_to_point;
+            H.segment(1, 3) = shifted_neighbor_coordinates.row(i);
 
             // Compute moment matrix (M)
             M += phi_z * H * H.transpose();
@@ -78,18 +74,15 @@ struct ShapeFunctionsFunctorReproducingKernel {
 
         // Loop over neighbor nodes again
         for (size_t i = 0; i < actual_num_neighbors; i++) {
-            // Vector from neighbor to evaluation_point
-            Eigen::Vector<double, 3> vector_neighbor_to_point = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
-
             // Compute kernel value
-            double phi_z = ComputeKernel(vector_neighbor_to_point);
+            double phi_z = ComputeKernel(shifted_neighbor_coordinates.row(i));
 
             if (phi_z == 0.0) {
                 continue;
             }
 
             // Compute basis vector (H)
-            H.segment(1, 3) = vector_neighbor_to_point;
+            H.segment(1, 3) = shifted_neighbor_coordinates.row(i);
 
             // Compute shape function value
             function_values(i, 0) = (M_inv.row(0) * H * phi_z)(0);
@@ -125,6 +118,10 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
      * @brief Computes the shape functions of the element.
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @param cell_node_coordinates The physical coordinates of the nodes of the element.
+     * @param neighbor_coordinates The physical coordinates of the neighbors.
+     * @param actual_num_neighbors The actual number of neighbors.
+     * @return The shape function values at the evaluation point.
+     * @note This function is used for testing purposes only.
      */
     KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
         Eigen::Matrix<double, 1, TET4_NUM_NODES> cell_shape_functions;
@@ -133,11 +130,15 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
             parametric_coordinates(1),
             parametric_coordinates(2);
         Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = cell_shape_functions * cell_node_coordinates;
+        Eigen::Matrix<double, MaxNumNeighbors, 3> shifted_neighbor_coordinates;
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
+            shifted_neighbor_coordinates.row(i) = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
+        }
 
         // Construct a ShapeFunctionsFunctorReproducingKernel object
         ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> shape_functions_functor_reproducing_kernel;
 
-        return shape_functions_functor_reproducing_kernel.values(evaluation_point_physical_coordinates, neighbor_coordinates, actual_num_neighbors);
+        return shape_functions_functor_reproducing_kernel.values(shifted_neighbor_coordinates, actual_num_neighbors);
     }
 };
 

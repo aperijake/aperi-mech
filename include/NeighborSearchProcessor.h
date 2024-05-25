@@ -503,24 +503,24 @@ class FunctionValueStorageProcessor {
                 // Get the number of neighbors
                 double num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
-                Eigen::Matrix<double, NumNodes, 3> neighbor_coordinates;
+                Eigen::Matrix<double, 1, 3> coordinates;
+                for (size_t j = 0; j < 3; ++j) {
+                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                }
+
+                Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
                     // Get the neighbor's coordinates
                     for (size_t j = 0; j < 3; ++j) {
-                        neighbor_coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
+                        shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
                 }
 
-                Eigen::Matrix<double, 1, 3> coordinates;
-                for (size_t j = 0; j < 3; ++j) {
-                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
-                }
-
                 // Compute the function values
-                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(coordinates, neighbor_coordinates, num_neighbors);
+                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(shifted_neighbor_coordinates, num_neighbors);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);
