@@ -101,12 +101,13 @@ struct FlexibleComputeInternalForceFunctor {
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_neighbors) const {
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_coordinates = gathered_node_data[0]; // Not used when derivatives are precomputed
-        const Eigen::Matrix<double, MaxNumNodes, 3> &node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
+        const Eigen::Matrix<double, MaxNumNodes, 3> &full_node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
         // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
         const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_neighbors, 3);
+        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> node_displacements = full_node_displacements.block(0, 0, actual_num_neighbors, 3);
         // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
         // Compute displacement gradient

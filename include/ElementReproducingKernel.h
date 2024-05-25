@@ -55,8 +55,8 @@ class ElementReproducingKernel : public ElementBase {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
-        search_processor.add_nodes_ring_0_nodes();
-        // search_processor.add_nodes_neighbors_within_ball(1.6);
+        // search_processor.add_nodes_ring_0_nodes();
+        search_processor.add_nodes_neighbors_within_ball(0.02);
         search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
         search_processor.PrintNumNeighborsStats();
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
@@ -115,10 +115,10 @@ class ElementReproducingKernel : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        FlexibleComputeInternalForceFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
+        FlexibleComputeInternalForceFunctor<MAX_CELL_NUM_NEIGHBORS, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
+        m_element_processor->for_each_element_gather_scatter_nodal_data<MAX_CELL_NUM_NEIGHBORS>(compute_force_functor);
     }
 
    private:

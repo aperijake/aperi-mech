@@ -401,3 +401,25 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFi
 
     CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }
+
+// Test the ValueFromGeneralizedFieldProcessor with more neighbors
+TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFieldProcessorMoreNeighbors) {
+    // Skip if running with more than 4 processes
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    BuildValueFromGeneralizedFieldProcessor();
+    FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
+
+    m_search_processor->add_nodes_neighbors_within_ball(2.00);
+    BuildFunctionValueStorageProcessor();
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+
+    m_value_from_generalized_field_processor->compute_value_from_generalized_field();
+    m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+
+    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+}

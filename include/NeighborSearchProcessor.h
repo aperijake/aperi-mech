@@ -186,7 +186,7 @@ class NeighborSearchProcessor {
                 double &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
                 if ((size_t)num_neighbors >= MAX_NODE_NUM_NEIGHBORS) {
                     printf("Node %ld has too many neighbors\n", m_bulk_data->identifier(node));  // TODO(jake): handle this better
-                    return;
+                    continue;
                 }
                 // Store local offset, probably;
                 p_neighbor_data[(size_t)num_neighbors] = (double)neighbor.local_offset();  // Store the local offset
@@ -299,7 +299,11 @@ class NeighborSearchProcessor {
 
                 // Make sure we don't exceed the maximum number of neighbors
                 // TODO(jake): Make ways of handling this
-                KOKKOS_ASSERT(total_num_neighbors <= MAX_CELL_NUM_NEIGHBORS);
+                if ((size_t)total_num_neighbors > MAX_CELL_NUM_NEIGHBORS) {
+                    stk::mesh::Entity elem = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
+                    printf("Element %ld has %ld neighbors. More than the maximum of %ld. Truncating.\n", ngp_mesh.identifier(elem), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
+                    total_num_neighbors = MAX_CELL_NUM_NEIGHBORS;
+                }
 
                 // Set the element neighbors
                 ngp_element_num_neighbors_field(elem_index, 0) = total_num_neighbors;
@@ -620,33 +624,37 @@ class ValueFromGeneralizedFieldProcessor {
                 // Get the number of neighbors
                 double num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
+                const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+
                 // If there are no neighbors, set the destination field to the source field
                 if (num_neighbors == 0) {
                     for (size_t i = 0; i < NumFields; ++i) {
-                        for (size_t j = 0; j < 3; ++j) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+                        for (size_t j = 0; j < num_components; ++j) {
                             ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                        }
+                    }
+                } else { // Zero out the destination field and prepare for the sum in the next loop
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            ngp_destination_fields[i](node_index, j) = 0.0;
                         }
                     }
                 }
 
                 // If there are neighbors, compute the destination field from the function values and source fields
-                for (size_t i = 0; i < num_neighbors; ++i) {
+                for (size_t k = 0; k < num_neighbors; ++k) {
                     // Create the entity
-                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
+                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
 
                     // Get the function value
-                    double function_value = ngp_function_values_field(node_index, i);
+                    double function_value = ngp_function_values_field(node_index, k);
 
                     // Get the source field values
-                    for (size_t j = 0; j < NumFields; ++j) {
-                        // Zero out the destination field
-                        for (size_t k = 0; k < 3; ++k) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
-                            ngp_destination_fields[j](node_index, k) = 0.0;
-                        }
-                        for (size_t k = 0; k < 3; ++k) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
-                            double source_value = ngp_source_fields[j](neighbor_index, k);
-                            ngp_destination_fields[j](node_index, k) += source_value * function_value;
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            double source_value = ngp_source_fields[i](neighbor_index, j);
+                            ngp_destination_fields[i](node_index, j) += source_value * function_value;
                         }
                     }
                 }
