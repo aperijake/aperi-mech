@@ -509,6 +509,7 @@ class FunctionValueStorageProcessor {
                 }
 
                 Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
+                Eigen::Matrix<double, NumNodes, 1> kernel_values;
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
@@ -517,10 +518,11 @@ class FunctionValueStorageProcessor {
                     for (size_t j = 0; j < 3; ++j) {
                         shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
+                    kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), 1.76); // Hardcoded radius for now
                 }
 
                 // Compute the function values
-                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(shifted_neighbor_coordinates, num_neighbors);
+                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(kernel_values, shifted_neighbor_coordinates, num_neighbors);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);

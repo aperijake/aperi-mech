@@ -287,3 +287,29 @@ TEST(MathUtilsTest, SortAndRemoveDuplicates) {
     RunSortAndRemoveDuplicatesTest(values3, expected3);
     RunSortAndRemoveDuplicatesTestDevice(values3, expected3);
 }
+
+// Test kernel value
+TEST(MathUtilsTest, KernelValue) {
+    Eigen::Vector3d vector_neighbor_to_point = {0.0, 0.0, 0.0};
+    double r = 2.0;
+    double alpha = 1.6;
+    double kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
+    EXPECT_NEAR(kernel_value, 1.0, 1.0e-12);
+
+    vector_neighbor_to_point = {r * alpha, 0.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
+    EXPECT_NEAR(kernel_value, 0.0, 1.0e-12);
+
+    vector_neighbor_to_point = {0.0, r * alpha / 2.0, 0.0};
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
+    EXPECT_NEAR(kernel_value, 0.25, 1.0e-12);
+
+    double epsilon = 1.0e-6;
+    vector_neighbor_to_point(1) += epsilon;
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
+    EXPECT_NEAR(kernel_value, 0.25, epsilon);
+
+    vector_neighbor_to_point(1) -= 2.0 * epsilon;
+    kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
+    EXPECT_NEAR(kernel_value, 0.25, epsilon);
+}

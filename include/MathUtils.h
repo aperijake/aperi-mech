@@ -196,4 +196,24 @@ KOKKOS_INLINE_FUNCTION size_t SortAndRemoveDuplicates(T &arr, size_t relevant_le
     return index;
 }
 
+KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen::Matrix<double, 4, 4>& mat) {
+#ifndef KOKKOS_ENABLE_CUDA
+    assert(mat.fullPivLu().isInvertible());
+    return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
+#else
+    return mat.inverse();
+#endif
+}
+
+KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3>& vector_neighbor_to_point, double R) {
+    const double normalized_radius = vector_neighbor_to_point.norm() / (R);
+    // Calculate the kernel value using a cubic b-spline kernel
+    if (normalized_radius < 0.5) {
+        return 1.0 + 6.0 * normalized_radius * normalized_radius * (-1.0 + normalized_radius);
+    } else if (normalized_radius < 1.0) {
+        return 2.0 * (1.0 + normalized_radius * (-3.0 + 3.0 * normalized_radius - 1.0 * normalized_radius * normalized_radius));
+    }
+    return 0.0;
+}
+
 }  // namespace aperi
