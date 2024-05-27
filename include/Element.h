@@ -32,7 +32,7 @@ inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, std::vector<
         if (use_strain_smoothing) {
             if (store_shape_function_derivatives) {
                 // return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
-                return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material);
+                return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material, 0.03); // Hardcoded kernel_radius_scale_factor for now
             } else {
                 return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
             }

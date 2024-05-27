@@ -105,6 +105,7 @@ inline std::vector<FieldData> GetFieldData() {
     field_data.push_back(FieldData("volume", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
 
     // Node neighbor data. TODO(jake): Add ability to turn this off if running FEM
+    field_data.push_back(FieldData("kernel_radius", FieldDataType::SCALAR, FieldDataRank::NODE, 1));
     field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::NODE, 1));
     field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
     field_data.push_back(FieldData("function_values", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
