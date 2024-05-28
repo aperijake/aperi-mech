@@ -309,6 +309,33 @@ TEST_F(IoInputFileTest, CheckInputMissingPartsSet) {
     EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
 }
 
+// Create an input file with missing part formulation, should default to gauss quadrature and finite element
+TEST_F(IoInputFileTest, CheckInputMissingPartFormulation) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"].remove("formulation");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 0);
+}
+
+// Create an input file with missing part formulation integration_scheme
+TEST_F(IoInputFileTest, CheckInputMissingPartFormulationIntegrationScheme) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"].remove("integration_scheme");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
+// Create an input file with missing part formulation approximation_space
+TEST_F(IoInputFileTest, CheckInputMissingPartFormulationApproximationSpace) {
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"].remove("approximation_space");
+    aperi::IoInputFile io_input_file = GetIoInputFile(false);
+
+    // Check input file
+    EXPECT_EQ(io_input_file.CheckInputWithSchema(true), 1);
+}
+
 // -------- Loads --------
 // Create an input file with missing loads set
 TEST_F(IoInputFileTest, CheckInputMissingLoadsSet) {
