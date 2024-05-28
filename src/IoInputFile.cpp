@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "IoInputSchema.h"
+#include "LogUtils.h"
 
 namespace aperi {
 int IoInputFile::Read() {
@@ -16,7 +17,7 @@ int IoInputFile::Read() {
         // Load and the YAML input file
         m_yaml_file = YAML::LoadFile(m_filename);
     } catch (const YAML::Exception& e) {
-        std::cerr << "Error reading YAML input file: " << e.what() << std::endl;
+        aperi::CerrP0() << "Error reading YAML input file: " << e.what() << std::endl;
         return 1;
     }
     return 0;
@@ -33,12 +34,12 @@ int IoInputFile::Write(const std::string& filename, const YAML::Node& yaml_data)
             // Write data to the file
             if (!(out_file << yaml_data)) throw YAML::Exception(YAML::Mark::null_mark(), "Error writing YAML file.");
             out_file.close();
-            std::cout << "YAML file successfully written." << std::endl;
+            aperi::CoutP0() << "YAML file successfully written." << std::endl;
         } else {
             throw YAML::Exception(YAML::Mark::null_mark(), "Unable to open the file for writing.");
         }
     } catch (const YAML::Exception& e) {
-        std::cerr << "Error writing YAML file: " << e.what() << std::endl;
+        aperi::CerrP0() << "Error writing YAML file: " << e.what() << std::endl;
         return_code = 1;
     }
     return return_code;
@@ -63,6 +64,11 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
         }
         if (type == "float") {
             std::pair<double, int> scalar_pair = GetScalarValue<double>(input_node, name, verbose, optional);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
+        } else if (type == "int") {
+            std::pair<int, int> scalar_pair = GetScalarValue<int>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
                 ++found_count;
             }
@@ -150,7 +156,7 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
 
                 // Make sure at least one schema_subitem is found
                 if (found_one_or_more_of_pair.second == 0) {
-                    std::cerr << "Error: 'one_or_more_of' subitems must have at least one schema_subitem." << std::endl;
+                    aperi::CerrP0() << "Error: 'one_or_more_of' subitems must have at least one schema_subitem." << std::endl;
                     return_code = 1;
                 }
 
@@ -171,7 +177,24 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
 
                 // Make sure only one schema_subitem is found
                 if (found_one_of_pair.second != 1) {
-                    std::cerr << "Error: 'one_of' subitems must have one and only one schema_subitem." << std::endl;
+                    // TODO(jake): Generalize this style of error messaging and apply elsewhere.
+                    // Print error message
+                    aperi::CerrP0() << "Error: 'one_of' subitems must have one and only one schema_subitem." << std::endl;
+                    // Print what was expected and what was found
+                    aperi::CerrP0() << "Expected one of: ";
+                    for (const auto& name_type : one_of_names_types) {
+                        aperi::CerrP0() << name_type.first << " ";
+                    }
+                    aperi::CerrP0() << std::endl;
+                    aperi::CerrP0() << "Found: ";
+                    for (const auto& found_name : found_one_of_pair.first) {
+                        aperi::CerrP0() << found_name.first << " ";
+                    }
+                    aperi::CerrP0() << std::endl;
+
+                    // Print the input node
+                    aperi::CerrP0() << "YAML input node:\n" << input_node << std::endl;
+
                     return_code = 1;
                 }
 
@@ -192,7 +215,7 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
 
                 // Make sure all subitems are found
                 if (found_all_of_pair.second != static_cast<int>(all_of_names_types.size())) {
-                    std::cerr << "Error: 'all_of' subitems must have all subitems." << std::endl;
+                    aperi::CerrP0() << "Error: 'all_of' subitems must have all subitems." << std::endl;
                     return_code = 1;
                 }
 
@@ -255,7 +278,7 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     // Get schema procedures node
     std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(GetInputSchema(), "procedures");
     if (schema_sub_node_pair.second) {
-        std::cerr << "Schema Error: 'procedures' node not found." << std::endl;
+        aperi::CerrP0() << "Schema Error: 'procedures' node not found." << std::endl;
         throw std::runtime_error("Schema Error: 'procedures' node not found. Line: " + std::to_string(__LINE__));
     }
     YAML::Node schema_sub_node = schema_sub_node_pair.first;
@@ -263,7 +286,7 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     // Get input procedures node
     std::pair<std::vector<YAML::Node>, int> input_nodes_pair = GetValueOrValueSequence(m_yaml_file, "procedures", verbose);
     if (input_nodes_pair.second) {
-        std::cerr << "Input Error: 'procedures' node not found." << std::endl;
+        aperi::CerrP0() << "Input Error: 'procedures' node not found." << std::endl;
         throw std::runtime_error("Input Error: 'procedures' node not found. Line: " + std::to_string(__LINE__));
     }
     std::vector<YAML::Node> input_nodes = input_nodes_pair.first;
