@@ -451,10 +451,12 @@ class NeighborSearchProcessor {
     void MarkAndSyncFieldsToHost() {
         m_ngp_node_neighbors_field->modify_on_device();
         m_ngp_node_num_neighbors_field->modify_on_device();
+        m_ngp_kernel_radius_field->modify_on_device();
         m_ngp_element_neighbors_field->modify_on_device();
         m_ngp_element_num_neighbors_field->modify_on_device();
         m_ngp_node_neighbors_field->sync_to_host();
         m_ngp_node_num_neighbors_field->sync_to_host();
+        m_ngp_kernel_radius_field->sync_to_host();
         m_ngp_element_neighbors_field->sync_to_host();
         m_ngp_element_num_neighbors_field->sync_to_host();
     }
@@ -462,10 +464,12 @@ class NeighborSearchProcessor {
     void MarkAndSyncFieldsToDevice() {
         m_ngp_node_neighbors_field->modify_on_host();
         m_ngp_node_num_neighbors_field->modify_on_host();
+        m_ngp_kernel_radius_field->modify_on_host();
         m_ngp_element_neighbors_field->modify_on_host();
         m_ngp_element_num_neighbors_field->modify_on_host();
         m_ngp_node_neighbors_field->sync_to_device();
         m_ngp_node_num_neighbors_field->sync_to_device();
+        m_ngp_kernel_radius_field->sync_to_device();
         m_ngp_element_neighbors_field->sync_to_device();
         m_ngp_element_num_neighbors_field->sync_to_device();
     }
