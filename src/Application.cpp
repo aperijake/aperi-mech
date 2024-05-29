@@ -49,7 +49,7 @@ void Application::Run(const std::string& input_filename) {
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
 
     // Loop over parts, create materials, and add parts to force contributions
-    for (auto part : parts) {
+    for (const auto& part : parts) {
         // Create InternalForceContributionParameters
         InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
         m_internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));

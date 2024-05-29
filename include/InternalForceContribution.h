@@ -7,8 +7,8 @@
 #include "Element.h"
 #include "FieldData.h"
 #include "ForceContribution.h"
-#include "IoInputFile.h"
 #include "InternalForceContributionParameters.h"
+#include "IoInputFile.h"
 #include "Material.h"
 #include "MeshData.h"
 
@@ -27,7 +27,7 @@ class InternalForceContribution : public ForceContribution {
      *
      * @param parameters The parameters associated with the force contribution.
      */
-    InternalForceContribution(const InternalForceContributionParameters& parameters);
+    InternalForceContribution(InternalForceContributionParameters parameters);
 
     /**
      * @brief Computes the internal forces.
@@ -63,8 +63,8 @@ class InternalForceContribution : public ForceContribution {
     void SetupInternalForceContribution();
 
     InternalForceContributionParameters m_internal_force_contribution_parameters;  ///< The parameters associated with the force contribution.
-    size_t m_num_nodes_per_element;                 ///< The number of nodes per element.
-    std::shared_ptr<aperi::ElementBase> m_element;  ///< The element associated with the force contribution.
+    size_t m_num_nodes_per_element;                                                ///< The number of nodes per element.
+    std::shared_ptr<aperi::ElementBase> m_element;                                 ///< The element associated with the force contribution.
 };
 
 /**

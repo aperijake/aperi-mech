@@ -10,8 +10,10 @@
 
 namespace aperi {
 
-enum class ApproximationSpaceType { FiniteElement, ReproducingKernel };
-enum class IntegrationSchemeType { GaussQuadrature, StrainSmoothing };
+enum class ApproximationSpaceType { FiniteElement,
+                                    ReproducingKernel };
+enum class IntegrationSchemeType { GaussQuadrature,
+                                   StrainSmoothing };
 
 class ApproximationSpaceParameters {
    public:

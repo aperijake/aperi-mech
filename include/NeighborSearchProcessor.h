@@ -105,7 +105,7 @@ class NeighborSearchProcessor {
             });
     }
 
-    void ComputeKernelRadius(double scale_factor){
+    void ComputeKernelRadius(double scale_factor) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -317,7 +317,7 @@ class NeighborSearchProcessor {
         UnpackSearchResultsIntoField(host_search_results);
     }
 
-    void add_nodes_neighbors_within_variable_ball(double scale_factor){
+    void add_nodes_neighbors_within_variable_ball(double scale_factor) {
         ComputeKernelRadius(scale_factor);
         DoBallSearch();
     }
@@ -720,7 +720,7 @@ class ValueFromGeneralizedFieldProcessor {
                             ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
                         }
                     }
-                } else { // Zero out the destination field and prepare for the sum in the next loop
+                } else {  // Zero out the destination field and prepare for the sum in the next loop
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
                             ngp_destination_fields[i](node_index, j) = 0.0;

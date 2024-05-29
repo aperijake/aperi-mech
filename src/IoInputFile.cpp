@@ -193,7 +193,8 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
                     aperi::CerrP0() << std::endl;
 
                     // Print the input node
-                    aperi::CerrP0() << "YAML input node:\n" << input_node << std::endl;
+                    aperi::CerrP0() << "YAML input node:\n"
+                                    << input_node << std::endl;
 
                     return_code = 1;
                 }

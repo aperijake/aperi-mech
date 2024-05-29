@@ -192,7 +192,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    double kernel_radius = 0.5; // Small ball radius, only 1 neighbor
+    double kernel_radius = 0.5;  // Small ball radius, only 1 neighbor
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
@@ -309,7 +309,7 @@ TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     m_num_elements_y = 1;
     m_num_elements_z = 4;
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    double kernel_radius_scale_factor = 1.01; // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
+    double kernel_radius_scale_factor = 1.01;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
     m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
