@@ -382,6 +382,7 @@ class NeighborSearchProcessor {
         double min_num_neighbors = std::numeric_limits<double>::max();
         double total_num_neighbors = 0;
         double num_entities = 0;
+        int reserved_memory = 0;
         NgpDoubleField ngp_num_neighbors_field;
 
         stk::topology::rank_t rank_type;
@@ -389,10 +390,12 @@ class NeighborSearchProcessor {
             num_entities = GetNumOwnedElements();
             ngp_num_neighbors_field = *m_ngp_element_num_neighbors_field;
             rank_type = stk::topology::ELEMENT_RANK;
+            reserved_memory = MAX_CELL_NUM_NEIGHBORS;
         } else if (rank == aperi::FieldDataRank::NODE) {
             num_entities = GetNumOwnedNodes();
             ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
             rank_type = stk::topology::NODE_RANK;
+            reserved_memory = MAX_NODE_NUM_NEIGHBORS;
         } else {
             throw std::runtime_error("Invalid rank type. Must be aperi::FieldDataRank::ELEMENT or aperi::FieldDataRank::NODE.");
         }
@@ -425,6 +428,7 @@ class NeighborSearchProcessor {
         stats["min_num_neighbors"] = min_num_neighbors;
         stats["avg_num_neighbors"] = total_num_neighbors / num_entities;
         stats["num_entities"] = num_entities;
+        stats["reserved_memory_utilization"] = total_num_neighbors / (num_entities * reserved_memory) / 100.0;
         return stats;
     }
 
@@ -437,6 +441,7 @@ class NeighborSearchProcessor {
         aperi::CoutP0() << "  Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
         aperi::CoutP0() << "  Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
         aperi::CoutP0() << "  Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "  % Reserved Memory Utilization: " << node_stats["reserved_memory_utilization"] << std::endl;
 
         // Element
         std::map<std::string, double> element_stats = GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
@@ -446,6 +451,7 @@ class NeighborSearchProcessor {
         aperi::CoutP0() << "   Max Num Neighbors: " << element_stats["max_num_neighbors"] << std::endl;
         aperi::CoutP0() << "   Min Num Neighbors: " << element_stats["min_num_neighbors"] << std::endl;
         aperi::CoutP0() << "   Avg Num Neighbors: " << element_stats["avg_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "   % Reserved Memory Utilization: " << element_stats["reserved_memory_utilization"] << std::endl;
     }
 
     void MarkAndSyncFieldsToHost() {
