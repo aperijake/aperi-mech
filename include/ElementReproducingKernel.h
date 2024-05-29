@@ -48,7 +48,7 @@ class ElementReproducingKernel : public ElementBase {
     void CreateElementProcessor() {
         // Create the element processor
         const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
     void ComputeNeighborValues() {
@@ -128,7 +128,7 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<3, true>> m_element_processor;
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
 };
 
 }  // namespace aperi

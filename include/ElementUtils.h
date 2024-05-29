@@ -45,7 +45,7 @@ struct ComputeInternalForceFunctor {
     ComputeInternalForceFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, const Eigen::Matrix<double, 3, NumNodes> &full_B, double volume, size_t actual_num_neighbors) const {
         Kokkos::abort("Not implemented");
     }
 
@@ -99,10 +99,9 @@ struct FlexibleComputeInternalForceFunctor {
         Kokkos::abort("Not implemented");
     }
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 3> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_neighbors) const {
-        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_coordinates = gathered_node_data[0]; // Not used when derivatives are precomputed
-        const Eigen::Matrix<double, MaxNumNodes, 3> &full_node_displacements = gathered_node_data[1];  // MaxNumNodes not known at compile time for meshfree
-        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[2];
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_neighbors) const {
+        const Eigen::Matrix<double, MaxNumNodes, 3> &full_node_displacements = gathered_node_data[0];  // MaxNumNodes not known at compile time for meshfree
+        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[1];
 
         force.fill(0.0);
 
