@@ -212,7 +212,7 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         const std::vector<std::string> part_names = {"block_1"};
 
         // Strain smoothing parameters
-        aperi::IntegrationSchemeStrainSmoothingParameters integration_scheme_parameters;
+        auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
         // Create the element
         std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);

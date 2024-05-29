@@ -15,15 +15,7 @@ enum class IntegrationSchemeType { GaussQuadrature, StrainSmoothing };
 
 class ApproximationSpaceParameters {
    public:
-    ApproximationSpaceParameters(std::string approximation_space = "finite_element") : approximation_space(approximation_space) {
-        if (approximation_space == "finite_element") {
-            approximation_space_type = ApproximationSpaceType::FiniteElement;
-        } else if (approximation_space == "reproducing_kernel") {
-            approximation_space_type = ApproximationSpaceType::ReproducingKernel;
-        } else {
-            throw std::runtime_error("Unsupported approximation space");
-        }
-    }
+    ApproximationSpaceParameters() = default;
 
     virtual double GetKernelRadiusScaleFactor() const {
         throw std::runtime_error("Kernel radius scale factor not supported for this approximation space");
@@ -44,20 +36,35 @@ class ApproximationSpaceParameters {
 
 class ApproximationSpaceFiniteElementParameters : public ApproximationSpaceParameters {
    public:
-    ApproximationSpaceFiniteElementParameters() : ApproximationSpaceParameters("finite_element") {}
-    ApproximationSpaceFiniteElementParameters(const YAML::Node& finite_element_node) : ApproximationSpaceParameters("finite_element") {}
+    ApproximationSpaceFiniteElementParameters() {
+        approximation_space = "finite_element";
+        approximation_space_type = ApproximationSpaceType::FiniteElement;
+    }
+    ApproximationSpaceFiniteElementParameters(const YAML::Node& finite_element_node) {
+        approximation_space = "finite_element";
+        approximation_space_type = ApproximationSpaceType::FiniteElement;
+    }
 };
 
 class ApproximationSpaceReproducingKernelParameters : public ApproximationSpaceParameters {
    public:
-    ApproximationSpaceReproducingKernelParameters() : ApproximationSpaceParameters("reproducing_kernel") {}
-    ApproximationSpaceReproducingKernelParameters(double kernel_radius_scale_factor) : ApproximationSpaceParameters("reproducing_kernel"), kernel_radius_scale_factor(kernel_radius_scale_factor) {}
-    ApproximationSpaceReproducingKernelParameters(const YAML::Node& reproduction_kernel_node) : ApproximationSpaceParameters("reproducing_kernel") {
+    ApproximationSpaceReproducingKernelParameters() {
+        approximation_space = "reproducing_kernel";
+        approximation_space_type = ApproximationSpaceType::ReproducingKernel;
+    }
+    ApproximationSpaceReproducingKernelParameters(double kernel_radius_scale_factor) : kernel_radius_scale_factor(kernel_radius_scale_factor) {
+        approximation_space = "reproducing_kernel";
+        approximation_space_type = ApproximationSpaceType::ReproducingKernel;
+    }
+    ApproximationSpaceReproducingKernelParameters(const YAML::Node& reproduction_kernel_node) {
+        approximation_space = "reproducing_kernel";
+        approximation_space_type = ApproximationSpaceType::ReproducingKernel;
         kernel_radius_scale_factor = reproduction_kernel_node["kernel_radius_scale_factor"].as<double>();
     }
     double GetKernelRadiusScaleFactor() const override {
         return kernel_radius_scale_factor;
     }
+
    protected:
     double kernel_radius_scale_factor = 0.03;
 };
@@ -72,16 +79,9 @@ inline std::shared_ptr<ApproximationSpaceParameters> CreateApproximationSpace(co
     }
 }
 
-struct IntegrationSchemeParameters {
-    IntegrationSchemeParameters(std::string integration_scheme = "gauss_quadrature") : integration_scheme(integration_scheme) {
-        if (integration_scheme == "gauss_quadrature") {
-            integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
-        } else if (integration_scheme == "strain_smoothing") {
-            integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
-        } else {
-            throw std::runtime_error("Unsupported integration scheme");
-        }
-    }
+class IntegrationSchemeParameters {
+   public:
+    IntegrationSchemeParameters() = default;
 
     virtual int GetIntegrationOrder() const {
         throw std::runtime_error("Integration order not supported for this integration scheme");
@@ -100,26 +100,44 @@ struct IntegrationSchemeParameters {
     IntegrationSchemeType integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
 };
 
-struct IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParameters {
-    IntegrationSchemeGaussQuadratureParameters(const YAML::Node& gauss_quadrature_node) : IntegrationSchemeParameters("gauss_quadrature") {
+class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParameters {
+   public:
+    IntegrationSchemeGaussQuadratureParameters() {
+        integration_scheme = "gauss_quadrature";
+        integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
+    }
+
+    IntegrationSchemeGaussQuadratureParameters(const YAML::Node& gauss_quadrature_node) {
+        integration_scheme = "gauss_quadrature";
+        integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
         integration_order = gauss_quadrature_node["integration_order"].as<int>();
     }
+
     int GetIntegrationOrder() const override {
         return integration_order;
     }
+
+   protected:
     int integration_order = 1;
 };
 
-struct IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParameters {
-    IntegrationSchemeStrainSmoothingParameters() : IntegrationSchemeParameters("strain_smoothing") {}
-    IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) : IntegrationSchemeParameters("strain_smoothing") {}
+class IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParameters {
+   public:
+    IntegrationSchemeStrainSmoothingParameters() {
+        integration_scheme = "strain_smoothing";
+        integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
+    }
+    IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) {
+        integration_scheme = "strain_smoothing";
+        integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
+    }
 };
 
-inline IntegrationSchemeParameters CreateIntegrationScheme(const YAML::Node& integration_scheme_node) {
+inline std::shared_ptr<IntegrationSchemeParameters> CreateIntegrationScheme(const YAML::Node& integration_scheme_node) {
     if (integration_scheme_node["gauss_quadrature"]) {
-        return IntegrationSchemeGaussQuadratureParameters(integration_scheme_node["gauss_quadrature"]);
+        return std::make_shared<IntegrationSchemeGaussQuadratureParameters>(integration_scheme_node["gauss_quadrature"]);
     } else if (integration_scheme_node["strain_smoothing"]) {
-        return IntegrationSchemeStrainSmoothingParameters(integration_scheme_node["strain_smoothing"]);
+        return std::make_shared<IntegrationSchemeStrainSmoothingParameters>(integration_scheme_node["strain_smoothing"]);
     } else {
         throw std::runtime_error("Unsupported integration scheme");
     }
@@ -135,19 +153,19 @@ struct InternalForceContributionParameters {
         if (part["formulation"] && part["formulation"]["approximation_space"]) {
             approximation_space_parameters = CreateApproximationSpace(part["formulation"]["approximation_space"]);
         } else {
-            approximation_space_parameters = std::make_shared<ApproximationSpaceParameters>();
+            approximation_space_parameters = std::make_shared<ApproximationSpaceFiniteElementParameters>();
         }
         if (part["formulation"] && part["formulation"]["integration_scheme"]) {
             integration_scheme_parameters = CreateIntegrationScheme(part["formulation"]["integration_scheme"]);
         } else {
-            integration_scheme_parameters = IntegrationSchemeParameters();
+            integration_scheme_parameters = std::make_shared<IntegrationSchemeGaussQuadratureParameters>();
         }
     }
     std::shared_ptr<Material> material = nullptr;
     std::shared_ptr<aperi::MeshData> mesh_data = nullptr;
     std::string part_name = "";
     std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters;
-    IntegrationSchemeParameters integration_scheme_parameters;
+    std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters;
 };
 
 }  // namespace aperi

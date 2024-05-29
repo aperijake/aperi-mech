@@ -27,7 +27,7 @@ void InternalForceContribution::SetupInternalForceContribution() {
     // Get the field query data and part names
     const std::vector<std::string> part_names = {m_internal_force_contribution_parameters.part_name};
     std::vector<FieldQueryData> field_query_data_gather;
-    if (m_internal_force_contribution_parameters.integration_scheme_parameters.GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) { // TODO(jake): this doesn't have to have coordinates
+    if (m_internal_force_contribution_parameters.integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) { // TODO(jake): this doesn't have to have coordinates
         field_query_data_gather.resize(3);
         field_query_data_gather[0] = FieldQueryData{m_internal_force_contribution_parameters.mesh_data->GetCoordinatesFieldName(), FieldQueryState::None};
         field_query_data_gather[1] = FieldQueryData{"displacement", FieldQueryState::NP1};
