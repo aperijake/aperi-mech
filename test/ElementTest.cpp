@@ -191,57 +191,121 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
     TestFunctionsFunctorValues(functions_functor, node_coordinates, neighbor_coordinates, 8, false);
 }
 
-TEST_F(ElementBasicsTest, SmoothedTet4Storing) {
+class ElementStrainSmoothingTest : public ::testing::Test {
+   protected:
+    // Run the strain smoothed formulation
+    void RunStrainSmoothedFormulation(int num_elems_z, const aperi::ApproximationSpaceParameters &approximation_space_parameters) {
+        // Make a mesh
+        aperi::IoMeshParameters io_mesh_parameters;
+        io_mesh_parameters.mesh_type = "generated";
+        io_mesh_parameters.compose_output = true;
+        m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"}, field_data);
+        std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+        // Make an element processor
+        std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3);  // not used, but needed for the constructor. TODO(jake) change this?
+        field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+        field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+        field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+        const std::vector<std::string> part_names = {"block_1"};
+
+        // Strain smoothing parameters
+        aperi::IntegrationSchemeStrainSmoothingParameters integration_scheme_parameters;
+
+        // Create the element
+        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, field_query_data_gather_vec, part_names, mesh_data, approximation_space_parameters, integration_scheme_parameters);
+
+        std::array<aperi::FieldQueryData, 6> elem_field_query_data_gather_vec;
+        elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+        elem_field_query_data_gather_vec[1] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        elem_field_query_data_gather_vec[2] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+        elem_field_query_data_gather_vec[3] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+        elem_field_query_data_gather_vec[4] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+        elem_field_query_data_gather_vec[5] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
+        auto entity_processor = std::make_shared<aperi::ElementProcessor<6>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+        entity_processor->MarkAllFieldsModifiedOnDevice();
+        entity_processor->SyncAllFieldsDeviceToHost();
+
+        // Check the volume
+        double expected_volume = num_elems_z;
+        CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {expected_volume}, aperi::FieldQueryState::None);
+
+        // Check the partition of unity for the shape functions
+        if (approximation_space_parameters.GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) { // not storing shape function values for FiniteElement
+            CheckEntityFieldSumOfComponents<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "function_values", {1.0}, aperi::FieldQueryState::None);
+        }
+
+        // Check partition of nullity for the shape function derivatives
+        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
+        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
+        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
+    }
+
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;
+};
+
+
+// Smoothed tet4 element
+TEST_F(ElementStrainSmoothingTest, SmoothedTet4Storing) {
     // Get number of processors
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
-    // Smoothed tet4 element with storing shape function derivatives needs an element processor to be created
-    bool use_strain_smoothing = true;
-    bool store_shape_function_derivatives = true;
+    // Tet4 element
+    aperi::ApproximationSpaceParameters approximation_space_parameters;
 
-    // Make a mesh
-    aperi::IoMeshParameters io_mesh_parameters;
-    io_mesh_parameters.mesh_type = "generated";
-    io_mesh_parameters.compose_output = true;
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
-    io_mesh->ReadMesh("1x1x" + std::to_string(num_procs) + "|tets", {"block_1"}, field_data);
-    std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
+    RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
 
-    // Make an element processor
-    std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3);  // not used, but needed for the constructor. TODO(jake) change this?
-    field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-    field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-    field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-    const std::vector<std::string> part_names = {"block_1"};
-
-    // Create the element
-    std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, field_query_data_gather_vec, part_names, mesh_data, use_strain_smoothing, store_shape_function_derivatives);
-
-    std::array<aperi::FieldQueryData, 5> elem_field_query_data_gather_vec;
-    elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-    auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
-    entity_processor->MarkAllFieldsModifiedOnDevice();
-    entity_processor->SyncAllFieldsDeviceToHost();
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
     // Check the number of neighbors
     std::array<int, 1> expected_num_neighbors = {4};
     CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
+}
 
-    // TODO(jake): Check the neighbors.
+// Smoothed reproducing kernel on tet4 element
+TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4) {
+    // Get number of processors
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
-    // Check the volume
-    CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {static_cast<double>(num_procs)}, aperi::FieldQueryState::None);
+    // Reproducing kernel on tet4 element
+    double kernel_radius_scale_factor = 0.03; // Small so it is like a tet4
+    aperi::ApproximationSpaceReproducingKernelParameters approximation_space_parameters(kernel_radius_scale_factor);
 
-    // Check partition of nullity for the shape function derivatives
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
-    CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
+    RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
+
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Check the number of neighbors
+    std::array<int, 1> expected_num_neighbors = {4};
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
+}
+
+// Smoothed reproducing kernel on tet4 element with more neighbors
+TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4MoreNeighbors){
+    // Get number of processors
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+    // Exit if more than 4 procs
+    if (num_procs > 4) {
+        return;
+    }
+
+    // Reproducing kernel on tet4 element
+    double kernel_radius_scale_factor = 3.4; // Large so it gets all nodes as neighbors. Block in 1x1x4 so further away node-element pair is sqrt(3^2 + 1^2 + 1^2) = sqrt(11) ~ 3.3
+    aperi::ApproximationSpaceReproducingKernelParameters approximation_space_parameters(kernel_radius_scale_factor);
+
+    RunStrainSmoothedFormulation(4, approximation_space_parameters);
+
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Check the number of neighbors
+    std::array<int, 1> expected_num_neighbors = {20};
+    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests

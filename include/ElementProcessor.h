@@ -515,18 +515,21 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
 
                 size_t num_cell_neighbors = ngp_element_num_neighbors_field(elem_index, 0);
                 Eigen::Matrix<double, NumNodes, 4> cell_neighbor_function_values = Eigen::Matrix<double, NumNodes, 4>::Zero();
+                // Loop over the cell's neighbors, find where the cell's nodes are in the neighbor's neighbors, and get the function values
                 for (size_t i = 0; i < num_cell_neighbors; ++i) {
-                    // Create the entity
+                    // The neighbor of the cell
                     stk::mesh::Entity cell_neighbor_node(ngp_element_neighbors_field(elem_index, i));
-                    stk::mesh::FastMeshIndex cell_neighbor_node_index = ngp_mesh.fast_mesh_index(cell_neighbor_node);
-                    // Get the neighbor's neighbors
-                    size_t num_neighbor_node_neighbors = ngp_node_num_neighbors_field(cell_neighbor_node_index, 0);
-                    // Get the neighbor's function values, first find the index in the neighbor's neighbors for the cell nodes
+                    // Loop over the cell's nodes
                     for (size_t j = 0; j < num_cell_nodes; ++j) {
-                        for (size_t k = 0; k < num_neighbor_node_neighbors; ++k) {
-                            stk::mesh::Entity neighbor_neighbor(ngp_node_neighbors_field(cell_neighbor_node_index, k));
-                            if (neighbor_neighbor == cell_nodes[j]) {
-                                cell_neighbor_function_values(i, j) = ngp_node_function_values_field(cell_neighbor_node_index, k);
+                        // The cell's node
+                        stk::mesh::FastMeshIndex cell_node_index = ngp_mesh.fast_mesh_index(cell_nodes[j]);
+                        size_t num_cell_node_neighbors = ngp_node_num_neighbors_field(cell_node_index, 0);
+                        // Loop over the cell's node's neighbors
+                        for (size_t k = 0; k < num_cell_node_neighbors; ++k) {
+                            stk::mesh::Entity cell_node_neighbor_node(ngp_node_neighbors_field(cell_node_index, k));
+                            // If the cell's node's neighbor is the cell's neighbor, get the function value
+                            if (cell_node_neighbor_node == cell_neighbor_node) {
+                                cell_neighbor_function_values(i, j) = ngp_node_function_values_field(cell_node_index, k);
                                 break;
                             }
                         }
