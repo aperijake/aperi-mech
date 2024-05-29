@@ -94,20 +94,14 @@ struct IntegrationSchemeParameters {
         return integration_scheme;
     }
 
-    bool StoreShapeFunctionDerivatives() const {
-        return store_shape_function_derivatives;
-    }
-
    protected:
     std::string integration_scheme = "gauss_quadrature";
     IntegrationSchemeType integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
-    bool store_shape_function_derivatives = false;
 };
 
 struct IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParameters {
     IntegrationSchemeGaussQuadratureParameters(const YAML::Node& gauss_quadrature_node) : IntegrationSchemeParameters("gauss_quadrature") {
         integration_order = gauss_quadrature_node["integration_order"].as<int>();
-        store_shape_function_derivatives = false;
     }
     int GetIntegrationOrder() const override {
         return integration_order;
@@ -116,12 +110,8 @@ struct IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemePara
 };
 
 struct IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParameters {
-    IntegrationSchemeStrainSmoothingParameters() : IntegrationSchemeParameters("strain_smoothing") {
-        store_shape_function_derivatives = true;
-    }
-    IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) : IntegrationSchemeParameters("strain_smoothing") {
-        store_shape_function_derivatives = true;
-    }
+    IntegrationSchemeStrainSmoothingParameters() : IntegrationSchemeParameters("strain_smoothing") {}
+    IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) : IntegrationSchemeParameters("strain_smoothing") {}
 };
 
 inline IntegrationSchemeParameters CreateIntegrationScheme(const YAML::Node& integration_scheme_node) {

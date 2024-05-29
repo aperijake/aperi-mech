@@ -32,26 +32,15 @@ inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, std::vector<
     if (num_nodes == TET4_NUM_NODES) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters.GetApproximationSpaceType()) {
             if (integration_scheme_parameters.GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
-                if (integration_scheme_parameters.StoreShapeFunctionDerivatives()) {
-                    return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
-                    } else { // TODO(jake): this is probably not needed in the future. just used for testing now
-                    return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
-                }
-            } else {  // GaussQuadrature
-                if (integration_scheme_parameters.StoreShapeFunctionDerivatives()) {
-                    throw std::runtime_error("Storing shape function derivatives is not supported for Element Tetrahedron4 with Gauss Quadrature");
-                } else {
-                    return std::make_shared<ElementTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
-                }
+                return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
+                // return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
+            } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
+                return std::make_shared<ElementTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
             }
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters.GetApproximationSpaceType()) {
             if (integration_scheme_parameters.GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
-                if (integration_scheme_parameters.StoreShapeFunctionDerivatives()) {
-                    double kernel_radius_scale_factor = approximation_space_parameters.GetKernelRadiusScaleFactor();
-                    return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
-                } else {
-                    throw std::runtime_error("Storing shape function derivatives is required for Reproducing Kernel with Strain Smoothing");
-                }
+                double kernel_radius_scale_factor = approximation_space_parameters.GetKernelRadiusScaleFactor();
+                return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }
