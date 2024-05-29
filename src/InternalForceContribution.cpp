@@ -40,7 +40,7 @@ void InternalForceContribution::SetupInternalForceContribution() {
     }
 
     // Create the element.
-    m_element = CreateElement(m_num_nodes_per_element, field_query_data_gather, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, m_internal_force_contribution_parameters.material);
+    m_element = CreateElement(m_num_nodes_per_element, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, field_query_data_gather, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
 }
 
 }  // namespace aperi

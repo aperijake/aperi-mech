@@ -44,6 +44,7 @@ class ApproximationSpaceParameters {
 
 class ApproximationSpaceFiniteElementParameters : public ApproximationSpaceParameters {
    public:
+    ApproximationSpaceFiniteElementParameters() : ApproximationSpaceParameters("finite_element") {}
     ApproximationSpaceFiniteElementParameters(const YAML::Node& finite_element_node) : ApproximationSpaceParameters("finite_element") {}
 };
 
@@ -61,11 +62,11 @@ class ApproximationSpaceReproducingKernelParameters : public ApproximationSpaceP
     double kernel_radius_scale_factor = 0.03;
 };
 
-inline ApproximationSpaceParameters CreateApproximationSpace(const YAML::Node& approximation_space_node) {
+inline std::shared_ptr<ApproximationSpaceParameters> CreateApproximationSpace(const YAML::Node& approximation_space_node) {
     if (approximation_space_node["finite_element"]) {
-        return ApproximationSpaceFiniteElementParameters(approximation_space_node["finite_element"]);
+        return std::make_shared<ApproximationSpaceFiniteElementParameters>(approximation_space_node["finite_element"]);
     } else if (approximation_space_node["reproducing_kernel"]) {
-        return ApproximationSpaceReproducingKernelParameters(approximation_space_node["reproducing_kernel"]);
+        return std::make_shared<ApproximationSpaceReproducingKernelParameters>(approximation_space_node["reproducing_kernel"]);
     } else {
         throw std::runtime_error("Unsupported approximation space");
     }
@@ -134,7 +135,7 @@ struct InternalForceContributionParameters {
         if (part["formulation"] && part["formulation"]["approximation_space"]) {
             approximation_space_parameters = CreateApproximationSpace(part["formulation"]["approximation_space"]);
         } else {
-            approximation_space_parameters = ApproximationSpaceParameters();
+            approximation_space_parameters = std::make_shared<ApproximationSpaceParameters>();
         }
         if (part["formulation"] && part["formulation"]["integration_scheme"]) {
             integration_scheme_parameters = CreateIntegrationScheme(part["formulation"]["integration_scheme"]);
@@ -145,7 +146,7 @@ struct InternalForceContributionParameters {
     std::shared_ptr<Material> material = nullptr;
     std::shared_ptr<aperi::MeshData> mesh_data = nullptr;
     std::string part_name = "";
-    ApproximationSpaceParameters approximation_space_parameters;
+    std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters;
     IntegrationSchemeParameters integration_scheme_parameters;
 };
 

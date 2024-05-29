@@ -194,7 +194,7 @@ TEST_F(ElementBasicsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
 class ElementStrainSmoothingTest : public ::testing::Test {
    protected:
     // Run the strain smoothed formulation
-    void RunStrainSmoothedFormulation(int num_elems_z, const aperi::ApproximationSpaceParameters &approximation_space_parameters) {
+    void RunStrainSmoothedFormulation(int num_elems_z, const std::shared_ptr<aperi::ApproximationSpaceParameters> &approximation_space_parameters) {
         // Make a mesh
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
@@ -215,7 +215,7 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         aperi::IntegrationSchemeStrainSmoothingParameters integration_scheme_parameters;
 
         // Create the element
-        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, field_query_data_gather_vec, part_names, mesh_data, approximation_space_parameters, integration_scheme_parameters);
+        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
         std::array<aperi::FieldQueryData, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
@@ -233,7 +233,7 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {expected_volume}, aperi::FieldQueryState::None);
 
         // Check the partition of unity for the shape functions
-        if (approximation_space_parameters.GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) { // not storing shape function values for FiniteElement
+        if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) { // not storing shape function values for FiniteElement
             CheckEntityFieldSumOfComponents<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "function_values", {1.0}, aperi::FieldQueryState::None);
         }
 
@@ -254,7 +254,7 @@ TEST_F(ElementStrainSmoothingTest, SmoothedTet4Storing) {
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
     // Tet4 element
-    aperi::ApproximationSpaceParameters approximation_space_parameters;
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
 
     RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
 
@@ -273,7 +273,7 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4) {
 
     // Reproducing kernel on tet4 element
     double kernel_radius_scale_factor = 0.03; // Small so it is like a tet4
-    aperi::ApproximationSpaceReproducingKernelParameters approximation_space_parameters(kernel_radius_scale_factor);
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
 
@@ -297,7 +297,7 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4MoreNeighbors){
 
     // Reproducing kernel on tet4 element
     double kernel_radius_scale_factor = 3.4; // Large so it gets all nodes as neighbors. Block in 1x1x4 so further away node-element pair is sqrt(3^2 + 1^2 + 1^2) = sqrt(11) ~ 3.3
-    aperi::ApproximationSpaceReproducingKernelParameters approximation_space_parameters(kernel_radius_scale_factor);
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     RunStrainSmoothedFormulation(4, approximation_space_parameters);
 
