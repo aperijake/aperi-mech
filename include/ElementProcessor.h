@@ -160,12 +160,17 @@ class ElementGatherScatterProcessor {
                 // Get the number of neighbors
                 size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
 
+                Kokkos::Profiling::pushRegion("get_neighbors");
+
                 // Get the neighbors
                 Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
                     nodes[i] = ngp_mesh.fast_mesh_index(entity);
                 }
+
+                Kokkos::Profiling::popRegion();
+                Kokkos::Profiling::pushRegion("gather_data");
 
                 // Set up the field data to gather
                 Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
@@ -181,6 +186,8 @@ class ElementGatherScatterProcessor {
                         }
                     }
                 }
+                Kokkos::Profiling::popRegion();
+                Kokkos::Profiling::pushRegion("build_B");
 
                 // Build the B matrix
                 Eigen::Matrix<double, NumNodes, 3> B;
@@ -189,12 +196,20 @@ class ElementGatherScatterProcessor {
                         B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
                     }
                 }
+                Kokkos::Profiling::popRegion();
+                Kokkos::Profiling::pushRegion("get_volume");
 
                 // Get the element volume
                 double element_volume = ngp_element_volume(elem_index, 0);
 
+                Kokkos::Profiling::popRegion();
+                Kokkos::Profiling::pushRegion("apply_function");
+
                 // Apply the function to the gathered data
                 func(field_data_to_gather, results_to_scatter, B, element_volume, num_nodes);
+
+                Kokkos::Profiling::popRegion();
+                Kokkos::Profiling::pushRegion("scatter_data");
 
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < num_nodes; ++i) {
@@ -202,6 +217,8 @@ class ElementGatherScatterProcessor {
                         Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
                     }
                 }
+
+                Kokkos::Profiling::popRegion();
             });
     }
 

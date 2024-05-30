@@ -8,6 +8,20 @@
 
 namespace aperi {
 
+KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d &displacement_gradient) {
+    // Compute the Green Lagrange strain tensor, Voigt Notation.
+    // E = 0.5 * (H + H^T + H^T * H)
+    Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
+    green_lagrange_strain_tensor_voigt << displacement_gradient(0, 0) + 0.5 * displacement_gradient.col(0).dot(displacement_gradient.col(0)),
+        displacement_gradient(1, 1) + 0.5 * displacement_gradient.col(1).dot(displacement_gradient.col(1)),
+        displacement_gradient(2, 2) + 0.5 * displacement_gradient.col(2).dot(displacement_gradient.col(2)),
+        0.5 * (displacement_gradient(1, 2) + displacement_gradient(2, 1) + displacement_gradient.col(1).dot(displacement_gradient.col(2))),
+        0.5 * (displacement_gradient(0, 2) + displacement_gradient(2, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(2))),
+        0.5 * (displacement_gradient(0, 1) + displacement_gradient(1, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(1)));
+
+    return green_lagrange_strain_tensor_voigt;
+}
+
 // Compute (B_I F)^T, voigt notation, 3 x 6
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient) {
     Eigen::Matrix<double, 3, 6> bf_transpose;
@@ -65,13 +79,8 @@ struct ComputeInternalForceFunctor {
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
             // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
-            // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
-            // E = 0.5 * (H + H^T + H^T * H)
-            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
-
-            // Green Lagrange strain tensor in voigt notation
-            Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
-            green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
+            // Compute the Green Lagrange strain tensor, Voigt Notation.
+            Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
 
             // Compute the stress and internal force of the element.
             const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
@@ -112,13 +121,8 @@ struct FlexibleComputeInternalForceFunctor {
         // Compute displacement gradient
         const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix;
 
-        // Compute the Green Lagrange strain tensor. TODO: Get rid of this and go straight to voigt notation
-        // E = 0.5 * (H + H^T + H^T * H)
-        const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
-
-        // Green Lagrange strain tensor in voigt notation
-        Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
-        green_lagrange_strain_tensor_voigt << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
+        // Compute the Green Lagrange strain tensor, Voigt Notation.
+        Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
 
         // Compute the stress and internal force of the element.
         const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
