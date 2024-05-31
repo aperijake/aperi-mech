@@ -22,33 +22,29 @@ KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTen
     return green_lagrange_strain_tensor_voigt;
 }
 
-// Compute (B_I F)^T, voigt notation, 3 x 6
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 6> ComputeBFTranspose(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient) {
-    Eigen::Matrix<double, 3, 6> bf_transpose;
-    bf_transpose(0, 0) = bI_vector(0, 0) * (displacement_gradient(0, 0) + 1.0);
-    bf_transpose(1, 1) = bI_vector(0, 1) * (displacement_gradient(1, 1) + 1.0);
-    bf_transpose(2, 2) = bI_vector(0, 2) * (displacement_gradient(2, 2) + 1.0);
+// Compute (B_I F)^T * stress_volume, 3 x 1
+KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 1, 3> ComputeForce(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient, const Eigen::Matrix<double, 6, 1> &stress_volume) {
+    Eigen::Matrix<double, 1, 3> force;
+    force(0) = -(bI_vector(0, 0) * (displacement_gradient(0, 0) + 1.0) * stress_volume(0) +
+                 bI_vector(0, 1) * displacement_gradient(0, 1) * stress_volume(1) +
+                 bI_vector(0, 2) * displacement_gradient(0, 2) * stress_volume(2) +
+                 (bI_vector(0, 1) * displacement_gradient(0, 2) + bI_vector(0, 2) * displacement_gradient(0, 1)) * stress_volume(3) +
+                 (bI_vector(0, 0) * displacement_gradient(0, 2) + bI_vector(0, 2) * (displacement_gradient(0, 0) + 1.0)) * stress_volume(4) +
+                 (bI_vector(0, 0) * displacement_gradient(0, 1) + bI_vector(0, 1) * (displacement_gradient(0, 0) + 1.0)) * stress_volume(5));
+    force(1) = -(bI_vector(0, 0) * displacement_gradient(1, 0) * stress_volume(0) +
+                 bI_vector(0, 1) * (displacement_gradient(1, 1) + 1.0) * stress_volume(1) +
+                 bI_vector(0, 2) * displacement_gradient(1, 2) * stress_volume(2) +
+                 (bI_vector(0, 1) * displacement_gradient(1, 2) + bI_vector(0, 2) * (displacement_gradient(1, 1) + 1.0)) * stress_volume(3) +
+                 (bI_vector(0, 0) * displacement_gradient(1, 2) + bI_vector(0, 2) * displacement_gradient(1, 0)) * stress_volume(4) +
+                 (bI_vector(0, 0) * (displacement_gradient(1, 1) + 1.0) + bI_vector(0, 1) * displacement_gradient(1, 0)) * stress_volume(5));
+    force(2) = -(bI_vector(0, 0) * displacement_gradient(2, 0) * stress_volume(0) +
+                 bI_vector(0, 1) * displacement_gradient(2, 1) * stress_volume(1) +
+                 bI_vector(0, 2) * (displacement_gradient(2, 2) + 1.0) * stress_volume(2) +
+                 (bI_vector(0, 1) * (displacement_gradient(2, 2) + 1.0) + bI_vector(0, 2) * displacement_gradient(2, 1)) * stress_volume(3) +
+                 (bI_vector(0, 0) * (displacement_gradient(2, 2) + 1.0) + bI_vector(0, 2) * displacement_gradient(2, 0)) * stress_volume(4) +
+                 (bI_vector(0, 0) * displacement_gradient(2, 1) + bI_vector(0, 1) * displacement_gradient(2, 0)) * stress_volume(5));
 
-    bf_transpose(0, 1) = bI_vector(0, 1) * displacement_gradient(0, 1);
-    bf_transpose(0, 2) = bI_vector(0, 2) * displacement_gradient(0, 2);
-    bf_transpose(1, 0) = bI_vector(0, 0) * displacement_gradient(1, 0);
-    bf_transpose(1, 2) = bI_vector(0, 2) * displacement_gradient(1, 2);
-    bf_transpose(2, 0) = bI_vector(0, 0) * displacement_gradient(2, 0);
-    bf_transpose(2, 1) = bI_vector(0, 1) * displacement_gradient(2, 1);
-
-    bf_transpose(0, 3) = bI_vector(0, 1) * displacement_gradient(0, 2) + bI_vector(0, 2) * displacement_gradient(0, 1);
-    bf_transpose(0, 4) = bI_vector(0, 0) * displacement_gradient(0, 2) + bI_vector(0, 2) * (displacement_gradient(0, 0) + 1.0);
-    bf_transpose(0, 5) = bI_vector(0, 0) * displacement_gradient(0, 1) + bI_vector(0, 1) * (displacement_gradient(0, 0) + 1.0);
-
-    bf_transpose(1, 3) = bI_vector(0, 1) * displacement_gradient(1, 2) + bI_vector(0, 2) * (displacement_gradient(1, 1) + 1.0);
-    bf_transpose(1, 4) = bI_vector(0, 0) * displacement_gradient(1, 2) + bI_vector(0, 2) * displacement_gradient(1, 0);
-    bf_transpose(1, 5) = bI_vector(0, 0) * (displacement_gradient(1, 1) + 1.0) + bI_vector(0, 1) * displacement_gradient(1, 0);
-
-    bf_transpose(2, 3) = bI_vector(0, 1) * (displacement_gradient(2, 2) + 1.0) + bI_vector(0, 2) * displacement_gradient(2, 1);
-    bf_transpose(2, 4) = bI_vector(0, 0) * (displacement_gradient(2, 2) + 1.0) + bI_vector(0, 2) * displacement_gradient(2, 0);
-    bf_transpose(2, 5) = bI_vector(0, 0) * displacement_gradient(2, 1) + bI_vector(0, 1) * displacement_gradient(2, 0);
-
-    return bf_transpose;
+    return force;
 }
 
 // Functor for computing the internal force of an element with NumNodes nodes.
@@ -77,19 +73,16 @@ struct ComputeInternalForceFunctor {
 
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
-            // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
 
             // Compute the Green Lagrange strain tensor, Voigt Notation.
-            Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
+            const Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
 
             // Compute the stress and internal force of the element.
-            const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
+            const Eigen::Matrix<double, 6, 1> stress_volume = m_stress_functor(green_lagrange_strain_tensor_voigt) * b_matrix_and_weight.second;
 
+            // Compute the internal force
             for (size_t i = 0; i < NumNodes; ++i) {
-                // Compute (B_I F)^T
-                const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix_and_weight.first.row(i), displacement_gradient);
-
-                force.row(i) -= (bF_IT * stress).transpose() * b_matrix_and_weight.second;
+                force.row(i).noalias() += ComputeForce(b_matrix_and_weight.first.row(i), displacement_gradient, stress_volume);
             }
         }
     }
@@ -108,30 +101,19 @@ struct FlexibleComputeInternalForceFunctor {
         Kokkos::abort("Not implemented");
     }
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, MaxNumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &full_B, double volume, size_t actual_num_neighbors) const {
-        const Eigen::Matrix<double, MaxNumNodes, 3> &full_node_displacements = gathered_node_data[0];  // MaxNumNodes not known at compile time for meshfree
-        // const Eigen::Matrix<double, MaxNumNodes, 3> &node_velocities = gathered_node_data[1];
-
-        force.fill(0.0);
-
-        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> b_matrix = full_B.block(0, 0, actual_num_neighbors, 3);
-        const Eigen::Block<const Eigen::Matrix<double, MaxNumNodes, 3>> node_displacements = full_node_displacements.block(0, 0, actual_num_neighbors, 3);
-        // For meshfree, I tried using blocking (~15% slower) or manually looping to compute the displacement gradient (~8% slower).
-
-        // Compute displacement gradient
-        const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix;
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 2> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors) const {
+        const Eigen::Matrix3d& displacement_gradient = gathered_node_data_gradient[0];
+        // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
 
         // Compute the Green Lagrange strain tensor, Voigt Notation.
-        Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
+        const Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
 
         // Compute the stress and internal force of the element.
-        const Eigen::Matrix<double, 6, 1> stress = m_stress_functor(green_lagrange_strain_tensor_voigt);
+        const Eigen::Matrix<double, 6, 1> stress_volume = m_stress_functor(green_lagrange_strain_tensor_voigt) * volume;
 
+        // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
-            // Compute (B_I F)^T
-            const Eigen::Matrix<double, 3, 6> bF_IT = ComputeBFTranspose(b_matrix.row(i), displacement_gradient);
-
-            force.row(i) -= (bF_IT * stress).transpose() * volume;
+            force.row(i).noalias() = ComputeForce(b_matrix.row(i), displacement_gradient, stress_volume);
         }
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material

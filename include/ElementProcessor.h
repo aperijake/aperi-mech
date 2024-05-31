@@ -160,65 +160,62 @@ class ElementGatherScatterProcessor {
                 // Get the number of neighbors
                 size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
 
-                Kokkos::Profiling::pushRegion("get_neighbors");
-
                 // Get the neighbors
+                // Kokkos::Profiling::pushRegion("get_neighbors");
                 Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
                     nodes[i] = ngp_mesh.fast_mesh_index(entity);
                 }
-
-                Kokkos::Profiling::popRegion();
-                Kokkos::Profiling::pushRegion("gather_data");
-
-                // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
-
-                // Set up the results matrix
-                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
-
-                // Gather the field data for each node
-                for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < num_nodes; ++i) {
-                        for (size_t j = 0; j < 3; ++j) {
-                            field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](nodes[i], j);
-                        }
-                    }
-                }
-                Kokkos::Profiling::popRegion();
-                Kokkos::Profiling::pushRegion("build_B");
+                // Kokkos::Profiling::popRegion();
 
                 // Build the B matrix
+                // Kokkos::Profiling::pushRegion("build_B");
                 Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
                         B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
                     }
                 }
-                Kokkos::Profiling::popRegion();
-                Kokkos::Profiling::pushRegion("get_volume");
+                // Kokkos::Profiling::popRegion();
+
+                // Set up the field data to gather
+                // Kokkos::Profiling::pushRegion("gather_data");
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, N> field_data_to_gather_gradient;
+
+                // Set up the results matrix
+                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
+
+                // Gather the field data for each node
+                for (size_t f = 0; f < N; ++f) {
+                    field_data_to_gather_gradient[f].fill(0.0);
+                    for (size_t i = 0; i < 3; ++i) {
+                        for (size_t k = 0; k < num_nodes; ++k) {
+                            double field_data_ki = ngp_fields_to_gather[f](nodes[k], i);
+                            field_data_to_gather_gradient[f].row(i) += field_data_ki * B.row(k);
+                        }
+                    }
+                }
+                // Kokkos::Profiling::popRegion();
 
                 // Get the element volume
+                // Kokkos::Profiling::pushRegion("get_volume");
                 double element_volume = ngp_element_volume(elem_index, 0);
-
-                Kokkos::Profiling::popRegion();
-                Kokkos::Profiling::pushRegion("apply_function");
+                // Kokkos::Profiling::popRegion();
 
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter, B, element_volume, num_nodes);
-
-                Kokkos::Profiling::popRegion();
-                Kokkos::Profiling::pushRegion("scatter_data");
+                // Kokkos::Profiling::pushRegion("apply_function");
+                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes);
+                // Kokkos::Profiling::popRegion();
 
                 // Scatter the force to the nodes
+                // Kokkos::Profiling::pushRegion("scatter_data");
                 for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
                     }
                 }
-
-                Kokkos::Profiling::popRegion();
+                // Kokkos::Profiling::popRegion();
             });
     }
 
