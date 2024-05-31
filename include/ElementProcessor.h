@@ -172,8 +172,8 @@ class ElementGatherScatterProcessor {
                 // Build the B matrix
                 // Kokkos::Profiling::pushRegion("build_B");
                 Eigen::Matrix<double, NumNodes, 3> B;
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
+                for (size_t j = 0; j < 3; ++j) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
                         B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
                     }
                 }
@@ -210,8 +210,8 @@ class ElementGatherScatterProcessor {
 
                 // Scatter the force to the nodes
                 // Kokkos::Profiling::pushRegion("scatter_data");
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
+                for (size_t j = 0; j < 3; ++j) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
                     }
                 }
