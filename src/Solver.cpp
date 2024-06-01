@@ -58,6 +58,14 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
+
+    // If there is more than one processor, communicate the field data that other processors need
+    if (m_num_processors > 1) {
+        m_node_processor_force->SyncFieldDeviceToHost(0);
+        m_node_processor_force->ParallelSumFieldData(0);
+        m_node_processor_force->MarkFieldModifiedOnHost(0);
+        m_node_processor_force->SyncFieldHostToDevice(0);
+    }
 }
 struct ComputeAccelerationFunctor {
     KOKKOS_INLINE_FUNCTION

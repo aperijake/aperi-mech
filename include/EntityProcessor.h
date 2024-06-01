@@ -48,6 +48,7 @@ class EntityProcessor {
         if (m_selector.is_empty(Rank)) {
             aperi::CoutP0() << "Warning: EntityProcessor selector is empty." << std::endl;
         }
+        m_owned_selector = m_selector & m_bulk_data->mesh_meta_data().locally_owned_part();
 
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
@@ -114,10 +115,21 @@ class EntityProcessor {
         }
     }
 
+    // Parallel sum including ghosted values
+    void ParallelSumFieldData(int field_index) const {
+        stk::mesh::parallel_sum_including_ghosts(*m_bulk_data, {m_fields[field_index]});
+    }
+
+    void ParallelSumAllFieldData() const {
+        for (size_t i = 0; i < N; i++) {
+            ParallelSumFieldData(i);
+        }
+    }
+
     // Loop over each entity and apply the function
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_each_component_impl(const Func &func, std::index_sequence<Is...>) {
+    void for_each_component_impl(const Func &func, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
         // Create an array of ngp fields
         Kokkos::Array<NgpDoubleField, N> fields;
         for (size_t i = 0; i < N; ++i) {
@@ -125,7 +137,7 @@ class EntityProcessor {
         }
         // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, Rank, m_selector,
+            m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 const size_t num_components = fields[0].get_num_components_per_entity(entity);
                 // assert each other field has same number of components
@@ -141,7 +153,7 @@ class EntityProcessor {
     // Loop over each entity and apply the function to component i
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_component_i_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
+    void for_component_i_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
         // Create an array of ngp fields
         Kokkos::Array<NgpDoubleField, N> fields;
         for (size_t i = 0; i < N; ++i) {
@@ -149,7 +161,7 @@ class EntityProcessor {
         }
         // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, Rank, m_selector,
+            m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 func(&fields[Is](entity, i)...);
             });
@@ -158,13 +170,13 @@ class EntityProcessor {
     // Loop over each entity and apply the function. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_each_component_impl(const Func &func, size_t field_index) {
+    void for_each_component_impl(const Func &func, size_t field_index, const stk::mesh::Selector &selector) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
 
         // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, Rank, m_selector,
+            m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 const size_t num_components = field.get_num_components_per_entity(entity);
                 for (size_t i = 0; i < num_components; i++) {
@@ -178,12 +190,12 @@ class EntityProcessor {
     // Loop over each entity and apply the function to component i. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
-    void for_component_i(const Func &func, size_t i, size_t field_index) {
+    void for_component_i(const Func &func, size_t i, size_t field_index, const stk::mesh::Selector &selector) {
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
         // Loop over all the entities
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, Rank, m_selector,
+            m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 double *field_ptr = &field(entity, i);
                 KOKKOS_ASSERT(field_ptr != nullptr);
@@ -217,16 +229,16 @@ class EntityProcessor {
 
     template <typename Func>
     void for_each_owned_entity_host(const Func &func) const {
-        for_each_entity_host(func, m_selector & m_bulk_data->mesh_meta_data().locally_owned_part());
+        for_each_entity_host(func, m_owned_selector);
     }
 
     // Loop over each entity and apply the function to component i. Using host data.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
-    void for_component_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>) {
+    void for_component_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) const {
         std::array<double *, N> field_data;  // Array to hold field data
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
+        for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
             assert(i < num_components && "i out of bounds");
             // assert each other field has same number of components
@@ -275,23 +287,43 @@ class EntityProcessor {
 
     template <typename Func>
     void for_each_component(const Func &func) {
-        for_each_component_impl(func, std::make_index_sequence<N>{});
+        for_each_component_impl(func, std::make_index_sequence<N>{}, m_selector);
+    }
+
+    template <typename Func>
+    void for_each_component_owned(const Func &func) {
+        for_each_component_impl(func, std::make_index_sequence<N>{}, m_owned_selector);
     }
 
     template <typename Func>
     void for_component_i(const Func &func, size_t i) {
-        for_component_i_impl(func, i, std::make_index_sequence<N>{});
+        for_component_i_impl(func, i, std::make_index_sequence<N>{}, m_selector);
+    }
+
+    template <typename Func>
+    void for_component_i(const Func &func, size_t i, size_t field_index) {
+        for_component_i(func, i, field_index, m_selector);
+    }
+
+    template <typename Func>
+    void for_component_i_owned(const Func &func, size_t i) {
+        for_component_i_impl(func, i, std::make_index_sequence<N>{}, m_owned_selector);
     }
 
     template <typename Func>
     void for_component_i_host(const Func &func, size_t i) {
-        for_component_i_host_impl(func, i, std::make_index_sequence<N>{});
+        for_component_i_host_impl(func, i, std::make_index_sequence<N>{}, m_selector);
+    }
+
+    template <typename Func>
+    void for_component_i_owned_host(const Func &func, size_t i) {
+        for_component_i_host_impl(func, i, std::make_index_sequence<N>{}, m_owned_selector);
     }
 
     // Fill the field with a value
     void FillField(double value, size_t field_index) {
         FillFieldFunctor functor(value);
-        for_each_component_impl(functor, field_index);
+        for_each_component_impl(functor, field_index, m_selector);
     }
 
    private:
@@ -300,6 +332,7 @@ class EntityProcessor {
     stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
     stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
     stk::mesh::Selector m_selector;                   // The selector for the entities
+    stk::mesh::Selector m_owned_selector;             // The selector for the owned entities
 };
 
 // Node processor

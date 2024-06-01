@@ -3,6 +3,7 @@
 #include <array>
 
 #include "ElementProcessor.h"
+#include "EntityProcessor.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
@@ -34,6 +35,9 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
     ComputeMassFunctor compute_mass_functor{density, nodes_per_element};
     element_processor.for_each_element_host_gather_scatter_nodal_data<4>(compute_mass_functor);  // Can be on device as well. Would need to change the summing and printing below
+
+    NodeProcessor<1> node_processor({"mass", FieldQueryState::None}, mesh_data);
+    node_processor.ParallelSumFieldData(0);
 
     // Parallel sum
     double mass_sum_global = element_processor.GetFieldToScatterSum() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs

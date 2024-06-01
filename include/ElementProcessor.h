@@ -54,6 +54,7 @@ class ElementGatherScatterProcessor {
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: ElementGatherScatterProcessor selector is empty." << std::endl;
         }
+        m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the fields to gather and scatter
         for (size_t i = 0; i < N; ++i) {
@@ -97,7 +98,7 @@ class ElementGatherScatterProcessor {
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -155,7 +156,7 @@ class ElementGatherScatterProcessor {
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the number of neighbors
                 size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
@@ -247,7 +248,7 @@ class ElementGatherScatterProcessor {
         results_to_scatter.resize(NumNodes, 3);
 
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             // Loop over the elements
             for (auto &&mesh_element : *bucket) {
                 // Get the element's nodes
@@ -279,7 +280,7 @@ class ElementGatherScatterProcessor {
     // Get the sum of the field to scatter
     double GetFieldToScatterSum() {
         double field_to_scatter_sum = 0.0;
-        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_selector, m_bulk_data->parallel());
+        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_owned_selector, m_bulk_data->parallel());
         return field_to_scatter_sum;
     }
 
@@ -300,6 +301,7 @@ class ElementGatherScatterProcessor {
     std::vector<std::string> m_sets;                                       // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
     stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
     std::array<DoubleField *, N> m_fields_to_gather;                       // The fields to gather
     DoubleField *m_field_to_scatter;                                       // The field to scatter
