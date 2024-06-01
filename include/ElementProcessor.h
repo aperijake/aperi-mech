@@ -336,6 +336,7 @@ class StrainSmoothingProcessor {
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
         }
+        m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the number of neighbors field
         m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
@@ -375,7 +376,7 @@ class StrainSmoothingProcessor {
         }
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -424,6 +425,7 @@ class StrainSmoothingProcessor {
     std::vector<std::string> m_sets;                                       // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
     stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
     DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
     DoubleField *m_neighbors_field;                                        // The neighbors field
