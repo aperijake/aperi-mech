@@ -3,6 +3,7 @@
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
 #include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -124,6 +125,13 @@ class EntityProcessor {
         for (size_t i = 0; i < N; i++) {
             ParallelSumFieldData(i);
         }
+    }
+
+    // Get the sum of a field
+    double GetFieldSumHost(size_t field_index) const {
+        double field_sum = 0.0;
+        stk::mesh::field_asum(field_sum, *m_fields[field_index], m_owned_selector, m_bulk_data->parallel());
+        return field_sum;
     }
 
     // Loop over each entity and apply the function

@@ -58,7 +58,20 @@ TEST_F(MassMatrixTest, ComputeMassMatrix) {
     double density = 1.23;
     double total_mass = aperi::ComputeMassMatrix(m_io_mesh->GetMeshData(), "block_1", density);
 
+    // Get the mass fields
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+    // Sum the mass at the nodes
+    std::array<aperi::FieldQueryData, 2> mass_field_query_data;
+    mass_field_query_data[0] = {"mass", aperi::FieldQueryState::None};
+    mass_field_query_data[1] = {"mass_from_elements", aperi::FieldQueryState::None};
+    aperi::NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);
+
+    // Parallel sum
+    double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
+    double mass_from_elements_sum_global = node_processor.GetFieldSumHost(1) / 3.0;
+
     // Check that the total mass is correct
     double expected_total_mass = 1.23 * m_num_procs;  // Multiply by m_num_procs because there is one unit cube per processor
-    EXPECT_DOUBLE_EQ(total_mass, expected_total_mass);
+    EXPECT_DOUBLE_EQ(mass_sum_global, expected_total_mass);
+    EXPECT_DOUBLE_EQ(mass_from_elements_sum_global, expected_total_mass);
 }

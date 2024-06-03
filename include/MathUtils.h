@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Kokkos_ArithTraits.hpp>
 #include <Kokkos_Core.hpp>
 #include <array>
 #include <cmath>
@@ -23,7 +24,16 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 
 // Compute the volume of a tetrahedron
 double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
-double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet);
+
+// Compute the volume of a tetrahedron using Eigen
+KOKKOS_INLINE_FUNCTION
+double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
+    Eigen::Vector3d v1 = tet.row(1) - tet.row(0);
+    Eigen::Vector3d v2 = tet.row(2) - tet.row(0);
+    Eigen::Vector3d v3 = tet.row(3) - tet.row(0);
+
+    return Kokkos::ArithTraits<double>::abs(v1.dot(v2.cross(v3))) / 6.0;
+}
 
 // Get the magnitude of a vector
 template <typename T>

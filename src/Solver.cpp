@@ -203,10 +203,6 @@ double ExplicitSolver::Solve() {
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
     }
-    // Mark and sync all mass from host to device
-    // TODO(jake): Remove this line when possible. Needed while mass calc is on host.
-    m_node_processor_all->MarkFieldModifiedOnHost(8);
-    m_node_processor_all->SyncFieldHostToDevice(8);
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof

@@ -264,7 +264,7 @@ class ElementGatherScatterProcessor {
                     }
                 }
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter);
+                func(field_data_to_gather, results_to_scatter, NumNodes);
 
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < NumNodes; ++i) {
