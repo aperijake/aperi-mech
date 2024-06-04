@@ -90,6 +90,9 @@ class NeighborSearchProcessor {
         // Get the kernel radius field
         m_kernel_radius_field = StkGetField(FieldQueryData{"kernel_radius", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
+
+        // Get the function values field
+        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
     }
 
     void SetKernelRadius(double kernel_radius) {
@@ -226,7 +229,7 @@ class NeighborSearchProcessor {
         m_bulk_data->modification_end();
     }
 
-    // Put the search results into the neighbors field. The neighbors field is a field of global node ids.
+    // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
         const int my_rank = m_bulk_data->parallel_rank();
 
@@ -235,15 +238,44 @@ class NeighborSearchProcessor {
             if (result.domainIdentProc.proc() == my_rank) {
                 stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
                 stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+                const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
+                const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 double *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
                 double &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-                if ((size_t)num_neighbors >= MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %ld has too many neighbors\n", m_bulk_data->identifier(node));  // TODO(jake): handle this better
-                    continue;
+                double *p_function_values = stk::mesh::field_data(*m_function_values_field, node);
+
+                // Calculate the squared distance between the node and the neighbor
+                double distance_squared = 0.0;
+                for (size_t j = 0; j < 3; ++j) {
+                    const double value = p_neighbor_coordinates[j] - p_node_coordinates[j];
+                    distance_squared += value * value;
                 }
-                // Store local offset, probably;
-                p_neighbor_data[(size_t)num_neighbors] = (double)neighbor.local_offset();  // Store the local offset
-                num_neighbors += 1;
+
+                // Find where to insert the neighbor, based on the distance
+                size_t insert_index = (size_t)num_neighbors; // Default to the end of the list
+                for (size_t j = 0; j < insert_index; ++j) {
+                    if (distance_squared < p_function_values[j]) {
+                        insert_index = j;
+                        break;
+                    }
+                }
+
+                // Shift the function values and neighbors to make room for the new neighbor
+                size_t reverse_start_index = (size_t)num_neighbors;
+                if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
+                    printf("Node %ld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
+                    --reverse_start_index;
+                } else{
+                    num_neighbors += 1;
+                }
+                for (size_t j = reverse_start_index; j > insert_index; --j) {
+                    p_function_values[j] = p_function_values[j - 1];
+                    p_neighbor_data[j] = p_neighbor_data[j - 1];
+                }
+
+                // Insert the new neighbor
+                p_function_values[insert_index] = distance_squared;
+                p_neighbor_data[insert_index] = (double)neighbor.local_offset();
             }
         }
         // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
@@ -518,6 +550,7 @@ class NeighborSearchProcessor {
     DoubleField *m_element_num_neighbors_field;         // The number of neighbors field
     DoubleField *m_element_neighbors_field;             // The neighbors field
     DoubleField *m_kernel_radius_field;                 // The kernel radius field
+    DoubleField *m_function_values_field;               // The function values field
     NgpDoubleField *m_ngp_coordinates_field;            // The ngp coordinates field
     NgpDoubleField *m_ngp_node_num_neighbors_field;     // The ngp number of neighbors field
     NgpDoubleField *m_ngp_node_neighbors_field;         // The ngp neighbors field
