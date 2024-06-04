@@ -87,18 +87,23 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     std::array<aperi::FieldQueryData, 1> dest_field_query_data;
     dest_field_query_data[0] = {mass_name, FieldQueryState::None};
 
+    // Sum the mass at the nodes
+    std::array<aperi::FieldQueryData, 2> mass_field_query_data;
+    mass_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
+    mass_field_query_data[1] = {mass_name, FieldQueryState::None};
+    NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);
+    node_processor.MarkFieldModifiedOnDevice(0);
+    node_processor.SyncFieldDeviceToHost(0);
+    node_processor.ParallelSumFieldData(0);
+    node_processor.MarkFieldModifiedOnHost(0);
+    node_processor.SyncFieldHostToDevice(0);
+
+    // Pass mass_from_elements through the approximation functions to get mass
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
     value_from_generalized_field_processor->compute_value_from_generalized_field();
     value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    // Sum the mass at the nodes
-    std::array<aperi::FieldQueryData, 2> mass_field_query_data;
-    mass_field_query_data[0] = {mass_name, FieldQueryState::None};
-    mass_field_query_data[1] = {mass_from_elements_name, FieldQueryState::None};
-    NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);
-    node_processor.MarkAllFieldsModifiedOnDevice();
-    node_processor.SyncAllFieldsDeviceToHost();
-    node_processor.ParallelSumAllFieldData();
 
     // Parallel sum
     double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
