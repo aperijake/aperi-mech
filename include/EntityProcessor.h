@@ -4,6 +4,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
+#include <stk_mesh/base/FieldParallel.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
 #include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -233,6 +234,29 @@ class EntityProcessor {
                 func(i_component_start, num_components, field_data);   // Call the function
             }
         }
+    }
+
+    // Debug printing. Only should do for small meshes.
+    void debug_print_field_with_id_host(size_t field_index) const {
+        double *field_data;
+        // Loop over all the buckets
+        std::string output = "";
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
+            const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[field_index], *bucket);
+            // Get the field data for the bucket
+            field_data = stk::mesh::field_data(*m_fields[field_index], *bucket);
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_component_start = i_entity * num_components;  // Index into the field data
+                output += "\nEntity ID: " + std::to_string(m_bulk_data->identifier(bucket->operator[](i_entity))) + ", Field Data: ";
+                for (size_t i = 0; i < num_components; i++) {
+                    std::ostringstream oss;
+                    oss << std::scientific << std::setprecision(10) << field_data[i_component_start + i];
+                    output += oss.str() + " ";
+                }
+            }
+        }
+        aperi::Cout() << output << std::endl;
     }
 
     template <typename Func>

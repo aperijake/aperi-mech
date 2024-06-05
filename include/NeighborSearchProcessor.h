@@ -106,6 +106,8 @@ class NeighborSearchProcessor {
                 // Get the node's coordinates
                 ngp_kernel_radius_field(node_index, 0) = kernel_radius;
             });
+        ngp_kernel_radius_field.modify_on_device();
+        ngp_kernel_radius_field.sync_to_host();
     }
 
     void ComputeKernelRadius(double scale_factor) {
@@ -140,6 +142,8 @@ class NeighborSearchProcessor {
                 }
                 ngp_kernel_radius_field(node_index, 0) = kernel_radius * scale_factor;
             });
+        ngp_kernel_radius_field.modify_on_device();
+        ngp_kernel_radius_field.sync_to_host();
     }
 
     // Create local entities on host and copy to device
@@ -344,6 +348,29 @@ class NeighborSearchProcessor {
 
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
 
+        // Print sizes
+        aperi::CoutP0() << "Neighborhood Search Information:" << std::endl;
+        aperi::Cout() << "\n  Search Point-Sphere Pair Results Size: " << host_search_results.size()
+                      << "\n  Evaluation Points Size: " << node_points.size()
+                      << "\n  Neighbor Spheres Size: " << node_spheres.size() << std::endl;
+
+        // Print for debugging
+        // aperi::CoutP0() << "Search points:" << std::endl;
+        // for (size_t i = 0; i < node_points.size(); ++i) {
+        //     auto point = node_points(i);
+        //     aperi::CoutP0() << "point: " << point.box << std::endl;
+        // }
+        // aperi::CoutP0() << "Search spheres:" << std::endl;
+        // for (size_t i = 0; i < node_spheres.size(); ++i) {
+        //     auto sphere = node_spheres(i);
+        //     aperi::CoutP0() << "sphere: " << sphere.box.center() << " radius: " << sphere.box.radius() << std::endl;
+        // }
+        // aperi::CoutP0() << "Search results:" << std::endl;
+        // for (size_t i = 0; i < host_search_results.size(); ++i) {
+        //     auto result = host_search_results(i);
+        //     aperi::CoutP0() << "domain: " << result.domainIdentProc.id() << " range: " << result.rangeIdentProc.id() << std::endl;
+        // }
+
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
@@ -389,8 +416,8 @@ class NeighborSearchProcessor {
                     }
                 }
 
-                // Sort the node neighbors and remove duplicates
-                total_num_neighbors = SortAndRemoveDuplicates(node_neighbors, total_num_neighbors);
+                // Remove duplicates. Don't want to sort as the earlier neighbors should have larger values and want to keep that order to help with parallel consistency. (sum small values first)
+                total_num_neighbors = RemoveDuplicates(node_neighbors, total_num_neighbors);
 
                 // Make sure we don't exceed the maximum number of neighbors
                 // TODO(jake): Make ways of handling this
@@ -489,15 +516,16 @@ class NeighborSearchProcessor {
     }
 
     void MarkAndSyncFieldsToHost() {
-        m_ngp_node_neighbors_field->modify_on_device();
+        // m_ngp_node_neighbors_field->modify_on_device();
         m_ngp_node_num_neighbors_field->modify_on_device();
         m_ngp_kernel_radius_field->modify_on_device();
-        m_ngp_element_neighbors_field->modify_on_device();
+        // m_ngp_element_neighbors_field->modify_on_device();
         m_ngp_element_num_neighbors_field->modify_on_device();
-        m_ngp_node_neighbors_field->sync_to_host();
+
+        //m_ngp_node_neighbors_field->sync_to_host();
         m_ngp_node_num_neighbors_field->sync_to_host();
         m_ngp_kernel_radius_field->sync_to_host();
-        m_ngp_element_neighbors_field->sync_to_host();
+        //m_ngp_element_neighbors_field->sync_to_host();
         m_ngp_element_num_neighbors_field->sync_to_host();
     }
 
@@ -507,6 +535,7 @@ class NeighborSearchProcessor {
         m_ngp_kernel_radius_field->modify_on_host();
         m_ngp_element_neighbors_field->modify_on_host();
         m_ngp_element_num_neighbors_field->modify_on_host();
+
         m_ngp_node_neighbors_field->sync_to_device();
         m_ngp_node_num_neighbors_field->sync_to_device();
         m_ngp_kernel_radius_field->sync_to_device();
@@ -755,6 +784,7 @@ class ValueFromGeneralizedFieldProcessor {
                             ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
                         }
                     }
+                    return;
                 } else {  // Zero out the destination field and prepare for the sum in the next loop
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
@@ -763,8 +793,9 @@ class ValueFromGeneralizedFieldProcessor {
                     }
                 }
 
-                // If there are neighbors, compute the destination field from the function values and source fields
-                for (size_t k = 0; k < num_neighbors; ++k) {
+                // If there are neighbors, compute the destination field from the function values and source fields.
+                // Do in reverse order. Adding smaller function_value terms first to help with parallel consistency
+                for (size_t k = num_neighbors; k-- > 0; ) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
@@ -783,10 +814,15 @@ class ValueFromGeneralizedFieldProcessor {
             });
     }
 
-    // Marking modified
+    // Marking modified on device
     void MarkDestinationFieldModifiedOnDevice(size_t field_index) {
         m_ngp_destination_fields[field_index]->clear_sync_state();
         m_ngp_destination_fields[field_index]->modify_on_device();
+    }
+
+    void MarkSourceFieldModifiedOnDevice(size_t field_index) {
+        m_ngp_source_fields[field_index]->clear_sync_state();
+        m_ngp_source_fields[field_index]->modify_on_device();
     }
 
     void MarkAllDestinationFieldsModifiedOnDevice() {
@@ -795,9 +831,40 @@ class ValueFromGeneralizedFieldProcessor {
         }
     }
 
-    // Syncing
+    void MarkAllSourceFieldsModifiedOnDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkSourceFieldModifiedOnDevice(i);
+        }
+    }
+
+    // Mark modified on host
+    void MarkDestinationFieldModifiedOnHost(size_t field_index) {
+        m_ngp_destination_fields[field_index]->modify_on_host();
+    }
+
+    void MarkSourceFieldModifiedOnHost(size_t field_index) {
+        m_ngp_source_fields[field_index]->modify_on_host();
+    }
+
+    void MarkAllDestinationFieldsModifiedOnHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkDestinationFieldModifiedOnHost(i);
+        }
+    }
+
+    void MarkAllSourceFieldsModifiedOnHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkSourceFieldModifiedOnHost(i);
+        }
+    }
+
+    // Syncing, device to host
     void SyncDestinationFieldDeviceToHost(size_t field_index) {
         m_ngp_destination_fields[field_index]->sync_to_host();
+    }
+
+    void SyncSourceFieldDeviceToHost(size_t field_index) {
+        m_ngp_source_fields[field_index]->sync_to_host();
     }
 
     void SyncAllDestinationFieldsDeviceToHost() {
@@ -806,14 +873,51 @@ class ValueFromGeneralizedFieldProcessor {
         }
     }
 
+    void SyncAllSourceFieldsDeviceToHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncSourceFieldDeviceToHost(i);
+        }
+    }
+
+    // Syncing, host to device
+    void SyncDestinationFieldHostToDevice(size_t field_index) {
+        m_ngp_destination_fields[field_index]->sync_to_device();
+    }
+
+    void SyncSourceFieldHostToDevice(size_t field_index) {
+        m_ngp_source_fields[field_index]->sync_to_device();
+    }
+
+    void SyncAllDestinationFieldsHostToDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncDestinationFieldHostToDevice(i);
+        }
+    }
+
+    void SyncAllSourceFieldsHostToDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncSourceFieldHostToDevice(i);
+        }
+    }
+
     // Parallel communication
     void CommunicateDestinationFieldData(int field_index) const {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_destination_fields[field_index]});
     }
 
+    void CommunicateSourceFieldData(int field_index) const {
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_source_fields[field_index]});
+    }
+
     void CommunicateAllDestinationFieldData() const {
         for (size_t i = 0; i < NumFields; i++) {
             CommunicateDestinationFieldData(i);
+        }
+    }
+
+    void CommunicateAllSourceFieldData() const {
+        for (size_t i = 0; i < NumFields; i++) {
+            CommunicateSourceFieldData(i);
         }
     }
 

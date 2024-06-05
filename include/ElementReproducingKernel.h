@@ -58,6 +58,7 @@ class ElementReproducingKernel : public ElementBase {
         // search_processor.add_nodes_ring_0_nodes();
         search_processor.add_nodes_neighbors_within_variable_ball(m_kernel_radius_scale_factor);
         search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
+        search_processor.MarkAndSyncFieldsToHost(); // Just needed for output
         search_processor.PrintNumNeighborsStats();
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(*m_compute_node_functions_functor);

@@ -165,7 +165,8 @@ class ElementGatherScatterProcessor {
                 // Kokkos::Profiling::pushRegion("get_neighbors");
                 Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
+                    // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
+                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, num_nodes - i - 1)); // Reverse the order of the neighbors
                     nodes[i] = ngp_mesh.fast_mesh_index(entity);
                 }
                 // Kokkos::Profiling::popRegion();
@@ -175,7 +176,7 @@ class ElementGatherScatterProcessor {
                 Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
+                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, num_nodes - i - 1); // Reverse the order of the neighbors
                     }
                 }
                 // Kokkos::Profiling::popRegion();

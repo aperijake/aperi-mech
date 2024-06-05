@@ -54,6 +54,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         search_processor.add_elements_ring_0_nodes();
+        search_processor.MarkAndSyncFieldsToHost(); // Just needed for output
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_compute_functions_functor, m_integration_functor);
     }

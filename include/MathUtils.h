@@ -206,6 +206,29 @@ KOKKOS_INLINE_FUNCTION size_t SortAndRemoveDuplicates(T &arr, size_t relevant_le
     return index;
 }
 
+template <typename T>
+KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
+    if (relevant_length == 0) return 0;
+
+    size_t index = 0; // Index to keep track of unique elements
+
+    for (size_t j = 1; j < relevant_length; ++j) {
+        bool found = false;
+        for (size_t i = 0; i <= index; ++i) {
+            if (arr[i] == arr[j]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            arr[++index] = arr[j];
+        }
+    }
+
+    // Return the number of unique elements
+    return index + 1;
+}
+
 KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen::Matrix<double, 4, 4> &mat) {
 #ifndef KOKKOS_ENABLE_CUDA
     assert(mat.fullPivLu().isInvertible());
