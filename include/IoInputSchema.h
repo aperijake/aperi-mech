@@ -302,13 +302,48 @@ YAML::Node GetInputSchema() {
     material_schema.AddOneOf(elastic_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
+    // Integration order node
+    aperi::InputSchema integration_order_schema("integration_order", "int", "the integration order");
+    YAML::Node integration_order_node = integration_order_schema.GetInputSchema();
+
+    // Gauss quadrature node
+    aperi::InputSchema gauss_quadrature_schema("gauss_quadrature", "map", "gauss quadrature");
+    gauss_quadrature_schema.AddAllOf(integration_order_node);
+    YAML::Node gauss_quadrature_node = gauss_quadrature_schema.GetInputSchema();
+
+    // Strain smoothing node
+    aperi::InputSchema strain_smoothing_schema("strain_smoothing", "map", "strain smoothing");
+    YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
+
     // Integration scheme node
-    aperi::InputSchema integration_scheme_schema("integration_scheme", "string", "the integration scheme");
+    aperi::InputSchema integration_scheme_schema("integration_scheme", "map", "the integration scheme");
+    integration_scheme_schema.AddOneOf(gauss_quadrature_node);
+    integration_scheme_schema.AddOneOf(strain_smoothing_node);
     YAML::Node integration_scheme_node = integration_scheme_schema.GetInputSchema();
+
+    // Finite element node
+    aperi::InputSchema finite_element_schema("finite_element", "map", "finite element approximation");
+    YAML::Node finite_element_node = finite_element_schema.GetInputSchema();
+
+    // Kernel radius scale factor node
+    aperi::InputSchema kernel_radius_scale_factor_schema("kernel_radius_scale_factor", "float", "the kernel radius scale factor");
+    YAML::Node kernel_radius_scale_factor_node = kernel_radius_scale_factor_schema.GetInputSchema();
+
+    // Reproducing kernel node
+    aperi::InputSchema reproducing_kernel_schema("reproducing_kernel", "map", "reproducing kernel approximation");
+    reproducing_kernel_schema.AddAllOf(kernel_radius_scale_factor_node);
+    YAML::Node reproducing_kernel_node = reproducing_kernel_schema.GetInputSchema();
+
+    // Approximation space
+    aperi::InputSchema approximation_space_schema("approximation_space", "map", "the approximation space");
+    approximation_space_schema.AddOneOf(finite_element_node);
+    approximation_space_schema.AddOneOf(reproducing_kernel_node);
+    YAML::Node approximation_space_node = approximation_space_schema.GetInputSchema();
 
     // Formulation node
     aperi::InputSchema formulation_schema("formulation", "map", "the formulation");
-    formulation_schema.AddOneOf(integration_scheme_node);
+    formulation_schema.AddAllOf(integration_scheme_node);
+    formulation_schema.AddAllOf(approximation_space_node);
     YAML::Node formulation_node = formulation_schema.GetInputSchema();
 
     // Part node

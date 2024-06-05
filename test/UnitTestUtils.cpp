@@ -31,7 +31,11 @@ YAML::Node CreateTestYaml() {
                       - part:
                             set: block_1
                             formulation:
-                                integration_scheme: gauss_quadrature
+                                integration_scheme:
+                                  gauss_quadrature:
+                                    integration_order: 1
+                                approximation_space:
+                                  finite_element: ~
                             material:
                                 elastic:
                                     density: 7850
@@ -82,9 +86,17 @@ YAML::Node CreateTestYaml() {
     material["elastic"]["youngs_modulus"] = 2.1e11;
     material["elastic"]["poissons_ratio"] = 0.3;
 
+    // Create the finite element formulation
+    YAML::Node finite_element_formulation;
+
+    // Create the gauss quadrature integration scheme
+    YAML::Node gauss_quadrature;
+    gauss_quadrature["integration_order"] = 1;
+
     // Create the formulation
     YAML::Node formulation;
-    formulation["integration_scheme"] = "gauss_quadrature";
+    formulation["integration_scheme"]["gauss_quadrature"] = gauss_quadrature;
+    formulation["approximation_space"]["finite_element"] = finite_element_formulation;
 
     // Add the material to the part
     part["part"]["material"] = material;

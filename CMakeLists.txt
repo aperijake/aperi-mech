@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(aperi-mech)
 
+# Set the flags for the RelWithDebInfo configuration
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -pg")
+
 ############# VERSION INFO #############
 # Get the latest abbreviated commit hash of the working branch
 execute_process(

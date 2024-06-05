@@ -39,9 +39,30 @@ struct SmoothedQuadrature {
         return Kokkos::make_pair(Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero(), 0.0);
     }
 
+    KOKKOS_INLINE_FUNCTION bool CheckPartitionsOfUnity(const Eigen::Matrix<double, MaxNumNeighbors, 4> &cell_node_function_values) const {
+        double tolerance = 1.0e-6;
+        for (size_t k = 0; k < 4; ++k) {
+            if (cell_node_function_values.col(k).sum() < 1.0 - tolerance || cell_node_function_values.col(k).sum() > 1.0 + tolerance) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    KOKKOS_INLINE_FUNCTION bool CheckPartitionOfNullity(const Eigen::Matrix<double, MaxNumNeighbors, 3> &b_matrix) const {
+        double tolerance = 1.0e-6;
+        for (size_t k = 0; k < 3; ++k) {
+            if (b_matrix.col(k).sum() < 0.0 - tolerance || b_matrix.col(k).sum() > 0.0 + tolerance) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Compute the B matrix and integration weight for a given gauss point
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 4> &cell_node_function_values, int gauss_id, size_t actual_num_neighbors) const {
         assert(gauss_id < 1);
+        assert(CheckPartitionsOfUnity(cell_node_function_values));
 
         Eigen::Matrix<double, MaxNumNeighbors, 3> b_matrix = Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
 
@@ -70,11 +91,13 @@ struct SmoothedQuadrature {
         }
         volume /= 3.0;  // 3x volume
         b_matrix /= volume;
+        assert(CheckPartitionOfNullity(b_matrix));
 
         return Kokkos::make_pair(b_matrix, volume);
     }
 
     // Compute the B matrix and integration weight for a given gauss point
+    // This is really just for testing and should not be used in production
     template <typename FunctionFunctor>
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, MaxNumNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, 4, 3> &cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3> &neighbor_node_coordinates, FunctionFunctor &function_functor, int gauss_id, size_t actual_num_neighbors) const {
         assert(gauss_id < 1);

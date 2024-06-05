@@ -49,6 +49,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_function_values_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
+        m_kernel_radius_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "kernel_radius", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_kernel_radius_field, 1);
+
         // Create the fields, same thing for elements
         m_element_num_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_element_num_neighbors_field, 1);
@@ -79,13 +82,14 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     DoubleField *m_node_num_neighbors_field;
     DoubleField *m_node_neighbors_field;
     DoubleField *m_node_neighbors_function_values_field;
+    DoubleField *m_kernel_radius_field;
     DoubleField *m_element_num_neighbors_field;
     DoubleField *m_element_neighbors_field;
     std::vector<aperi::FieldQueryData> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
 };
 
-TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement) {
+TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchElement) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -116,7 +120,7 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchElement) {
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode) {
+TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -147,7 +151,7 @@ TEST_F(NeighborSearchProcessorTestFixture, TestRing0SearchNode) {
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-TEST_F(NeighborSearchProcessorTestFixture, TestFillingElementFromNodeRing0Search) {
+TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -188,11 +192,14 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(0.5);  // Small ball radius, only neighbor is itself
+    double kernel_radius = 0.5;  // Small ball radius, only 1 neighbor
+    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
     std::array<double, 1> expected_num_neighbors_data = {1};
+    std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
     // - Node
@@ -221,13 +228,16 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     // Diagonal length of the mesh
     double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(1.01 * diagonal_length);  // Large ball radius, all nodes are neighbors
+    double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
+    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
     // Num nodes
     double num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
     std::array<double, 1> expected_num_neighbors_data = {num_nodes};
+    std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
     // - Node
@@ -256,9 +266,12 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     m_num_elements_y = 2;
     m_num_elements_z = 4;
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_neighbors_within_ball(1.01);  // Mid ball radius
+    double kernel_radius = 1.01;  // Mid ball radius
+    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
     m_search_processor->MarkAndSyncFieldsToHost();
+    std::array<double, 1> expected_kernel_radius = {kernel_radius};
+    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
     // 8 corners of the mesh = 4 neighbors
     // 20 edges of the mesh = 5 neighbors
     // 14 faces of the mesh = 6 neighbors
@@ -286,6 +299,30 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
+TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    m_num_elements_x = 1;
+    m_num_elements_y = 1;
+    m_num_elements_z = 4;
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    double kernel_radius_scale_factor = 1.01;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
+    m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
+    m_search_processor->set_element_neighbors_from_node_neighbors<4>();
+    m_search_processor->MarkAndSyncFieldsToHost();
+    // After htet, each hex element has one pair of tets that cut across the diagonal of the hex. The rest cut across the faces.
+    std::vector<std::pair<double, size_t>> expected_kernel_radii = {{std::sqrt(2.0) * kernel_radius_scale_factor, 12}, {std::sqrt(3.0) * kernel_radius_scale_factor, 8}};
+    CheckEntityFieldValueCount<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radii, aperi::FieldQueryState::None);
+    // 8 corners of the mesh, 2 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
+    // 12 edges of the mesh, 6 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
+    // Make a pair with value (num neighbors) and expected count
+    std::vector<std::pair<double, size_t>> expected_num_neighbors_data = {{7, 4}, {8, 4}, {10, 6}, {11, 2}, {12, 4}};
+    CheckEntityFieldValueCount<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+}
+
 class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorTestFixture {
    protected:
     void SetUp() override {
@@ -304,7 +341,7 @@ class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorT
     std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
 };
 
-TEST_F(FunctionValueStorageProcessorTestFixture, TestNodeFunctionValueStorage) {
+TEST_F(FunctionValueStorageProcessorTestFixture, NodeFunctionValueStorage) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -381,7 +418,7 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
 };
 
 // Test the ValueFromGeneralizedFieldProcessor
-TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFieldProcessor) {
+TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldProcessor) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -392,6 +429,28 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, TestValueFromGeneralizedFi
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
     m_search_processor->add_nodes_ring_0_nodes();
+    BuildFunctionValueStorageProcessor();
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+
+    m_value_from_generalized_field_processor->compute_value_from_generalized_field();
+    m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+
+    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+}
+
+// Test the ValueFromGeneralizedFieldProcessor with more neighbors
+TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldProcessorMoreNeighbors) {
+    // Skip if running with more than 4 processes
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    BuildValueFromGeneralizedFieldProcessor();
+    FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
+
+    m_search_processor->add_nodes_neighbors_within_constant_ball(2.00);
     BuildFunctionValueStorageProcessor();
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
 

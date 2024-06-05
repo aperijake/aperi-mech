@@ -43,8 +43,8 @@ class NeighborSearchProcessor {
     using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<double>, NodeIdentProc>;
     using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
 
-    using DomainViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
-    using RangeViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
+    using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
+    using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
     using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
 
     using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
@@ -86,6 +86,64 @@ class NeighborSearchProcessor {
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
+
+        // Get the kernel radius field
+        m_kernel_radius_field = StkGetField(FieldQueryData{"kernel_radius", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
+
+        // Get the function values field
+        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+    }
+
+    void SetKernelRadius(double kernel_radius) {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the node's coordinates
+                ngp_kernel_radius_field(node_index, 0) = kernel_radius;
+            });
+        ngp_kernel_radius_field.modify_on_device();
+        ngp_kernel_radius_field.sync_to_host();
+    }
+
+    void ComputeKernelRadius(double scale_factor) {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the node's coordinates
+                Eigen::Matrix<double, 1, 3> coordinates;
+                for (size_t j = 0; j < 3; ++j) {
+                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                }
+                // Get the kernel radius
+                double kernel_radius = 0.0;
+                stk::mesh::NgpMesh::ConnectedEntities connected_entities = ngp_mesh.get_connected_entities(stk::topology::NODE_RANK, node_index, stk::topology::ELEMENT_RANK);
+                for (size_t i = 0; i < connected_entities.size(); ++i) {
+                    stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(connected_entities[i]);
+                    stk::mesh::NgpMesh::ConnectedNodes connected_nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
+                    for (size_t j = 0; j < connected_nodes.size(); ++j) {
+                        stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(connected_nodes[j]);
+                        Eigen::Matrix<double, 1, 3> neighbor_coordinates;
+                        for (size_t k = 0; k < 3; ++k) {
+                            neighbor_coordinates(0, k) = ngp_coordinates_field(neighbor_index, k);
+                        }
+                        double length = (coordinates - neighbor_coordinates).norm();
+                        kernel_radius = Kokkos::max(kernel_radius, length);
+                    }
+                }
+                ngp_kernel_radius_field(node_index, 0) = kernel_radius * scale_factor;
+            });
+        ngp_kernel_radius_field.modify_on_device();
+        ngp_kernel_radius_field.sync_to_host();
     }
 
     // Create local entities on host and copy to device
@@ -105,12 +163,12 @@ class NeighborSearchProcessor {
         return mesh_indices;
     }
 
-    // Sphere domain. Will be used to find the nodes within a ball defined by the sphere.
+    // The domain will be the nodes. Search will find the nodes within the spheres from above.
     // The identifiers will be the global node ids.
-    DomainViewType CreateNodeSpheres(double radius) {
+    DomainViewType CreateNodePoints() {
         const stk::mesh::MetaData &meta = m_bulk_data->mesh_meta_data();
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
-        DomainViewType node_spheres("node_spheres", num_local_nodes);
+        DomainViewType node_points("node_points", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
@@ -122,21 +180,21 @@ class NeighborSearchProcessor {
         Kokkos::parallel_for(
             stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
-                stk::search::Point<double> center(coords[0], coords[1], coords[2]);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-                node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+                node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-        return node_spheres;
+        return node_points;
     }
 
-    // The range will be the nodes. Search will find the nodes within the spheres from above.
+    // Sphere range. Will be used to find the nodes within a ball defined by the sphere.
     // The identifiers will be the global node ids.
-    RangeViewType CreateNodePoints() {
+    RangeViewType CreateNodeSpheres() {
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector);
-        RangeViewType node_points("node_points", num_local_nodes);
+        RangeViewType node_spheres("node_spheres", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
@@ -146,11 +204,13 @@ class NeighborSearchProcessor {
         Kokkos::parallel_for(
             stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
+                stk::search::Point<double> center(coords[0], coords[1], coords[2]);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-                node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+                double radius = ngp_kernel_radius_field(node_indices(i), 0);
+                node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
-        return node_points;
+        return node_spheres;
     }
 
     // Ghost the neighbors to the nodes processor
@@ -173,7 +233,7 @@ class NeighborSearchProcessor {
         m_bulk_data->modification_end();
     }
 
-    // Put the search results into the neighbors field. The neighbors field is a field of global node ids.
+    // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
         const int my_rank = m_bulk_data->parallel_rank();
 
@@ -182,15 +242,44 @@ class NeighborSearchProcessor {
             if (result.domainIdentProc.proc() == my_rank) {
                 stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
                 stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+                const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
+                const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 double *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
                 double &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-                if ((size_t)num_neighbors >= MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %ld has too many neighbors\n", m_bulk_data->identifier(node));  // TODO(jake): handle this better
-                    return;
+                double *p_function_values = stk::mesh::field_data(*m_function_values_field, node);
+
+                // Calculate the squared distance between the node and the neighbor
+                double distance_squared = 0.0;
+                for (size_t j = 0; j < 3; ++j) {
+                    const double value = p_neighbor_coordinates[j] - p_node_coordinates[j];
+                    distance_squared += value * value;
                 }
-                // Store local offset, probably;
-                p_neighbor_data[(size_t)num_neighbors] = (double)neighbor.local_offset();  // Store the local offset
-                num_neighbors += 1;
+
+                // Find where to insert the neighbor, based on the distance
+                size_t insert_index = (size_t)num_neighbors; // Default to the end of the list
+                for (size_t j = 0; j < insert_index; ++j) {
+                    if (distance_squared < p_function_values[j]) {
+                        insert_index = j;
+                        break;
+                    }
+                }
+
+                // Shift the function values and neighbors to make room for the new neighbor
+                size_t reverse_start_index = (size_t)num_neighbors;
+                if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
+                    printf("Node %ld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
+                    --reverse_start_index;
+                } else{
+                    num_neighbors += 1;
+                }
+                for (size_t j = reverse_start_index; j > insert_index; --j) {
+                    p_function_values[j] = p_function_values[j - 1];
+                    p_neighbor_data[j] = p_neighbor_data[j - 1];
+                }
+
+                // Insert the new neighbor
+                p_function_values[insert_index] = distance_squared;
+                p_neighbor_data[insert_index] = (double)neighbor.local_offset();
             }
         }
         // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
@@ -245,9 +334,9 @@ class NeighborSearchProcessor {
             });
     }
 
-    void add_nodes_neighbors_within_ball(double ball_radius) {
-        DomainViewType node_spheres = CreateNodeSpheres(ball_radius);
-        RangeViewType node_points = CreateNodePoints();
+    void DoBallSearch() {
+        DomainViewType node_points = CreateNodePoints();
+        RangeViewType node_spheres = CreateNodeSpheres();
 
         ResultViewType search_results;
         stk::search::SearchMethod search_method = stk::search::MORTON_LBVH;
@@ -255,13 +344,46 @@ class NeighborSearchProcessor {
         stk::ngp::ExecSpace exec_space = Kokkos::DefaultExecutionSpace{};
         const bool results_parallel_symmetry = true;
 
-        stk::search::coarse_search(node_spheres, node_points, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
+        stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
 
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
+
+        // Print sizes
+        aperi::CoutP0() << "Neighborhood Search Information:" << std::endl;
+        aperi::Cout() << "\n  Search Point-Sphere Pair Results Size: " << host_search_results.size()
+                      << "\n  Evaluation Points Size: " << node_points.size()
+                      << "\n  Neighbor Spheres Size: " << node_spheres.size() << std::endl;
+
+        // Print for debugging
+        // aperi::CoutP0() << "Search points:" << std::endl;
+        // for (size_t i = 0; i < node_points.size(); ++i) {
+        //     auto point = node_points(i);
+        //     aperi::CoutP0() << "point: " << point.box << std::endl;
+        // }
+        // aperi::CoutP0() << "Search spheres:" << std::endl;
+        // for (size_t i = 0; i < node_spheres.size(); ++i) {
+        //     auto sphere = node_spheres(i);
+        //     aperi::CoutP0() << "sphere: " << sphere.box.center() << " radius: " << sphere.box.radius() << std::endl;
+        // }
+        // aperi::CoutP0() << "Search results:" << std::endl;
+        // for (size_t i = 0; i < host_search_results.size(); ++i) {
+        //     auto result = host_search_results(i);
+        //     aperi::CoutP0() << "domain: " << result.domainIdentProc.id() << " range: " << result.rangeIdentProc.id() << std::endl;
+        // }
 
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
+    }
+
+    void add_nodes_neighbors_within_variable_ball(double scale_factor) {
+        ComputeKernelRadius(scale_factor);
+        DoBallSearch();
+    }
+
+    void add_nodes_neighbors_within_constant_ball(double ball_radius) {
+        SetKernelRadius(ball_radius);
+        DoBallSearch();
     }
 
     // Create the element neighbors from the node neighbors. Neighbors are local offsets.
@@ -294,12 +416,16 @@ class NeighborSearchProcessor {
                     }
                 }
 
-                // Sort the node neighbors and remove duplicates
-                total_num_neighbors = SortAndRemoveDuplicates(node_neighbors, total_num_neighbors);
+                // Remove duplicates. Don't want to sort as the earlier neighbors should have larger values and want to keep that order to help with parallel consistency. (sum small values first)
+                total_num_neighbors = RemoveDuplicates(node_neighbors, total_num_neighbors);
 
                 // Make sure we don't exceed the maximum number of neighbors
                 // TODO(jake): Make ways of handling this
-                KOKKOS_ASSERT(total_num_neighbors <= MAX_CELL_NUM_NEIGHBORS);
+                if ((size_t)total_num_neighbors > MAX_CELL_NUM_NEIGHBORS) {
+                    stk::mesh::Entity elem = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
+                    printf("Element %ld has %ld neighbors. More than the maximum of %ld. Truncating.\n", ngp_mesh.identifier(elem), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
+                    total_num_neighbors = MAX_CELL_NUM_NEIGHBORS;
+                }
 
                 // Set the element neighbors
                 ngp_element_num_neighbors_field(elem_index, 0) = total_num_neighbors;
@@ -315,6 +441,7 @@ class NeighborSearchProcessor {
         double min_num_neighbors = std::numeric_limits<double>::max();
         double total_num_neighbors = 0;
         double num_entities = 0;
+        int reserved_memory = 0;
         NgpDoubleField ngp_num_neighbors_field;
 
         stk::topology::rank_t rank_type;
@@ -322,10 +449,12 @@ class NeighborSearchProcessor {
             num_entities = GetNumOwnedElements();
             ngp_num_neighbors_field = *m_ngp_element_num_neighbors_field;
             rank_type = stk::topology::ELEMENT_RANK;
+            reserved_memory = MAX_CELL_NUM_NEIGHBORS;
         } else if (rank == aperi::FieldDataRank::NODE) {
             num_entities = GetNumOwnedNodes();
             ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
             rank_type = stk::topology::NODE_RANK;
+            reserved_memory = MAX_NODE_NUM_NEIGHBORS;
         } else {
             throw std::runtime_error("Invalid rank type. Must be aperi::FieldDataRank::ELEMENT or aperi::FieldDataRank::NODE.");
         }
@@ -358,6 +487,7 @@ class NeighborSearchProcessor {
         stats["min_num_neighbors"] = min_num_neighbors;
         stats["avg_num_neighbors"] = total_num_neighbors / num_entities;
         stats["num_entities"] = num_entities;
+        stats["reserved_memory_utilization"] = total_num_neighbors / (num_entities * reserved_memory) * 100.0;
         return stats;
     }
 
@@ -370,6 +500,8 @@ class NeighborSearchProcessor {
         aperi::CoutP0() << "  Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
         aperi::CoutP0() << "  Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
         aperi::CoutP0() << "  Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "  Reserved Memory Utilization: " << node_stats["reserved_memory_utilization"] << "%" << std::endl
+                        << std::endl;  // Add a new line for readability
 
         // Element
         std::map<std::string, double> element_stats = GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
@@ -379,26 +511,34 @@ class NeighborSearchProcessor {
         aperi::CoutP0() << "   Max Num Neighbors: " << element_stats["max_num_neighbors"] << std::endl;
         aperi::CoutP0() << "   Min Num Neighbors: " << element_stats["min_num_neighbors"] << std::endl;
         aperi::CoutP0() << "   Avg Num Neighbors: " << element_stats["avg_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "   Reserved Memory Utilization: " << element_stats["reserved_memory_utilization"] << "%" << std::endl
+                        << std::endl;  // Add a new line for readability
     }
 
     void MarkAndSyncFieldsToHost() {
-        m_ngp_node_neighbors_field->modify_on_device();
+        // m_ngp_node_neighbors_field->modify_on_device();
         m_ngp_node_num_neighbors_field->modify_on_device();
-        m_ngp_element_neighbors_field->modify_on_device();
+        m_ngp_kernel_radius_field->modify_on_device();
+        // m_ngp_element_neighbors_field->modify_on_device();
         m_ngp_element_num_neighbors_field->modify_on_device();
-        m_ngp_node_neighbors_field->sync_to_host();
+
+        //m_ngp_node_neighbors_field->sync_to_host();
         m_ngp_node_num_neighbors_field->sync_to_host();
-        m_ngp_element_neighbors_field->sync_to_host();
+        m_ngp_kernel_radius_field->sync_to_host();
+        //m_ngp_element_neighbors_field->sync_to_host();
         m_ngp_element_num_neighbors_field->sync_to_host();
     }
 
     void MarkAndSyncFieldsToDevice() {
         m_ngp_node_neighbors_field->modify_on_host();
         m_ngp_node_num_neighbors_field->modify_on_host();
+        m_ngp_kernel_radius_field->modify_on_host();
         m_ngp_element_neighbors_field->modify_on_host();
         m_ngp_element_num_neighbors_field->modify_on_host();
+
         m_ngp_node_neighbors_field->sync_to_device();
         m_ngp_node_num_neighbors_field->sync_to_device();
+        m_ngp_kernel_radius_field->sync_to_device();
         m_ngp_element_neighbors_field->sync_to_device();
         m_ngp_element_num_neighbors_field->sync_to_device();
     }
@@ -438,11 +578,14 @@ class NeighborSearchProcessor {
     DoubleField *m_node_neighbors_field;                // The neighbors field
     DoubleField *m_element_num_neighbors_field;         // The number of neighbors field
     DoubleField *m_element_neighbors_field;             // The neighbors field
+    DoubleField *m_kernel_radius_field;                 // The kernel radius field
+    DoubleField *m_function_values_field;               // The function values field
     NgpDoubleField *m_ngp_coordinates_field;            // The ngp coordinates field
     NgpDoubleField *m_ngp_node_num_neighbors_field;     // The ngp number of neighbors field
     NgpDoubleField *m_ngp_node_neighbors_field;         // The ngp neighbors field
     NgpDoubleField *m_ngp_element_num_neighbors_field;  // The ngp number of neighbors field
     NgpDoubleField *m_ngp_element_neighbors_field;      // The ngp neighbors field
+    NgpDoubleField *m_ngp_kernel_radius_field;          // The ngp kernel radius field
 };
 
 class FunctionValueStorageProcessor {
@@ -482,6 +625,10 @@ class FunctionValueStorageProcessor {
         // Get the function values field
         m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
         m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
+
+        // Get the kernel radius field
+        m_kernel_radius_field = StkGetField(FieldQueryData{"kernel_radius", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
     }
 
     template <size_t NumNodes, typename FunctionFunctor>
@@ -492,6 +639,7 @@ class FunctionValueStorageProcessor {
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
+        auto npg_kernel_radius_field = *m_ngp_kernel_radius_field;
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -499,24 +647,29 @@ class FunctionValueStorageProcessor {
                 // Get the number of neighbors
                 double num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
-                Eigen::Matrix<double, NumNodes, 3> neighbor_coordinates;
+                Eigen::Matrix<double, 1, 3> coordinates;
+                for (size_t j = 0; j < 3; ++j) {
+                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                }
+
+                Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
+                Eigen::Matrix<double, NumNodes, 1> kernel_values;
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
                     // Get the neighbor's coordinates
                     for (size_t j = 0; j < 3; ++j) {
-                        neighbor_coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
+                        shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
-                }
-
-                Eigen::Matrix<double, 1, 3> coordinates;
-                for (size_t j = 0; j < 3; ++j) {
-                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                    // Get the neighbor's kernel radius
+                    double kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                    // Compute the kernel value
+                    kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), kernel_radius);
                 }
 
                 // Compute the function values
-                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(coordinates, neighbor_coordinates, num_neighbors);
+                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.values(kernel_values, shifted_neighbor_coordinates, num_neighbors);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);
@@ -549,10 +702,12 @@ class FunctionValueStorageProcessor {
     DoubleField *m_neighbors_field;                // The neighbors field
     DoubleField *m_coordinates_field;              // The coordinates field
     DoubleField *m_function_values_field;          // The function values field
+    DoubleField *m_kernel_radius_field;            // The kernel radius field
     NgpDoubleField *m_ngp_num_neighbors_field;     // The ngp number of neighbors field
     NgpDoubleField *m_ngp_neighbors_field;         // The ngp neighbors field
     NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
     NgpDoubleField *m_ngp_function_values_field;   // The ngp function values field
+    NgpDoubleField *m_ngp_kernel_radius_field;     // The ngp kernel radius field
 };
 
 template <size_t NumFields>
@@ -620,43 +775,54 @@ class ValueFromGeneralizedFieldProcessor {
                 // Get the number of neighbors
                 double num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
+                const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+
                 // If there are no neighbors, set the destination field to the source field
                 if (num_neighbors == 0) {
                     for (size_t i = 0; i < NumFields; ++i) {
-                        for (size_t j = 0; j < 3; ++j) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+                        for (size_t j = 0; j < num_components; ++j) {
                             ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                        }
+                    }
+                    return;
+                } else {  // Zero out the destination field and prepare for the sum in the next loop
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            ngp_destination_fields[i](node_index, j) = 0.0;
                         }
                     }
                 }
 
-                // If there are neighbors, compute the destination field from the function values and source fields
-                for (size_t i = 0; i < num_neighbors; ++i) {
+                // If there are neighbors, compute the destination field from the function values and source fields.
+                // Do in reverse order. Adding smaller function_value terms first to help with parallel consistency
+                for (size_t k = num_neighbors; k-- > 0; ) {
                     // Create the entity
-                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
+                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
 
                     // Get the function value
-                    double function_value = ngp_function_values_field(node_index, i);
+                    double function_value = ngp_function_values_field(node_index, k);
 
                     // Get the source field values
-                    for (size_t j = 0; j < NumFields; ++j) {
-                        // Zero out the destination field
-                        for (size_t k = 0; k < 3; ++k) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
-                            ngp_destination_fields[j](node_index, k) = 0.0;
-                        }
-                        for (size_t k = 0; k < 3; ++k) {  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
-                            double source_value = ngp_source_fields[j](neighbor_index, k);
-                            ngp_destination_fields[j](node_index, k) += source_value * function_value;
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            double source_value = ngp_source_fields[i](neighbor_index, j);
+                            ngp_destination_fields[i](node_index, j) += source_value * function_value;
                         }
                     }
                 }
             });
     }
 
-    // Marking modified
+    // Marking modified on device
     void MarkDestinationFieldModifiedOnDevice(size_t field_index) {
         m_ngp_destination_fields[field_index]->clear_sync_state();
         m_ngp_destination_fields[field_index]->modify_on_device();
+    }
+
+    void MarkSourceFieldModifiedOnDevice(size_t field_index) {
+        m_ngp_source_fields[field_index]->clear_sync_state();
+        m_ngp_source_fields[field_index]->modify_on_device();
     }
 
     void MarkAllDestinationFieldsModifiedOnDevice() {
@@ -665,9 +831,40 @@ class ValueFromGeneralizedFieldProcessor {
         }
     }
 
-    // Syncing
+    void MarkAllSourceFieldsModifiedOnDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkSourceFieldModifiedOnDevice(i);
+        }
+    }
+
+    // Mark modified on host
+    void MarkDestinationFieldModifiedOnHost(size_t field_index) {
+        m_ngp_destination_fields[field_index]->modify_on_host();
+    }
+
+    void MarkSourceFieldModifiedOnHost(size_t field_index) {
+        m_ngp_source_fields[field_index]->modify_on_host();
+    }
+
+    void MarkAllDestinationFieldsModifiedOnHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkDestinationFieldModifiedOnHost(i);
+        }
+    }
+
+    void MarkAllSourceFieldsModifiedOnHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            MarkSourceFieldModifiedOnHost(i);
+        }
+    }
+
+    // Syncing, device to host
     void SyncDestinationFieldDeviceToHost(size_t field_index) {
         m_ngp_destination_fields[field_index]->sync_to_host();
+    }
+
+    void SyncSourceFieldDeviceToHost(size_t field_index) {
+        m_ngp_source_fields[field_index]->sync_to_host();
     }
 
     void SyncAllDestinationFieldsDeviceToHost() {
@@ -676,14 +873,51 @@ class ValueFromGeneralizedFieldProcessor {
         }
     }
 
+    void SyncAllSourceFieldsDeviceToHost() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncSourceFieldDeviceToHost(i);
+        }
+    }
+
+    // Syncing, host to device
+    void SyncDestinationFieldHostToDevice(size_t field_index) {
+        m_ngp_destination_fields[field_index]->sync_to_device();
+    }
+
+    void SyncSourceFieldHostToDevice(size_t field_index) {
+        m_ngp_source_fields[field_index]->sync_to_device();
+    }
+
+    void SyncAllDestinationFieldsHostToDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncDestinationFieldHostToDevice(i);
+        }
+    }
+
+    void SyncAllSourceFieldsHostToDevice() {
+        for (size_t i = 0; i < NumFields; i++) {
+            SyncSourceFieldHostToDevice(i);
+        }
+    }
+
     // Parallel communication
     void CommunicateDestinationFieldData(int field_index) const {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_destination_fields[field_index]});
     }
 
+    void CommunicateSourceFieldData(int field_index) const {
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_source_fields[field_index]});
+    }
+
     void CommunicateAllDestinationFieldData() const {
         for (size_t i = 0; i < NumFields; i++) {
             CommunicateDestinationFieldData(i);
+        }
+    }
+
+    void CommunicateAllSourceFieldData() const {
+        for (size_t i = 0; i < NumFields; i++) {
+            CommunicateSourceFieldData(i);
         }
     }
 

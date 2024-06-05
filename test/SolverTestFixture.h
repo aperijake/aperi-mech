@@ -56,21 +56,9 @@ class SolverTest : public ApplicationTest {
 
         // Loop over parts, create materials, and add parts to force contributions
         for (auto part : parts) {
-            YAML::Node material_node = m_io_input_file->GetMaterialFromPart(part);
-            std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
-            std::string part_location = part["set"].as<std::string>();
-            bool use_strain_smoothing = false;
-            std::string integration_scheme = "gauss_quadrature";
-            if (part["formulation"] && part["formulation"]["integration_scheme"]) {
-                if (part["formulation"]["integration_scheme"].as<std::string>() == "strain_smoothing") {
-                    integration_scheme = "strain_smoothing";
-                    use_strain_smoothing = true;
-                } else if (part["formulation"]["integration_scheme"].as<std::string>() != "gauss_quadrature") {
-                    aperi::CoutP0() << "Integration scheme " << part["formulation"]["integration_scheme"].as<std::string>() << " not recognized. Defaulting to Gauss Quadrature." << std::endl;
-                }
-            }
-            aperi::CoutP0() << "Adding part " << part_location << " to force contributions. Integration scheme: " << integration_scheme << "." << std::endl;
-            m_internal_force_contributions.push_back(CreateInternalForceContribution(material, m_io_mesh->GetMeshData(), part_location, use_strain_smoothing));
+            // Create InternalForceContributionParameters
+            aperi::InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
+            m_internal_force_contributions.push_back(aperi::CreateInternalForceContribution(internal_force_contribution_parameters));
         }
 
         // Get loads

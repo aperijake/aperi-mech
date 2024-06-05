@@ -95,26 +95,28 @@ inline std::vector<FieldData> GetFieldData() {
     std::vector<FieldData> field_data;
 
     // Node data
-    field_data.push_back(FieldData("velocity", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
-    field_data.push_back(FieldData("displacement", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
-    field_data.push_back(FieldData("acceleration", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
-    field_data.push_back(FieldData("force", FieldDataType::VECTOR, FieldDataRank::NODE, 2));
-    field_data.push_back(FieldData("mass", FieldDataType::VECTOR, FieldDataRank::NODE, 1));
+    field_data.push_back(FieldData("velocity", FieldDataType::VECTOR, FieldDataRank::NODE, 2));            // The velocity field, generalized
+    field_data.push_back(FieldData("displacement", FieldDataType::VECTOR, FieldDataRank::NODE, 2));        // The displacement field, generalized
+    field_data.push_back(FieldData("acceleration", FieldDataType::VECTOR, FieldDataRank::NODE, 2));        // The acceleration field, generalized
+    field_data.push_back(FieldData("force", FieldDataType::VECTOR, FieldDataRank::NODE, 2));               // The force field, generalized
+    field_data.push_back(FieldData("mass_from_elements", FieldDataType::VECTOR, FieldDataRank::NODE, 1));  // The mass as determined from the attached elements
+    field_data.push_back(FieldData("mass", FieldDataType::VECTOR, FieldDataRank::NODE, 1));                // The mass field (mass_from_elements as coefficients on the approximation functions)
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
 
     // Node neighbor data. TODO(jake): Add ability to turn this off if running FEM
-    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::NODE, 1));
-    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
-    field_data.push_back(FieldData("function_values", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("kernel_radius", FieldDataType::SCALAR, FieldDataRank::NODE, 1));                            // The kernel radius for the node
+    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::NODE, 1));                            // The number of neighbors for the node
+    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));        // The neighbors of the node
+    field_data.push_back(FieldData("function_values", FieldDataType::CUSTOM, FieldDataRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS));  // The function values of neighbors at the node
 
     // Cell neighbor data. TODO(jake): Add ability to turn this off if running FEM
-    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));
-    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
-    field_data.push_back(FieldData("function_derivatives_x", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
-    field_data.push_back(FieldData("function_derivatives_y", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
-    field_data.push_back(FieldData("function_derivatives_z", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));
+    field_data.push_back(FieldData("num_neighbors", FieldDataType::SCALAR, FieldDataRank::ELEMENT, 1));                                   // The number of neighbors for the cell
+    field_data.push_back(FieldData("neighbors", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));               // The neighbors of the cell
+    field_data.push_back(FieldData("function_derivatives_x", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));  // The function derivatives in x of neighbors at the cell
+    field_data.push_back(FieldData("function_derivatives_y", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));  // The function derivatives in y of neighbors at the cell
+    field_data.push_back(FieldData("function_derivatives_z", FieldDataType::CUSTOM, FieldDataRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS));  // The function derivatives in z of neighbors at the cell
     return field_data;
 }
 

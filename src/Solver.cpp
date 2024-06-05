@@ -58,6 +58,14 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
+
+    // If there is more than one processor, communicate the field data that other processors need
+    if (m_num_processors > 1) {
+        m_node_processor_force->SyncFieldDeviceToHost(0);
+        m_node_processor_force->ParallelSumFieldData(0);
+        m_node_processor_force->MarkFieldModifiedOnHost(0);
+        m_node_processor_force->SyncFieldHostToDevice(0);
+    }
 }
 struct ComputeAccelerationFunctor {
     KOKKOS_INLINE_FUNCTION
@@ -156,12 +164,22 @@ void ExplicitSolver::WriteOutput(double time) {
     src_field_query_data[1] = {"velocity", FieldQueryState::N};
     src_field_query_data[2] = {"acceleration", FieldQueryState::N};
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+
+    // Make sure all source fields are up to date on the device
+    value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
+    value_from_generalized_field_processor->CommunicateAllSourceFieldData();
+    value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
+    value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
+
+    // Compute the values of the destination fields from the source fields
     value_from_generalized_field_processor->compute_value_from_generalized_field();
     value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
 
+    // Write the field results
     m_node_processor_all->SyncAllFieldsDeviceToHost();
     m_io_mesh->WriteFieldResults(time);
 
+    // Rotate back
     mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
 }
 
@@ -195,10 +213,6 @@ double ExplicitSolver::Solve() {
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
     }
-    // Mark and sync all mass from host to device
-    // TODO(jake): Remove this line when possible. Needed while mass calc is on host.
-    m_node_processor_all->MarkFieldModifiedOnHost(8);
-    m_node_processor_all->SyncFieldHostToDevice(8);
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof

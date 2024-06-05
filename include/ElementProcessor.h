@@ -54,6 +54,7 @@ class ElementGatherScatterProcessor {
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: ElementGatherScatterProcessor selector is empty." << std::endl;
         }
+        m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the fields to gather and scatter
         for (size_t i = 0; i < N; ++i) {
@@ -97,7 +98,7 @@ class ElementGatherScatterProcessor {
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -155,53 +156,68 @@ class ElementGatherScatterProcessor {
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the number of neighbors
                 size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
 
                 // Get the neighbors
+                // Kokkos::Profiling::pushRegion("get_neighbors");
                 Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
+                    // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
+                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, num_nodes - i - 1)); // Reverse the order of the neighbors
                     nodes[i] = ngp_mesh.fast_mesh_index(entity);
                 }
+                // Kokkos::Profiling::popRegion();
+
+                // Build the B matrix
+                // Kokkos::Profiling::pushRegion("build_B");
+                Eigen::Matrix<double, NumNodes, 3> B;
+                for (size_t j = 0; j < 3; ++j) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, num_nodes - i - 1); // Reverse the order of the neighbors
+                    }
+                }
+                // Kokkos::Profiling::popRegion();
 
                 // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
+                // Kokkos::Profiling::pushRegion("gather_data");
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, N> field_data_to_gather_gradient;
 
                 // Set up the results matrix
                 Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
 
                 // Gather the field data for each node
                 for (size_t f = 0; f < N; ++f) {
-                    for (size_t i = 0; i < num_nodes; ++i) {
-                        for (size_t j = 0; j < 3; ++j) {
-                            field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](nodes[i], j);
+                    field_data_to_gather_gradient[f].fill(0.0);
+                    for (size_t i = 0; i < 3; ++i) {
+                        for (size_t k = 0; k < num_nodes; ++k) {
+                            double field_data_ki = ngp_fields_to_gather[f](nodes[k], i);
+                            field_data_to_gather_gradient[f].row(i) += field_data_ki * B.row(k);
                         }
                     }
                 }
-
-                // Build the B matrix
-                Eigen::Matrix<double, NumNodes, 3> B;
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
-                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, i);
-                    }
-                }
+                // Kokkos::Profiling::popRegion();
 
                 // Get the element volume
+                // Kokkos::Profiling::pushRegion("get_volume");
                 double element_volume = ngp_element_volume(elem_index, 0);
+                // Kokkos::Profiling::popRegion();
 
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter, B, element_volume, num_nodes);
+                // Kokkos::Profiling::pushRegion("apply_function");
+                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes);
+                // Kokkos::Profiling::popRegion();
 
                 // Scatter the force to the nodes
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
+                // Kokkos::Profiling::pushRegion("scatter_data");
+                for (size_t j = 0; j < 3; ++j) {
+                    for (size_t i = 0; i < num_nodes; ++i) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
                     }
                 }
+                // Kokkos::Profiling::popRegion();
             });
     }
 
@@ -233,7 +249,7 @@ class ElementGatherScatterProcessor {
         results_to_scatter.resize(NumNodes, 3);
 
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             // Loop over the elements
             for (auto &&mesh_element : *bucket) {
                 // Get the element's nodes
@@ -249,7 +265,7 @@ class ElementGatherScatterProcessor {
                     }
                 }
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter);
+                func(field_data_to_gather, results_to_scatter, NumNodes);
 
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < NumNodes; ++i) {
@@ -265,7 +281,7 @@ class ElementGatherScatterProcessor {
     // Get the sum of the field to scatter
     double GetFieldToScatterSum() {
         double field_to_scatter_sum = 0.0;
-        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_selector, m_bulk_data->parallel());
+        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_owned_selector, m_bulk_data->parallel());
         return field_to_scatter_sum;
     }
 
@@ -286,6 +302,7 @@ class ElementGatherScatterProcessor {
     std::vector<std::string> m_sets;                                       // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
     stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
     std::array<DoubleField *, N> m_fields_to_gather;                       // The fields to gather
     DoubleField *m_field_to_scatter;                                       // The field to scatter
@@ -320,6 +337,7 @@ class StrainSmoothingProcessor {
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
         }
+        m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the number of neighbors field
         m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
@@ -359,7 +377,7 @@ class StrainSmoothingProcessor {
         }
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
@@ -408,6 +426,7 @@ class StrainSmoothingProcessor {
     std::vector<std::string> m_sets;                                       // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
     stk::mesh::Selector m_selector;                                        // The selector
+    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
     DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
     DoubleField *m_neighbors_field;                                        // The neighbors field
@@ -515,18 +534,21 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
 
                 size_t num_cell_neighbors = ngp_element_num_neighbors_field(elem_index, 0);
                 Eigen::Matrix<double, NumNodes, 4> cell_neighbor_function_values = Eigen::Matrix<double, NumNodes, 4>::Zero();
+                // Loop over the cell's neighbors, find where the cell's nodes are in the neighbor's neighbors, and get the function values
                 for (size_t i = 0; i < num_cell_neighbors; ++i) {
-                    // Create the entity
+                    // The neighbor of the cell
                     stk::mesh::Entity cell_neighbor_node(ngp_element_neighbors_field(elem_index, i));
-                    stk::mesh::FastMeshIndex cell_neighbor_node_index = ngp_mesh.fast_mesh_index(cell_neighbor_node);
-                    // Get the neighbor's neighbors
-                    size_t num_neighbor_node_neighbors = ngp_node_num_neighbors_field(cell_neighbor_node_index, 0);
-                    // Get the neighbor's function values, first find the index in the neighbor's neighbors for the cell nodes
+                    // Loop over the cell's nodes
                     for (size_t j = 0; j < num_cell_nodes; ++j) {
-                        for (size_t k = 0; k < num_neighbor_node_neighbors; ++k) {
-                            stk::mesh::Entity neighbor_neighbor(ngp_node_neighbors_field(cell_neighbor_node_index, k));
-                            if (neighbor_neighbor == cell_nodes[j]) {
-                                cell_neighbor_function_values(i, j) = ngp_node_function_values_field(cell_neighbor_node_index, k);
+                        // The cell's node
+                        stk::mesh::FastMeshIndex cell_node_index = ngp_mesh.fast_mesh_index(cell_nodes[j]);
+                        size_t num_cell_node_neighbors = ngp_node_num_neighbors_field(cell_node_index, 0);
+                        // Loop over the cell's node's neighbors
+                        for (size_t k = 0; k < num_cell_node_neighbors; ++k) {
+                            stk::mesh::Entity cell_node_neighbor_node(ngp_node_neighbors_field(cell_node_index, k));
+                            // If the cell's node's neighbor is the cell's neighbor, get the function value
+                            if (cell_node_neighbor_node == cell_neighbor_node) {
+                                cell_neighbor_function_values(i, j) = ngp_node_function_values_field(cell_node_index, k);
                                 break;
                             }
                         }

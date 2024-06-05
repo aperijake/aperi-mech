@@ -31,7 +31,7 @@ class ElementReproducingKernel : public ElementBase {
     /**
      * @brief Constructs a ElementReproducingKernel object.
      */
-    ElementReproducingKernel(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementReproducingKernel(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data), m_kernel_radius_scale_factor(kernel_radius_scale_factor) {
         // Find and store the element neighbors
         CreateElementProcessor();
         CreateFunctors();
@@ -48,16 +48,17 @@ class ElementReproducingKernel : public ElementBase {
     void CreateElementProcessor() {
         // Create the element processor
         const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
     void ComputeNeighborValues() {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
-        search_processor.add_nodes_ring_0_nodes();
-        // search_processor.add_nodes_neighbors_within_ball(1.6);
+        // search_processor.add_nodes_ring_0_nodes();
+        search_processor.add_nodes_neighbors_within_variable_ball(m_kernel_radius_scale_factor);
         search_processor.set_element_neighbors_from_node_neighbors<TET4_NUM_NODES>();
+        search_processor.MarkAndSyncFieldsToHost(); // Just needed for output
         search_processor.PrintNumNeighborsStats();
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(*m_compute_node_functions_functor);
@@ -115,10 +116,10 @@ class ElementReproducingKernel : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        FlexibleComputeInternalForceFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
+        FlexibleComputeInternalForceFunctor<MAX_CELL_NUM_NEIGHBORS, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
+        m_element_processor->for_each_element_gather_scatter_nodal_data<MAX_CELL_NUM_NEIGHBORS>(compute_force_functor);
     }
 
    private:
@@ -127,7 +128,8 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<FieldQueryData> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<3, true>> m_element_processor;
+    double m_kernel_radius_scale_factor;
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
 };
 
 }  // namespace aperi
