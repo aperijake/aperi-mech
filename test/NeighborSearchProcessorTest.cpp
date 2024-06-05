@@ -299,6 +299,39 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
+TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch_5x5x5) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 5) {
+        GTEST_SKIP_("Test only runs with 5 or fewer processes.");
+    }
+    m_num_elements_x = 5;
+    m_num_elements_y = 5;
+    m_num_elements_z = 5;
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    double ball_scale_factor = 1.1;
+    m_search_processor->add_nodes_neighbors_within_variable_ball(ball_scale_factor);
+    m_search_processor->set_element_neighbors_from_node_neighbors<4>();
+    m_search_processor->MarkAndSyncFieldsToHost();
+
+    // Check the neighbor stats
+    // - Node
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataRank::NODE);
+    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 8);
+    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 27);
+    EXPECT_NEAR(node_neighbor_stats["avg_num_neighbors"], 18.713, 0.001);
+    size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+
+    // - Element
+    std::map<std::string, double> element_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
+    EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 22);
+    EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 54);
+    EXPECT_NEAR(element_neighbor_stats["avg_num_neighbors"], 40.16, 0.001);
+    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
+    EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
+}
+
 TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
