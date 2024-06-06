@@ -106,6 +106,7 @@ class NeighborSearchProcessor {
                 // Get the node's coordinates
                 ngp_kernel_radius_field(node_index, 0) = kernel_radius;
             });
+        ngp_kernel_radius_field.clear_sync_state();
         ngp_kernel_radius_field.modify_on_device();
         ngp_kernel_radius_field.sync_to_host();
     }
@@ -142,6 +143,7 @@ class NeighborSearchProcessor {
                 }
                 ngp_kernel_radius_field(node_index, 0) = kernel_radius * scale_factor;
             });
+        ngp_kernel_radius_field.clear_sync_state();
         ngp_kernel_radius_field.modify_on_device();
         ngp_kernel_radius_field.sync_to_host();
     }
@@ -313,6 +315,8 @@ class NeighborSearchProcessor {
                     ngp_element_neighbors_field(elem_index, index) = (double)nodes[i].local_offset();
                 }
             });
+        m_ngp_element_num_neighbors_field->clear_sync_state();
+        m_ngp_element_num_neighbors_field->modify_on_device();
     }
 
     // Loop over each element and add the element's nodes to the neighbors field
@@ -332,6 +336,8 @@ class NeighborSearchProcessor {
                 ngp_node_num_neighbors_field(node_index, 0) += 1;
                 ngp_node_neighbors_field(node_index, (size_t)starting_num_nodes) = (double)node.local_offset();
             });
+        m_ngp_node_num_neighbors_field->clear_sync_state();
+        m_ngp_node_num_neighbors_field->modify_on_device();
     }
 
     void DoBallSearch() {
@@ -434,6 +440,8 @@ class NeighborSearchProcessor {
                     ngp_element_neighbors_field(elem_index, i) = (double)node_neighbors[i];
                 }
             });
+        m_ngp_element_num_neighbors_field->clear_sync_state();
+        m_ngp_element_num_neighbors_field->modify_on_device();
     }
 
     std::map<std::string, double> GetNumNeighborStats(const aperi::FieldDataRank &rank) {
@@ -516,32 +524,11 @@ class NeighborSearchProcessor {
                         << std::endl;  // Add a new line for readability
     }
 
-    void MarkAndSyncFieldsToHost() {
-        // m_ngp_node_neighbors_field->modify_on_device();
-        m_ngp_node_num_neighbors_field->modify_on_device();
-        m_ngp_kernel_radius_field->modify_on_device();
-        // m_ngp_element_neighbors_field->modify_on_device();
-        m_ngp_element_num_neighbors_field->modify_on_device();
-
-        //m_ngp_node_neighbors_field->sync_to_host();
+    void SyncFieldsToHost() {
         m_ngp_node_num_neighbors_field->sync_to_host();
+        m_ngp_kernel_radius_field->clear_sync_state();
         m_ngp_kernel_radius_field->sync_to_host();
-        //m_ngp_element_neighbors_field->sync_to_host();
         m_ngp_element_num_neighbors_field->sync_to_host();
-    }
-
-    void MarkAndSyncFieldsToDevice() {
-        m_ngp_node_neighbors_field->modify_on_host();
-        m_ngp_node_num_neighbors_field->modify_on_host();
-        m_ngp_kernel_radius_field->modify_on_host();
-        m_ngp_element_neighbors_field->modify_on_host();
-        m_ngp_element_num_neighbors_field->modify_on_host();
-
-        m_ngp_node_neighbors_field->sync_to_device();
-        m_ngp_node_num_neighbors_field->sync_to_device();
-        m_ngp_kernel_radius_field->sync_to_device();
-        m_ngp_element_neighbors_field->sync_to_device();
-        m_ngp_element_num_neighbors_field->sync_to_device();
     }
 
     void CommunicateAllFieldData() const {
@@ -676,16 +663,12 @@ class FunctionValueStorageProcessor {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);
                 }
             });
-    }
-
-    void MarkAndSyncFieldsToHost() {
+        m_ngp_function_values_field->clear_sync_state();
         m_ngp_function_values_field->modify_on_device();
-        m_ngp_function_values_field->sync_to_host();
     }
 
-    void MarkAndSyncFieldsToDevice() {
-        m_ngp_function_values_field->modify_on_host();
-        m_ngp_function_values_field->modify_on_host();
+    void SyncFieldsToHost() {
+        m_ngp_function_values_field->sync_to_host();
     }
 
     void CommunicateAllFieldData() const {
