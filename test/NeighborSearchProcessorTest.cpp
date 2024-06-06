@@ -98,7 +98,7 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchElement) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     m_search_processor->add_elements_ring_0_nodes();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     std::array<double, 1> expected_num_neighbors_data = {4};
     CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
@@ -129,7 +129,7 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     m_search_processor->add_nodes_ring_0_nodes();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     std::array<double, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
@@ -161,7 +161,7 @@ TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     m_search_processor->add_nodes_ring_0_nodes();
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     std::array<double, aperi::MAX_CELL_NUM_NEIGHBORS> expected_neighbors_data;
     expected_neighbors_data.fill(0.0);
     std::array<double, 1> expected_num_neighbors_data = {4};
@@ -195,7 +195,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     double kernel_radius = 0.5;  // Small ball radius, only 1 neighbor
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     std::array<double, 1> expected_num_neighbors_data = {1};
     std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
@@ -231,7 +231,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     // Num nodes
     double num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
     std::array<double, 1> expected_num_neighbors_data = {num_nodes};
@@ -269,7 +269,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     double kernel_radius = 1.01;  // Mid ball radius
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
     // 8 corners of the mesh = 4 neighbors
@@ -312,7 +312,7 @@ TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch_5x5x5) {
     double ball_scale_factor = 1.1;
     m_search_processor->add_nodes_neighbors_within_variable_ball(ball_scale_factor);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
 
     // Check the neighbor stats
     // - Node
@@ -345,7 +345,7 @@ TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     double kernel_radius_scale_factor = 1.01;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
     m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
     m_search_processor->set_element_neighbors_from_node_neighbors<4>();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
     // After htet, each hex element has one pair of tets that cut across the diagonal of the hex. The rest cut across the faces.
     std::vector<std::pair<double, size_t>> expected_kernel_radii = {{std::sqrt(2.0) * kernel_radius_scale_factor, 12}, {std::sqrt(3.0) * kernel_radius_scale_factor, 8}};
     CheckEntityFieldValueCount<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radii, aperi::FieldQueryState::None);
@@ -383,13 +383,13 @@ TEST_F(FunctionValueStorageProcessorTestFixture, NodeFunctionValueStorage) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     m_search_processor->add_nodes_ring_0_nodes();
-    m_search_processor->MarkAndSyncFieldsToHost();
+    m_search_processor->SyncFieldsToHost();
 
     BuildFunctionValueStorageProcessor();
 
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
 
-    m_function_value_storage_processor->MarkAndSyncFieldsToHost();
+    m_function_value_storage_processor->SyncFieldsToHost();
 
     std::array<double, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);

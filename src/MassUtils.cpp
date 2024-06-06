@@ -60,25 +60,11 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
 
     ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
 
-    // Create the mass functor on device
-    size_t compute_mass_functor_size = sizeof(ComputeMassFunctor<4>);
-    auto compute_mass_functor = (ComputeMassFunctor<4> *)Kokkos::kokkos_malloc(compute_mass_functor_size);
-    assert(compute_mass_functor != nullptr);
-    Kokkos::parallel_for("CreateComputeMassFunctor", 1, KOKKOS_LAMBDA(const int &) {
-        new ((ComputeMassFunctor<4>*)compute_mass_functor) ComputeMassFunctor<4>(density);
-    });
-    Kokkos::fence();
+    // Create the mass functor
+    ComputeMassFunctor<4> compute_mass_functor(density);
 
     // Compute the mass of each element
-    element_processor.for_each_element_gather_scatter_nodal_data<4>(*compute_mass_functor);
-    Kokkos::fence();
-
-    // Destroy the mass functor
-    Kokkos::parallel_for(
-        "DestroyComputeMassFunctor", 1, KOKKOS_LAMBDA(const int &) {
-            compute_mass_functor->~ComputeMassFunctor();
-        });
-    Kokkos::kokkos_free(compute_mass_functor);
+    element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_mass_functor);
 
     // Pass mass_from_elements through the approximation functions to get mass
     std::array<aperi::FieldQueryData, 1> src_field_query_data;
