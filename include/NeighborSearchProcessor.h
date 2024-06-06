@@ -346,7 +346,8 @@ class NeighborSearchProcessor {
 
         stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
 
-        ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view_and_copy(exec_space, search_results);
+        ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
+        Kokkos::deep_copy(host_search_results, search_results);
 
         // Print sizes
         aperi::CoutP0() << "Neighborhood Search Information:" << std::endl;

@@ -88,7 +88,7 @@ class ElementGatherScatterProcessor {
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data_not_precomputed(const Func &func) {
+    void for_each_element_gather_scatter_nodal_data_not_precomputed(Func func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
@@ -134,7 +134,7 @@ class ElementGatherScatterProcessor {
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data_precomputed(const Func &func) {
+    void for_each_element_gather_scatter_nodal_data_precomputed(Func func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
@@ -223,7 +223,7 @@ class ElementGatherScatterProcessor {
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data(const Func &func) {
+    void for_each_element_gather_scatter_nodal_data(Func func) {
         if constexpr (UsePrecomputedDerivatives) {
             for_each_element_gather_scatter_nodal_data_precomputed<NumNodes, Func>(func);
         } else {
