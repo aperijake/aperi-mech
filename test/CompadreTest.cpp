@@ -175,6 +175,25 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
     point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords, neighbor_lists,
                                                             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
 
+    // Print the neighbor lists
+    // std::cout << "Number of neighbors list: ";
+    int total_neighbors = 0;
+    for (size_t i = 0; i < number_of_neighbors_list.size(); i++) {
+        // std::cout << number_of_neighbors_list(i) << " ";
+        total_neighbors += number_of_neighbors_list(i);
+    }
+    EXPECT_EQ(total_neighbors, neighbor_lists.size());
+    // std::cout << std::endl;
+    // std::cout << "Total neighbors: " << total_neighbors << std::endl;
+    // std::cout << "Neighbor lists: ";
+    // int index = 0;
+    // for (int i = 0; i < number_of_neighbors_list.size(); i++) {
+    //     for (int j = 0; j < number_of_neighbors_list(i); j++) {
+    //         std::cout << neighbor_lists(index++) << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
     //**************** Creating the Data **************************
     // source coordinates need copied to device before using to construct sampling data
     Kokkos::deep_copy(source_coords_device, source_coords);
