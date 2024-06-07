@@ -16,6 +16,9 @@
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
+#include "MeshData.h"
+#include "MathUtils.h"
+#include "NeighborSearchProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
 
 // Compadre fixture
@@ -57,8 +60,46 @@ class CompadreApproximationFunctionTest : public NeighborSearchProcessorTestFixt
                     }
                 });
         } else {
-            throw std::runtime_error("Unsupported view type");
+            throw std::runtime_error("Unsupported view type. Only 1D and 2D views are supported.");
         }
+    }
+
+    template <typename InputDataType, typename OutputDataType>
+    void TransferFieldToCompressedRowKokkosView(const aperi::FieldQueryData &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, const Kokkos::View<InputDataType *, Kokkos::DefaultExecutionSpace> &row_length_field, Kokkos::View<OutputDataType *, Kokkos::DefaultExecutionSpace> &field_view) {
+        stk::mesh::BulkData *bulk_data = mesh_data.GetBulkData();
+        stk::mesh::MetaData &meta_data = bulk_data->mesh_meta_data();
+        stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);
+        stk::topology::rank_t rank = field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
+        // Slow host operation
+        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(rank, selector);
+        const unsigned num_entities = entity_indices.extent(0);
+        assert(stk::mesh::count_entities(*m_bulk_data, rank, selector) == num_entities);
+
+        stk::mesh::Field<OutputDataType> *field = aperi::StkGetField(field_query_data, &meta_data);
+        stk::mesh::NgpField<OutputDataType> ngp_field = stk::mesh::get_updated_ngp_field<OutputDataType>(*field);
+
+        // Calculate row starts
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace> row_starts("row_starts", row_length_field.extent(0));
+        Kokkos::parallel_scan("calculate row lengths", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i, int &running_sum, bool final) {
+            if (final) {
+                row_starts(i) = running_sum;
+            }
+            running_sum += row_length_field(i);
+            });
+        Kokkos::fence();
+
+        // Flatten the field
+        // field_view is a 1D view that should be already sized to the total number of entries in the compressed row field
+#ifndef NDEBUG
+        Kokkos::parallel_for("check field size", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, 1), KOKKOS_LAMBDA(int) {
+            assert(field_view.extent(0) == row_starts(row_length_field.extent(0) - 1) + row_length_field(row_length_field.extent(0) - 1));
+        });
+#endif
+        Kokkos::parallel_for("compressed row field", stk::ngp::DeviceRangePolicy(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i) {
+            for (int j = 0; j < row_length_field(i); ++j) {
+                field_view(row_starts(i) + j) = ngp_field(entity_indices(i), j);
+            }
+        });
     }
 
    protected:
@@ -71,6 +112,16 @@ class CompadreApproximationFunctionTest : public NeighborSearchProcessorTestFixt
     }
 
 };
+
+template <typename ViewType>
+ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSpace> &view) {
+    auto sum_function = KOKKOS_LAMBDA(const int i, ViewType &lsum ) {
+        lsum += view(i);
+    };
+    ViewType total = 0;
+    Kokkos::parallel_reduce("Sum View", view.extent(0), sum_function, total);
+    return total;
+}
 
 TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     // Skip if running with more than 4 processes
@@ -117,7 +168,6 @@ TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     Kokkos::View<double *>::HostMirror kernel_radius_view = Kokkos::create_mirror_view(kernel_radius_view_device);
     Kokkos::deep_copy(kernel_radius_view, kernel_radius_view_device);
     for (int i = 0; i < num_nodes; ++i) {
-        std::cout << "Node " << i << ": " << kernel_radius_view(i) << std::endl;
         EXPECT_DOUBLE_EQ(kernel_radius_view(i), kernel_radius);
     }
 
@@ -131,9 +181,26 @@ TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     Kokkos::View<double *>::HostMirror num_neighbors_view = Kokkos::create_mirror_view(num_neighbors_view_device);
     Kokkos::deep_copy(num_neighbors_view, num_neighbors_view_device);
     for (int i = 0; i < num_nodes; ++i) {
-        std::cout << "Node " << i << ": " << num_neighbors_view(i) << std::endl;
         EXPECT_EQ(num_neighbors_view(i), num_nodes);
     }
 
-    // Kokkos::View<int*> neighbor_lists_device("neighbor lists", 0);
+    // Total number of neighbors
+    double total_num_neighbors = SumKokkosView(num_neighbors_view_device);
+    EXPECT_DOUBLE_EQ(total_num_neighbors, num_nodes * num_nodes);
+
+    // ---------------------
+    // Neighbors
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor", total_num_neighbors);
+    field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+    TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  num_neighbors_view_device, neighbor_lists_device);
+
+    // Check neighbors
+    Kokkos::View<double *>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
+    Kokkos::sort(neighbor_lists_device);
+    Kokkos::deep_copy(neighbor_lists, neighbor_lists_device);
+    for (int i = 0; i < num_nodes; ++i) {
+        for (int j = 0; j < num_nodes; ++j) {
+            EXPECT_EQ(neighbor_lists(i * num_nodes + j), i + 1);
+        }
+    }
 }
