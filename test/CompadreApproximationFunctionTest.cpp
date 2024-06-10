@@ -21,6 +21,16 @@
 #include "NeighborSearchProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
 
+template <typename ViewType>
+ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSpace> &view) {
+    auto sum_function = KOKKOS_LAMBDA(const int i, ViewType &lsum ) {
+        lsum += view(i);
+    };
+    ViewType total = 0;
+    Kokkos::parallel_reduce("Sum View", view.extent(0), sum_function, total);
+    return total;
+}
+
 // Compadre fixture
 class CompadreApproximationFunctionTest : public NeighborSearchProcessorTestFixture {
    using ExecSpace = stk::ngp::ExecSpace;
@@ -102,6 +112,86 @@ class CompadreApproximationFunctionTest : public NeighborSearchProcessorTestFixt
         });
     }
 
+    void SetupAndCheckFieldToViewTransfer(){
+        CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+        const int num_nodes = m_search_processor->GetNumNodes();
+
+        // Setup Kokkos views
+        m_coordinates_view_device = Kokkos::View<double **, Kokkos::DefaultExecutionSpace>("compadre node coordinates", num_nodes, 3);
+        m_coordinates_view_host = Kokkos::create_mirror_view(m_coordinates_view_device);
+
+        m_kernel_radius_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("kernel radius", num_nodes);
+        m_kernel_radius_view_host = Kokkos::create_mirror_view(m_kernel_radius_view_device);
+
+        m_num_neighbors_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("number of neighbor", num_nodes);
+        m_num_neighbors_view_host = Kokkos::create_mirror_view(m_num_neighbors_view_device);
+
+        m_neighbor_lists_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("neighbors", num_nodes * num_nodes);
+        m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
+
+        // ---------------------
+        // Node Coordinates
+        //Kokkos::View<double **, Kokkos::DefaultExecutionSpace> coordinates_view_device("compadre node coordinates", num_nodes, 3);
+        aperi::FieldQueryData field_query_data = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_coordinates_view_device);
+
+        // Check coordinates
+        Kokkos::deep_copy(m_coordinates_view_host, m_coordinates_view_device);
+        for (int i = 0; i < num_nodes; ++i) {
+            EXPECT_TRUE(m_coordinates_view_host(i, 0) >= 0.0 && m_coordinates_view_host(i, 0) <= m_num_elements_x);
+            EXPECT_TRUE(m_coordinates_view_host(i, 1) >= 0.0 && m_coordinates_view_host(i, 1) <= m_num_elements_y);
+            EXPECT_TRUE(m_coordinates_view_host(i, 2) >= 0.0 && m_coordinates_view_host(i, 2) <= m_num_elements_z);
+        }
+        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 0) ==  m_num_elements_x);
+        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 1) ==  m_num_elements_y);
+        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 2) ==  m_num_elements_z);
+
+        double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
+        double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
+        m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
+
+        // ---------------------
+        // Kernel Radius
+        field_query_data = {"kernel_radius", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_kernel_radius_view_device);
+
+        // Check kernel radius
+        Kokkos::deep_copy(m_kernel_radius_view_host, m_kernel_radius_view_device);
+        for (int i = 0; i < num_nodes; ++i) {
+            EXPECT_DOUBLE_EQ(m_kernel_radius_view_host(i), kernel_radius);
+        }
+
+        // ---------------------
+        // Number of Neighbors
+        field_query_data = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device);
+
+        // Check number of neighbors
+        Kokkos::deep_copy(m_num_neighbors_view_host, m_num_neighbors_view_device);
+        for (int i = 0; i < num_nodes; ++i) {
+            EXPECT_EQ(m_num_neighbors_view_host(i), num_nodes);
+        }
+
+        // Total number of neighbors
+        double total_num_neighbors = SumKokkosView(m_num_neighbors_view_device);
+        EXPECT_DOUBLE_EQ(total_num_neighbors, num_nodes * num_nodes);
+
+        // ---------------------
+        // Neighbors
+        field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, m_neighbor_lists_device);
+
+        // Check neighbors
+        Kokkos::sort(m_neighbor_lists_device);
+        Kokkos::deep_copy(m_neighbor_lists_host, m_neighbor_lists_device);
+        for (int i = 0; i < num_nodes; ++i) {
+            for (int j = 0; j < num_nodes; ++j) {
+                EXPECT_EQ(m_neighbor_lists_host(i * num_nodes + j), i + 1);
+            }
+        }
+
+    }
+
    protected:
     void SetUp() override {
         NeighborSearchProcessorTestFixture::SetUp();
@@ -111,17 +201,16 @@ class CompadreApproximationFunctionTest : public NeighborSearchProcessorTestFixt
         NeighborSearchProcessorTestFixture::TearDown();
     }
 
-};
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> m_coordinates_view_device;
+    Kokkos::View<double **>::HostMirror m_coordinates_view_host;
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> m_kernel_radius_view_device;
+    Kokkos::View<double *>::HostMirror m_kernel_radius_view_host;
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> m_num_neighbors_view_device;
+    Kokkos::View<double *>::HostMirror m_num_neighbors_view_host;
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> m_neighbor_lists_device;
+    Kokkos::View<double *>::HostMirror m_neighbor_lists_host;
 
-template <typename ViewType>
-ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSpace> &view) {
-    auto sum_function = KOKKOS_LAMBDA(const int i, ViewType &lsum ) {
-        lsum += view(i);
-    };
-    ViewType total = 0;
-    Kokkos::parallel_reduce("Sum View", view.extent(0), sum_function, total);
-    return total;
-}
+};
 
 TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     // Skip if running with more than 4 processes
@@ -133,74 +222,54 @@ TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     m_num_elements_x = 1;
     m_num_elements_y = 1;
     m_num_elements_z = 4;
-    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    const int num_nodes = m_search_processor->GetNumNodes();
 
-    // ---------------------
-    // Node Coordinates
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> coordinates_view_device("compadre node coordinates", num_nodes, 3);
-    aperi::FieldQueryData field_query_data = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-    TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, coordinates_view_device);
+    SetupAndCheckFieldToViewTransfer();
+}
 
-    // Check coordinates
-    Kokkos::View<double **>::HostMirror coordinates_view = Kokkos::create_mirror_view(coordinates_view_device);
-    Kokkos::deep_copy(coordinates_view, coordinates_view_device);
-    for (int i = 0; i < num_nodes; ++i) {
-        EXPECT_TRUE(coordinates_view(i, 0) >= 0.0 && coordinates_view(i, 0) <= m_num_elements_x);
-        EXPECT_TRUE(coordinates_view(i, 1) >= 0.0 && coordinates_view(i, 1) <= m_num_elements_y);
-        EXPECT_TRUE(coordinates_view(i, 2) >= 0.0 && coordinates_view(i, 2) <= m_num_elements_z);
+TEST_F(CompadreApproximationFunctionTest, BuildApproximationFunctions) {
+    // Skip if running with more than 4 processes
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
-    EXPECT_TRUE(coordinates_view(num_nodes - 1, 0) ==  m_num_elements_x);
-    EXPECT_TRUE(coordinates_view(num_nodes - 1, 1) ==  m_num_elements_y);
-    EXPECT_TRUE(coordinates_view(num_nodes - 1, 2) ==  m_num_elements_z);
+    m_num_elements_x = 1;
+    m_num_elements_y = 1;
+    m_num_elements_z = 4;
 
-    double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
-    double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
-    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
+    SetupAndCheckFieldToViewTransfer();
 
-    // ---------------------
-    // Kernel Radius
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> kernel_radius_view_device("kernel radius", num_nodes);
-    field_query_data = {"kernel_radius", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-    TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, kernel_radius_view_device);
+    // initialize an instance of the GMLS class
+    int dimension = 3;
+    int order = 1;
+    Compadre::GMLS gmls_problem(Compadre::VectorOfScalarClonesTaylorPolynomial, Compadre::VectorPointSample, order, dimension);
+    gmls_problem.setProblemData(m_neighbor_lists_device, m_num_neighbors_view_device, m_coordinates_view_device, m_coordinates_view_device, m_kernel_radius_view_device);
 
-    // Check kernel radius
-    Kokkos::View<double *>::HostMirror kernel_radius_view = Kokkos::create_mirror_view(kernel_radius_view_device);
-    Kokkos::deep_copy(kernel_radius_view, kernel_radius_view_device);
-    for (int i = 0; i < num_nodes; ++i) {
-        EXPECT_DOUBLE_EQ(kernel_radius_view(i), kernel_radius);
+    // create a vector of target operations
+    std::vector<Compadre::TargetOperation> lro(1);
+    lro[0] = Compadre::ScalarPointEvaluation;
+
+    // and then pass them to the GMLS class
+    gmls_problem.addTargets(lro);
+
+    // sets the weighting kernel function from WeightingFunctionType
+    gmls_problem.setWeightingType(Compadre::WeightingFunctionType::CubicSpline);
+
+    // generate the alphas that to be combined with data for each target operation requested in lro
+    int number_of_batches = 1;
+    bool keep_coefficients = false;
+    gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
+
+    auto solution = gmls_problem.getSolutionSetHost();
+    auto alphas = solution->getAlphas();
+
+    // Check the alphas
+    std::cout << "Number of alphas: " << alphas.size() << "\n";
+    double alpha_sum = 0.0;
+    for (size_t i = 0; i < alphas.size(); ++i) {
+        std::cout << "Alpha " << i << ": " << alphas(i) << "\n";
+        alpha_sum += alphas(i);
+        // EXPECT_DOUBLE_EQ(alphas[i], 1.0);
     }
-
-    // ---------------------
-    // Number of Neighbors
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> num_neighbors_view_device("number of neighbor", num_nodes);
-    field_query_data = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-    TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, num_neighbors_view_device);
-
-    // Check number of neighbors
-    Kokkos::View<double *>::HostMirror num_neighbors_view = Kokkos::create_mirror_view(num_neighbors_view_device);
-    Kokkos::deep_copy(num_neighbors_view, num_neighbors_view_device);
-    for (int i = 0; i < num_nodes; ++i) {
-        EXPECT_EQ(num_neighbors_view(i), num_nodes);
-    }
-
-    // Total number of neighbors
-    double total_num_neighbors = SumKokkosView(num_neighbors_view_device);
-    EXPECT_DOUBLE_EQ(total_num_neighbors, num_nodes * num_nodes);
-
-    // ---------------------
-    // Neighbors
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor", total_num_neighbors);
-    field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-    TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  num_neighbors_view_device, neighbor_lists_device);
-
-    // Check neighbors
-    Kokkos::View<double *>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-    Kokkos::sort(neighbor_lists_device);
-    Kokkos::deep_copy(neighbor_lists, neighbor_lists_device);
-    for (int i = 0; i < num_nodes; ++i) {
-        for (int j = 0; j < num_nodes; ++j) {
-            EXPECT_EQ(neighbor_lists(i * num_nodes + j), i + 1);
-        }
-    }
+    std::cout << "Alpha sum: " << alpha_sum << "\n";
 }
