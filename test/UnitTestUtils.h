@@ -40,7 +40,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
 template <aperi::FieldDataRank Rank, typename T>
-void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
+void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12, bool only_print_values = false) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
@@ -54,10 +54,14 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
         ASSERT_EQ(num_components, expected_values.size()) << "Number of components is not consistent";
         for (size_t i = 0; i < num_components; i++) {
             found_at_least_one_entity = true;
-            if (std::abs(expected_values[i]) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_entity_start + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start << " dof " << i << " is incorrect";
+            if (only_print_values) {
+                std::cout << "Field " << field_name << " value at entity " << i_entity_start / num_components << " dof " << i << " is " << field_data[0][i_entity_start + i] << std::endl;
             } else {
-                EXPECT_NEAR(field_data[0][i_entity_start + i], expected_values[i], std::abs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start << " dof " << i << " is incorrect";
+                if (std::abs(expected_values[i]) < 1.0e-12) {
+                    EXPECT_NEAR(field_data[0][i_entity_start + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start << " dof " << i << " is incorrect";
+                } else {
+                    EXPECT_NEAR(field_data[0][i_entity_start + i], expected_values[i], std::abs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start << " dof " << i << " is incorrect";
+                }
             }
         }
     });
