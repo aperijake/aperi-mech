@@ -125,20 +125,30 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
     void SetupAndCheckFieldToViewTransfer(){
         CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-        const int num_nodes = m_search_processor->GetNumNodes();
+
+        // Perform non-Compadre neighbor search
+        double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
+        double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
+        m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
+
+        // Number of local nodes
+        const int num_local_nodes = m_search_processor->GetNumNodes();
+
+        // Number of local owned and shared nodes
+        const int num_local_owned_and_shared_nodes = m_search_processor->GetNumOwnedAndSharedNodes();
+
+        // Total number of nodes in the mesh
+        int total_num_nodes = m_mesh_data->GetNumNodes();
 
         // Setup Kokkos views
-        m_coordinates_view_device = Kokkos::View<double **, Kokkos::DefaultExecutionSpace>("compadre node coordinates", num_nodes, 3);
+        m_coordinates_view_device = Kokkos::View<double **, Kokkos::DefaultExecutionSpace>("compadre node coordinates", num_local_nodes, 3);
         m_coordinates_view_host = Kokkos::create_mirror_view(m_coordinates_view_device);
 
-        m_kernel_radius_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("kernel radius", num_nodes);
+        m_kernel_radius_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("kernel radius", num_local_nodes);
         m_kernel_radius_view_host = Kokkos::create_mirror_view(m_kernel_radius_view_device);
 
-        m_num_neighbors_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("number of neighbor", num_nodes);
+        m_num_neighbors_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("number of neighbor", num_local_nodes);
         m_num_neighbors_view_host = Kokkos::create_mirror_view(m_num_neighbors_view_device);
-
-        m_neighbor_lists_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("neighbors", num_nodes * num_nodes);
-        m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
 
         // ---------------------
         // Node Coordinates
@@ -147,18 +157,27 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Check coordinates
         Kokkos::deep_copy(m_coordinates_view_host, m_coordinates_view_device);
-        for (int i = 0; i < num_nodes; ++i) {
-            EXPECT_TRUE(m_coordinates_view_host(i, 0) >= 0.0 && m_coordinates_view_host(i, 0) <= m_num_elements_x);
-            EXPECT_TRUE(m_coordinates_view_host(i, 1) >= 0.0 && m_coordinates_view_host(i, 1) <= m_num_elements_y);
-            EXPECT_TRUE(m_coordinates_view_host(i, 2) >= 0.0 && m_coordinates_view_host(i, 2) <= m_num_elements_z);
+        std::vector<double> local_minimum_coordinates = {static_cast<double>(m_num_elements_x), static_cast<double>(m_num_elements_y), static_cast<double>(m_num_elements_z)};
+        std::vector<double> local_maximum_coordinates = {0.0, 0.0, 0.0};
+        std::vector<double> expected_global_minimum_coordinates = {0.0, 0.0, 0.0};
+        std::vector<double> expected_global_maximum_coordinates = {static_cast<double>(m_num_elements_x), static_cast<double>(m_num_elements_y), static_cast<double>(m_num_elements_z)};
+        for (int i = 0; i < num_local_nodes; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                EXPECT_GE(m_coordinates_view_host(i, j), expected_global_minimum_coordinates[j]);
+                EXPECT_LE(m_coordinates_view_host(i, j), expected_global_maximum_coordinates[j]);
+                local_minimum_coordinates[j] = std::min(local_minimum_coordinates[j], m_coordinates_view_host(i, j));
+                local_maximum_coordinates[j] = std::max(local_maximum_coordinates[j], m_coordinates_view_host(i, j));
+            }
         }
-        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 0) ==  m_num_elements_x);
-        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 1) ==  m_num_elements_y);
-        EXPECT_TRUE(m_coordinates_view_host(num_nodes - 1, 2) ==  m_num_elements_z);
-
-        double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
-        double kernel_radius = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
-        m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
+        // Communicate the minimum and maximum coordinates
+        std::vector<double> global_minimum_coordinates(3);
+        std::vector<double> global_maximum_coordinates(3);
+        MPI_Allreduce(local_minimum_coordinates.data(), global_minimum_coordinates.data(), 3, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(local_maximum_coordinates.data(), global_maximum_coordinates.data(), 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        for (int j = 0; j < 3; ++j) {
+            EXPECT_DOUBLE_EQ(global_minimum_coordinates[j], expected_global_minimum_coordinates[j]);
+            EXPECT_DOUBLE_EQ(global_maximum_coordinates[j], expected_global_maximum_coordinates[j]);
+        }
 
         // ---------------------
         // Kernel Radius
@@ -167,7 +186,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Check kernel radius
         Kokkos::deep_copy(m_kernel_radius_view_host, m_kernel_radius_view_device);
-        for (int i = 0; i < num_nodes; ++i) {
+        for (int i = 0; i < num_local_nodes; ++i) {
             EXPECT_DOUBLE_EQ(m_kernel_radius_view_host(i), kernel_radius);
         }
 
@@ -178,16 +197,24 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Check number of neighbors
         Kokkos::deep_copy(m_num_neighbors_view_host, m_num_neighbors_view_device);
-        for (int i = 0; i < num_nodes; ++i) {
-            EXPECT_EQ(m_num_neighbors_view_host(i), num_nodes);
+        double total_num_neighbors = 0.0;
+        for (int i = 0; i < num_local_nodes; ++i) {
+            // Num neighbors is not communicated for nodes that are local but not owned or shared so these nodes will look to have 0 neighbors
+            if (m_num_neighbors_view_host(i) != 0.0) {
+                EXPECT_EQ(m_num_neighbors_view_host(i), total_num_nodes) << "i = " << i << ", num_neighbors = " << m_num_neighbors_view_host(i) << ", total_num_nodes = " << total_num_nodes;
+            }
+            total_num_neighbors += m_num_neighbors_view_host(i);
         }
 
         // Total number of neighbors
-        double total_num_neighbors = SumKokkosView(m_num_neighbors_view_device);
-        EXPECT_DOUBLE_EQ(total_num_neighbors, num_nodes * num_nodes);
+        EXPECT_DOUBLE_EQ(total_num_neighbors, total_num_nodes * num_local_owned_and_shared_nodes);
+        EXPECT_DOUBLE_EQ(total_num_neighbors, SumKokkosView(m_num_neighbors_view_device));
 
         // ---------------------
         // Neighbors
+        m_neighbor_lists_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("neighbors", total_num_neighbors);
+        m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
+
         field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, m_neighbor_lists_device);
         // Convert to 0-based index
@@ -196,14 +223,19 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         // Check neighbors
         Kokkos::deep_copy(m_neighbor_lists_host, m_neighbor_lists_device); // Not used here, but to be consistent
         // Sort the neighbors to make it easier to check
-        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sorted_neighbors("sorted neighbors", num_nodes * num_nodes);
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sorted_neighbors("sorted neighbors", total_num_neighbors);
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror sorted_neighbors_host = Kokkos::create_mirror_view(sorted_neighbors);
         Kokkos::deep_copy(sorted_neighbors, m_neighbor_lists_device);
         Kokkos::sort(sorted_neighbors);
         Kokkos::deep_copy(sorted_neighbors_host, sorted_neighbors);
-        for (int i = 0; i < num_nodes; ++i) {
-            for (int j = 0; j < num_nodes; ++j) {
-                EXPECT_EQ(sorted_neighbors_host(i * num_nodes + j), i);
+        for (int i = 0; i < num_local_owned_and_shared_nodes; ++i) {
+            for (int j = 0; j < num_local_owned_and_shared_nodes; ++j) {
+                EXPECT_EQ(sorted_neighbors_host(i * num_local_owned_and_shared_nodes + j), i);
+            }
+            // This handles the case where the neighbor is local but not owned or shared. Won't be relevant for 1 process runs.
+            // TODO(jake): This could be a more explicit check, but harder to know the expected value
+            for (int j = num_local_owned_and_shared_nodes; j < total_num_nodes; ++j) {
+                EXPECT_GT(sorted_neighbors_host(i * num_local_owned_and_shared_nodes + j), i);
             }
         }
     }

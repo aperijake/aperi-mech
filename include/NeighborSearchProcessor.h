@@ -554,6 +554,12 @@ class NeighborSearchProcessor {
         return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
     }
 
+    double GetNumOwnedAndSharedNodes() {
+        stk::mesh::Selector shared_selector = m_bulk_data->mesh_meta_data().globally_shared_part();
+        stk::mesh::Selector shared_and_owned_selector = shared_selector | m_owned_selector;
+        return stk::mesh::count_selected_entities(shared_and_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
+    }
+
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;       // The mesh data object.
     std::vector<std::string> m_sets;                    // The sets to process.
