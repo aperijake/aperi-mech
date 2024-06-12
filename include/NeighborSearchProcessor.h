@@ -381,6 +381,34 @@ class NeighborSearchProcessor {
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
+
+        // FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_selector);
+
+        // int rank;
+        // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        // int num_procs;
+        // MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+        // auto ngp_mesh = m_ngp_mesh;
+        // for (int i = 0; i < num_procs; ++i){
+        //     if (rank == i){
+        //         // Print local offset
+        //         std::cout << "NSP Rank: " << rank << std::endl;
+        //         stk::mesh::for_each_entity_run(
+        //             ngp_mesh, stk::topology::NODE_RANK, m_selector,
+        //             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+        //                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
+        //                 std::cout << "local_offset: " << node.local_offset() << std::endl;
+        //                 std::cout << "node_id: " << ngp_mesh.identifier(node) << std::endl;
+        //             });
+
+        //         // Print node_indices
+        //         for (size_t i = 0; i < node_indices.size(); ++i) {
+        //             std::cout << "node_indices: " << node_indices(i).bucket_id << "-" << node_indices(i).bucket_ord << std::endl;
+        //         }
+        //     }
+        //     MPI_Barrier(MPI_COMM_WORLD);
+        // }
     }
 
     void add_nodes_neighbors_within_variable_ball(double scale_factor) {
