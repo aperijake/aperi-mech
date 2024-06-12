@@ -58,14 +58,14 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         if constexpr (std::is_same<ViewType, DataType *>::value) {
             Kokkos::parallel_for(
-                stk::ngp::DeviceRangePolicy(0, entity_indices.extent(0)), KOKKOS_LAMBDA(const unsigned &i) {
+                stk::ngp::DeviceRangePolicy(0, num_entities), KOKKOS_LAMBDA(const unsigned &i) {
                     assert(ngp_field.get_num_components_per_entity(entity_indices(i)) == 1);
                     field_view(i) = ngp_field(entity_indices(i), 0);
                 });
         } else if constexpr (std::is_same<ViewType, DataType **>::value) {
             size_t num_components = field_view.extent(1);
             Kokkos::parallel_for(
-                stk::ngp::DeviceRangePolicy(0, entity_indices.extent(0)), KOKKOS_LAMBDA(const unsigned &i) {
+                stk::ngp::DeviceRangePolicy(0, num_entities), KOKKOS_LAMBDA(const unsigned &i) {
                     assert(ngp_field.get_num_components_per_entity(entity_indices(i)) == num_components);
                     for (size_t j = 0; j < num_components; ++j) {
                         field_view(i, j) = ngp_field(entity_indices(i), j);
@@ -84,8 +84,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         stk::topology::rank_t rank = field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
         // Slow host operation
         FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(rank, selector);
-        const unsigned num_entities = entity_indices.extent(0);
-        assert(stk::mesh::count_entities(*m_bulk_data, rank, selector) == num_entities);
+        assert(stk::mesh::count_entities(*m_bulk_data, rank, selector) == entity_indices.extent(0));
 
         stk::mesh::Field<OutputDataType> *field = aperi::StkGetField(field_query_data, &meta_data);
         stk::mesh::NgpField<OutputDataType> ngp_field = stk::mesh::get_updated_ngp_field<OutputDataType>(*field);
@@ -109,9 +108,18 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 #endif
         Kokkos::parallel_for("compressed row field", stk::ngp::DeviceRangePolicy(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i) {
             for (int j = 0; j < row_length_field(i); ++j) {
-                stk::mesh::Entity entity(ngp_field(entity_indices(i), j));
-                field_view(row_starts(i) + j) = entity.local_offset() - 1; // Convert to 0-based index. I think local_offset is 1-based.
+                field_view(row_starts(i) + j) = ngp_field(entity_indices(i), j);
             }
+        });
+    }
+
+    // Convert to 0-based index
+    void ConvertToZeroBasedIndex(Kokkos::View<double *, Kokkos::DefaultExecutionSpace> &view) {
+        // Convert to 0-based index
+        Kokkos::parallel_for("convert to 0-based index", stk::ngp::DeviceRangePolicy(0, view.extent(0)), KOKKOS_LAMBDA(int i) {
+            stk::mesh::Entity node_id(view(i));
+            // cast to double to match the type of the view
+            view(i) = static_cast<double>(node_id.local_offset() - 1);
         });
     }
 
@@ -182,6 +190,8 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         // Neighbors
         field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, m_neighbor_lists_device);
+        // Convert to 0-based index
+        ConvertToZeroBasedIndex(m_neighbor_lists_device);
 
         // Check neighbors
         Kokkos::deep_copy(m_neighbor_lists_host, m_neighbor_lists_device); // Not used here, but to be consistent
@@ -285,7 +295,7 @@ TEST_F(CompadreApproximationFunctionTest, BuildApproximationFunctions) {
     // initialize an instance of the GMLS class
     int dimension = 3;
     int order = 1;
-    Compadre::GMLS gmls_problem(Compadre::VectorOfScalarClonesTaylorPolynomial, Compadre::VectorPointSample, order, dimension);
+    Compadre::GMLS gmls_problem(Compadre::ScalarTaylorPolynomial, Compadre::PointSample, order, dimension);
     gmls_problem.setProblemData(m_neighbor_lists_device, m_num_neighbors_view_device, m_coordinates_view_device, m_coordinates_view_device, m_kernel_radius_view_device);
 
     // create a vector of target operations
@@ -296,7 +306,7 @@ TEST_F(CompadreApproximationFunctionTest, BuildApproximationFunctions) {
     gmls_problem.addTargets(lro);
 
     // sets the weighting kernel function from WeightingFunctionType
-    gmls_problem.setWeightingType(Compadre::WeightingFunctionType::CubicSpline);
+    gmls_problem.setWeightingType(Compadre::WeightingFunctionType::CardinalCubicBSpline);
 
     // generate the alphas that to be combined with data for each target operation requested in lro
     int number_of_batches = 1;
@@ -305,21 +315,34 @@ TEST_F(CompadreApproximationFunctionTest, BuildApproximationFunctions) {
 
     auto solution = gmls_problem.getSolutionSetHost();
     auto alphas = solution->getAlphas();
+    auto alphas_host = Kokkos::create_mirror_view(alphas);
 
-    // Check the alphas
-    std::cout << "Number of alphas: " << alphas.size() << "\n";
-    double alpha_sum = 0.0;
-    for (size_t i = 0; i < alphas.size(); ++i) {
-        std::cout << "Alpha " << i << ": " << alphas(i) << "\n";
-        alpha_sum += alphas(i);
-        // EXPECT_DOUBLE_EQ(alphas[i], 1.0);
-    }
-    std::cout << "Alpha sum: " << alpha_sum << "\n";
+    double num_local_nodes = m_search_processor->GetNumNodes();
 
+    // Compute the function values using the shape functions functor for comparison
     BuildFunctionValueStorageProcessor();
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    // Transfer the function values to a Kokkos view
+    aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", num_local_nodes * num_local_nodes); // All nodes are neighbors
+    TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, function_values_device);
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
+    Kokkos::deep_copy(function_values_host, function_values_device);
 
-    // Check the function values
-    // std::array<double, aperi::MAX_NODE_NUM_NEIGHBORS> expected_function_values_data;
-    // CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None, 1.0e-12, true);
+    // Check the alphas
+    double tolerance = 1.0e-8;
+    EXPECT_EQ(alphas_host.extent(0), num_local_nodes * num_local_nodes);
+    size_t k = 0;
+    for (size_t i = 0; i < num_local_nodes; ++i) {
+        size_t num_neighbors = (size_t)m_num_neighbors_view_host(i);
+        double alpha_sum = 0.0;
+        for (size_t j = 0; j < num_neighbors; ++j) {
+            alpha_sum += alphas_host(k);
+            double relative_difference = std::abs((alphas_host(k) - function_values_host(k)) / function_values_host(k));
+            EXPECT_LT(relative_difference, tolerance) << "i = " << i << ", j = " << j << ", k = " << k << ", alpha = " << alphas_host(k) << ", function value = " << function_values_host(k);
+            ++k;
+        }
+        EXPECT_DOUBLE_EQ(alpha_sum, 1.0);
+    }
+
 }
