@@ -36,6 +36,7 @@ void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);
+void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value = -0.5, double max_value = 0.5);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same

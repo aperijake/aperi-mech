@@ -653,8 +653,9 @@ class FunctionValueStorageProcessor {
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
     }
 
+    // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
     template <size_t NumNodes, typename FunctionFunctor>
-    void compute_and_store_function_values(FunctionFunctor &function_functor) {
+    void compute_and_store_function_values(FunctionFunctor &function_functor, const bool use_evaluation_point_kernels = false) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
@@ -676,6 +677,9 @@ class FunctionValueStorageProcessor {
 
                 Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
                 Eigen::Matrix<double, NumNodes, 1> kernel_values;
+
+                double kernel_radius = npg_kernel_radius_field(node_index, 0); // for use_evaluation_point_kernels = true, to match Compadre
+
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
@@ -685,7 +689,9 @@ class FunctionValueStorageProcessor {
                         shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
                     // Get the neighbor's kernel radius
-                    double kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                    if (!use_evaluation_point_kernels) {
+                        kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                    }
                     // Compute the kernel value
                     kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), kernel_radius);
                 }
