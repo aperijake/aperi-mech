@@ -287,6 +287,77 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         }
     }
 
+    void TestBuildingApproximationFunctions() {
+        // Perform non-Compadre neighbor search
+        m_search_processor->add_nodes_neighbors_within_variable_ball(m_kernel_factor);
+
+        bool check_fields = false; // Checked in test above
+        SetupFieldToViewTransfer(check_fields);
+
+        // initialize an instance of the GMLS class
+        int dimension = 3;
+        int order = 1;
+        Compadre::GMLS gmls_problem(Compadre::ScalarTaylorPolynomial, Compadre::PointSample, order, dimension);
+        gmls_problem.setProblemData(m_neighbor_lists_device, m_num_neighbors_view_device, m_coordinates_view_device, m_coordinates_view_device, m_kernel_radius_view_device);
+
+        // create a vector of target operations
+        std::vector<Compadre::TargetOperation> lro(1);
+        lro[0] = Compadre::ScalarPointEvaluation;
+
+        // and then pass them to the GMLS class
+        gmls_problem.addTargets(lro);
+
+        // sets the weighting kernel function from WeightingFunctionType
+        gmls_problem.setWeightingType(Compadre::WeightingFunctionType::CardinalCubicBSpline);
+
+        // generate the alphas that to be combined with data for each target operation requested in lro
+        int number_of_batches = 1;
+        bool keep_coefficients = false;
+        gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
+
+        auto solution = gmls_problem.getSolutionSetHost();
+        auto alphas = solution->getAlphas();
+        auto alphas_host = Kokkos::create_mirror_view(alphas);
+
+        // Compute the function values using the shape functions functor for comparison
+        BuildFunctionValueStorageProcessor();
+        bool use_target_center_kernel = true; // Like Compadre, but search still uses source center kernel so this is not perfect
+        m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, use_target_center_kernel);
+        // Transfer the function values to a Kokkos view
+        aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", m_total_num_neighbors); // All nodes are neighbors
+        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, function_values_device);
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
+        Kokkos::deep_copy(function_values_host, function_values_device);
+
+        // Check the alphas
+        double tolerance = 1.0e-8;
+        EXPECT_EQ(alphas_host.extent(0), m_total_num_neighbors);
+        double num_local_nodes = m_search_processor->GetNumNodes();
+        size_t k = 0;
+        size_t num_with_value = 0;
+        size_t num_with_zero = 0;
+        for (size_t i = 0; i < num_local_nodes; ++i) {
+            size_t num_neighbors = (size_t)m_num_neighbors_view_host(i);
+            double alpha_sum = 0.0;
+            for (size_t j = 0; j < num_neighbors; ++j) {
+                alpha_sum += alphas_host(k);
+                if (std::abs(function_values_host(k)) < tolerance) {
+                    EXPECT_NEAR(alphas_host(k), 0.0, tolerance) << "i = " << i << ", j = " << j << ", k = " << k << ", alpha = " << alphas_host(k) << ", function value = " << function_values_host(k);
+                    ++num_with_zero;
+                } else {
+                    // Check the relative difference (absolute difference divided by the function value
+                    double relative_difference = std::abs((alphas_host(k) - function_values_host(k)) / function_values_host(k));
+                    EXPECT_LT(relative_difference, tolerance) << "i = " << i << ", j = " << j << ", k = " << k << ", alpha = " << alphas_host(k) << ", function value = " << function_values_host(k);
+                    ++num_with_value;
+                }
+                ++k;
+            }
+            EXPECT_NEAR(alpha_sum, 1.0, 1.e-10);
+        }
+        EXPECT_GT(num_with_value, num_with_zero); // Sanity check
+    }
+
    protected:
     void SetUp() override {
         NeighborSearchProcessorTestFixture::SetUp();
@@ -294,6 +365,12 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
     void TearDown() override {
         NeighborSearchProcessorTestFixture::TearDown();
+    }
+
+    void ResetCompadreApproximationFunction(){
+        NeighborSearchProcessorTestFixture::ResetNeighborSearchProcessor();
+        m_total_num_neighbors = 0;
+        m_kernel_factor = 1.0;
     }
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace> m_coordinates_view_device;
@@ -304,9 +381,8 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
     Kokkos::View<double *>::HostMirror m_num_neighbors_view_host;
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> m_neighbor_lists_device;
     Kokkos::View<double *>::HostMirror m_neighbor_lists_host;
-    size_t m_total_num_neighbors;
+    size_t m_total_num_neighbors = 0;
     double m_kernel_factor = 1.0;
-
 };
 
 TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
@@ -336,80 +412,66 @@ TEST_F(CompadreApproximationFunctionTest, BuildApproximationFunctions) {
     if (num_procs > 1) {
         GTEST_SKIP_("Test only runs with 1 or fewer processes.");
     }
+
+    // Number of elements in each direction
     m_num_elements_x = 1;
     m_num_elements_y = 1;
     m_num_elements_z = 4;
+
+    // Create the mesh and processors
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Make sure the coordinates are not on a grid
     RandomizeCoordinates(*m_mesh_data, -0.1, 0.1);
 
-    // Perform non-Compadre neighbor search
+    // Set the kernel factor
     m_kernel_factor = 1.8;
-    m_search_processor->add_nodes_neighbors_within_variable_ball(m_kernel_factor);
 
-    bool check_fields = false; // Checked in test above
-    SetupFieldToViewTransfer(check_fields);
+    // Test building approximation functions
+    TestBuildingApproximationFunctions();
+}
 
-    // initialize an instance of the GMLS class
-    int dimension = 3;
-    int order = 1;
-    Compadre::GMLS gmls_problem(Compadre::ScalarTaylorPolynomial, Compadre::PointSample, order, dimension);
-    gmls_problem.setProblemData(m_neighbor_lists_device, m_num_neighbors_view_device, m_coordinates_view_device, m_coordinates_view_device, m_kernel_radius_view_device);
-
-    // create a vector of target operations
-    std::vector<Compadre::TargetOperation> lro(1);
-    lro[0] = Compadre::ScalarPointEvaluation;
-
-    // and then pass them to the GMLS class
-    gmls_problem.addTargets(lro);
-
-    // sets the weighting kernel function from WeightingFunctionType
-    gmls_problem.setWeightingType(Compadre::WeightingFunctionType::CardinalCubicBSpline);
-
-    // generate the alphas that to be combined with data for each target operation requested in lro
-    int number_of_batches = 1;
-    bool keep_coefficients = false;
-    gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
-
-    auto solution = gmls_problem.getSolutionSetHost();
-    auto alphas = solution->getAlphas();
-    auto alphas_host = Kokkos::create_mirror_view(alphas);
-
-    // Compute the function values using the shape functions functor for comparison
-    BuildFunctionValueStorageProcessor();
-    bool use_target_center_kernel = true; // Like Compadre, but search still uses source center kernel so this is not perfect
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, use_target_center_kernel);
-    // Transfer the function values to a Kokkos view
-    aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", m_total_num_neighbors); // All nodes are neighbors
-    TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, function_values_device);
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
-    Kokkos::deep_copy(function_values_host, function_values_device);
-
-    // Check the alphas
-    double tolerance = 1.0e-8;
-    EXPECT_EQ(alphas_host.extent(0), m_total_num_neighbors);
-    double num_local_nodes = m_search_processor->GetNumNodes();
-    size_t k = 0;
-    size_t num_with_value = 0;
-    size_t num_with_zero = 0;
-    for (size_t i = 0; i < num_local_nodes; ++i) {
-        size_t num_neighbors = (size_t)m_num_neighbors_view_host(i);
-        double alpha_sum = 0.0;
-        for (size_t j = 0; j < num_neighbors; ++j) {
-            alpha_sum += alphas_host(k);
-            if (function_values_host(k) == 0.0) {
-                EXPECT_NEAR(alphas_host(k), 0.0, tolerance) << "i = " << i << ", j = " << j << ", k = " << k << ", alpha = " << alphas_host(k) << ", function value = " << function_values_host(k);
-                ++num_with_zero;
-            } else {
-                // Check the relative difference (absolute difference divided by the function value
-                double relative_difference = std::abs((alphas_host(k) - function_values_host(k)) / function_values_host(k));
-                EXPECT_LT(relative_difference, tolerance) << "i = " << i << ", j = " << j << ", k = " << k << ", alpha = " << alphas_host(k) << ", function value = " << function_values_host(k);
-                ++num_with_value;
-            }
-            ++k;
-        }
-        EXPECT_NEAR(alpha_sum, 1.0, 1.e-10);
+TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    // TODO(jake): This test is not working with more than 1 process
+    if (num_procs > 1) {
+        GTEST_SKIP_("Test only runs with 1 or fewer processes.");
     }
-    EXPECT_GT(num_with_value, num_with_zero); // Sanity check
 
+    // Number of elements in each direction
+    m_num_elements_x = 1;
+    m_num_elements_y = 1;
+    m_num_elements_z = 4;
+
+    // Create the mesh and processors
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Make sure the coordinates are not on a grid
+    RandomizeCoordinates(*m_mesh_data, -0.1, 0.1);
+
+    // Set the kernel factor
+    m_kernel_factor = 1.8;
+
+    // Test building approximation functions
+    TestBuildingApproximationFunctions();
+
+    ResetCompadreApproximationFunction();
+
+    // Number of elements in each direction
+    m_num_elements_x = 1;
+    m_num_elements_y = 1;
+    m_num_elements_z = 40;
+
+    // Create the mesh and processors
+    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Make sure the coordinates are not on a grid
+    RandomizeCoordinates(*m_mesh_data, -0.1, 0.1);
+
+    // Set the kernel factor
+    m_kernel_factor = 1.8;
+
+    // Test building approximation functions
+    TestBuildingApproximationFunctions();
 }

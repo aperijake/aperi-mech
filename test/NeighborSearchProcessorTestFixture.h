@@ -72,6 +72,17 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data);
     }
 
+    void ResetNeighborSearchProcessor() {
+        m_num_elements_x = 1;
+        m_num_elements_y = 1;
+        m_num_elements_z = 4;
+        m_bulk_data.reset();
+        m_mesh_data.reset();
+        m_extra_fields.clear();
+        m_search_processor.reset();
+        SetUp();
+    }
+
     size_t m_num_elements_x = 1;
     size_t m_num_elements_y = 1;
     size_t m_num_elements_z = 4;
