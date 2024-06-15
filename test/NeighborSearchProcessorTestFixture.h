@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <chrono>
 #include <mpi.h>
 
 #include <filesystem>
@@ -24,7 +25,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     void SetUp() override {
     }
 
-    void CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, const std::vector<aperi::FieldQueryData> &extra_fields = {}) {
+    double CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::string extra_mesh_spec = "|tets", const std::vector<aperi::FieldQueryData> &extra_fields = {}) {
+        auto start = std::chrono::high_resolution_clock::now();
         MPI_Comm p_communicator = MPI_COMM_WORLD;
         m_bulk_data = stk::mesh::MeshBuilder(p_communicator).create();
         m_bulk_data->mesh_meta_data().use_simple_fields();
@@ -32,7 +34,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         stk::io::StkMeshIoBroker mesh_reader;
         mesh_reader.set_bulk_data(*m_bulk_data);
-        const std::string mesh_spec = "generated:" + std::to_string(num_elements_x) + "x" + std::to_string(num_elements_y) + "x" + std::to_string(num_elements_z) + "|tets";
+        const std::string mesh_spec = "generated:" + std::to_string(num_elements_x) + "x" + std::to_string(num_elements_y) + "x" + std::to_string(num_elements_z) + extra_mesh_spec;
         mesh_reader.add_mesh_database(mesh_spec, stk::io::READ_MESH);
         mesh_reader.create_input_mesh();
         mesh_reader.add_all_mesh_fields_as_input_fields();
@@ -70,6 +72,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         // Create the NeighborSearchProcessor
         m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data);
+        
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end - start;
+        return elapsed_seconds.count();
     }
 
     void ResetNeighborSearchProcessor() {
@@ -78,9 +84,17 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_num_elements_z = 4;
         m_bulk_data.reset();
         m_mesh_data.reset();
-        m_extra_fields.clear();
         m_search_processor.reset();
-        SetUp();
+
+        // Explicitly set field pointers to nullptr
+        m_node_num_neighbors_field = nullptr;
+        m_node_neighbors_field = nullptr;
+        m_node_neighbors_function_values_field = nullptr;
+        m_kernel_radius_field = nullptr;
+        m_element_num_neighbors_field = nullptr;
+        m_element_neighbors_field = nullptr;
+
+        m_extra_fields.clear();
     }
 
     size_t m_num_elements_x = 1;

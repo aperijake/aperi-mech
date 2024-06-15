@@ -27,7 +27,7 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
     }
 
     void BuildValueFromGeneralizedFieldProcessor() {
-        NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, m_src_and_dest_field_query_data);
+        NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, "|tets", m_src_and_dest_field_query_data);
         FunctionValueStorageProcessorTestFixture::BuildFunctionValueStorageProcessor();
         // Create the ValueFromGeneralizedFieldProcessor
         std::array<aperi::FieldQueryData, 1> src_field = {m_src_and_dest_field_query_data[0]};

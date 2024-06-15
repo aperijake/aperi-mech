@@ -32,10 +32,9 @@ class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorT
     }
 
     void ResetFunctionValueStorageProcessor() {
-        NeighborSearchProcessorTestFixture::ResetNeighborSearchProcessor();
         m_shape_functions_functor_reproducing_kernel.reset();
         m_function_value_storage_processor.reset();
-        SetUp();
+        ResetNeighborSearchProcessor();
     }
 
     std::shared_ptr<aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS>> m_shape_functions_functor_reproducing_kernel;
