@@ -68,13 +68,13 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
     }
 
     // Number of refinements and refinement factor
-    size_t num_refinements = 5;
+    size_t num_refinements = 6;
     size_t refinement_factor = 2;
 
     // Initial mesh size
-    size_t initial_num_elem_x = 7;
-    size_t initial_num_elem_y = 7;
-    size_t initial_num_elem_z = 21;
+    size_t initial_num_elem_x = 3;
+    size_t initial_num_elem_y = 3;
+    size_t initial_num_elem_z = 9;
 
     // Vectors to store the number of nodes and runtimes
     std::vector<double> num_nodes;
