@@ -5,13 +5,13 @@
 
 #include "EntityProcessor.h"
 #include "IoMesh.h"
+#include "InternalForceContribution.h"
 #include "MeshData.h"
 
 namespace aperi {
 
 class BoundaryCondition;
 class IoMesh;
-class InternalForceContribution;
 class ExternalForceContribution;
 class TimeStepper;
 class Scheduler;
@@ -37,6 +37,13 @@ class Solver {
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
         mp_mesh_data = m_io_mesh->GetMeshData();
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
+        m_uses_generalized_fields = false;
+        for (const auto &force_contribution : m_internal_force_contributions) {
+            if (force_contribution->UsesGeneralizedFields()) {
+                m_uses_generalized_fields = true;
+                break;
+            }
+        }
     }
 
     /**
@@ -74,6 +81,7 @@ class Solver {
     std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
     int m_num_processors;                                                                           ///< The number of processors.
+    bool m_uses_generalized_fields;                                                                  ///< Whether the solver uses generalized fields.
 };
 
 /**
