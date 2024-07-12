@@ -218,7 +218,7 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
 double ExplicitSolver::Solve() {
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
+        ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
     }
 
     // Create node processors for each step of the time integration algorithm
