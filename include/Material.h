@@ -10,6 +10,20 @@
 
 namespace aperi {
 
+KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d &displacement_gradient) {
+    // Compute the Green Lagrange strain tensor, Voigt Notation.
+    // E = 0.5 * (H + H^T + H^T * H)
+    Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
+    green_lagrange_strain_tensor_voigt << displacement_gradient(0, 0) + 0.5 * displacement_gradient.col(0).dot(displacement_gradient.col(0)),
+        displacement_gradient(1, 1) + 0.5 * displacement_gradient.col(1).dot(displacement_gradient.col(1)),
+        displacement_gradient(2, 2) + 0.5 * displacement_gradient.col(2).dot(displacement_gradient.col(2)),
+        0.5 * (displacement_gradient(1, 2) + displacement_gradient(2, 1) + displacement_gradient.col(1).dot(displacement_gradient.col(2))),
+        0.5 * (displacement_gradient(0, 2) + displacement_gradient(2, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(2))),
+        0.5 * (displacement_gradient(0, 1) + displacement_gradient(1, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(1)));
+
+    return green_lagrange_strain_tensor_voigt;
+}
+
 /**
  * @brief Enum representing the type of material.
  */
@@ -58,12 +72,12 @@ class Material {
 
     /**
      * @brief Functor for getting the stress of the material.
-     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @param displacement_gradient The displacement gradient of the material.
      * @return The stress of the material.
      */
     struct StressFunctor {
         KOKKOS_FUNCTION
-        virtual Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
+        virtual Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const = 0;
     };
 
     /**
@@ -76,10 +90,10 @@ class Material {
 
     /**
      * @brief Get the stress of the material. Uses the stress functor to calculate the stress.
-     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @param displacement_gradient The displacement gradient of the material.
      * @return The stress of the material.
      */
-    virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const = 0;
+    virtual Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const = 0;
 
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
@@ -132,7 +146,7 @@ class ElasticMaterial : public Material {
 
     /**
      * @brief Functor for getting the stress of the elastic material.
-     * @param green_lagrange_strain The Green-Lagrange strain of the elastic material.
+     * @param displacement_gradient The displacement gradient of the elastic material.
      * @return The stress of the elastic material.
      */
     struct ElasticGetStressFunctor : public StressFunctor {
@@ -140,7 +154,10 @@ class ElasticMaterial : public Material {
         ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
-        Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
+        Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
+            // Compute the Green Lagrange strain tensor, Voigt Notation.
+            const Eigen::Matrix<double, 6, 1> green_lagrange_strain = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
+
             Eigen::Matrix<double, 6, 1> stress;
             const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
             stress(0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
@@ -159,11 +176,11 @@ class ElasticMaterial : public Material {
 
     /**
      * @brief Get the stress of the elastic material.
-     * @param green_lagrange_strain The Green-Lagrange strain of the material.
+     * @param displacement_gradient The displacement gradient of the elastic material.
      * @return The stress of the elastic material.
      */
-    Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 6, 1>& green_lagrange_strain) const override {
-        return m_stress_functor->operator()(green_lagrange_strain);
+    Eigen::Matrix<double, 6, 1> GetStress(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
+        return m_stress_functor->operator()(displacement_gradient);
     }
 };
 
