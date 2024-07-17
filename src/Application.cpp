@@ -32,15 +32,25 @@ void Application::Run(const std::string& input_filename) {
     // Get parts
     std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
 
-    // Get part names
+    // Get part names, and check if any parts use strain smoothing
     std::vector<std::string> part_names;
     part_names.reserve(parts.size());
+    bool has_strain_smoothing = false;
+    bool has_reproducing_kernel = false;
     for (auto part : parts) {
         part_names.push_back(part["set"].as<std::string>());
+        // Check if integration scheme is "strain_smoothing"
+        if (part["formulation"]["integration_scheme"]["strain_smoothing"]) {
+            has_strain_smoothing = true;
+        }
+        // Check if approximation space is "reproducing_kernel"
+        if (part["formulation"]["approximation_space"]["reproducing_kernel"]) {
+            has_reproducing_kernel = true;
+        }
     }
 
     // Get field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(has_reproducing_kernel, has_strain_smoothing);
 
     // Read the mesh
     m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names, field_data);

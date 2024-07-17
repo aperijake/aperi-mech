@@ -5,6 +5,7 @@ set -e
 BUILD_TYPE="Release"
 CODE_COVERAGE=false
 GPU=false
+USE_LOCAL_COMPADRE=false
 
 # Get the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -29,6 +30,11 @@ while [[ $# -gt 0 ]]; do
 		echo "Requested GPU support."
 		shift
 		;;
+	-l | --local-compadre)
+		USE_LOCAL_COMPADRE=true
+		echo "Using local compadre."
+		shift
+		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -50,15 +56,6 @@ else
 	spack env activate aperi-mech
 fi
 
-[[ ${CODE_COVERAGE} == true ]] && BUILD_DIR+="_cov"
-
-# Create build directory
-mkdir -p "${BUILD_DIR}"
-cd "${BUILD_DIR}" || exit
-
-# Remove CMakeCache if it exists
-[[ -f CMakeCache.txt ]] && rm CMakeCache.txt
-
 # Check for cmake in the spack environment, if not found, use the system cmake
 if spack find -p cmake; then
 	cmake=$(spack location -i --first cmake)/bin/cmake
@@ -79,6 +76,15 @@ cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
 cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
+
+USE_LOCAL_COMPADRE=true # For now, always use local compadre
+if ${USE_LOCAL_COMPADRE}; then
+    COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
+else
+    COMPADRE_PATH=$(spack location -i compadre)
+fi
+cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
+
 
 # Add the lcov path to the cmake command
 [[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
@@ -105,8 +111,19 @@ cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftra
 # Add the flag to export compile commands to the cmake command
 cmake_command+=" -D CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON"
 
+# Add the flag to turn off C++ extensions to the cmake command
+cmake_command+=" -D CMAKE_CXX_EXTENSIONS=Off"
+
 # Add the script path to the stk_ngp_basic source code
 cmake_command+=" ${SCRIPT_DIR}"
+
+# Create build directory
+[[ ${CODE_COVERAGE} == true ]] && BUILD_DIR+="_cov"
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}" || exit
+
+# Remove CMakeCache if it exists
+[[ -f CMakeCache.txt ]] && rm CMakeCache.txt
 
 # Print and execute the cmake command
 echo "CMake Command: ${cmake_command}"

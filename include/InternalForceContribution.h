@@ -59,6 +59,15 @@ class InternalForceContribution : public ForceContribution {
         return m_internal_force_contribution_parameters.part_name;
     }
 
+    /**
+     * @brief Gets whether the element uses generalized fields.
+     *
+     * @return True if the element uses generalized fields, false otherwise.
+     */
+    bool UsesGeneralizedFields() const {
+        return m_element->UsesGeneralizedFields();
+    }
+
    protected:
     void SetupInternalForceContribution();
 

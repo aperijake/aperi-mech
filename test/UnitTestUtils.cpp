@@ -276,3 +276,25 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
         EXPECT_EQ(global_counts[i], expected_owned[i]);
     }
 }
+
+void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value, double max_value) {
+    std::array<aperi::FieldQueryData, 1> field_query_data_array = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::NP1, aperi::FieldDataRank::NODE};
+
+    // Make a entity processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::AperiEntityProcessor<aperi::FieldDataRank::NODE, 1> entity_processor(field_query_data_array, mesh_data_ptr, {});
+
+    // Seed the random number generator
+    std::srand(17);
+
+    // Get the sum of the field values
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& coords) {
+        Eigen::Vector3d shift = Eigen::Vector3d::Random() * (max_value - min_value) + Eigen::Vector3d::Constant(min_value);
+        for (size_t i = 0; i < num_components; ++i) {
+            coords[0][i + i_entity_start] += shift(i);
+        }
+    });
+    entity_processor.CommunicateAllFieldData();
+    entity_processor.MarkAllFieldsModifiedOnHost();
+    entity_processor.SyncAllFieldsHostToDevice();
+}

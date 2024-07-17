@@ -26,6 +26,11 @@ struct FillFieldFunctor {
     double m_value;
 };
 
+struct CopyFieldFunctor {
+    CopyFieldFunctor() {}
+    KOKKOS_INLINE_FUNCTION void operator()(const double *src, double *dest) const { *dest = *src; }
+};
+
 struct PrintFieldFunctor {
     PrintFieldFunctor() {}
     KOKKOS_INLINE_FUNCTION void operator()(const double *value) const { printf(" %f\n", *value); }
@@ -196,6 +201,31 @@ class EntityProcessor {
             });
     }
 
+    // Loop over each entity and apply the function. Two fields.
+    // Does not mark anything modified. Need to do that separately.
+    template <typename Func>
+    void for_each_component_impl(const Func &func, size_t field_index_0, size_t field_index_1, const stk::mesh::Selector &selector) {
+        assert(field_index_0 < m_ngp_fields.size() && "field_index_0 out of bounds");
+        assert(field_index_1 < m_ngp_fields.size() && "field_index_1 out of bounds");
+        auto field_0 = *m_ngp_fields[field_index_0];
+        auto field_1 = *m_ngp_fields[field_index_1];
+
+        // Loop over all the entities
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                const size_t num_components = field_0.get_num_components_per_entity(entity);
+                KOKKOS_ASSERT(field_1.get_num_components_per_entity(entity) == num_components);
+                for (size_t i = 0; i < num_components; i++) {
+                    double *field_0_ptr = &field_0(entity, i);
+                    double *field_1_ptr = &field_1(entity, i);
+                    KOKKOS_ASSERT(field_0_ptr != nullptr);
+                    KOKKOS_ASSERT(field_1_ptr != nullptr);
+                    func(field_0_ptr, field_1_ptr);
+                }
+            });
+    }
+
     // Loop over each entity and apply the function to component i. Just a single field.
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
@@ -356,6 +386,12 @@ class EntityProcessor {
     void FillField(double value, size_t field_index) {
         FillFieldFunctor functor(value);
         for_each_component_impl(functor, field_index, m_selector);
+    }
+
+    // Copy the field to another field
+    void CopyFieldData(size_t src_field_index, size_t dest_field_index) {
+        CopyFieldFunctor functor;
+        for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
    private:

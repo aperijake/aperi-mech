@@ -29,7 +29,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4Storing object.
      */
-    ElementSmoothedTetrahedron4Storing(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4Storing(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material, true), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         // Find and store the element neighbors
         CreateElementProcessor();
         CreateFunctors();

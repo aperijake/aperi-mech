@@ -76,18 +76,19 @@ ENDIF()
 # Set the path to project-specific custom modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-# Find package/
+# Find package
 find_package(Kokkos REQUIRED PATHS ${Kokkos_ROOT} NO_DEFAULT_PATH)
 find_package(Trilinos REQUIRED PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
 find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
 find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
-find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include)
-find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib)
-find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include)
-find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib)
-find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include)
-find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib)
+find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include NO_DEFAULT_PATH)
+find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib NO_DEFAULT_PATH)
+find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include NO_DEFAULT_PATH)
+find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib NO_DEFAULT_PATH)
+find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include NO_DEFAULT_PATH)
+find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib NO_DEFAULT_PATH)
+find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
 
 ### aperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
@@ -96,15 +97,16 @@ list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 add_library(aperimech ${LIB_SOURCES})
 
 target_link_libraries(aperimech
-	yaml-cpp
-	Eigen3::Eigen
-	${MFEM_LIBRARY}
-	${Trilinos_LIBRARIES}
-	${Trilinos_TPL_LIBRARIES}
-	${MPI_LIBRARIES}
-	${EXTRA_LIBS}
-	Kokkos::kokkos
-	)
+    yaml-cpp
+    Eigen3::Eigen
+    ${MFEM_LIBRARY}
+    ${Trilinos_LIBRARIES}
+    ${Trilinos_TPL_LIBRARIES}
+    ${MPI_LIBRARIES}
+    ${EXTRA_LIBS}
+    Kokkos::kokkos
+    Compadre::compadre
+)
 
 target_include_directories(aperimech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
@@ -145,6 +147,8 @@ enable_testing()
 include(GoogleTest)
 
 file(GLOB TEST_SOURCES "test/*.cpp")
+list(FILTER TEST_SOURCES EXCLUDE REGEX ".*PerformanceTest.cpp$")
+list(FILTER TEST_SOURCES EXCLUDE REGEX "test/performance_tests.cpp")
 
 # Add an executable for the unit tests
 add_executable(unit_tests
@@ -164,6 +168,31 @@ target_link_libraries(unit_tests
 	)
 
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
+
+############# PERFORMANCE TESTING #############
+
+file(GLOB PERFORMANCE_TEST_SOURCES "test/*PerformanceTest.cpp")
+list(APPEND PERFORMANCE_TEST_SOURCES "test/UnitTestUtils.cpp")
+list(FILTER TEST_SOURCES EXCLUDE REGEX "test/unit_tests.cpp")
+
+# Add an executable for the unit tests
+add_executable(performance_tests
+	test/performance_tests.cpp  # Test runner file
+	${PERFORMANCE_TEST_SOURCES}
+	)
+
+target_include_directories(performance_tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/include/"
+	"${CMAKE_SOURCE_DIR}/test/"
+     ${MPI_INCLUDE_PATH}
+	)
+
+target_link_libraries(performance_tests
+	aperimech
+	GTest::gtest_main
+	)
+
+gtest_discover_tests(performance_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
 ############# CODE COVERAGE #############
 if (CODE_COVERAGE)

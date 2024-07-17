@@ -52,7 +52,7 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
 }
 
 // Compute the diagonal mass matrix
-double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density) {
+double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
     std::array<FieldQueryData, 1> field_query_data_gather_vec = {FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
     std::string mass_from_elements_name = "mass_from_elements";
     std::string mass_name = "mass";
@@ -66,13 +66,6 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     // Compute the mass of each element
     element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_mass_functor);
 
-    // Pass mass_from_elements through the approximation functions to get mass
-    std::array<aperi::FieldQueryData, 1> src_field_query_data;
-    src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
-
-    std::array<aperi::FieldQueryData, 1> dest_field_query_data;
-    dest_field_query_data[0] = {mass_name, FieldQueryState::None};
-
     // Sum the mass at the nodes
     std::array<aperi::FieldQueryData, 2> mass_field_query_data;
     mass_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
@@ -85,11 +78,22 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     node_processor.SyncFieldHostToDevice(0);
 
     // Pass mass_from_elements through the approximation functions to get mass
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
-    value_from_generalized_field_processor->compute_value_from_generalized_field();
-    value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-    value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+    if (uses_generalized_fields) {
+        std::array<aperi::FieldQueryData, 1> src_field_query_data;
+        src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
 
+        std::array<aperi::FieldQueryData, 1> dest_field_query_data;
+        dest_field_query_data[0] = {mass_name, FieldQueryState::None};
+
+        std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
+        value_from_generalized_field_processor->compute_value_from_generalized_field();
+        value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+        value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+    } else{
+        node_processor.CopyFieldData(0, 1);
+        node_processor.MarkFieldModifiedOnDevice(1);
+        node_processor.SyncFieldDeviceToHost(1);
+    }
 
     // Parallel sum
     double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs

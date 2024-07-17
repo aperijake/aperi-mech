@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
+#include <stk_mesh/base/Comm.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -48,11 +49,18 @@ class MeshData {
         return topology.num_nodes();
     }
 
+    std::vector<size_t> GetCommMeshCounts() const {
+        std::vector<size_t> comm_mesh_counts;
+        stk::mesh::comm_mesh_counts(*m_bulk_data, comm_mesh_counts);
+        return comm_mesh_counts;
+    }
+
     size_t GetNumNodes() const {
-        size_t local_num_nodes = stk::mesh::count_selected_entities(m_bulk_data->mesh_meta_data().universal_part(), m_bulk_data->buckets(stk::topology::NODE_RANK));
-        size_t num_nodes = 0;
-        MPI_Reduce(&local_num_nodes, &num_nodes, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-        return num_nodes;
+        return GetCommMeshCounts()[stk::topology::NODE_RANK];
+    }
+
+    size_t GetNumElement() const {
+        return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
     }
 
    private:

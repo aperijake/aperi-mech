@@ -381,6 +381,34 @@ class NeighborSearchProcessor {
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
+
+        // FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_selector);
+
+        // int rank;
+        // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        // int num_procs;
+        // MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+        // auto ngp_mesh = m_ngp_mesh;
+        // for (int i = 0; i < num_procs; ++i){
+        //     if (rank == i){
+        //         // Print local offset
+        //         std::cout << "NSP Rank: " << rank << std::endl;
+        //         stk::mesh::for_each_entity_run(
+        //             ngp_mesh, stk::topology::NODE_RANK, m_selector,
+        //             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+        //                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
+        //                 std::cout << "local_offset: " << node.local_offset() << std::endl;
+        //                 std::cout << "node_id: " << ngp_mesh.identifier(node) << std::endl;
+        //             });
+
+        //         // Print node_indices
+        //         for (size_t i = 0; i < node_indices.size(); ++i) {
+        //             std::cout << "node_indices: " << node_indices(i).bucket_id << "-" << node_indices(i).bucket_ord << std::endl;
+        //         }
+        //     }
+        //     MPI_Barrier(MPI_COMM_WORLD);
+        // }
     }
 
     void add_nodes_neighbors_within_variable_ball(double scale_factor) {
@@ -554,6 +582,12 @@ class NeighborSearchProcessor {
         return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
     }
 
+    double GetNumOwnedAndSharedNodes() {
+        stk::mesh::Selector shared_selector = m_bulk_data->mesh_meta_data().globally_shared_part();
+        stk::mesh::Selector shared_and_owned_selector = shared_selector | m_owned_selector;
+        return stk::mesh::count_selected_entities(shared_and_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
+    }
+
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;       // The mesh data object.
     std::vector<std::string> m_sets;                    // The sets to process.
@@ -619,8 +653,9 @@ class FunctionValueStorageProcessor {
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
     }
 
+    // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
     template <size_t NumNodes, typename FunctionFunctor>
-    void compute_and_store_function_values(FunctionFunctor &function_functor) {
+    void compute_and_store_function_values(FunctionFunctor &function_functor, const bool use_evaluation_point_kernels = false) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
@@ -642,6 +677,9 @@ class FunctionValueStorageProcessor {
 
                 Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
                 Eigen::Matrix<double, NumNodes, 1> kernel_values;
+
+                double kernel_radius = npg_kernel_radius_field(node_index, 0); // for use_evaluation_point_kernels = true, to match Compadre
+
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
@@ -651,7 +689,9 @@ class FunctionValueStorageProcessor {
                         shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
                     // Get the neighbor's kernel radius
-                    double kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                    if (!use_evaluation_point_kernels) {
+                        kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                    }
                     // Compute the kernel value
                     kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), kernel_radius);
                 }
