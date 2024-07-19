@@ -249,4 +249,21 @@ KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3> &vect
     return 0.0;
 }
 
+template <typename T>
+KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::Matrix<T, 3, 3> &A) {
+    // From the Cayley-Hamilton theorem, we get that for any N by N matrix A,
+    // det(A - I) - 1 = I1(A) + I2(A) + ... + IN(A),
+    // where the In are the principal invariants of A.
+
+  return A(0, 0) + A(1, 1) + A(2, 2)
+       - A(0, 1) * A(1, 0) * (1 + A(2, 2))
+       + A(0, 0) * A(1, 1) * (1 + A(2, 2))
+       - A(0, 2) * A(2, 0) * (1 + A(1, 1))
+       - A(1, 2) * A(2, 1) * (1 + A(0, 0))
+       + A(0, 0) * A(2, 2)
+       + A(1, 1) * A(2, 2)
+       + A(0, 1) * A(1, 2) * A(2, 0)
+       + A(0, 2) * A(1, 0) * A(2, 1);
+}
+
 }  // namespace aperi
