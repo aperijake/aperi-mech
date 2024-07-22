@@ -140,6 +140,22 @@ target_include_directories(aperi-mech PRIVATE
     ${HYPRE_INCLUDE_DIR}
     )
 
+############# Material Driver #############
+
+add_executable(material_driver
+    src/material_driver_main.cpp
+    )
+
+target_link_libraries(material_driver
+    aperimech
+    ${MPI_LIBRARIES}
+    )
+
+target_include_directories(material_driver PRIVATE
+    "${CMAKE_SOURCE_DIR}/include/"
+    ${MPI_INCLUDE_PATH}
+    )
+
 ############# TESTING #############
 
 enable_testing()
