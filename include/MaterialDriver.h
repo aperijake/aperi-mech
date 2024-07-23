@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <string>
 
 #include "LogUtils.h"
@@ -115,7 +116,8 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
             aperi::CerrP0() << "Invalid stress output type\n";
             return {};
         }
-        aperi::CoutP0() << stress(0, 0) << " " << stress(0, 1) << " " << stress(0, 2) << " "
+        aperi::CoutP0() << std::scientific << std::setprecision(12)
+                        << stress(0, 0) << " " << stress(0, 1) << " " << stress(0, 2) << " "
                         << stress(1, 0) << " " << stress(1, 1) << " " << stress(1, 2) << " "
                         << stress(2, 0) << " " << stress(2, 1) << " " << stress(2, 2) << std::endl;
 

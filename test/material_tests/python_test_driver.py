@@ -1,9 +1,18 @@
 from testbook import testbook
 
-@testbook('neohookean.ipynb')
-def test_function(tb):
-	tb.execute_cell("setup")
-	tb.execute_cell("test")
+def test_uniaxial(material_driver_path, path_to_notebooks, temp_dir):
+    print(f"Path to notebooks: {path_to_notebooks}")
+    print(f"Material driver path: {material_driver_path}")
+    print(f"Temp dir: {temp_dir}")
+    notebook_path = path_to_notebooks + "/neohookean.ipynb"
+    with testbook(notebook_path) as tb:
+        # The following code block is equivalent to the setup cell in the notebook
+        tb.execute_cell("setup")
+        tb.execute_cell("test")
+        func = tb.ref("run_uniaxial_test")
 
-	func = tb.ref("check_results")
-	assert func()
+        return_value, message = func(material_driver_path, temp_dir+'/neohookean_run_uniaxial_test.yaml')
+
+        if not return_value:
+            print(message)
+        assert return_value
