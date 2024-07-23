@@ -243,8 +243,7 @@ class NeoHookeanMaterial : public Material {
      */
     struct NeoHookeanGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
-        NeoHookeanGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_mu(two_mu / 2.0) {
-        }
+        NeoHookeanGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_mu(two_mu / 2.0) {}
 
         KOKKOS_INLINE_FUNCTION
         Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
@@ -252,7 +251,7 @@ class NeoHookeanMaterial : public Material {
             // Left Cauchy-Green tensor - I
             const Eigen::Matrix3d B_minus_I = displacement_gradient * displacement_gradient.transpose() + displacement_gradient.transpose() + displacement_gradient;
             const double J_minus_1 = aperi::DetApIm1(displacement_gradient);
-            static const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+            const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
             // Kirchhoff stress
             const Eigen::Matrix3d tau = m_lambda * std::log1p(J_minus_1) * I + m_mu * B_minus_I;
@@ -261,7 +260,7 @@ class NeoHookeanMaterial : public Material {
             const Eigen::Matrix3d F = displacement_gradient + I;
 
             // First Piola-Kirchhoff stress
-            Eigen::Matrix<double, 3, 3> pk1_stress = tau * F.inverse().transpose();
+            Eigen::Matrix<double, 3, 3> pk1_stress = tau * InvertMatrix(F).transpose();
             return pk1_stress;
         }
 

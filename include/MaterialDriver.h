@@ -1,9 +1,13 @@
+#pragma once
+
 #include <yaml-cpp/yaml.h>
 
+#include <Kokkos_Core.hpp>
 #include <algorithm>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <string>
+#include <vector>
 
 #include "LogUtils.h"
 #include "Material.h"
@@ -41,6 +45,42 @@ Eigen::Matrix<double, 3, 3> CreateMatrix(const YAML::Node& input_node) {
         }
     }
     return matrix;
+}
+
+KOKKOS_INLINE_FUNCTION
+Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::StressFunctor* stress_functor,
+                                                         const Kokkos::View<Eigen::Matrix<double, 3, 3>*> displacement_gradients,
+                                                         const Kokkos::View<aperi::StressOutputType*> stress_output_type_view) {
+
+    Kokkos::View<Eigen::Matrix<double, 3, 3>*> stress("stress", displacement_gradients.size());
+
+    // Loop over the displacement gradients in a Kokkos parallel_for
+    Kokkos::parallel_for("CalculateStress", displacement_gradients.size(), KOKKOS_LAMBDA(const size_t i) {
+        auto stress_output_type = stress_output_type_view(0);
+        // Get the displacement gradient
+        Eigen::Matrix<double, 3, 3> displacement_gradient = displacement_gradients(i);
+
+        // Run the stress calculation
+        Eigen::Matrix<double, 3, 3> pk1_stress = stress_functor->operator()(displacement_gradient);  // First Piola-Kirchhoff stress
+
+        // Convert the stress to the desired output type
+        if (stress_output_type == aperi::StressOutputType::SECOND_PIOLA_KIRCHHOFF) {
+            // Convert first Piola-Kirchhoff stress to second Piola-Kirchhoff stress
+            Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
+            stress(i) = deformation_gradient.inverse() * pk1_stress;
+        } else if (stress_output_type == aperi::StressOutputType::CAUCHY) {
+            // Convert first Piola-Kirchhoff stress to Cauchy stress
+            Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
+            double J = deformation_gradient.determinant();
+            stress(i) = pk1_stress * deformation_gradient.transpose() / J;
+        } else if (stress_output_type == aperi::StressOutputType::FIRST_PIOLA_KIRCHHOFF) {
+            // Return the first Piola-Kirchhoff stress
+            stress(i) = pk1_stress;
+        } else {
+            aperi::CerrP0() << "Invalid stress output type\n";
+            return;
+        } });
+    return stress;
 }
 
 std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
@@ -82,14 +122,11 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
         aperi::CerrP0() << "Error parsing YAML file: " << e.what() << "\n";
     }
 
-    // Create a material object from the material node
-    std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
+    // Create a Kokkos view of the displacement gradients
+    Kokkos::View<Eigen::Matrix<double, 3, 3>*> displacement_gradients("displacement_gradients", displacement_gradients_node.size());
 
-    // Get the stress calc functor from the material object
-    aperi::Material::StressFunctor* stress_functor = material->GetStressFunctor();
-
-    // Initialize the stress vector
-    std::vector<Eigen::Matrix3d> stresses(displacement_gradients_node.size());
+    // Create a host mirror of the Kokkos view
+    auto displacement_gradients_host = Kokkos::create_mirror_view(displacement_gradients);
 
     // Loop over the displacement gradients
     size_t i = 0;
@@ -100,29 +137,51 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
         // Create a displacement gradient matrix from the matrix node
         Eigen::Matrix<double, 3, 3> displacement_gradient = aperi::CreateMatrix(matrix_node);
 
-        // Run the stress calculation
-        Eigen::Matrix<double, 3, 3> stress = stress_functor->operator()(displacement_gradient);  // First Piola-Kirchhoff stress
-
-        if (stress_output_type == aperi::StressOutputType::SECOND_PIOLA_KIRCHHOFF) {
-            // Convert first Piola-Kirchhoff stress to second Piola-Kirchhoff stress
-            Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
-            stress = deformation_gradient.inverse() * stress;
-        } else if (stress_output_type == aperi::StressOutputType::CAUCHY) {
-            // Convert first Piola-Kirchhoff stress to Cauchy stress
-            Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
-            double J = deformation_gradient.determinant();
-            stress = stress * deformation_gradient.transpose() / J;
-        } else if (stress_output_type != aperi::StressOutputType::FIRST_PIOLA_KIRCHHOFF) {
-            aperi::CerrP0() << "Invalid stress output type\n";
-            return {};
-        }
-        aperi::CoutP0() << std::scientific << std::setprecision(12)
-                        << stress(0, 0) << " " << stress(0, 1) << " " << stress(0, 2) << " "
-                        << stress(1, 0) << " " << stress(1, 1) << " " << stress(1, 2) << " "
-                        << stress(2, 0) << " " << stress(2, 1) << " " << stress(2, 2) << std::endl;
-
-        stresses[i] = stress;
+        // Store the displacement gradient in the Kokkos view
+        displacement_gradients_host(i) = displacement_gradient;
         ++i;
+    }
+
+    // Deep copy the host mirror to the device view
+    Kokkos::deep_copy(displacement_gradients, displacement_gradients_host);
+
+    // Set the stress output
+    Kokkos::View<aperi::StressOutputType*> stress_output_type_device("stress_output_type", 1);
+
+    // Create a host mirror of the Kokkos view
+    auto stress_output_type_host = Kokkos::create_mirror_view(stress_output_type_device);
+
+    // Set the stress output type
+    stress_output_type_host(0) = stress_output_type;
+
+    // Deep copy the host mirror to the device view
+    Kokkos::deep_copy(stress_output_type_device, stress_output_type_host);
+
+    // Create a material object from the material node
+    std::shared_ptr<aperi::Material> material = aperi::CreateMaterial(material_node);
+
+    // Get the stress calc functor from the material object
+    aperi::Material::StressFunctor* stress_functor = material->GetStressFunctor();
+
+    // Run the stress calculation
+    Kokkos::View<Eigen::Matrix<double, 3, 3>*> stress = RunStressCalc(stress_functor, displacement_gradients, stress_output_type_device);
+
+    // Create a host mirror of the Kokkos view
+    auto stress_host = Kokkos::create_mirror_view(stress);
+
+    // Deep copy the device view to the host mirror
+    Kokkos::deep_copy(stress_host, stress);
+
+    // Initialize the stress vector. TODO(jake): Get rid of the extra copy?
+    std::vector<Eigen::Matrix3d> stresses(displacement_gradients_node.size());
+
+    // Print the stresses
+    for (size_t i = 0; i < stress_host.size(); ++i) {
+        stresses[i] = stress_host(i);
+        aperi::CoutP0() << std::scientific << std::setprecision(12)
+                        << stresses[i](0, 0) << " " << stresses[i](0, 1) << " " << stresses[i](0, 2) << " "
+                        << stresses[i](1, 0) << " " << stresses[i](1, 1) << " " << stresses[i](1, 2) << " "
+                        << stresses[i](2, 0) << " " << stresses[i](2, 1) << " " << stresses[i](2, 2) << std::endl;
     }
 
     return stresses;

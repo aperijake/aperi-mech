@@ -229,7 +229,8 @@ KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
     return index + 1;
 }
 
-KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen::Matrix<double, 4, 4> &mat) {
+template<int Size>
+KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const Eigen::Matrix<double, Size, Size> &mat) {
 #ifndef KOKKOS_ENABLE_CUDA
     assert(mat.fullPivLu().isInvertible());
     return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
