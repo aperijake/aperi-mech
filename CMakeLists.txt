@@ -185,18 +185,20 @@ target_link_libraries(unit_tests
 
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
-# Add a custom target to run all the tests, unit_tests and python tests
-add_custom_target(run_all_tests
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_all_tests.sh
+# Add a custom target to run all the unit tests, both the googletests in unit_tests and testbook tests in the python notebooks (e.g. material_tests)
+add_custom_target(run_all_unit_tests
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_all_unit_tests.sh
     DEPENDS unit_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
-# Copy the entire test directory to the build directory
-add_custom_command(
-    TARGET run_all_tests PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
+# Create a symbolic link to the material_test directory in the build directory so that the run_all_unit_tests script can find it
+add_custom_target(create_material_tests_symlink ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
     ${CMAKE_SOURCE_DIR}/test/material_tests ${CMAKE_CURRENT_BINARY_DIR}/material_tests
+    COMMENT "Creating symlink to material_tests directory"
 )
+
+add_dependencies(run_all_unit_tests create_material_tests_symlink)
 
 ############# PERFORMANCE TESTING #############
 
