@@ -185,6 +185,19 @@ target_link_libraries(unit_tests
 
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
+# Add a custom target to run all the tests, unit_tests and python tests
+add_custom_target(run_all_tests
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_all_tests.sh
+    DEPENDS unit_tests
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+# Copy the entire test directory to the build directory
+add_custom_command(
+    TARGET run_all_tests PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/test/material_tests ${CMAKE_CURRENT_BINARY_DIR}/material_tests
+)
+
 ############# PERFORMANCE TESTING #############
 
 file(GLOB PERFORMANCE_TEST_SOURCES "test/*PerformanceTest.cpp")

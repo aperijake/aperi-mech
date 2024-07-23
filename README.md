@@ -46,6 +46,38 @@ spack add eigen
 spack install
 ```
 
+### Install Required Python Libraries
+
+### Install Conda
+
+Follow instructions here [https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html](https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html). In short:
+
+```bash
+# For example, replace with the appropriate system file
+wget https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Linux-x86_64.sh # download
+bash Anaconda3-2024.06-1-Linux-x86_64.sh # install
+# open fresh terminal
+conda init bash # initialize, may have to path to conda if it is not found
+conda update conda
+conda config --add channels conda-forge # add path to conda-forge
+```
+
+Create an environment
+```bash
+conda create -n aperi-mech # change name as desired
+conda activate aperi-mech
+```
+
+Install required packages
+```bash
+conda install pytest testbook jupyter jupyterlab numpy scipy matplotlib ipykernel
+```
+
+Add the environment as a Jupyter kernel so it can be used to run the notebooks
+```bash
+python -m ipykernel install --user --name aperi-mech --display-name "Python (aperi-mech)"
+```
+
 ### GPU Build
 
 #### Create a Spack Environment
