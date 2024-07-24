@@ -297,9 +297,17 @@ YAML::Node GetInputSchema() {
     elastic_schema.AddAllOf(poissons_ratio_node);
     YAML::Node elastic_node = elastic_schema.GetInputSchema();
 
+    // Neo-Hookean material properties node
+    aperi::InputSchema neo_hookean_schema("neo_hookean", "map", "the neo-Hookean material properties");
+    neo_hookean_schema.AddAllOf(density_node);
+    neo_hookean_schema.AddAllOf(youngs_modulus_node);
+    neo_hookean_schema.AddAllOf(poissons_ratio_node);
+    YAML::Node neo_hookean_node = neo_hookean_schema.GetInputSchema();
+
     // Material node
     aperi::InputSchema material_schema("material", "map", "the material");
     material_schema.AddOneOf(elastic_node);
+    material_schema.AddOneOf(neo_hookean_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
     // Integration order node

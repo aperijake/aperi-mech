@@ -99,6 +99,7 @@
   "cSpell.words": [
     "cgns",
     "exodusii",
+    "hookean",
     "hsfc",
     "ioss",
     "kway",
@@ -109,7 +110,7 @@
     "SIDESET",
     "spyhis",
     "Venant"
-  ],
+],
   "editor.tokenColorCustomizations": {
     "[*Light*]": {
       "textMateRules": [

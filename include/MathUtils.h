@@ -229,7 +229,8 @@ KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
     return index + 1;
 }
 
-KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, 4, 4> InvertMatrix(const Eigen::Matrix<double, 4, 4> &mat) {
+template<int Size>
+KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const Eigen::Matrix<double, Size, Size> &mat) {
 #ifndef KOKKOS_ENABLE_CUDA
     assert(mat.fullPivLu().isInvertible());
     return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
@@ -247,6 +248,23 @@ KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3> &vect
         return 2.0 * (1.0 + normalized_radius * (-3.0 + 3.0 * normalized_radius - 1.0 * normalized_radius * normalized_radius));
     }
     return 0.0;
+}
+
+template <typename T>
+KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::Matrix<T, 3, 3> &A) {
+    // From the Cayley-Hamilton theorem, we get that for any N by N matrix A,
+    // det(A - I) - 1 = I1(A) + I2(A) + ... + IN(A),
+    // where the In are the principal invariants of A.
+
+  return A(0, 0) + A(1, 1) + A(2, 2)
+       - A(0, 1) * A(1, 0) * (1 + A(2, 2))
+       + A(0, 0) * A(1, 1) * (1 + A(2, 2))
+       - A(0, 2) * A(2, 0) * (1 + A(1, 1))
+       - A(1, 2) * A(2, 1) * (1 + A(0, 0))
+       + A(0, 0) * A(2, 2)
+       + A(1, 1) * A(2, 2)
+       + A(0, 1) * A(1, 2) * A(2, 0)
+       + A(0, 2) * A(1, 0) * A(2, 1);
 }
 
 }  // namespace aperi

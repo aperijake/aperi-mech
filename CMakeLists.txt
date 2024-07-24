@@ -93,6 +93,7 @@ find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPA
 ### aperi-mech ###
 file(GLOB LIB_SOURCES "src/*.cpp")
 list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
+list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/material_driver_main.cpp")
 
 add_library(aperimech ${LIB_SOURCES})
 
@@ -140,6 +141,22 @@ target_include_directories(aperi-mech PRIVATE
     ${HYPRE_INCLUDE_DIR}
     )
 
+############# Material Driver #############
+
+add_executable(material_driver
+    src/material_driver_main.cpp
+    )
+
+target_link_libraries(material_driver
+    aperimech
+    ${MPI_LIBRARIES}
+    )
+
+target_include_directories(material_driver PRIVATE
+    "${CMAKE_SOURCE_DIR}/include/"
+    ${MPI_INCLUDE_PATH}
+    )
+
 ############# TESTING #############
 
 enable_testing()
@@ -168,6 +185,21 @@ target_link_libraries(unit_tests
 	)
 
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
+
+# Add a custom target to run all the unit tests, both the googletests in unit_tests and testbook tests in the python notebooks (e.g. material_tests)
+add_custom_target(run_all_unit_tests
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_all_unit_tests.sh
+    DEPENDS unit_tests
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+# Create a symbolic link to the material_test directory in the build directory so that the run_all_unit_tests script can find it
+add_custom_target(create_material_tests_symlink ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+    ${CMAKE_SOURCE_DIR}/test/material_tests ${CMAKE_CURRENT_BINARY_DIR}/material_tests
+    COMMENT "Creating symlink to material_tests directory"
+)
+
+add_dependencies(run_all_unit_tests create_material_tests_symlink)
 
 ############# PERFORMANCE TESTING #############
 

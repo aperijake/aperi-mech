@@ -8,21 +8,21 @@
 
 namespace aperi {
 
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d &displacement_gradient) {
-    // Compute the Green Lagrange strain tensor, Voigt Notation.
-    // E = 0.5 * (H + H^T + H^T * H)
-    Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
-    green_lagrange_strain_tensor_voigt << displacement_gradient(0, 0) + 0.5 * displacement_gradient.col(0).dot(displacement_gradient.col(0)),
-        displacement_gradient(1, 1) + 0.5 * displacement_gradient.col(1).dot(displacement_gradient.col(1)),
-        displacement_gradient(2, 2) + 0.5 * displacement_gradient.col(2).dot(displacement_gradient.col(2)),
-        0.5 * (displacement_gradient(1, 2) + displacement_gradient(2, 1) + displacement_gradient.col(1).dot(displacement_gradient.col(2))),
-        0.5 * (displacement_gradient(0, 2) + displacement_gradient(2, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(2))),
-        0.5 * (displacement_gradient(0, 1) + displacement_gradient(1, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(1)));
-
-    return green_lagrange_strain_tensor_voigt;
-}
-
-// Compute (B_I F)^T * stress_volume, 3 x 1
+/**
+ * @brief Function for computing the internal force.
+ * @param bI_vector The b matrix for the I-th node at the material point. The b matrix is \partial N_I / \partial X_j.
+ * @param displacement_gradient The displacement gradient at the material point.
+ * @param stress_volume The second Piola-Kirchhoff stress times the volume.
+ * @return The contribution to the internal force from material point to node I.
+ * @note Internal nodal force algorithm for total Lagrangian formulation
+ * Reference:
+ * - Belytschko, Ted; Liu, Wing Kam; Moran, Brian; Elkhodary, Khalil. Nonlinear Finite Elements for Continua and Structures. Wiley. Kindle Edition.
+ *   - Chapter 4.9.2 Implementation
+ *   - Box 4.6 Discrete equations and internal nodal force algorithm for total Lagrangian formulation, p. 211
+ *   - Equation 4.9.22: f_I = /int_{\Omega_0} B_0I^T S d\Omega_0. The volume is the integration weight, giving:
+ *   -                  f_I = B_0I^T stress_volume
+ *   - With B_0I defined in 4.9.25 (note that B_0I is different from b_I, which is the gradient of the shape functions)
+ */
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 1, 3> ComputeForce(const Eigen::Matrix<double, 1, 3> &bI_vector, const Eigen::Matrix<double, 3, 3> &displacement_gradient, const Eigen::Matrix<double, 6, 1> &stress_volume) {
     Eigen::Matrix<double, 1, 3> force;
     force(0) = -(bI_vector(0, 0) * (displacement_gradient(0, 0) + 1.0) * stress_volume(0) +
@@ -74,15 +74,12 @@ struct ComputeInternalForceFunctor {
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
 
-            // Compute the Green Lagrange strain tensor, Voigt Notation.
-            const Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
-
-            // Compute the stress and internal force of the element.
-            const Eigen::Matrix<double, 6, 1> stress_volume = m_stress_functor(green_lagrange_strain_tensor_voigt) * b_matrix_and_weight.second;
+            // Compute the 2nd pk stress and internal force of the element.
+            const Eigen::Matrix<double, 3, 3> pk1_stress_neg_transpose_volume = m_stress_functor(displacement_gradient).transpose() * -b_matrix_and_weight.second;
 
             // Compute the internal force
-            for (size_t i = 0; i < NumNodes; ++i) {
-                force.row(i).noalias() += ComputeForce(b_matrix_and_weight.first.row(i), displacement_gradient, stress_volume);
+            for (size_t i = 0; i < actual_num_neighbors; ++i) {
+                force.row(i).noalias() = b_matrix_and_weight.first.row(i) * pk1_stress_neg_transpose_volume;
             }
         }
     }
@@ -105,15 +102,12 @@ struct FlexibleComputeInternalForceFunctor {
         const Eigen::Matrix3d& displacement_gradient = gathered_node_data_gradient[0];
         // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
 
-        // Compute the Green Lagrange strain tensor, Voigt Notation.
-        const Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
-
         // Compute the stress and internal force of the element.
-        const Eigen::Matrix<double, 6, 1> stress_volume = m_stress_functor(green_lagrange_strain_tensor_voigt) * volume;
+        const Eigen::Matrix<double, 3, 3> pk1_stress_neg_transpose_volume = m_stress_functor(displacement_gradient).transpose() * -volume;
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
-            force.row(i).noalias() = ComputeForce(b_matrix.row(i), displacement_gradient, stress_volume);
+            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_neg_transpose_volume;
         }
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material

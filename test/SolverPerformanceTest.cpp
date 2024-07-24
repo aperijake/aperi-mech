@@ -73,15 +73,15 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
 #ifndef NDEBUG
     // Allow for a longer runtime in debug mode, do less refinements
     if (using_gpu) {
-        gold_runtimes = {1.195e-03, 1.32e-03, 2.89e-03};
+        gold_runtimes = {1.195e-03, 1.32e-03, 3.3e-03};
     } else {
         runtime = 50.0;
         num_refinements = 2;
-        gold_runtimes = {3.61e-01, 2.89};
+        gold_runtimes = {3.25e-01, 2.6};
     }
 #else
     if (using_gpu) {
-        gold_runtimes = {8.201956e-04, 9.459842e-04, 2.550356e-03};
+        gold_runtimes = {8.201956e-04, 9.459842e-04, 2.96e-03};
     } else {
         gold_runtimes = {1.246661e-03, 9.811962e-03, 7.899994e-02};
     }
