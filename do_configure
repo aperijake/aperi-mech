@@ -77,7 +77,6 @@ cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 # cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
 
-USE_LOCAL_COMPADRE=true # For now, always use local compadre
 if ${USE_LOCAL_COMPADRE}; then
     COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
 else
