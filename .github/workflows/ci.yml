@@ -23,18 +23,15 @@ jobs:
               uses: azure/CLI@v1
               with:
                 azcliversion: 2.62.0
-                
-            - name: Start Azure VM
-              id: start_vm
-              run: |
-                az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-                VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
-                if [ "$VM_STATUS" != "VM running" ]; then
-                  az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
-                  echo "::set-output name=vm_started::true"
-                else
-                  echo "::set-output name=vm_started::false"
-                fi
+                inlineScript: |
+                  az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                  VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
+                  if [ "$VM_STATUS" != "VM running" ]; then
+                    az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+                    echo "::set-output name=vm_started::true"
+                  else
+                    echo "::set-output name=vm_started::false"
+                  fi
                 
             - name: Build project
               run: |
