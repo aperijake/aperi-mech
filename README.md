@@ -1,15 +1,41 @@
 # aperi-mech
 
-An open-source platform for computational mechanics.
+An open-source platform for computational mechanics. It uses Kokkos and will run in parallel (MPI) and on the GPU.
 
-## Building with Spack
+## Building
 
-### Install Spack
+`aperi-mech` depends on:
+- Trilinos packages including: `kokkos`, `kokkos-kernels`, `exodus`, `STK`, and more.
+- Python packages include: `NumPy`, `SciPy`, `matplotlib`, `jupyter`, and mores.
+- And other: `googletest`, `yaml`, `eigen`
+
+Dockerfiles are provided for the easiest way to get up and running. Otherwise, the recommended way to build is using `spack` and `conda`.
+
+### Docker
+
+See [https://www.docker.com/get-started/](https://www.docker.com/get-started/) to install `Docker` on your system. After that, you can build an MPI CPU image:
+
+```bash
+docker build -f Dockerfile -t aperi-mech:latest .
+```
+and start the container interactively using:
+```bash
+docker run -it aperi-mech:latest
+```
+
+For a GPU build, see the other `Dockerfile*` files in this directory. Be sure to change the `CUDA_ARCH` to match your GPU. The `Dockerfile` can also be used to see how the project is built.
+
+### Install Manually
+
+#### Prerequisites
+
+##### Spack
+
+###### Install Spack
 
 Follow the instructions at [https://spack.readthedocs.io/en/latest/getting_started.html](https://spack.readthedocs.io/en/latest/getting_started.html). In short, install the `spack` prerequisites, clone `spack`, and source the script for shell support.
 
-### Find System Tools
-
+Next find the system tools:
 ```bash
 # Add system compilers. e.g. gcc
 spack compiler find
@@ -18,9 +44,7 @@ spack compiler find
 spack external find
 ```
 
-### CPU Only Build
-
-#### Create a Spack Environment
+###### Create a Spack Environment
 
 ```bash
 # Create and activate a spack environment for the project
@@ -28,15 +52,16 @@ spack env create aperi-mech
 spacktivate aperi-mech
 ```
 
-#### Add and Install Required Packages
+###### Add and Install Required Packages
 
+For a CPU build with MPI:
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
-# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
 # Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
+spack add compadre
 spack add kokkos ~cuda ~shared cxxstd=17
-spack add trilinos +boost ~cuda +exodus +gtest +hdf5 ~shared +stk +zoltan +zoltan2 cxxstd=17
-spack add mfem +netcdf
+spack add kokkos-kernels ~cuda ~shared
+spack add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17
 spack add googletest
 spack add lcov
 spack add yaml-cpp
@@ -46,9 +71,25 @@ spack add eigen
 spack install
 ```
 
-### Install Required Python Libraries
+Or, for a GPU build:
+```bash
+# Replace cuda_arch according to your GPU.
+spack add compadre
+spack add kokkos-kernels +cuda ~shared cuda_arch=75
+spack add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
+spack add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cuda_arch=75 cxxstd=17
+spack add googletest
+spack add lcov
+spack add yaml-cpp
+spack add eigen
 
-### Install Conda
+# Install Packages
+spack install
+```
+
+##### Install Required Python Libraries
+
+###### Install Conda
 
 Follow instructions here [https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html](https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html). In short:
 
@@ -78,113 +119,54 @@ Add the environment as a Jupyter kernel so it can be used to run the notebooks
 python -m ipykernel install --user --name aperi-mech --display-name "Python (aperi-mech)"
 ```
 
-### GPU Build
+#### Build aperi-mech
 
-#### Create a Spack Environment
+##### Configure
 
+From the project root directory with the `spack` environment activated, configure with `cmake`
 ```bash
-# Create and activate a spack environment for the project
-spack env create aperi-mech-gpu
-spacktivate aperi-mech-gpu
+./do_configure
 ```
+note the options in `do_configure` script to enable GPU support (`--gpu`) and switch the build type (e.g. `--build-type Debug`)
 
-#### Add and Install Required Packages
-
+##### Build
 ```bash
-# If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
-# Add kokkos and Trilinos, adjust cuda_arch as needed for your GPU device
-# Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
-spack add compadre
-spack add kokkos-kernels +cuda ~shared cuda_arch=75
-spack add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
-spack add trilinos +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
-spack add mfem +netcdf +cuda cuda_arch=75
-spack add googletest
-spack add lcov
-spack add yaml-cpp
-spack add eigen
+cd build/Release # for CPU and release
+# cd build/Release_gpu # for GPU and release
+# cd build/Debug # for CPU and debug
+# cd build/Debug_gpu # for GPU and debug
 
-# Install Packages
-spack install
+# Build the project
+make -j 4 # change 4 to the number of processors desired
 ```
-
-### General Notes
-
-Have noticed that if a spack environment was renamed it may cause problems in finding the `nvcc` compiler. The only fix found has been to avoid renaming environments.
 
 ---
 
 ### Notes on Specific Installs
 
-#### Ubuntu 20.04, x86_64, GPU
+#### Ubuntu 20.04, x86_64, GPU, CPU, and CPU with OpenMP
 
 Successfully installed on an Azure [NC4as T4 v3](https://learn.microsoft.com/en-us/azure/virtual-machines/nct4-v3-series), Ubuntu 20.04, system using `apt-get` to install prerequisites:
 
 - `gcc@10.5.0`
 - `cmake@3.27.19`
 
-The commands for a GPU build are:
+The commands for a CPU build with OpenMP are below. There was some trouble building Compadre tests, so the `~tests` flag was important.
 
 ```bash
-# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
-spack add compadre@master%gcc@10.5.0 ~tests
-spack add kokkos-kernels%gcc@10.5.0 +cuda ~shared cuda_arch=75
-spack add kokkos%gcc@10.5.0 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
-spack add trilinos@develop%gcc@10.5.0 +boost +cuda +cuda_rdc +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk ~uvm +wrapper +zoltan +zoltan2 cuda_arch=75 cxxstd=17
-spack add mfem%gcc@10.5.0 +netcdf +cuda cuda_arch=75
-spack add googletest%gcc@10.5.0
-spack add yaml-cpp%gcc@10.5.0
-spack add eigen%gcc@10.5.0
-spack add lcov%gcc@10.5.0
-
-# Install Packages
-spack install --fresh
-```
-
-The commands for a CPU build with openmp are below. There was some trouble buidling Compadre tests, so the `~tests` flag was important.
-
-```bash
-# If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
-# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
+# Add packages
 spack add kokkos%gcc@10.5.0 ~cuda ~shared +openmp cxxstd=17
 spack add kokkos-kernels%gcc@10.5.0 ~cuda ~shared +openmp
 spack add compadre@master%gcc@10.5.0 ~tests
-spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~muelu +openmp ~sacado ~shared +stk +zoltan +zoltan2 cxxstd=17
-spack add mfem%gcc@10.5.0 +netcdf
+spack add trilinos@master%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~muelu +openmp ~sacado ~shared +stk +zoltan +zoltan2 cxxstd=17 # This can probably be trimmed more
 spack add googletest%gcc@10.5.0
 spack add yaml-cpp%gcc@10.5.0
 spack add eigen%gcc@10.5.0
 spack add lcov%gcc@10.5.0
 
-# Install Packages
+# Install
 spack install --fresh
 ```
-
-And, the commands for a CPU build without openmp or threads are:
-
-```bash
-# If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
-# Add Trilinos, googletest, lcov, yaml-cpp, and eigen
-spack add kokkos%gcc@10.5.0 ~cuda ~shared cxxstd=17
-spack add kokkos-kernels%gcc@10.5.0 ~cuda ~shared
-spack add compadre@master%gcc@10.5.0 ~tests
-spack add trilinos@develop%gcc@10.5.0 +boost ~cuda +exodus +gtest +hdf5 ~muelu ~sacado ~shared +stk +zoltan +zoltan2 cxxstd=17
-spack add mfem%gcc@10.5.0 +netcdf
-spack add googletest%gcc@10.5.0
-spack add yaml-cpp%gcc@10.5.0
-spack add eigen%gcc@10.5.0
-spack add lcov%gcc@10.5.0
-
-# Install Packages
-spack install --fresh
-```
-
-#### Ubuntu 22.04, x86_64, CPU Only
-
-Successfully installed on an Ubuntu 22.04 system using `apt-get` to install prerequisites:
-
-- `gcc@11.4.0`
-- `cmake@3.22.1`
 
 #### Ubuntu 23.10, x86_64, CPU Only
 
@@ -217,7 +199,6 @@ spack add compadre@master%apple-clang@15.0.0
 spack add kokkos-kernels%apple-clang@15.0.0 -cuda -shared +threads
 spack add kokkos%apple-clang@15.0.0 -cuda -shared +threads cxxstd=17
 spack add trilinos@master%apple-clang@15.0.0 -cuda +exodus +gtest +hdf5 -shared +stk +zoltan +zoltan2 cxxstd=17
-spack add mfem%apple-clang@15.0.0 +netcdf
 spack add googletest%apple-clang@15.0.0
 spack add yaml-cpp%apple-clang@15.0.0
 spack add eigen%apple-clang@15.0.0
