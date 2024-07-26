@@ -59,6 +59,16 @@ jobs:
               run: |
                 ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
 
+            - name: Add SSH private key
+              run: |
+                echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+                chmod 600 ~/.ssh/id_rsa
+
+            - name: Start SSH agent and add key
+              run: |
+                eval "$(ssh-agent -s)"
+                ssh-add ~/.ssh/id_rsa
+
             - name: Build project
               run: |
                 ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'git checkout ${{ github.sha }} && ./do_configure && cd build/Release && make -j 4'"
