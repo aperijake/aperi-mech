@@ -25,6 +25,7 @@ jobs:
                 azcliversion: 2.62.0
                 inlineScript: |
                   az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                  az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
                   VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
                   if [ "$VM_STATUS" != "VM running" ]; then
                     az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
@@ -32,7 +33,7 @@ jobs:
                   else
                     echo "::set-output name=vm_started::false"
                   fi
-                
+
             - name: Build project
               run: |
                 ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'git checkout ${{ github.sha }} && ./do_configure && cd build/Release && make -j 4'"
