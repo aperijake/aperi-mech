@@ -71,7 +71,7 @@ jobs:
 
             - name: Build project
               run: |
-                ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'git checkout ${{ github.sha }} && ./do_configure && cd build/Release && make -j 4'"
+                ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "cd ~/aperi-mech && docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'git checkout ${{ github.sha }} && ./do_configure && cd build/Release && make -j 4'"
 
             - name: Run tests
               run: |
