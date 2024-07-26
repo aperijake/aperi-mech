@@ -24,13 +24,30 @@ jobs:
               with:
                 azcliversion: 2.62.0
                 inlineScript: |
+                  echo "Logging into Azure..."
                   az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                  if [ $? -eq 0 ]; then
+                    echo "Logged in successfully"
+                  else
+                    echo "Failed to login"
+                    exit 1
+                  fi
+                  echo "Setting Azure subscription..."
                   az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                  if [ $? -eq 0 ]; then
+                      echo "Subscription set successfully"
+                  else
+                      echo "Failed to set subscription"
+                      exit 1
+                  fi
+                  echo "Checking if VM is running..."
                   VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
                   if [ "$VM_STATUS" != "VM running" ]; then
+                    echo "Starting VM..."
                     az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
                     echo "::set-output name=vm_started::true"
                   else
+                    echo "VM is already running"
                     echo "::set-output name=vm_started::false"
                   fi
 
