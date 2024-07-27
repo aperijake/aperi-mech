@@ -20,7 +20,7 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v2
               
-            - name: Set up Azure CLI
+            - name: Access Azure VM
               uses: azure/CLI@v1
               with:
                 azcliversion: 2.62.0
@@ -83,5 +83,31 @@ jobs:
 
             - name: Stop Azure VM
               if: env.vm_started == 'true'
-              run: |
-                az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+              uses: azure/CLI@v1
+              with:
+                azcliversion: 2.62.0
+                inlineScript: |
+                  echo "Logging into Azure..."
+                  az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                  if [ $? -eq 0 ]; then
+                    echo "Logged in successfully"
+                  else
+                    echo "Failed to login"
+                    exit 1
+                  fi
+                  echo "Setting Azure subscription..."
+                  az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                  if [ $? -eq 0 ]; then
+                      echo "Subscription set successfully"
+                  else
+                      echo "Failed to set subscription"
+                      exit 1
+                  fi
+                  echo "Deallocating VM..."
+                  az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+                  if [ $? -eq 0 ]; then
+                      echo "VM deallocated successfully"
+                  else
+                      echo "Failed to deallocate VM"
+                      exit 1
+                  fi
