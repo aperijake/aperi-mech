@@ -70,46 +70,60 @@ jobs:
       - name: Set Azure CLI config directory
         run: echo "AZURE_CONFIG_DIR=$(mktemp -d)" >> $GITHUB_ENV
 
-      - name: Build project
+      - name: Check out code
         run: |
-          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            set -e
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-              git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
-              if [ "${{ github.event_name }}" = "pull_request" ]; then
-                git checkout ${{ github.sha }}
-              else
-                git checkout ${{ github.ref }}
-              fi
+            echo "Fetching git branches..."
+            git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
+
+            echo "Checking out appropriate branch..."
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              git checkout ${{ github.sha }}
+            else
+              git checkout ${{ github.ref }}
+            fi
+          EOF
+
+      - name: Build project, Release
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
+
+              echo "Configuring project..."
               ./do_configure
+
+              echo "Building project..."
               cd build/Release
               make clean
               make -j 4
-            '
+            '  || { echo "Build project step failed"; exit 1; }
           EOF
 
-      - name: Run unit tests
+      - name: Run unit tests, Release
         run: |
-          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            set -e
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               cd ~/aperi-mech/build/Release
               make run_all_unit_tests
-            '
+            '  || { echo "Unit tests step failed"; exit 1; }
           EOF
 
-      - name: Run unit tests in parallel
+      - name: Run unit tests in parallel, Release
         run: |
-          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            set -e
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            # docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               cd ~/aperi-mech/build/Release
+              . ~/spack/share/spack/setup-env.sh
+              spack env activate aperi-mech
               mpirun -np 3 ./unit_tests
-            '
+            ' || { echo "Unit tests in parallel step failed"; exit 1; }
           EOF
 
       - name: Stop Azure VM
