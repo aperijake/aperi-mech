@@ -45,10 +45,10 @@ jobs:
                   if [ "$VM_STATUS" != "VM running" ]; then
                     echo "Starting VM..."
                     az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
-                    echo "::set-output name=vm_started::true"
+                    echo "vm_started=true" >> $GITHUB_ENV
                   else
                     echo "VM is already running"
-                    echo "::set-output name=vm_started::false"
+                    echo "vm_started=false" >> $GITHUB_ENV
                   fi
 
             - name: Create .ssh directory
@@ -78,6 +78,6 @@ jobs:
                 ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "cd ~/aperi-mech && docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'cd ~/aperi-mech/build/Release && make run_all_unit_tests'"
 
             - name: Stop Azure VM
-              if: steps.start_vm.outputs.vm_started == 'true'
+              if: env.vm_started == 'true'
               run: |
                 az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
