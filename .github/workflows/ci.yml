@@ -75,7 +75,7 @@ jobs:
 
             - name: Run tests
               run: |
-                ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'cd build/Release && make run_all_unit_tests'"
+                ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} "docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c 'cd ~/aperi-mech/build/Release && make run_all_unit_tests'"
 
             - name: Stop Azure VM
               if: steps.start_vm.outputs.vm_started == 'true'
