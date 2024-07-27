@@ -72,7 +72,8 @@ jobs:
 
       - name: Build project
         run: |
-          ssh -tt ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e
             cd ~/aperi-mech
             docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
@@ -91,7 +92,8 @@ jobs:
 
       - name: Run unit tests
         run: |
-          ssh -tt ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e
             cd ~/aperi-mech
             docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               cd ~/aperi-mech/build/Release
@@ -101,7 +103,8 @@ jobs:
 
       - name: Run unit tests in parallel
         run: |
-          ssh -tt ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+          ssh -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e
             cd ~/aperi-mech
             docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               cd ~/aperi-mech/build/Release
