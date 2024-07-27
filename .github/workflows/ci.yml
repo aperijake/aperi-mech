@@ -70,17 +70,25 @@ jobs:
       - name: Set Azure CLI config directory
         run: echo "AZURE_CONFIG_DIR=$(mktemp -d)" >> $GITHUB_ENV
 
+      - name: Start Docker container
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose up -d ${{ secrets.DOCKER_SERVICE }}
+          EOF
+
       - name: Build project
         run: |
           ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
               if [ "${{ github.event_name }}" = "pull_request" ]; then
                 git checkout ${{ github.sha }}
               else
                 git checkout ${{ github.ref }}
               fi
+              . ~/spack/share/spack/setup-env.sh
               ./do_configure
               cd build/Release
               make clean
@@ -88,14 +96,32 @@ jobs:
             '
           EOF
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --service-ports ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
               cd ~/aperi-mech/build/Release
               make run_all_unit_tests
             '
+          EOF
+
+      - name: Run unit tests in parallel
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Release
+              mpirun -np 3 ./unit_tests
+            '
+          EOF
+
+      - name: Stop Docker container
+        if: always()
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose down
           EOF
 
       - name: Stop Azure VM
