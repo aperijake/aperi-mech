@@ -126,6 +126,46 @@ jobs:
             ' || { echo "Unit tests in parallel step failed"; exit 1; }
           EOF
 
+      - name: Build project, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              echo "Setting up Spack environment..."
+              . ~/spack/share/spack/setup-env.sh
+
+              echo "Configuring project..."
+              ./do_configure --build-type Debug
+
+              echo "Building project..."
+              cd build/Debug
+              make clean
+              make -j 4
+            '  || { echo "Build project step failed"; exit 1; }
+          EOF
+
+      - name: Run unit tests, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Debug
+              make run_all_unit_tests
+            '  || { echo "Unit tests step failed"; exit 1; }
+          EOF
+
+      - name: Run unit tests in parallel, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Debug
+              . ~/spack/share/spack/setup-env.sh
+              spack env activate aperi-mech
+              mpirun -np 3 ./unit_tests
+            ' || { echo "Unit tests in parallel step failed"; exit 1; }
+          EOF
+
       - name: Stop Azure VM
         if: always() && env.vm_started == 'true'
         uses: azure/CLI@v1
