@@ -4,10 +4,17 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
   workflow_dispatch: ~ # Allows manual triggering of the workflow
 
 permissions:
   contents: read
+
+concurrency:
+  group: vm-ci-cd
+  cancel-in-progress: false
 
 jobs:
   build-and-test:
@@ -90,6 +97,7 @@ jobs:
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
             docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech
               echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
 
@@ -131,6 +139,7 @@ jobs:
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
             docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech
               echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
 
