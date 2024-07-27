@@ -99,7 +99,7 @@ jobs:
           EOF
 
       - name: Stop Azure VM
-        if: env.vm_started == 'true'
+        if: always() && env.vm_started == 'true'
         uses: azure/CLI@v1
         with:
           azcliversion: 2.62.0
