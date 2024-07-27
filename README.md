@@ -1,3 +1,5 @@
+[![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci.yml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci.yml)
+
 # aperi-mech
 
 An open-source platform for computational mechanics. It uses Kokkos and will run in parallel (MPI) and on the GPU.
