@@ -2,7 +2,7 @@
 
 #include <Kokkos_Core.hpp>
 #include <iostream>
-#include <mfem.hpp>
+//#include <mfem.hpp>
 
 #include "Application.h"
 #include "LogUtils.h"

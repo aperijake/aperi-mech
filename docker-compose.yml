@@ -1,0 +1,18 @@
+# The main purpose of this container is to run a development environment for
+# the Aperi-Mech project. It is used in CI/CD pipelines and for local development.
+# To start the container, run the following command:
+#   docker-compose run --service-ports aperi-mech-development /bin/bash
+# This will start the container and open a bash shell.
+
+version: '3.8'
+
+services:
+  aperi-mech-development:
+    image: aperi-mech:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/home/aperi-mech_docker/aperi-mech
+      - ~/aperi-mech_test:/home/aperi-mech_docker/aperi-mech_test
+    working_dir: /home/aperi-mech_docker/aperi-mech
