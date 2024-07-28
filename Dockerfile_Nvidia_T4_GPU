@@ -6,9 +6,9 @@
 # Building the project:
 #    1. This assume the user has the aperi-mech project cloned in the same directory as the Dockerfile
 #    2. Build the docker image using the following command:
-#        docker build -t aperi-mech-gpu:latest .
+#        docker build -t aperi-mech-gpu:latest -f Dockerfile_Nvidia_T4_GPU . 2>&1 | tee build.log
 #    3. Run the docker container using the following command (uses the docker-compose.yml file in the aperi-mech project):
-#        docker-compose run --service-ports aperi-mech-gpu-development /bin/bash
+#        docker-compose -f docker-compose_nvidia_t4_gpu.yml run --service-ports aperi-mech-gpu-development /bin/bash
 #    4. Start working on the aperi-mech project
 #       - Configure the project
 #          ./do_configure --gpu

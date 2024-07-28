@@ -51,12 +51,10 @@ jobs:
             if [ "$VM_STATUS" != "VM running" ]; then
               echo "Starting VM..."
               az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
-              echo "vm_started=true" >> $GITHUB_ENV
-              echo "::set-output name=vm_started::true"
+              echo "vm_started=true" >> $GITHUB_OUTPUT
             else
               echo "VM is already running"
-              echo "vm_started=false" >> $GITHUB_ENV
-              echo "::set-output name=vm_started::false"
+              echo "vm_started=false" >> $GITHUB_OUTPUT
             fi
 
   build-and-test:
