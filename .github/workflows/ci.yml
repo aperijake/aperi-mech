@@ -25,7 +25,8 @@ jobs:
 
     steps:
       - name: Access Azure VM
-        uses: azure/CLI@v1
+        id: vm-status
+        uses: azure/CLI@v2
         with:
           azcliversion: 2.62.0
           inlineScript: |
@@ -192,7 +193,7 @@ jobs:
 
       - name: Stop Azure VM
         if: always() && needs.setup.outputs.vm_started == 'true'
-        uses: azure/CLI@v1
+        uses: azure/CLI@v2
         with:
           azcliversion: 2.62.0
           inlineScript: |
