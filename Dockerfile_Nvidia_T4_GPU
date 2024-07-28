@@ -5,11 +5,33 @@
 # After building the image, the user can run the container and start working on the aperi-mech project.
 # Building the project:
 #    1. This assume the user has the aperi-mech project cloned in the same directory as the Dockerfile
-#    2. Build the docker image using the following command:
+#    2. Install prerequisites:
+#        - Docker
+#        - Nvidia drivers:
+#             sudo apt-get update
+#             sudo apt-get install -y ubuntu-drivers-common
+#             sudo ubuntu-drivers autoinstall
+#             nvidia-smi # Verify the driver installation, probably need to restart the system after the last command
+#        - Nvidia Container Toolkit:
+#              # Add the package repositories
+#             distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+#             curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+#             curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+#
+#             # Update the package lists
+#             sudo apt-get update
+#
+#             # Install the NVIDIA Container Toolkit
+#             sudo apt-get install -y nvidia-docker2
+#
+#             # Restart the Docker daemon to complete the installation
+#             sudo systemctl restart docker
+#        - Probably others. TODO(jake) add more details the next time I set this up
+#    3. Build the docker image using the following command:
 #        docker build -t aperi-mech-gpu:latest -f Dockerfile_Nvidia_T4_GPU . 2>&1 | tee build.log
-#    3. Run the docker container using the following command (uses the docker-compose.yml file in the aperi-mech project):
+#    4. Run the docker container using the following command (uses the docker-compose.yml file in the aperi-mech project):
 #        docker-compose -f docker-compose_nvidia_t4_gpu.yml run --service-ports aperi-mech-gpu-development /bin/bash
-#    4. Start working on the aperi-mech project
+#    5. Start working on the aperi-mech project
 #       - Configure the project
 #          ./do_configure --gpu
 #       - Build the project:

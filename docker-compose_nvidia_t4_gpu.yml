@@ -16,3 +16,12 @@ services:
       - .:/home/aperi-mech_docker/aperi-mech
       - ~/aperi-mech_test:/home/aperi-mech_docker/aperi-mech_test
     working_dir: /home/aperi-mech_docker/aperi-mech
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility

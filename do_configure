@@ -63,9 +63,11 @@ else
     spack env activate aperi-mech
 fi
 
+CUDA_PATH=""
 # Set build directory and GPU option
 if ${GPU}; then
 	BUILD_DIR+="_gpu"
+    CUDA_PATH=$(spack location -i cuda)
 fi
 
 # Check for cmake in the spack environment, if not found, use the system cmake
@@ -85,8 +87,6 @@ cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
 cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
-# cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
-# cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
 
 if ${USE_LOCAL_COMPADRE}; then
@@ -102,7 +102,7 @@ cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
 
 # Add the cuda compiler to the cmake command
-[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=$(spack location -i cuda)/bin/nvcc"
+[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=${CUDA_PATH}/bin/nvcc"
 
 # Add the cuda flags to the cmake command. There has got to be a better way to do this. Needed?
 [[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_FLAGS=\"-arch=sm_$(spack find kokkos | grep 'cuda_arch=' | awk -F'cuda_arch=' 'NR==1 {print $2}' | awk '{print $1}')\""
