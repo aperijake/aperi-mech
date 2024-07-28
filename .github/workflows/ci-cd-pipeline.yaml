@@ -106,7 +106,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech
               echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
@@ -142,7 +142,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech-gpu:latest -f docker-compose_nvidia_t4_gpu.yml /bin/bash -c '
+            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
               cd ~/aperi-mech
               echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
@@ -178,7 +178,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech/build/Release
               make run_all_unit_tests
             '  || { echo "Unit tests step failed"; exit 1; }
@@ -188,7 +188,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech/build/Release
               . ~/spack/share/spack/setup-env.sh
               spack env activate aperi-mech
@@ -217,7 +217,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech
               echo "Setting up Spack environment..."
               . ~/spack/share/spack/setup-env.sh
@@ -253,7 +253,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech/build/Debug
               make run_all_unit_tests
             '  || { echo "Unit tests step failed"; exit 1; }
@@ -263,7 +263,7 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
-            docker-compose run --rm aperi-mech:latest -f docker-compose.yml /bin/bash -c '
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech/build/Debug
               . ~/spack/share/spack/setup-env.sh
               spack env activate aperi-mech
