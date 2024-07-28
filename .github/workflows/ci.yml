@@ -62,26 +62,14 @@ jobs:
     needs: setup
     steps:
 
-      - name: Create .ssh directory
-        run: |
-          mkdir -p ~/.ssh
+      - name: Checkout actions
+        uses: actions/checkout@v2
 
-      - name: Add SSH key to known_hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
-
-      - name: Add SSH private key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      - name: Start SSH agent and add key
-        run: |
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_rsa
-
-      - name: Set Azure CLI config directory
-        run: echo "AZURE_CONFIG_DIR=$(mktemp -d)" >> $GITHUB_ENV
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check out code
         run: |
