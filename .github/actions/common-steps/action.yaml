@@ -1,0 +1,35 @@
+name: Common SSH and Azure CLI Setup
+description: Sets up SSH and Azure CLI for the job
+inputs:
+  VM_IP:
+    description: IP address of the VM
+    required: true
+  SSH_PRIVATE_KEY:
+    description: SSH private key
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Create .ssh directory
+      shell: bash
+      run: mkdir -p ~/.ssh
+
+    - name: Add SSH key to known_hosts
+      shell: bash
+      run: ssh-keyscan -H ${{ inputs.VM_IP }} >> ~/.ssh/known_hosts
+
+    - name: Add SSH private key
+      shell: bash
+      run: |
+        echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+    - name: Start SSH agent and add key
+      shell: bash
+      run: |
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
+
+    - name: Set Azure CLI config directory
+      shell: bash
+      run: echo "AZURE_CONFIG_DIR=$(mktemp -d)" >> $GITHUB_ENV

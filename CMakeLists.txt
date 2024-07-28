@@ -82,10 +82,6 @@ find_package(Trilinos REQUIRED PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILI
 find_package(Eigen3 REQUIRED PATHS ${EIGEN_PATH}/lib/cmake/eigen3 ${EIGEN_PATH} NO_DEFAULT_PATH)
 find_package(GTest REQUIRED PATHS ${GTEST_PATH}/lib/cmake/GTest ${GTEST_PATH} NO_DEFAULT_PATH)
 find_package(yaml-cpp REQUIRED PATHS ${YAML-CPP_PATH}/lib/cmake/yaml-cpp ${YAML-CPP_PATH} NO_DEFAULT_PATH)
-# find_path(MFEM_INCLUDE_DIR NAMES mfem.hpp PATHS ${MFEM_PATH}/include NO_DEFAULT_PATH)
-# find_library(MFEM_LIBRARY NAMES mfem PATHS ${MFEM_PATH}/lib NO_DEFAULT_PATH)
-# find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h PATHS ${HYPRE_PATH}/include NO_DEFAULT_PATH)
-# find_library(HYPRE_LIBRARY NAMES HYPRE PATHS ${HYPRE_PATH}/lib NO_DEFAULT_PATH)
 find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS ${OPENMPI_PATH}/include NO_DEFAULT_PATH)
 find_library(MPI_LIBRARIES NAMES mpi PATHS ${OPENMPI_PATH}/lib NO_DEFAULT_PATH)
 find_package(Compadre REQUIRED PATHS ${COMPADRE_PATH}/lib/cmake/Compadre ${COMPADRE_PATH} NO_DEFAULT_PATH)
@@ -100,7 +96,6 @@ add_library(aperimech ${LIB_SOURCES})
 target_link_libraries(aperimech
     yaml-cpp
     Eigen3::Eigen
-    ${MFEM_LIBRARY}
     ${Trilinos_LIBRARIES}
     ${Trilinos_TPL_LIBRARIES}
     ${MPI_LIBRARIES}
@@ -115,8 +110,6 @@ target_include_directories(aperimech PRIVATE
 	${Trilinos_INCLUDE_DIRS}
 	${Kokkos_INCLUDE_DIRS}
 	${MPI_INCLUDE_PATH}
-	${MFEM_INCLUDE_DIR}
-	${HYPRE_INCLUDE_DIR}
 	)
 
 set(MAIN_SOURCES
@@ -137,8 +130,6 @@ target_include_directories(aperi-mech PRIVATE
 	"${CMAKE_SOURCE_DIR}/include/"
     "${CMAKE_BINARY_DIR}/generated/"
     ${MPI_INCLUDE_PATH}
-    ${MFEM_INCLUDE_DIR}
-    ${HYPRE_INCLUDE_DIR}
     )
 
 ############# Material Driver #############

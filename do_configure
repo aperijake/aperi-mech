@@ -35,6 +35,11 @@ while [[ $# -gt 0 ]]; do
 		echo "Using local compadre."
 		shift
 		;;
+	--spack-env)
+		SPACK_ENV="$2"
+		shift
+		shift
+		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -48,12 +53,21 @@ BUILD_DIR="build/"
 # Append to build directory based on build type
 BUILD_DIR+="${BUILD_TYPE}"
 
-# Set build directory and Spack environment based on GPU option
-if ${GPU}; then
-	BUILD_DIR+="_gpu"
+# Activate the spack environment
+# Check if the spack environment is set, if so, activate it, otherwise, use the default environment
+if [[ -n ${SPACK_ENV} ]]; then
+	spack env activate "${SPACK_ENV}"
+elif ${GPU}; then
 	spack env activate aperi-mech-gpu-develop
 else
 	spack env activate aperi-mech
+fi
+
+CUDA_PATH=""
+# Set build directory and GPU option
+if ${GPU}; then
+	BUILD_DIR+="_gpu"
+	CUDA_PATH=$(spack location -i cuda)
 fi
 
 # Check for cmake in the spack environment, if not found, use the system cmake
@@ -73,24 +87,21 @@ cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
 cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
-# cmake_command+=" -D MFEM_PATH:FILEPATH=$(spack location -i mfem)"
-# cmake_command+=" -D HYPRE_PATH:FILEPATH=$(spack location -i hypre)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
 
 if ${USE_LOCAL_COMPADRE}; then
-    COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
+	COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
 else
-    COMPADRE_PATH=$(spack location -i compadre)
+	COMPADRE_PATH=$(spack location -i compadre)
 fi
 cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
-
 
 # Add the lcov path to the cmake command
 [[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
 
 # Add the cuda compiler to the cmake command
-[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=$(spack location -i cuda)/bin/nvcc"
+[[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=${CUDA_PATH}/bin/nvcc"
 
 # Add the cuda flags to the cmake command. There has got to be a better way to do this. Needed?
 [[ ${GPU} == true ]] && cmake_command+=" -D CMAKE_CUDA_FLAGS=\"-arch=sm_$(spack find kokkos | grep 'cuda_arch=' | awk -F'cuda_arch=' 'NR==1 {print $2}' | awk '{print $1}')\""
