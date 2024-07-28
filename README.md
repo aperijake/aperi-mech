@@ -1,4 +1,4 @@
-[![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci.yml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml)
 
 # aperi-mech
 
