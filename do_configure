@@ -35,11 +35,11 @@ while [[ $# -gt 0 ]]; do
 		echo "Using local compadre."
 		shift
 		;;
-    --spack-env)
-        SPACK_ENV="$2"
-        shift
-        shift
-        ;;
+	--spack-env)
+		SPACK_ENV="$2"
+		shift
+		shift
+		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -56,18 +56,18 @@ BUILD_DIR+="${BUILD_TYPE}"
 # Activate the spack environment
 # Check if the spack environment is set, if so, activate it, otherwise, use the default environment
 if [[ -n ${SPACK_ENV} ]]; then
-    spack env activate ${SPACK_ENV}
+	spack env activate "${SPACK_ENV}"
 elif ${GPU}; then
-    spack env activate aperi-mech-gpu-develop
+	spack env activate aperi-mech-gpu-develop
 else
-    spack env activate aperi-mech
+	spack env activate aperi-mech
 fi
 
 CUDA_PATH=""
 # Set build directory and GPU option
 if ${GPU}; then
 	BUILD_DIR+="_gpu"
-    CUDA_PATH=$(spack location -i cuda)
+	CUDA_PATH=$(spack location -i cuda)
 fi
 
 # Check for cmake in the spack environment, if not found, use the system cmake
@@ -90,12 +90,11 @@ cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
 
 if ${USE_LOCAL_COMPADRE}; then
-    COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
+	COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
 else
-    COMPADRE_PATH=$(spack location -i compadre)
+	COMPADRE_PATH=$(spack location -i compadre)
 fi
 cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
-
 
 # Add the lcov path to the cmake command
 [[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i lcov)/bin"

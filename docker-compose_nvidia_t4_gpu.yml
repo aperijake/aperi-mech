@@ -4,7 +4,7 @@
 #   docker-compose -f docker-compose-nvidia.yml run --service-ports aperi-mech-gpu-development /bin/bash
 # This will start the container and open a bash shell.
 
-version: '3.8'
+version: "3.8"
 
 services:
   aperi-mech-gpu-development:
