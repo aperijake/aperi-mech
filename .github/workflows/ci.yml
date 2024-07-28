@@ -18,12 +18,16 @@ concurrency:
 
 jobs:
   setup:
+    name: Setup
     runs-on: ubuntu-latest
 
     outputs:
         vm_started: ${{ steps.vm-status.outputs.vm_started }}
 
     steps:
+      - name: Checkout code # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
       - name: Access Azure VM
         id: vm-status
         uses: azure/CLI@v2
@@ -57,21 +61,13 @@ jobs:
               echo "vm_started=false" >> $GITHUB_OUTPUT
             fi
 
-  build-and-test:
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-
-      - name: Checkout actions
-        uses: actions/checkout@v2
-
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Check out code
+      - name: Checkout code
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
@@ -89,92 +85,160 @@ jobs:
             fi
           EOF
 
-      #- name: Build project, Release
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech
-      #        echo "Setting up Spack environment..."
-      #        . ~/spack/share/spack/setup-env.sh
+  build-release:
+    name: Build Release
+    runs-on: ubuntu-latest
+    needs: setup
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code # Just to get required actions in .github/
+        uses: actions/checkout@v4
 
-      #        echo "Configuring project..."
-      #        ./do_configure
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      #        echo "Building project..."
-      #        cd build/Release
-      #        make clean
-      #        make -j 4
-      #      '  || { echo "Build project step failed"; exit 1; }
-      #    EOF
+      - name: Build project
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech
+              echo "Setting up Spack environment..."
+              . ~/spack/share/spack/setup-env.sh
 
-      #- name: Run unit tests, Release
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech/build/Release
-      #        make run_all_unit_tests
-      #      '  || { echo "Unit tests step failed"; exit 1; }
-      #    EOF
+              echo "Configuring project..."
+              ./do_configure
 
-      #- name: Run unit tests in parallel, Release
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      # docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech/build/Release
-      #        . ~/spack/share/spack/setup-env.sh
-      #        spack env activate aperi-mech
-      #        mpirun -np 3 ./unit_tests
-      #      ' || { echo "Unit tests in parallel step failed"; exit 1; }
-      #    EOF
+              echo "Building project..."
+              cd build/Release
+              make clean
+              make -j 4
+            '  || { echo "Build project step failed"; exit 1; }
+          EOF
 
-      #- name: Build project, Debug
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech
-      #        echo "Setting up Spack environment..."
-      #        . ~/spack/share/spack/setup-env.sh
+  test-release:
+    name: Test Release
+    runs-on: ubuntu-latest
+    needs: [setup, build-release]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code # Just to get required actions in .github/
+        uses: actions/checkout@v4
 
-      #        echo "Configuring project..."
-      #        ./do_configure --build-type Debug
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      #        echo "Building project..."
-      #        cd build/Debug
-      #        make clean
-      #        make -j 4
-      #      '  || { echo "Build project step failed"; exit 1; }
-      #    EOF
+      - name: Run unit tests
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Release
+              make run_all_unit_tests
+            '  || { echo "Unit tests step failed"; exit 1; }
+          EOF
 
-      #- name: Run unit tests, Debug
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech/build/Debug
-      #        make run_all_unit_tests
-      #      '  || { echo "Unit tests step failed"; exit 1; }
-      #    EOF
+      - name: Run unit tests in parallel, Release
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            # docker-compose exec ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Release
+              . ~/spack/share/spack/setup-env.sh
+              spack env activate aperi-mech
+              mpirun -np 3 ./unit_tests
+            ' || { echo "Unit tests in parallel step failed"; exit 1; }
+          EOF
 
-      #- name: Run unit tests in parallel, Debug
-      #  run: |
-      #    ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-      #      cd ~/aperi-mech
-      #      docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
-      #        cd ~/aperi-mech/build/Debug
-      #        . ~/spack/share/spack/setup-env.sh
-      #        spack env activate aperi-mech
-      #        mpirun -np 3 ./unit_tests
-      #      ' || { echo "Unit tests in parallel step failed"; exit 1; }
-      #    EOF
+  build-debug:
+    name: Build Debug
+    runs-on: ubuntu-latest
+    needs: setup
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code # Just to get required actions in .github/
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build project, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech
+              echo "Setting up Spack environment..."
+              . ~/spack/share/spack/setup-env.sh
+
+              echo "Configuring project..."
+              ./do_configure --build-type Debug
+
+              echo "Building project..."
+              cd build/Debug
+              make clean
+              make -j 4
+            '  || { echo "Build project step failed"; exit 1; }
+          EOF
+
+  test-debug:
+    name: Test Debug
+    runs-on: ubuntu-latest
+    needs: [setup, build-debug]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code # Just to get required actions in .github/
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run unit tests, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Debug
+              make run_all_unit_tests
+            '  || { echo "Unit tests step failed"; exit 1; }
+          EOF
+
+      - name: Run unit tests in parallel, Debug
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose run --rm ${{ secrets.DOCKER_SERVICE }} /bin/bash -c '
+              cd ~/aperi-mech/build/Debug
+              . ~/spack/share/spack/setup-env.sh
+              spack env activate aperi-mech
+              mpirun -np 3 ./unit_tests
+            ' || { echo "Unit tests in parallel step failed"; exit 1; }
+          EOF
 
   teardown:
     runs-on: ubuntu-latest
-    needs: [setup, build-and-test]
+    needs: [setup, build-release, test-release, build-debug, test-debug]
     steps:
 
       # For debugging purposes
