@@ -11,9 +11,35 @@ An open-source platform for computational mechanics. It uses Kokkos and will run
 - Python packages include: `NumPy`, `SciPy`, `matplotlib`, `jupyter`, and mores.
 - And other: `googletest`, `yaml`, `eigen`
 
-Dockerfiles are provided for the easiest way to get up and running. Otherwise, the recommended way to build is using `spack` and `conda`.
+### LFS Requirement
+
+`aperi-mech` uses Git Large File Storage (LFS) for managing large files. Ensure you have `git-lfs` installed and configured before cloning the repository.
+
+#### Install Git LFS
+
+Follow the instructions at [https://git-lfs.github.com/](https://git-lfs.github.com/). In short:
+
+```bash
+# Install git-lfs
+sudo apt-get install git-lfs
+
+# Initialize git-lfs in your repository
+git lfs install
+```
+
+#### Cloning the repository
+
+When cloning the repository, ensure that LFS files are pulled correctly:
+
+```bash
+git clone https://github.com/aperijake/aperi-mech.git
+cd aperi-mech
+git lfs pull
+```
 
 ### Docker
+
+Dockerfiles are provided for the easiest way to get up and running. Otherwise, the recommended way to build is using `spack` and `conda` or `pip`.
 
 See [https://www.docker.com/get-started/](https://www.docker.com/get-started/) to install `Docker` on your system. After that, you can build an MPI CPU image:
 
