@@ -42,6 +42,7 @@ lint:
       paths:
         - .vscode/settings.json
         - build/**
+  skip_missing_compile_command: true
 actions:
   disabled:
     - trunk-announce
