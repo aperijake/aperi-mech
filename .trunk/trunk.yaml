@@ -30,11 +30,11 @@ lint:
     - clang-format@16.0.3
     - trivy@0.53.0
     - yamllint@1.35.1
-    - checkov@3.2.208
+    - checkov@3.2.213
     - git-diff-check
     - markdownlint@0.41.0
     - prettier@3.3.3
-    - trufflehog@3.80.2
+    - trufflehog@3.80.3
   disabled:
     - include-what-you-use
   ignore:
