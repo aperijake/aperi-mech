@@ -35,11 +35,6 @@ while [[ $# -gt 0 ]]; do
 		echo "Using local compadre."
 		shift
 		;;
-	--spack-env)
-		SPACK_ENV="$2"
-		shift
-		shift
-		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -53,15 +48,8 @@ BUILD_DIR="build/"
 # Append to build directory based on build type
 BUILD_DIR+="${BUILD_TYPE}"
 
-# Activate the spack environment
-# Check if the spack environment is set, if so, activate it, otherwise, use the default environment
-# if [[ -n ${SPACK_ENV} ]]; then
-# 	spack env activate "${SPACK_ENV}"
-# elif ${GPU}; then
-# 	spack env activate aperi-mech-gpu-develop
-# else
-# 	spack env activate aperi-mech
-# fi
+# If some of the spack commmands below fail, make sure the correct environment is activated. e.g.:
+# spack env activate aperi-mech
 
 CUDA_PATH=""
 # Set build directory and GPU option
