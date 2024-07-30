@@ -219,27 +219,27 @@ def parse_arguments():
         default=".",
     )
     parser.add_argument(
-        "--build_dir",
+        "--build-dir",
         help="Directory containing the build",
         default="/home/azureuser/projects/aperi-mech/build/",
     )
     parser.add_argument(
-        "--clean_logs",
+        "--clean-logs",
         help="Clean the log files from the tests and exit",
         action="store_true",
     )
     parser.add_argument(
-        "--clean_results",
+        "--clean-results",
         help="Clean the results files from the tests and exit",
         action="store_true",
     )
     parser.add_argument(
-        "--keep_results",
+        "--keep-results",
         help="Keep the results files even if the test passes. (results files are always kept if the test fails)",
         action="store_true",
     )
     parser.add_argument(
-        "--no_preclean",
+        "--no-preclean",
         help="Do not clean the logs and results before running the tests",
         action="store_true",
     )
