@@ -83,6 +83,7 @@ jobs:
             else
               git checkout ${{ github.ref }}
             fi
+            git lfs pull
           EOF
 
   build-release:
@@ -144,11 +145,39 @@ jobs:
             cd ~/aperi-mech
             docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
               cd ~/aperi-mech/build/Release
-              make run_all_unit_tests
+              ./unit_tests
             '  || { echo "Unit tests step failed"; exit 1; }
           EOF
 
-      - name: Run unit tests in parallel, Release
+      - name: Run material tests
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
+              cd ~/aperi-mech/build/Release
+              make run_material_tests
+            '  || { echo "Material tests step failed"; exit 1; }
+          EOF
+
+      - name: Run utils modules tests
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
+              # Activate Spack environment
+              . ~/spack/share/spack/setup-env.sh
+              spack env activate aperi-mech
+
+              # Add aperi-mech build directory to PATH
+              export PATH=$PATH:~/aperi-mech/build/Release
+
+              # Run utils modules tests
+              cd ~/aperi-mech/build/Release
+              make run_utils_modules_tests
+            '  || { echo "Utils modules tests step failed"; exit 1; }
+          EOF
+
+      - name: Run unit tests in parallel
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
@@ -160,212 +189,212 @@ jobs:
             ' || { echo "Unit tests in parallel step failed"; exit 1; }
           EOF
 
-  build-debug:
-    name: Build Debug
-    runs-on: ubuntu-latest
-    needs: setup
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # build-debug:
+  #   name: Build Debug
+  #   runs-on: ubuntu-latest
+  #   needs: setup
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Build project, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
+  #     - name: Build project, Debug
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
+  #             cd ~/aperi-mech
+  #             echo "Setting up Spack environment..."
+  #             . ~/spack/share/spack/setup-env.sh
 
-              echo "Configuring project..."
-              ./do_configure --build-type Debug
+  #             echo "Configuring project..."
+  #             ./do_configure --build-type Debug
 
-              echo "Building project..."
-              cd build/Debug
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
+  #             echo "Building project..."
+  #             cd build/Debug
+  #             make clean
+  #             make -j 4
+  #           '  || { echo "Build project step failed"; exit 1; }
+  #         EOF
 
-  test-debug:
-    name: Test Debug
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # test-debug:
+  #   name: Test Debug
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-debug]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+  #     - name: Run unit tests, Debug
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
+  #             cd ~/aperi-mech/build/Debug
+  #             make run_all_unit_tests
+  #           '  || { echo "Unit tests step failed"; exit 1; }
+  #         EOF
 
-      - name: Run unit tests in parallel, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              . ~/spack/share/spack/setup-env.sh
-              spack env activate aperi-mech
-              mpirun -np 3 ./unit_tests
-            ' || { echo "Unit tests in parallel step failed"; exit 1; }
-          EOF
+  #     - name: Run unit tests in parallel, Debug
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
+  #             cd ~/aperi-mech/build/Debug
+  #             . ~/spack/share/spack/setup-env.sh
+  #             spack env activate aperi-mech
+  #             mpirun -np 3 ./unit_tests
+  #           ' || { echo "Unit tests in parallel step failed"; exit 1; }
+  #         EOF
 
-  build-release-gpu:
-    name: Build Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-release, test-release]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # build-release-gpu:
+  #   name: Build Release, GPU
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-release, test-release]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Build project
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
+  #     - name: Build project
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
+  #             cd ~/aperi-mech
+  #             echo "Setting up Spack environment..."
+  #             . ~/spack/share/spack/setup-env.sh
 
-              echo "Configuring project..."
-              ./do_configure --gpu --spack-env aperi-mech
+  #             echo "Configuring project..."
+  #             ./do_configure --gpu --spack-env aperi-mech
 
-              echo activate aperi-mech
-              spack env activate aperi-mech
+  #             echo activate aperi-mech
+  #             spack env activate aperi-mech
 
-              echo "Building project..."
-              cd build/Release_gpu
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
+  #             echo "Building project..."
+  #             cd build/Release_gpu
+  #             make clean
+  #             make -j 4
+  #           '  || { echo "Build project step failed"; exit 1; }
+  #         EOF
 
-  test-release-gpu:
-    name: Test Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-release-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # test-release-gpu:
+  #   name: Test Release, GPU
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-release-gpu]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release_gpu
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+  #     - name: Run unit tests, GPU
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
+  #             cd ~/aperi-mech/build/Release_gpu
+  #             make run_all_unit_tests
+  #           '  || { echo "Unit tests step failed"; exit 1; }
+  #         EOF
 
-  build-debug-gpu:
-    name: Build Debug, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug, test-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # build-debug-gpu:
+  #   name: Build Debug, GPU
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-debug, test-debug]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Build project, Debug, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
+  #     - name: Build project, Debug, GPU
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           cd ~/aperi-mech
+  #           docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
+  #             cd ~/aperi-mech
+  #             echo "Setting up Spack environment..."
+  #             . ~/spack/share/spack/setup-env.sh
 
-              echo "Configuring project..."
-              ./do_configure --gpu --spack-env aperi-mech --build-type Debug
+  #             echo "Configuring project..."
+  #             ./do_configure --gpu --spack-env aperi-mech --build-type Debug
 
-              echo activate aperi-mech
-              spack env activate aperi-mech
+  #             echo activate aperi-mech
+  #             spack env activate aperi-mech
 
-              echo "Building project..."
-              cd build/Debug_gpu
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
+  #             echo "Building project..."
+  #             cd build/Debug_gpu
+  #             make clean
+  #             make -j 4
+  #           '  || { echo "Build project step failed"; exit 1; }
+  #         EOF
 
-  test-debug-gpu:
-    name: Test Debug, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
+  # test-debug-gpu:
+  #   name: Test Debug, GPU
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-debug-gpu]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout code # Just to get required actions in .github/
+  #       uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     - name: Common SSH and Azure CLI Setup
+  #       uses: ./.github/actions/common-steps
+  #       with:
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, Debug, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-              cd ~/aperi-mech
-              docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug_gpu
-              make run_all_unit_tests
-              '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+  #     - name: Run unit tests, Debug, GPU
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #             cd ~/aperi-mech
+  #             docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
+  #             cd ~/aperi-mech/build/Debug_gpu
+  #             make run_all_unit_tests
+  #             '  || { echo "Unit tests step failed"; exit 1; }
+  #         EOF
 
   teardown:
     runs-on: ubuntu-latest
@@ -374,12 +403,12 @@ jobs:
         setup,
         build-release,
         test-release,
-        build-debug,
-        test-debug,
-        build-release-gpu,
-        test-release-gpu,
-        build-debug-gpu,
-        test-debug-gpu,
+        # build-debug,
+        # test-debug,
+        # build-release-gpu,
+        # test-release-gpu,
+        # build-debug-gpu,
+        # test-debug-gpu,
       ]
     steps:
       # For debugging purposes

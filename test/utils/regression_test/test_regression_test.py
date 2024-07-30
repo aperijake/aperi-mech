@@ -28,7 +28,7 @@ class TestRegressionTest(unittest.TestCase):
         if cls.aperi_mech is None:
             error_msg = "aperi-mech not found at: " + cls.aperi_mech
             error_msg += "\nPlease make sure the environment is set up correctly:"
-            error_msg += "\n - Make sure 'aperi-mech' is in the PATH. e.g. 'which aperi-mech' to check. If not, add it to the PATH: 'export PATH=\$PATH:/path/to/aperi-mech'"
+            error_msg += r"\n - Make sure 'aperi-mech' is in the PATH. e.g. 'which aperi-mech' to check. If not, add it to the PATH: 'export PATH=\$PATH:/path/to/aperi-mech'"
             raise FileNotFoundError(error_msg)
 
         # Get the current directory

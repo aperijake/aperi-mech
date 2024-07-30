@@ -1,16 +1,15 @@
 ############# PERFORMANCE TESTING #############
-file(GLOB PERFORMANCE_TEST_SOURCES "test/*PerformanceTest.cpp")
-list(APPEND PERFORMANCE_TEST_SOURCES "test/UnitTestUtils.cpp")
-list(FILTER TEST_SOURCES EXCLUDE REGEX "test/unit_tests.cpp")
+file(GLOB PERFORMANCE_TEST_SOURCES "test/performance_tests/gtests/*.cpp")
+list(APPEND PERFORMANCE_TEST_SOURCES "test/unit_tests/UnitTestUtils.cpp")
 
 # Add an executable for the unit tests
 add_executable(performance_tests
-    test/performance_tests.cpp  # Test runner file
     ${PERFORMANCE_TEST_SOURCES}
 )
 target_include_directories(performance_tests PRIVATE
     "${CMAKE_SOURCE_DIR}/include/"
-    "${CMAKE_SOURCE_DIR}/test/"
+    "${CMAKE_SOURCE_DIR}/test/unit_tests/"
+    "${CMAKE_SOURCE_DIR}/test/performance_tests/gtests/"
     ${MPI_INCLUDE_PATH}
 )
 target_link_libraries(performance_tests
