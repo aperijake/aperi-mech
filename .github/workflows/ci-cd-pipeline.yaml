@@ -25,7 +25,7 @@ jobs:
       vm_started: ${{ steps.vm-status.outputs.vm_started }}
 
     steps:
-      - name: Checkout code # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
       - name: Access Azure VM
@@ -67,7 +67,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: Checkout Code on VM
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
@@ -83,7 +83,8 @@ jobs:
             else
               git checkout ${{ github.ref }}
             fi
-            git lfs pull
+            git lfs pull # Pull LFS files
+            rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
   build-release:
@@ -94,33 +95,17 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+      - name: Build Release
+        uses: ./.github/actions/build-action
         with:
+          build-type: Release
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Build project
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
-
-              echo "Configuring project..."
-              ./do_configure
-
-              echo "Building project..."
-              cd build/Release
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
 
   test-release:
     name: Test Release
@@ -130,7 +115,7 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
       - name: Common SSH and Azure CLI Setup
@@ -398,8 +383,8 @@ jobs:
 
   teardown:
     runs-on: ubuntu-latest
-    needs:
-      [
+    name: Teardown
+    needs: [
         setup,
         build-release,
         test-release,

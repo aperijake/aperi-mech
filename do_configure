@@ -55,13 +55,13 @@ BUILD_DIR+="${BUILD_TYPE}"
 
 # Activate the spack environment
 # Check if the spack environment is set, if so, activate it, otherwise, use the default environment
-if [[ -n ${SPACK_ENV} ]]; then
-	spack env activate "${SPACK_ENV}"
-elif ${GPU}; then
-	spack env activate aperi-mech-gpu-develop
-else
-	spack env activate aperi-mech
-fi
+# if [[ -n ${SPACK_ENV} ]]; then
+# 	spack env activate "${SPACK_ENV}"
+# elif ${GPU}; then
+# 	spack env activate aperi-mech-gpu-develop
+# else
+# 	spack env activate aperi-mech
+# fi
 
 CUDA_PATH=""
 # Set build directory and GPU option
