@@ -1,9 +1,11 @@
+#pragma once
 #include <gtest/gtest.h>
-#include <chrono>
 #include <mpi.h>
 
 #include <Compadre_GMLS.hpp>
 #include <Kokkos_Core.hpp>
+#include <chrono>
+#include <cstdlib>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
@@ -13,18 +15,17 @@
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
-#include <cstdlib>
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
 #include "FunctionValueStorageProcessorTestFixture.h"
-#include "MeshData.h"
 #include "MathUtils.h"
+#include "MeshData.h"
 #include "UnitTestUtils.h"
 
 template <typename ViewType>
 ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSpace> &view) {
-    auto sum_function = KOKKOS_LAMBDA(const int i, ViewType &lsum ) {
+    auto sum_function = KOKKOS_LAMBDA(const int i, ViewType &lsum) {
         lsum += view(i);
     };
     ViewType total = 0;
@@ -34,11 +35,10 @@ ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSp
 
 // Compadre fixture
 class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTestFixture {
-   using ExecSpace = stk::ngp::ExecSpace;
-   using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
+    using ExecSpace = stk::ngp::ExecSpace;
+    using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
 
    public:
-
     template <typename ViewType>
     void TransferFieldToKokkosView(const aperi::FieldQueryData &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace> &field_view, const bool overwrite = false) {
         using DataType = typename Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace>::value_type;
@@ -90,11 +90,12 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Calculate row starts
         Kokkos::View<int *, Kokkos::DefaultExecutionSpace> row_starts("row_starts", row_length_field.extent(0));
-        Kokkos::parallel_scan("calculate row lengths", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i, int &running_sum, bool final) {
-            if (final) {
-                row_starts(i) = running_sum;
-            }
-            running_sum += row_length_field(i);
+        Kokkos::parallel_scan(
+            "calculate row lengths", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i, int &running_sum, bool final) {
+                if (final) {
+                    row_starts(i) = running_sum;
+                }
+                running_sum += row_length_field(i);
             });
         Kokkos::fence();
 
@@ -103,16 +104,18 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         // Flatten the field
         // field_view is a 1D view that should be already sized to the total number of entries in the compressed row field
 #ifndef NDEBUG
-        Kokkos::parallel_for("check field size", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, 1), KOKKOS_LAMBDA(int) {
-            assert(field_view.extent(0) == row_starts(row_length_field.extent(0) - 1) + row_length_field(row_length_field.extent(0) - 1));
-        });
+        Kokkos::parallel_for(
+            "check field size", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, 1), KOKKOS_LAMBDA(int) {
+                assert(field_view.extent(0) == row_starts(row_length_field.extent(0) - 1) + row_length_field(row_length_field.extent(0) - 1));
+            });
 #endif
-        Kokkos::parallel_for("compressed row field", stk::ngp::DeviceRangePolicy(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i) {
-            for (int j = 0; j < row_length_field(i); ++j) {
-                field_view(row_starts(i) + j) = ngp_field(entity_indices(i), j);
-                // std::cout << "proc_rank = " << proc_rank << ", i = " << i << ", entity_indices(i) = " << entity_indices(i).bucket_ord << ", j = " << j << ", field_view = " << field_view(row_starts(i) + j) << "\n";
-            }
-        });
+        Kokkos::parallel_for(
+            "compressed row field", stk::ngp::DeviceRangePolicy(0, row_length_field.extent(0)), KOKKOS_LAMBDA(int i) {
+                for (int j = 0; j < row_length_field(i); ++j) {
+                    field_view(row_starts(i) + j) = ngp_field(entity_indices(i), j);
+                    // std::cout << "proc_rank = " << proc_rank << ", i = " << i << ", entity_indices(i) = " << entity_indices(i).bucket_ord << ", j = " << j << ", field_view = " << field_view(row_starts(i) + j) << "\n";
+                }
+            });
     }
 
     // Convert to 0-based index
@@ -120,12 +123,13 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         // int proc_rank;
         // MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
         // Convert to 0-based index
-        Kokkos::parallel_for("convert to 0-based index", stk::ngp::DeviceRangePolicy(0, view.extent(0)), KOKKOS_LAMBDA(int i) {
-            stk::mesh::Entity node_id(view(i));
-            // cast to double to match the type of the view
-            view(i) = static_cast<double>(node_id.local_offset() - 1);
-            // std::cout << "proc_rank = " << proc_rank << ", i = " << i << ", view = " << view(i) << "\n";
-        });
+        Kokkos::parallel_for(
+            "convert to 0-based index", stk::ngp::DeviceRangePolicy(0, view.extent(0)), KOKKOS_LAMBDA(int i) {
+                stk::mesh::Entity node_id(view(i));
+                // cast to double to match the type of the view
+                view(i) = static_cast<double>(node_id.local_offset() - 1);
+                // std::cout << "proc_rank = " << proc_rank << ", i = " << i << ", view = " << view(i) << "\n";
+            });
     }
 
     void SetupFieldToViewTransfer(const bool check_fields = true) {
@@ -222,10 +226,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
 
         field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, m_neighbor_lists_device);
+        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, m_neighbor_lists_device);
         // Convert to 0-based index
         ConvertToZeroBasedIndex(m_neighbor_lists_device);
-        Kokkos::deep_copy(m_neighbor_lists_host, m_neighbor_lists_device); // Not used here, but to be consistent
+        Kokkos::deep_copy(m_neighbor_lists_host, m_neighbor_lists_device);  // Not used here, but to be consistent
 
         // Check neighbors
         if (check_fields) {
@@ -249,7 +253,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         }
     }
 
-    void DebugPrintViews(){
+    void DebugPrintViews() {
         // Print coordinates
         Kokkos::deep_copy(m_coordinates_view_host, m_coordinates_view_device);
         for (size_t i = 0; i < m_coordinates_view_host.extent(0); ++i) {
@@ -289,7 +293,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
     std::pair<double, double> TestBuildingApproximationFunctions(bool use_variable_ball = true) {
         auto start = std::chrono::high_resolution_clock::now();
         // Perform non-Compadre neighbor search
-        auto search_start_time = std::chrono::high_resolution_clock::now(); // benchmark
+        auto search_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         if (use_variable_ball) {
             m_search_processor->add_nodes_neighbors_within_variable_ball(m_kernel_factor);
         } else {
@@ -299,8 +303,8 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         std::chrono::duration<double> search_runtime = search_end_time - search_start_time;
         std::cout << "Search runtime: " << search_runtime.count() << " (s)" << std::endl;
 
-        auto field_to_view_start = std::chrono::high_resolution_clock::now(); // benchmark
-        bool check_fields = false; // Checked in test above
+        auto field_to_view_start = std::chrono::high_resolution_clock::now();  // benchmark
+        bool check_fields = false;                                             // Checked in test above
         SetupFieldToViewTransfer(check_fields);
         auto field_to_view_end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> field_to_view_runtime = field_to_view_end - field_to_view_start;
@@ -308,8 +312,8 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Compute the function values using the shape functions functor for comparison
         BuildFunctionValueStorageProcessor();
-        bool use_target_center_kernel = true; // Like Compadre, but search still uses source center kernel so this is not perfect
-        auto rk_start_time = std::chrono::high_resolution_clock::now(); // benchmark
+        bool use_target_center_kernel = true;                            // Like Compadre, but search still uses source center kernel so this is not perfect
+        auto rk_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, use_target_center_kernel);
         auto rk_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> rk_runtime = rk_end_time - rk_start_time;
@@ -337,7 +341,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         // generate the alphas that to be combined with data for each target operation requested in lro
         int number_of_batches = 10;
         bool keep_coefficients = false;
-        auto compadre_start_time = std::chrono::high_resolution_clock::now(); // benchmark
+        auto compadre_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
         auto compadre_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> compadre_runtime = compadre_end_time - compadre_start_time;
@@ -348,8 +352,8 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Transfer the function values to a Kokkos view
         aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", m_total_num_neighbors); // All nodes are neighbors
-        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"},  m_num_neighbors_view_device, function_values_device);
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", m_total_num_neighbors);  // All nodes are neighbors
+        TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, function_values_device);
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
         Kokkos::deep_copy(function_values_host, function_values_device);
 
@@ -378,7 +382,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
             }
             EXPECT_NEAR(alpha_sum, 1.0, 1.e-10);
         }
-        EXPECT_GT(num_with_value, num_with_zero); // Sanity check
+        EXPECT_GT(num_with_value, num_with_zero);  // Sanity check
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
@@ -396,7 +400,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         FunctionValueStorageProcessorTestFixture::TearDown();
     }
 
-    void ResetCompadreApproximationFunction(){
+    void ResetCompadreApproximationFunction() {
         // Reset scalar values
         m_total_num_neighbors = 0;
         m_kernel_factor = 1.0;

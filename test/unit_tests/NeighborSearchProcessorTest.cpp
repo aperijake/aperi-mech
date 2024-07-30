@@ -221,7 +221,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
-TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch_5x5x5) {
+TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch5x5x5) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 5) {

@@ -25,7 +25,7 @@ lint:
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
-    - include-what-you-use@0.20
+    #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
     - trivy@0.53.0
@@ -35,6 +35,8 @@ lint:
     - markdownlint@0.41.0
     - prettier@3.3.3
     - trufflehog@3.80.2
+  disabled:
+    - include-what-you-use
   ignore:
     - linters: [ALL]
       paths:

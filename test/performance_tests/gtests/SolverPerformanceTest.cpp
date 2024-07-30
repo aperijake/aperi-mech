@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
+#include <yaml-cpp/yaml.h>
 
 #include <fstream>
 #include <memory>
-#include <mpi.h>
 #include <string>
 #include <vector>
-#include <yaml-cpp/yaml.h>
 
 #include "LogUtils.h"
 #include "SolverTestFixture.h"
@@ -131,9 +131,9 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
     aperi::CoutP0() << std::setw(20) << "Mesh size" << std::setw(20) << "Number of nodes" << std::setw(20) << "Number of steps" << std::setw(20) << "End time" << std::endl;
     for (size_t i = 0; i < num_refinements; ++i) {
         aperi::CoutP0() << std::setw(20) << std::to_string(num_elem_x[i]) + "x" + std::to_string(num_elem_y[i]) + "x" + std::to_string(num_elem_z[i])
-                  << std::setw(20) << num_nodes[i]
-                  << std::setw(20) << num_steps[i]
-                  << std::setw(20) << end_times[i] << std::endl;
+                        << std::setw(20) << num_nodes[i]
+                        << std::setw(20) << num_steps[i]
+                        << std::setw(20) << end_times[i] << std::endl;
     }
     aperi::CoutP0() << "--------------------------------------------------------------------------------" << std::endl;
 
