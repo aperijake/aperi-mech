@@ -26,6 +26,7 @@ def test_uniaxial(notebook_setup):
 
     if not return_value:
         print(message)
+    # trunk-ignore(bandit/B101)
     assert return_value
 
 
@@ -40,4 +41,5 @@ def test_simple_shear(notebook_setup):
 
     if not return_value:
         print(message)
+    # trunk-ignore(bandit/B101)
     assert return_value
