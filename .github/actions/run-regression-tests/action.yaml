@@ -64,7 +64,7 @@ runs:
 
             echo "Running regression tests..."
             cd ~/aperi-mech/test/regression_tests
-            ./run_regression_tests.sh --build-dir ~/aperi-mech/build/ $test_flags
+            ./run_regression_tests.py --build-dir ~/aperi-mech/build/ $test_flags
 
           '  || { echo "Regression test step failed"; exit 1; }
         EOF
