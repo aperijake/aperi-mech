@@ -185,14 +185,24 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Run unit tests
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release
-              ./unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Release
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+          num-processes: 1
+
+      - name: Run unit tests, parallel
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Release
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+          num-processes: 3
 
       - name: Run material tests
         run: |
@@ -222,18 +232,6 @@ jobs:
             '  || { echo "Utils modules tests step failed"; exit 1; }
           EOF
 
-      - name: Run unit tests in parallel
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release
-              . ~/spack/share/spack/setup-env.sh
-              spack env activate aperi-mech
-              mpirun -np 3 ./unit_tests
-            ' || { echo "Unit tests in parallel step failed"; exit 1; }
-          EOF
-
   test-debug:
     name: Test Debug
     runs-on: ubuntu-latest
@@ -251,27 +249,26 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Debug
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+          num-processes: 1
 
-      - name: Run unit tests in parallel, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              . ~/spack/share/spack/setup-env.sh
-              spack env activate aperi-mech
-              mpirun -np 3 ./unit_tests
-            ' || { echo "Unit tests in parallel step failed"; exit 1; }
-          EOF
+      - name: Run unit tests, parallel
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Debug
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+          num-processes: 3
+
 
   test-release-gpu:
     name: Test Release, GPU
@@ -290,15 +287,15 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release_gpu
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Release
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: true
+          num-processes: 1
 
   test-debug-gpu:
     name: Test Debug, GPU
@@ -317,15 +314,15 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, Debug, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-              cd ~/aperi-mech
-              docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug_gpu
-              make run_all_unit_tests
-              '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: Debug
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: true
+          num-processes: 1
 
   teardown:
     runs-on: ubuntu-latest

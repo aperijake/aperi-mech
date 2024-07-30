@@ -1,5 +1,5 @@
-name: Build Project
-description: Build the project with specified build type and GPU flag
+name: Run unit tests
+description: Run unit tests on the VM, inside the Docker container
 inputs:
   VM_IP:
     description: IP address of the VM
@@ -14,25 +14,22 @@ inputs:
     description: Build type (e.g., Release, Debug)
     required: true
   gpu:
-    description: Enable GPU build
+    description: GPU build
     required: true
-    default: "false"
+  num-processes:
+    description: Number of processes to use for parallel unit tests
+    required: true
 runs:
   using: composite
   steps:
-    - name: Common SSH and Azure CLI Setup
-      uses: ./.github/actions/common-steps
-      with:
-        VM_IP: ${{ inputs.VM_IP }}
-        SSH_PRIVATE_KEY: ${{ inputs.SSH_PRIVATE_KEY }}
-
     - name: Print inputs for debugging
       shell: bash
       run: |
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
+        echo "num-processes: ${{ inputs.num-processes }}"
 
-    - name: Build project
+    - name: Run unit tests
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
@@ -49,28 +46,22 @@ runs:
           echo "On VM, Service name: $service_name"
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            configure_flag=""
-            build_path=build/${{ inputs.build-type }}
+            build_path=~/aperi-mech/build/${{ inputs.build-type }}
             if [ ${{ inputs.gpu }} == "true" ]; then
-              configure_flag=" --gpu"
-              build_path=build/${{ inputs.build-type }}_gpu
+              build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
-            echo "In container, configure_flag: $configure_flag"
             echo "In container, build_path: $build_path"
 
-            cd ~/aperi-mech
+            cd $build_path
             echo "Setting up Spack environment..."
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
 
-            echo "Configuring project..."
-            ./do_configure --build-type ${{ inputs.build-type }} ${configure_flag}
+            echo "Running unit tests..."
+            mpirun -n ${{ inputs.num-processes }} ./unit_tests
 
-            echo "Building project..."
-            cd $build_path
-            make -j 4
-          '  || { echo "Build project step failed"; exit 1; }
+          '  || { echo "Unit test step failed"; exit 1; }
         EOF
