@@ -382,7 +382,8 @@ jobs:
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
-    needs: [
+    needs:
+      [
         setup,
         build-release,
         test-release,

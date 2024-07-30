@@ -5,14 +5,14 @@
 
 # Check if utils exists
 if [[ ! -d ./utils ]]; then
-    echo "utils directory not found. Please run this script from the build directory."
-    exit 1
+	echo "utils directory not found. Please run this script from the build directory."
+	exit 1
 fi
 
 # Check if utils/unit_test_all_modules.py exists
 if [[ ! -f ./utils/unit_test_all_modules.py ]]; then
-    echo "utils/unit_test_all_modules.py not found. Please run this script from the build directory."
-    exit 1
+	echo "utils/unit_test_all_modules.py not found. Please run this script from the build directory."
+	exit 1
 fi
 
 # -----------------------------------------------------------------------------
