@@ -1,0 +1,186 @@
+name: Performance Pipeline
+
+# Will run after the CI/CD pipeline completes successfully
+# Is expecting that the CI/CD pipeline will have built the code already.
+on:
+  workflow_run:
+    workflows: [CI/CD Pipeline]
+    types:
+      - completed
+  workflow_dispatch: ~ # Allows manual triggering of the workflow
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.ref == 'refs/heads/main') }}
+
+    outputs:
+      vm_started: ${{ steps.vm-status.outputs.vm_started }}
+
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Access Azure VM
+        id: vm-status
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.62.0
+          inlineScript: |
+            echo "Logging into Azure..."
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            if [ $? -eq 0 ]; then
+              echo "Logged in successfully"
+            else
+              echo "Failed to login"
+              exit 1
+            fi
+            echo "Setting Azure subscription..."
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            if [ $? -eq 0 ]; then
+                echo "Subscription set successfully"
+            else
+                echo "Failed to set subscription"
+                exit 1
+            fi
+            echo "Checking if VM is running..."
+            VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
+            if [ "$VM_STATUS" != "VM running" ]; then
+              echo "Starting VM..."
+              az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+              echo "vm_started=true" >> $GITHUB_OUTPUT
+            else
+              echo "VM is already running"
+              echo "vm_started=false" >> $GITHUB_OUTPUT
+            fi
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+  performance-test-release:
+    name: Performance Test Release
+    runs-on: ubuntu-latest
+    needs: [setup]
+    env:
+      BUILD_TYPE: Release
+      GPU: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run gtest performance tests
+        uses: ./.github/actions/run-gtest-performance-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run aperi-mech performance tests, serial
+        uses: ./.github/actions/run-apri-mech-performance-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+
+      - name: Run aperi-mech performance tests, parallel
+        uses: ./.github/actions/run-apri-mech-performance-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: true
+
+  performance-test-release-gpu:
+    name: Performance Test Release
+    runs-on: ubuntu-latest
+    needs: [setup, performance-test-release]
+    env:
+      BUILD_TYPE: Release
+      GPU: true
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run gtest performance tests
+        uses: ./.github/actions/run-gtest-performance-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run aperi-mech performance tests, serial
+        uses: ./.github/actions/run-apri-mech-performance-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+
+  teardown:
+    runs-on: ubuntu-latest
+    name: Teardown
+    needs: [setup, performance-test-release, performance-test-release-gpu]
+    steps:
+      # For debugging purposes
+      - name: Print VM status
+        if: always()
+        run: |
+          echo "VM started: ${{ needs.setup.outputs.vm_started }}"
+
+      - name: Stop Azure VM
+        if: always() && needs.setup.outputs.vm_started == 'true'
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.62.0
+          inlineScript: |
+            echo "Logging into Azure..."
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            if [ $? -eq 0 ]; then
+              echo "Logged in successfully"
+            else
+              echo "Failed to login"
+              exit 1
+            fi
+            echo "Setting Azure subscription..."
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            if [ $? -eq 0 ]; then
+                echo "Subscription set successfully"
+            else
+                echo "Failed to set subscription"
+                exit 1
+            fi
+            echo "Deallocating VM..."
+            az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+            if [ $? -eq 0 ]; then
+                echo "VM deallocated successfully"
+            else
+                echo "Failed to deallocate VM"
+                exit 1
+            fi

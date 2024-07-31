@@ -1,5 +1,5 @@
-name: Run regression tests
-description: Run regression tests on the VM, inside the Docker container
+name: Run performance tests on aperi-mech executable
+description: Run performance tests on the VM, inside the Docker container
 inputs:
   VM_IP:
     description: IP address of the VM
@@ -62,9 +62,9 @@ runs:
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
 
-            echo "Running regression tests..."
+            echo "Running aperi-mech performance tests..."
             cd ~/aperi-mech/test/
-            ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech/build/ $test_flags
+            ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags
 
-          '  || { echo "Regression test step failed"; exit 1; }
+          '  || { echo "Performance test step failed"; exit 1; }
         EOF

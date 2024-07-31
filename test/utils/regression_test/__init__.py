@@ -1,2 +1,2 @@
-__all__ = ["ExodiffCheck", "PeakMemoryCheck", "RegressionTest"]
-from .regression_test import ExodiffCheck, PeakMemoryCheck, RegressionTest
+__all__ = ["ExodiffCheck", "PeakMemoryCheck", "RegressionTest", "RunTimeCheck"]
+from .regression_test import ExodiffCheck, PeakMemoryCheck, RegressionTest, RunTimeCheck

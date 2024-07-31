@@ -7,11 +7,12 @@ import sys
 import time
 
 import yaml
-
-# Add the parent directory to the system path to import custom modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from utils.regression_test import ExodiffCheck, PeakMemoryCheck, RegressionTest
+from utils.regression_test import (
+    ExodiffCheck,
+    PeakMemoryCheck,
+    RegressionTest,
+    RunTimeCheck,
+)
 
 
 def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
@@ -25,14 +26,11 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
         "peak_memory_percent_tolerance": yaml_node.get("peak_memory_check", {}).get(
             "percent_tolerance"
         ),
-        "exodiff": [
-            {
-                "compare_file": exodiff["compare_file"],
-                "results_file": exodiff["results_file"],
-                "gold_file": exodiff["gold_file"],
-            }
-            for exodiff in yaml_node["exodiff"]
-        ],
+        "run_time": yaml_node.get("run_time_check", {}).get("value"),
+        "run_time_percent_tolerance": yaml_node.get("run_time_check", {}).get(
+            "percent_tolerance"
+        ),
+        "exodiff": [],
         "executable_path": os.path.join(
             build_dir,
             "Release_gpu" if yaml_node["hardware"] == "gpu" else "Release",
@@ -40,6 +38,15 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
         ),
         "num_processors": yaml_node["num_processors"],
     }
+    if "exodiff" in yaml_node:
+        for exodiff in yaml_node["exodiff"]:
+            inputs["exodiff"].append(
+                {
+                    "compare_file": exodiff["compare_file"],
+                    "results_file": exodiff["results_file"],
+                    "gold_file": exodiff["gold_file"],
+                }
+            )
     return inputs
 
 
@@ -110,7 +117,17 @@ def execute_test(test_config, dirpath, build_dir, keep_results):
         )
         memcheck_passed = peak_memory_check.run() == 0
 
-    if all_exodiff_passed and memcheck_passed:
+    runtimecheck_passed = True
+    if inputs["run_time"] is not None:
+        runtime_check = RunTimeCheck(
+            f"{inputs['test_name']}_run_time",
+            stats["run_time"],
+            inputs["run_time"],
+            inputs["run_time_percent_tolerance"],
+        )
+        runtimecheck_passed = runtime_check.run() == 0
+
+    if all_exodiff_passed and memcheck_passed and runtimecheck_passed:
         print("\033[92m  PASS\033[0m")
         if (
             not keep_results
@@ -216,12 +233,12 @@ def parse_arguments():
     parser.add_argument(
         "--directory",
         help="Directory root containing the tests. Will recursively search for test.yaml files.",
-        default=".",
+        default="regression_tests",
     )
     parser.add_argument(
         "--build-dir",
         help="Directory containing the build",
-        default="/home/azureuser/projects/aperi-mech/build/",
+        default="~/projects/aperi-mech/build/",
     )
     parser.add_argument(
         "--clean-logs",
@@ -254,8 +271,8 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    build_dir = os.path.abspath(args.build_dir)
-    directory = os.path.abspath(args.directory)
+    build_dir = os.path.abspath(os.path.expanduser(args.build_dir))
+    directory = os.path.abspath(os.path.expanduser(args.directory))
 
     # Clean logs and/or results if specified
     if args.clean_logs or args.clean_results:
