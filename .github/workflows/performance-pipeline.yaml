@@ -86,6 +86,10 @@ jobs:
             rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
+      - name: Skipping Checkout Code on VM
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "Skipping checkout code on VM. Assuming code is already checked out from CI/CD pipeline run."
+
   build-release:
     name: Build Release
     runs-on: ubuntu-latest
@@ -94,6 +98,10 @@ jobs:
       group: performance-vm-ci-cd
       cancel-in-progress: false
     steps:
+      - name: Skipping build-release
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "Skipping build-release. Assuming code is already built from CI/CD pipeline run."
+
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         # Only run if the workflow was triggered manually, assumes that the code is already built otherwise
         # Also, want the job to run and just skip the steps. otherwise following steps might hang
@@ -118,6 +126,10 @@ jobs:
       group: performance-vm-ci-cd
       cancel-in-progress: false
     steps:
+      - name: Skipping build-release-gpu
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "Skipping build-release-gpu. Assuming code is already built from CI/CD pipeline run."
+
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v4
