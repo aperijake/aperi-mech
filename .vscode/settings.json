@@ -105,9 +105,11 @@
     "kway",
     "mpiio",
     "mpiposix",
+    "mpirun",
     "pamgen",
     "pnetcdf",
     "SIDESET",
+    "spack",
     "spyhis",
     "Venant"
 ],

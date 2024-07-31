@@ -1,26 +1,55 @@
-[![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml)
-
 # aperi-mech
+
+[![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml)
 
 An open-source platform for computational mechanics. It uses Kokkos and will run in parallel (MPI) and on the GPU.
 
 ## Building
 
 `aperi-mech` depends on:
+
 - Trilinos packages including: `kokkos`, `kokkos-kernels`, `exodus`, `STK`, and more.
 - Python packages include: `NumPy`, `SciPy`, `matplotlib`, `jupyter`, and mores.
 - And other: `googletest`, `yaml`, `eigen`
 
-Dockerfiles are provided for the easiest way to get up and running. Otherwise, the recommended way to build is using `spack` and `conda`.
+### LFS Requirement
+
+`aperi-mech` uses Git Large File Storage (LFS) for managing large files. Ensure you have `git-lfs` installed and configured before cloning the repository.
+
+#### Install Git LFS
+
+Follow the instructions at [https://git-lfs.github.com/](https://git-lfs.github.com/). In short:
+
+```bash
+# Install git-lfs
+sudo apt-get install git-lfs
+
+# Initialize git-lfs in your repository
+git lfs install
+```
+
+#### Cloning the repository
+
+When cloning the repository, ensure that LFS files are pulled correctly:
+
+```bash
+git clone https://github.com/aperijake/aperi-mech.git
+cd aperi-mech
+git lfs pull
+```
 
 ### Docker
+
+Dockerfiles are provided for the easiest way to get up and running. Otherwise, the recommended way to build is using `spack` and `conda` or `pip`.
 
 See [https://www.docker.com/get-started/](https://www.docker.com/get-started/) to install `Docker` on your system. After that, you can build an MPI CPU image:
 
 ```bash
 docker build -f Dockerfile -t aperi-mech:latest .
 ```
+
 and start the container interactively using:
+
 ```bash
 docker run -it aperi-mech:latest
 ```
@@ -38,6 +67,7 @@ For a GPU build, see the other `Dockerfile*` files in this directory. Be sure to
 Follow the instructions at [https://spack.readthedocs.io/en/latest/getting_started.html](https://spack.readthedocs.io/en/latest/getting_started.html). In short, install the `spack` prerequisites, clone `spack`, and source the script for shell support.
 
 Next find the system tools:
+
 ```bash
 # Add system compilers. e.g. gcc
 spack compiler find
@@ -57,6 +87,7 @@ spacktivate aperi-mech
 ###### Add and Install Required Packages
 
 For a CPU build with MPI:
+
 ```bash
 # If needed, specify a specific compiler. For example, add `%gcc@10.5.0` at the end of the `spack add` commands
 # Requires a Trilinos commit from 04/19/2024, so >trilinos@15.1.1
@@ -74,6 +105,7 @@ spack install
 ```
 
 Or, for a GPU build:
+
 ```bash
 # Replace cuda_arch according to your GPU.
 spack add compadre
@@ -106,17 +138,20 @@ conda config --add channels conda-forge # add path to conda-forge
 ```
 
 Create an environment
+
 ```bash
 conda create -n aperi-mech # change name as desired
 conda activate aperi-mech
 ```
 
 Install required packages
+
 ```bash
 conda install pytest testbook jupyter jupyterlab numpy scipy matplotlib ipykernel
 ```
 
 Add the environment as a Jupyter kernel so it can be used to run the notebooks
+
 ```bash
 python -m ipykernel install --user --name aperi-mech --display-name "Python (aperi-mech)"
 ```
@@ -126,12 +161,15 @@ python -m ipykernel install --user --name aperi-mech --display-name "Python (ape
 ##### Configure
 
 From the project root directory with the `spack` environment activated, configure with `cmake`
+
 ```bash
 ./do_configure
 ```
+
 note the options in `do_configure` script to enable GPU support (`--gpu`) and switch the build type (e.g. `--build-type Debug`)
 
 ##### Build
+
 ```bash
 cd build/Release # for CPU and release
 # cd build/Release_gpu # for GPU and release

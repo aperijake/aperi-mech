@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
+#include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 #include <Kokkos_Core.hpp>
 #include <cstdlib>
@@ -23,7 +23,7 @@ class CompadreTest : public CaptureOutputTest {
 };
 
 KOKKOS_INLINE_FUNCTION
-double trueSolution(double x, double y, double z, int order, int dimension) {
+double TrueSolution(double x, double y, double z, int order, int /*dimension*/) {
     double ans = 0;
     for (int i = 0; i < order + 1; i++) {
         for (int j = 0; j < order + 1; j++) {
@@ -38,8 +38,8 @@ double trueSolution(double x, double y, double z, int order, int dimension) {
 }
 
 KOKKOS_INLINE_FUNCTION
-void samplingManufacturedSolution(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device,
-                                  Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device, int source_coords_extent, int order, int dimension) {
+void SamplingManufacturedSolution(const Kokkos::View<double**, Kokkos::DefaultExecutionSpace>& source_coords_device,
+                                  const Kokkos::View<double*, Kokkos::DefaultExecutionSpace>& sampling_data_device, int source_coords_extent, int order, int dimension) {
     Kokkos::parallel_for(
         "Sampling Manufactured Solutions",
         Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, source_coords_extent),
@@ -50,7 +50,7 @@ void samplingManufacturedSolution(Kokkos::View<double**, Kokkos::DefaultExecutio
             double zval = (dimension > 2) ? source_coords_device(i, 2) : 0;
 
             // data for targets with scalar input
-            sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
+            sampling_data_device(i) = TrueSolution(xval, yval, zval, order, dimension);
         });
 }
 
@@ -127,7 +127,7 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
 
         for (int j = 0; j < dimension; ++j) {
             // rand_dir[j] is in [-0.5, 0.5]
-            rand_dir[j] = ((double)rand() / (double)RAND_MAX) - 0.5;
+            rand_dir[j] = (static_cast<double>(rand()) / static_cast<double>(RAND_MAX)) - 0.5;
         }
 
         // then we get a uniformly random radius
@@ -206,7 +206,7 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
                                                                               source_coords_device.extent(0));
 
     // sample the true solution at the source sites
-    samplingManufacturedSolution(source_coords_device, sampling_data_device, source_coords_device.extent(0), order, dimension);
+    SamplingManufacturedSolution(source_coords_device, sampling_data_device, source_coords_device.extent(0), order, dimension);
 
     // ********************* Setting Up The GMLS Object ******************
 
@@ -219,7 +219,7 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
     Kokkos::deep_copy(epsilon_device, epsilon);
 
     // initialize an instance of the GMLS class
-    Compadre::GMLS my_GMLS(Compadre::VectorOfScalarClonesTaylorPolynomial, Compadre::VectorPointSample,
+    Compadre::GMLS my_gmls(Compadre::VectorOfScalarClonesTaylorPolynomial, Compadre::VectorPointSample,
                            order, dimension);
     // solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
     // 2 /*manifold order*/);
@@ -241,65 +241,62 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS.setProblemData(neighbor_lists_device, number_of_neighbors_list_device, source_coords_device, target_coords_device, epsilon_device);
+    my_gmls.setProblemData(neighbor_lists_device, number_of_neighbors_list_device, source_coords_device, target_coords_device, epsilon_device);
 
     // create a vector of target operations
     std::vector<Compadre::TargetOperation> lro(1);
     lro[0] = Compadre::ScalarPointEvaluation;
 
     // and then pass them to the GMLS class
-    my_GMLS.addTargets(lro);
+    my_gmls.addTargets(lro);
 
     // sets the weighting kernel function from WeightingFunctionType
-    my_GMLS.setWeightingType(Compadre::WeightingFunctionType::Power);
+    my_gmls.setWeightingType(Compadre::WeightingFunctionType::Power);
 
     // power to use in that weighting kernel function
-    my_GMLS.setWeightingParameter(2);
+    my_gmls.setWeightingParameter(2);
 
     // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas(number_of_batches, keep_coefficients /* keep polynomial coefficients, only needed for a test later in this program */);
-
+    my_gmls.generateAlphas(number_of_batches, keep_coefficients /* keep polynomial coefficients, only needed for a test later in this program */);
 
     //****************** Apply GMLS Alphas To Data **************************
     // it is important to note that if you expect to use the data as a 1D view, then you should use double*
     // however, if you know that the target operation will result in a 2D view (vector or matrix output),
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time. Additionally, a template argument is required indicating either
-    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space() 
-    
+    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space()
+
     // The Evaluator class takes care of handling input data views as well as the output data views.
-    // It uses information from the GMLS class to determine how many components are in the input 
+    // It uses information from the GMLS class to determine how many components are in the input
     // as well as output for any choice of target functionals and then performs the contactions
     // on the data using the alpha coefficients generated by the GMLS class, all on the device.
-    Compadre::Evaluator gmls_evaluator(&my_GMLS);
-    
-    auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, Compadre::ScalarPointEvaluation);
-    
+    Compadre::Evaluator gmls_evaluator(&my_gmls);
+
+    auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>(sampling_data_device, Compadre::ScalarPointEvaluation);
+
     //****************** Check That Solutions Are Correct ******************
 
     double max_error = 0;
 
     // loop through the target sites
-    for (int i=0; i<number_target_coords; i++) {
-    
+    for (int i = 0; i < number_target_coords; i++) {
         // load value from output
-        double GMLS_value = output_value(i);
-    
-        // target site i's coordinate
-        double xval = target_coords(i,0);
-        double yval = (dimension>1) ? target_coords(i,1) : 0;
-        double zval = (dimension>2) ? target_coords(i,2) : 0;
-    
-        // evaluation of various exact solutions
-        double actual_value = trueSolution(xval, yval, zval, order, dimension);
+        double gmls_value = output_value(i);
 
-        double abs_error = std::abs(actual_value - GMLS_value);
+        // target site i's coordinate
+        double xval = target_coords(i, 0);
+        double yval = (dimension > 1) ? target_coords(i, 1) : 0;
+        double zval = (dimension > 2) ? target_coords(i, 2) : 0;
+
+        // evaluation of various exact solutions
+        double actual_value = TrueSolution(xval, yval, zval, order, dimension);
+
+        double abs_error = std::abs(actual_value - gmls_value);
 
         max_error = (abs_error > max_error) ? abs_error : max_error;
-    
+
         // check actual function value
-        EXPECT_NEAR(actual_value, GMLS_value, failure_tolerance);
+        EXPECT_NEAR(actual_value, gmls_value, failure_tolerance);
     }
 
     std::cout << "Max error: " << max_error << std::endl;

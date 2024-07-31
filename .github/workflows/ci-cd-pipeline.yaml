@@ -25,7 +25,7 @@ jobs:
       vm_started: ${{ steps.vm-status.outputs.vm_started }}
 
     steps:
-      - name: Checkout code # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
       - name: Access Azure VM
@@ -67,7 +67,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: Checkout Code on VM
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
@@ -83,6 +83,8 @@ jobs:
             else
               git checkout ${{ github.ref }}
             fi
+            git lfs pull # Pull LFS files
+            rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
   build-release:
@@ -93,72 +95,17 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+      - name: Build Release
+        uses: ./.github/actions/build-action
         with:
+          build-type: Release
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Build project
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
-
-              echo "Configuring project..."
-              ./do_configure
-
-              echo "Building project..."
-              cd build/Release
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
-
-  test-release:
-    name: Test Release
-    runs-on: ubuntu-latest
-    needs: [setup, build-release]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
-
-      - name: Run unit tests in parallel, Release
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release
-              . ~/spack/share/spack/setup-env.sh
-              spack env activate aperi-mech
-              mpirun -np 3 ./unit_tests
-            ' || { echo "Unit tests in parallel step failed"; exit 1; }
-          EOF
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
 
   build-debug:
     name: Build Debug
@@ -171,74 +118,19 @@ jobs:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+      - name: Build Debug
+        uses: ./.github/actions/build-action
         with:
+          build-type: Debug
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Build project, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
-
-              echo "Configuring project..."
-              ./do_configure --build-type Debug
-
-              echo "Building project..."
-              cd build/Debug
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
-
-  test-debug:
-    name: Test Debug
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
-
-      - name: Run unit tests in parallel, Debug
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose.yml run --rm aperi-mech-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug
-              . ~/spack/share/spack/setup-env.sh
-              spack env activate aperi-mech
-              mpirun -np 3 ./unit_tests
-            ' || { echo "Unit tests in parallel step failed"; exit 1; }
-          EOF
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
 
   build-release-gpu:
     name: Build Release, GPU
     runs-on: ubuntu-latest
-    needs: [setup, build-release, test-release]
+    needs: [setup, regression-test-release]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
@@ -246,60 +138,14 @@ jobs:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+      - name: Build Release, GPU
+        uses: ./.github/actions/build-action
         with:
+          build-type: Release
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Build project
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
-
-              echo "Configuring project..."
-              ./do_configure --gpu --spack-env aperi-mech
-
-              echo activate aperi-mech
-              spack env activate aperi-mech
-
-              echo "Building project..."
-              cd build/Release_gpu
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
-
-  test-release-gpu:
-    name: Test Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-release-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code # Just to get required actions in .github/
-        uses: actions/checkout@v4
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Release_gpu
-              make run_all_unit_tests
-            '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: true
 
   build-debug-gpu:
     name: Build Debug, GPU
@@ -312,43 +158,27 @@ jobs:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+      - name: Build Debug, GPU
+        uses: ./.github/actions/build-action
         with:
+          build-type: Debug
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: true
 
-      - name: Build project, Debug, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            cd ~/aperi-mech
-            docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech
-              echo "Setting up Spack environment..."
-              . ~/spack/share/spack/setup-env.sh
-
-              echo "Configuring project..."
-              ./do_configure --gpu --spack-env aperi-mech --build-type Debug
-
-              echo activate aperi-mech
-              spack env activate aperi-mech
-
-              echo "Building project..."
-              cd build/Debug_gpu
-              make clean
-              make -j 4
-            '  || { echo "Build project step failed"; exit 1; }
-          EOF
-
-  test-debug-gpu:
-    name: Test Debug, GPU
+  test-release:
+    name: Test Release
     runs-on: ubuntu-latest
-    needs: [setup, build-debug-gpu]
+    needs: [setup, build-release]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
+    env:
+      BUILD_TYPE: Release
+      GPU: false
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
 
       - name: Common SSH and Azure CLI Setup
@@ -357,18 +187,266 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run unit tests, Debug, GPU
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-              cd ~/aperi-mech
-              docker-compose -f docker-compose_nvidia_t4_gpu.yml run --rm aperi-mech-gpu-development /bin/bash -c '
-              cd ~/aperi-mech/build/Debug_gpu
-              make run_all_unit_tests
-              '  || { echo "Unit tests step failed"; exit 1; }
-          EOF
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+
+      - name: Run unit tests, parallel
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 3
+
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+  regression-test-release:
+    name: Regression Test Release
+    runs-on: ubuntu-latest
+    needs: [setup, build-release, test-release]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    env:
+      GPU: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run regression tests, serial
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+
+      - name: Run regression tests, parallel
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: true
+
+  test-debug:
+    name: Test Debug
+    runs-on: ubuntu-latest
+    needs: [setup, build-debug]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    env:
+      BUILD_TYPE: Debug
+      GPU: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+
+      - name: Run unit tests, parallel
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 3
+
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+  test-release-gpu:
+    name: Test Release, GPU
+    runs-on: ubuntu-latest
+    needs: [setup, build-release-gpu]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    env:
+      BUILD_TYPE: Release
+      GPU: true
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+  regression-test-release-gpu:
+    name: Regression Test Release, GPU
+    runs-on: ubuntu-latest
+    needs: [setup, build-release-gpu, test-release-gpu]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    env:
+      GPU: true
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run regression tests, serial
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+
+  test-debug-gpu:
+    name: Test Debug, GPU
+    runs-on: ubuntu-latest
+    needs: [setup, build-debug-gpu]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    env:
+      BUILD_TYPE: Debug
+      GPU: true
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
 
   teardown:
     runs-on: ubuntu-latest
+    name: Teardown
     needs:
       [
         setup,
@@ -380,6 +458,8 @@ jobs:
         test-release-gpu,
         build-debug-gpu,
         test-debug-gpu,
+        regression-test-release,
+        regression-test-release-gpu,
       ]
     steps:
       # For debugging purposes

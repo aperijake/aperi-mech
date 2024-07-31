@@ -9,7 +9,6 @@
 #include "UnitTestUtils.h"
 
 TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
-
     bool using_gpu = Kokkos::DefaultExecutionSpace::concurrency() > 1;
 
     int num_procs;
@@ -106,7 +105,7 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
         m_num_elements_z = num_elem_z[i];
 
         // Create the mesh and processors
-        double time_to_create_mesh_and_processors = CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, ""); // Hex mesh
+        double time_to_create_mesh_and_processors = CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, "");  // Hex mesh
         std::cout << "Time to create mesh and processors: " << time_to_create_mesh_and_processors << " s" << std::endl;
 
         // Make sure the coordinates are not on a grid
@@ -136,7 +135,6 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
 
         // Setup for the next refinement
         ResetCompadreApproximationFunction();
-
     }
 
     // Output the results

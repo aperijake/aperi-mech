@@ -1,0 +1,66 @@
+name: Run utils modules tests
+description: Run utils modules tests on the VM, inside the Docker container
+inputs:
+  VM_IP:
+    description: IP address of the VM
+    required: true
+  SSH_PRIVATE_KEY:
+    description: SSH private key for the VM
+    required: true
+  VM_USERNAME:
+    description: Username for the VM
+    required: true
+  build-type:
+    description: Build type (e.g., Release, Debug)
+    required: true
+  gpu:
+    description: GPU build
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Print inputs for debugging
+      shell: bash
+      run: |
+        echo "build-type: ${{ inputs.build-type }}"
+        echo "gpu: ${{ inputs.gpu }}"
+
+    - name: Run utils modules tests
+      shell: bash
+      run: |
+        ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
+          cd ~/aperi-mech
+
+          compose_file=docker-compose.yml
+          service_name=aperi-mech-development
+          if [ ${{ inputs.gpu }} == 'true' ]; then
+            compose_file=docker-compose_nvidia_t4_gpu.yml
+            service_name=aperi-mech-gpu-development
+          fi
+          # Debugging
+          echo "On VM, Compose file: $compose_file"
+          echo "On VM, Service name: $service_name"
+
+          docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
+            build_path=~/aperi-mech/build/${{ inputs.build-type }}
+            if [ ${{ inputs.gpu }} == "true" ]; then
+              build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
+            fi
+            # Debugging
+            echo "In container, inputs.build-type: ${{ inputs.build-type }}"
+            echo "In container, inputs.gpu: ${{ inputs.gpu }}"
+            echo "In container, build_path: $build_path"
+
+            cd $build_path
+            echo "Setting up Spack environment..."
+            . ~/spack/share/spack/setup-env.sh
+            spack env activate aperi-mech
+
+            # Add aperi-mech build directory to PATH
+            export PATH=$PATH:$build_path
+
+            echo "Running utils modules tests..."
+            make run_utils_modules_tests
+
+          '  || { echo "Utils modules test step failed"; exit 1; }
+        EOF

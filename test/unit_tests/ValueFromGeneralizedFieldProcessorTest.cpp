@@ -6,9 +6,9 @@
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "FunctionValueStorageProcessorTestFixture.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
-#include "FunctionValueStorageProcessorTestFixture.h"
 #include "UnitTestUtils.h"
 
 struct FillLinearFieldFunctor {

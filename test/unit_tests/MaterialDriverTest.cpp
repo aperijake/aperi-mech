@@ -141,8 +141,8 @@ TEST_F(MaterialDriverTest, StressOutputTypes) {
 
     // Covert the first piola kirchhoff stress to cauchy and second piola kirchhoff stresses
     Eigen::Matrix3d deformation_gradient = displacement_gradient + Eigen::Matrix3d::Identity();
-    double J = deformation_gradient.determinant();
-    Eigen::Matrix3d cauchy_from_first_piola_kirchhoff = 1.0 / J * first_piola_kirchhoff_stresses[0] * deformation_gradient.transpose();
+    double j = deformation_gradient.determinant();
+    Eigen::Matrix3d cauchy_from_first_piola_kirchhoff = 1.0 / j * first_piola_kirchhoff_stresses[0] * deformation_gradient.transpose();
     Eigen::Matrix3d second_piola_kirchhoff_from_first_piola_kirchhoff = deformation_gradient.inverse() * first_piola_kirchhoff_stresses[0];
 
     // Check that the stresses are consistent

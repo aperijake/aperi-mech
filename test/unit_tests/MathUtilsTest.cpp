@@ -219,7 +219,7 @@ TEST(MathUtilsTest, Normalize) {
 }
 
 template <typename T, typename Func>
-void RunTestDevice(const std::vector<T> &values, const std::vector<T> &expected, Func& func) {
+void RunTestDevice(const std::vector<T> &values, const std::vector<T> &expected, Func &func) {
     // Test on device with Kokkos
     Kokkos::View<T *> values_view("values_view", values.size());
 
@@ -238,11 +238,11 @@ void RunTestDevice(const std::vector<T> &values, const std::vector<T> &expected,
     Kokkos::View<size_t *> num_unique("num_unique", 1);
 
     // Run the function
-    Kokkos::parallel_for("MathUtilsTest", Kokkos::RangePolicy<>(0, 1),
-        KOKKOS_LAMBDA(const int i) {
+    Kokkos::parallel_for(
+        "MathUtilsTest", Kokkos::RangePolicy<>(0, 1),
+        KOKKOS_LAMBDA(const int /*i*/) {
             func(values_view, values_view.size(), num_unique);
-        }
-    );
+        });
 
     // Copy num_unique back to the host
     Kokkos::View<size_t *>::HostMirror num_unique_host = Kokkos::create_mirror_view(num_unique);
@@ -265,7 +265,7 @@ void RunTestDevice(const std::vector<T> &values, const std::vector<T> &expected,
 // Sort and remove functor
 template <typename T>
 struct SortAndRemoveDuplicatesFunctor {
-    KOKKOS_INLINE_FUNCTION void operator()(Kokkos::View<T *> values_view, size_t num_values, Kokkos::View<size_t *> num_unique) const {
+    KOKKOS_INLINE_FUNCTION void operator()(Kokkos::View<T *> values_view, size_t num_values, const Kokkos::View<size_t *> &num_unique) const {
         num_unique(0) = aperi::SortAndRemoveDuplicates(values_view, num_values);
     }
 };
@@ -273,7 +273,7 @@ struct SortAndRemoveDuplicatesFunctor {
 // Remove duplicates functor
 template <typename T>
 struct RemoveDuplicatesFunctor {
-    KOKKOS_INLINE_FUNCTION void operator()(Kokkos::View<T *> values_view, size_t num_values, Kokkos::View<size_t *> num_unique) const {
+    KOKKOS_INLINE_FUNCTION void operator()(Kokkos::View<T *> values_view, size_t num_values, const Kokkos::View<size_t *> &num_unique) const {
         num_unique(0) = aperi::RemoveDuplicates(values_view, num_values);
     }
 };
@@ -327,14 +327,14 @@ TEST(MathUtilsTest, SortAndRemoveDuplicates) {
 }
 
 // Test the remove duplicates function
-TEST(MathUtilsTests, RemoveDuplicates){
+TEST(MathUtilsTests, RemoveDuplicates) {
     std::vector<double> values = {1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
     std::vector<double> expected = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
     RunRemoveDuplicatesTest(values, expected);
     RunRemoveDuplicatesTestDevice(values, expected);
 
     std::vector<double> values2 = {6.0, 5.0, 4.0, 3.0, 2.0, 1.0};
-    std::vector<double> expected2 = values2;
+    const std::vector<double> &expected2 = values2;
     RunRemoveDuplicatesTest(values2, expected2);
     RunRemoveDuplicatesTestDevice(values2, expected2);
 
@@ -342,7 +342,6 @@ TEST(MathUtilsTests, RemoveDuplicates){
     std::vector<size_t> expected3 = {10, 19, 20, 22, 28, 14, 23, 24, 26, 32, 13, 25, 31, 29, 33, 35, 41};
     RunRemoveDuplicatesTest(values3, expected3);
     RunRemoveDuplicatesTestDevice(values3, expected3);
-
 }
 
 // Test kernel value

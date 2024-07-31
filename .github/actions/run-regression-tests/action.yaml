@@ -1,0 +1,70 @@
+name: Run regression tests
+description: Run regression tests on the VM, inside the Docker container
+inputs:
+  VM_IP:
+    description: IP address of the VM
+    required: true
+  SSH_PRIVATE_KEY:
+    description: SSH private key for the VM
+    required: true
+  VM_USERNAME:
+    description: Username for the VM
+    required: true
+  gpu:
+    description: Run GPU tests
+    required: true
+  parallel:
+    description: Run parallel tests
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Print inputs for debugging
+      shell: bash
+      run: |
+        echo "gpu: ${{ inputs.gpu }}"
+        echo "parallel: ${{ inputs.parallel }}"
+
+    - name: Run utils modules tests
+      shell: bash
+      run: |
+        ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
+          cd ~/aperi-mech
+
+          compose_file=docker-compose.yml
+          service_name=aperi-mech-development
+          if [ ${{ inputs.gpu }} == 'true' ]; then
+            compose_file=docker-compose_nvidia_t4_gpu.yml
+            service_name=aperi-mech-gpu-development
+          fi
+          # Debugging
+          echo "On VM, Compose file: $compose_file"
+          echo "On VM, Service name: $service_name"
+
+          docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
+            test_flags=""
+            if [ ${{ inputs.gpu }} == "true" ]; then
+              test_flags="$test_flags --gpu"
+            else
+              test_flags="$test_flags --cpu"
+            fi
+            if [ ${{ inputs.parallel }} == "true" ]; then
+              test_flags="$test_flags --parallel"
+            else
+              test_flags="$test_flags --serial"
+            fi
+            # Debugging
+            echo "In container, inputs.gpu: ${{ inputs.gpu }}"
+            echo "In container, inputs.parallel: ${{ inputs.parallel }}"
+            echo "In container, test_flags: $test_flags"
+
+            echo "Setting up Spack environment..."
+            . ~/spack/share/spack/setup-env.sh
+            spack env activate aperi-mech
+
+            echo "Running regression tests..."
+            cd ~/aperi-mech/test/regression_tests
+            ./run_regression_tests.py --build-dir ~/aperi-mech/build/ $test_flags
+
+          '  || { echo "Regression test step failed"; exit 1; }
+        EOF

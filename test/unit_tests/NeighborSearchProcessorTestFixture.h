@@ -1,9 +1,9 @@
 #pragma once
 
 #include <gtest/gtest.h>
-#include <chrono>
 #include <mpi.h>
 
+#include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <stk_io/StkMeshIoBroker.hpp>
@@ -20,7 +20,8 @@
 #include "NeighborSearchProcessor.h"
 
 class NeighborSearchProcessorTestFixture : public ::testing::Test {
-   using DoubleField = stk::mesh::Field<double>;
+    using DoubleField = stk::mesh::Field<double>;
+
    protected:
     void SetUp() override {
     }
@@ -72,7 +73,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         // Create the NeighborSearchProcessor
         m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data);
-        
+
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         return elapsed_seconds.count();
