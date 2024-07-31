@@ -146,12 +146,7 @@ jobs:
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
-    needs:
-      [
-        setup,
-        performance-test-release,
-        performance-test-release-gpu,
-      ]
+    needs: [setup, performance-test-release, performance-test-release-gpu]
     steps:
       # For debugging purposes
       - name: Print VM status

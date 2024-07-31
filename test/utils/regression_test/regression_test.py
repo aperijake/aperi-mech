@@ -200,11 +200,11 @@ class PeakMemoryCheck:
             return_code = 1
         elif self.peak_memory < lower_limit:
             print(
-                    f"    Peak memory ({self.peak_memory:.2f} MB) is less than the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
-                )
+                f"    Peak memory ({self.peak_memory:.2f} MB) is less than the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
+            )
             print(
-                    f"    Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
-                )
+                f"    Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
+            )
         _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
@@ -212,7 +212,9 @@ class PeakMemoryCheck:
 
 class RunTimeCheck:
 
-    def __init__(self, test_name, executable_time, gold_executable_time, tolerance_percent):
+    def __init__(
+        self, test_name, executable_time, gold_executable_time, tolerance_percent
+    ):
         self.test_name = test_name
         self.executable_time = executable_time
         self.gold_executable_time = gold_executable_time
@@ -239,6 +241,7 @@ class RunTimeCheck:
         _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
+
 
 class ExodiffCheck:
 

@@ -7,8 +7,12 @@ import sys
 import time
 
 import yaml
-
-from utils.regression_test import ExodiffCheck, PeakMemoryCheck, RegressionTest, RunTimeCheck
+from utils.regression_test import (
+    ExodiffCheck,
+    PeakMemoryCheck,
+    RegressionTest,
+    RunTimeCheck,
+)
 
 
 def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
