@@ -63,7 +63,7 @@ runs:
             spack env activate aperi-mech
 
             echo "Running regression tests..."
-            cd ~/aperi-mech/test/regression_tests
+            cd ~/aperi-mech/test/
             ./run_regression_tests.py --build-dir ~/aperi-mech/build/ $test_flags
 
           '  || { echo "Regression test step failed"; exit 1; }

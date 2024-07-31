@@ -159,6 +159,7 @@ class RegressionTest:
         return_code, stats = self._run()
         _print_pass_fail(self.test_name, return_code, self.executable_time)
         _move_log_files(self.log_file, self.test_name)
+        stats["run_time"] = self.executable_time
         return return_code, stats
 
     def _run(self):
@@ -189,6 +190,7 @@ class PeakMemoryCheck:
     def run(self):
         # Check if the peak memory is within the tolerance
         upper_limit = self.gold_peak_memory * (1.0 + self.tolerance_percent)
+        lower_limit = self.gold_peak_memory * (1.0 - self.tolerance_percent)
         message = f"Peak memory value: {self.peak_memory} MB, Gold value: {self.gold_peak_memory:.2f} MB, Upper limit {upper_limit:.2f} MB"
         return_code = 0
         if self.peak_memory > upper_limit:
@@ -196,10 +198,47 @@ class PeakMemoryCheck:
                 f"    Peak memory ({self.peak_memory:.2f} MB) exceeded the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
             )
             return_code = 1
+        elif self.peak_memory < lower_limit:
+            print(
+                    f"    Peak memory ({self.peak_memory:.2f} MB) is less than the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
+                )
+            print(
+                    f"    Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
+                )
         _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
 
+
+class RunTimeCheck:
+
+    def __init__(self, test_name, executable_time, gold_executable_time, tolerance_percent):
+        self.test_name = test_name
+        self.executable_time = executable_time
+        self.gold_executable_time = gold_executable_time
+        self.tolerance_percent = tolerance_percent / 100.0
+
+    def run(self):
+        # Check if the executable time is within the tolerance
+        upper_limit = self.gold_executable_time * (1.0 + self.tolerance_percent)
+        lower_limit = self.gold_executable_time * (1.0 - self.tolerance_percent)
+        message = f"Executable time: {self.executable_time:.4e} s, Gold time: {self.gold_executable_time:.4e} s, Upper limit {upper_limit:.4e} s"
+        return_code = 0
+        if self.executable_time > upper_limit:
+            print(
+                f"    Executable time ({self.executable_time:.4e} s) exceeded the gold executable time ({self.gold_executable_time:.4e} s) by more than {self.tolerance_percent*100.0}%"
+            )
+            return_code = 1
+        elif self.executable_time < lower_limit:
+            print(
+                f"    Executable time ({self.executable_time:.4e} s) is less than the gold executable time ({self.gold_executable_time:.4e} s) by more than {self.tolerance_percent*100.0}%"
+            )
+            print(
+                f"    Consider changing the gold executable time to {self.executable_time:.4e} s"
+            )
+        _print_pass_fail(self.test_name, return_code, 0, message)
+
+        return return_code
 
 class ExodiffCheck:
 

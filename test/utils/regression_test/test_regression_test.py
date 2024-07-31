@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 
-from regression_test import ExodiffCheck, RegressionTest
+from regression_test import ExodiffCheck, RegressionTest, PeakMemoryCheck, RunTimeCheck
 
 
 class TestRegressionTest(unittest.TestCase):
@@ -108,6 +108,61 @@ class TestRegressionTest(unittest.TestCase):
         result = exodiff_check.run()
         self.assertTrue(result == 0)
 
+
+class TestPeakMemoryCheck(unittest.TestCase):
+
+    def test_peak_memory_within_tolerance(self):
+        check = PeakMemoryCheck(test_name="test_within_tolerance", peak_memory=100, gold_peak_memory=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_peak_memory_exceeds_upper_limit(self):
+        check = PeakMemoryCheck(test_name="test_exceeds_upper_limit", peak_memory=120, gold_peak_memory=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 1)
+
+    def test_peak_memory_below_lower_limit(self):
+        check = PeakMemoryCheck(test_name="test_below_lower_limit", peak_memory=80, gold_peak_memory=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_peak_memory_exactly_upper_limit(self):
+        check = PeakMemoryCheck(test_name="test_exactly_upper_limit", peak_memory=110, gold_peak_memory=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_peak_memory_exactly_lower_limit(self):
+        check = PeakMemoryCheck(test_name="test_exactly_lower_limit", peak_memory=90, gold_peak_memory=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+
+class TestRunTimeCheck(unittest.TestCase):
+
+    def test_runtime_within_tolerance(self):
+        check = RunTimeCheck(test_name="test_within_tolerance", executable_time=100, gold_executable_time=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_runtime_exceeds_upper_limit(self):
+        check = RunTimeCheck(test_name="test_exceeds_upper_limit", executable_time=120, gold_executable_time=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 1)
+
+    def test_runtime_below_lower_limit(self):
+        check = RunTimeCheck(test_name="test_below_lower_limit", executable_time=80, gold_executable_time=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_runtime_exactly_upper_limit(self):
+        check = RunTimeCheck(test_name="test_exactly_upper_limit", executable_time=110, gold_executable_time=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
+
+    def test_runtime_exactly_lower_limit(self):
+        check = RunTimeCheck(test_name="test_exactly_lower_limit", executable_time=90, gold_executable_time=100, tolerance_percent=10)
+        result = check.run()
+        self.assertEqual(result, 0)
 
 if __name__ == "__main__":
     unittest.main()
