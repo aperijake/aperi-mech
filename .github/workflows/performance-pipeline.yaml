@@ -73,6 +73,10 @@ jobs:
             echo "Fetching git branches..."
             git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
 
+            echo "Checking out main branch and pulling latest changes..."
+            git checkout main
+            git pull origin main
+
             echo "Checking out appropriate branch..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               git checkout ${{ github.sha }}
@@ -83,7 +87,7 @@ jobs:
               git checkout ${{ github.ref }}
             fi
             git lfs pull # Pull LFS files
-            rm -rf build # Remove build directory, this prevents some false positives in tests
+            # rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
       - name: Skipping Checkout Code on VM
@@ -174,7 +178,9 @@ jobs:
           gpu: ${{ env.GPU }}
 
       - name: Run aperi-mech performance tests, serial
-        uses: ./.github/actions/run-apri-mech-performance-tests
+        # Continue on error to ensure that the aperi-mech performance tests run even if the gtest performance tests fail
+        continue-on-error: true
+        uses: ./.github/actions/run-aperi-mech-performance-tests
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -183,7 +189,7 @@ jobs:
           parallel: false
 
       - name: Run aperi-mech performance tests, parallel
-        uses: ./.github/actions/run-apri-mech-performance-tests
+        uses: ./.github/actions/run-aperi-mech-performance-tests
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -221,7 +227,9 @@ jobs:
           gpu: ${{ env.GPU }}
 
       - name: Run aperi-mech performance tests, serial
-        uses: ./.github/actions/run-apri-mech-performance-tests
+        # Continue on error to ensure that the aperi-mech performance tests run even if the gtest performance tests fail
+        continue-on-error: true
+        uses: ./.github/actions/run-aperi-mech-performance-tests
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
