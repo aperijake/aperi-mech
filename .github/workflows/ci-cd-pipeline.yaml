@@ -130,7 +130,7 @@ jobs:
   build-release-gpu:
     name: Build Release, GPU
     runs-on: ubuntu-latest
-    needs: [setup, regression-test-release]
+    needs: [setup, test-release]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
@@ -228,7 +228,7 @@ jobs:
   regression-test-release:
     name: Regression Test Release
     runs-on: ubuntu-latest
-    needs: [setup, build-release, test-release]
+    needs: [setup, build-release, test-release, test-release-gpu]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
@@ -371,7 +371,7 @@ jobs:
   regression-test-release-gpu:
     name: Regression Test Release, GPU
     runs-on: ubuntu-latest
-    needs: [setup, build-release-gpu, test-release-gpu]
+    needs: [setup, build-release-gpu, test-release-gpu, regression-test-release]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
