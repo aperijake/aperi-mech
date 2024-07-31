@@ -1,0 +1,34 @@
+# Define common settings
+defaults: &defaults
+  num_processors: 1
+  input_file: input.yaml
+  cleanup:
+    remove: [results.exo, "*.log"]
+
+# List of tests using the defaults
+tests:
+  - <<: *defaults
+    hardware: cpu
+    peak_memory_check:
+      value: 1250.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 276.0 # Gold run time in seconds
+      percent_tolerance: 10
+  - <<: *defaults
+    hardware: gpu
+    peak_memory_check:
+      value: 1865.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 48.0 # Gold run time in seconds
+      percent_tolerance: 10
+  - <<: *defaults
+    num_processors: 4 # Override the default num_processors for this test
+    hardware: cpu
+    peak_memory_check:
+      value: 1580.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 93.0 # Gold run time in seconds
+      percent_tolerance: 10
