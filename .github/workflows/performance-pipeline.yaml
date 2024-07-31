@@ -87,7 +87,7 @@ jobs:
               git checkout ${{ github.ref }}
             fi
             git lfs pull # Pull LFS files
-            # rm -rf build # Remove build directory, this prevents some false positives in tests
+            rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
       - name: Skipping Checkout Code on VM
