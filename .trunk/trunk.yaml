@@ -28,9 +28,9 @@ lint:
     #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.53.0
+    - trivy@0.54.0
     - yamllint@1.35.1
-    - checkov@3.2.213
+    - checkov@3.2.216
     - git-diff-check
     - markdownlint@0.41.0
     - prettier@3.3.3
@@ -46,8 +46,6 @@ lint:
 actions:
   disabled:
     - trunk-announce
-    - trunk-check-pre-push
-    - trunk-fmt-pre-commit
   enabled:
     - git-lfs
     - trunk-upgrade-available

@@ -17,3 +17,10 @@ target_link_libraries(performance_tests
     GTest::gtest_main
 )
 gtest_discover_tests(performance_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
+
+# Copy the gold values file to the build directory
+configure_file(
+    "${CMAKE_SOURCE_DIR}/test/performance_tests/gtests/gold_values.csv"
+    "${CMAKE_BINARY_DIR}/gold_values.csv"
+    COPYONLY
+)

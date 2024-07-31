@@ -27,37 +27,37 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
     size_t initial_num_elem_y = 48;
     size_t initial_num_elem_z = 144;
 
+    double relative_tolerance = 0.2;
+    std::string mode = "release";
+
+#ifndef NDEBUG
+    mode = "debug";
+    if (using_gpu) {
+        relative_tolerance = 0.5; // Allow for a larger tolerance in debug mode
+    } else {
+        num_refinements = 1; // Do less refinements in debug mode as it takes longer
+    }
+#endif
+
     // Set up gold values. Will need to adjust if parameters or system change.
     // First vector is Compadre runtime, second vector is Reproducing kernel runtime
     std::pair<std::vector<double>, std::vector<double>> gold_runtimes;
     gold_runtimes.first.resize(num_refinements);
     gold_runtimes.second.resize(num_refinements);
-    double relative_tolerance = 0.2;
 
-#ifndef NDEBUG
-    // Allow for a longer runtime in debug mode, do less refinements
-    if (using_gpu) {
-        relative_tolerance = 0.5;
-        gold_runtimes.first = {3.3e-01, 1.5e+00};
-        gold_runtimes.second = {1.55e-02, 6.0e-02};
-    } else {
-        num_refinements = 1;
-        gold_runtimes.first.resize(num_refinements);
-        gold_runtimes.second.resize(num_refinements);
-        gold_runtimes.first = {1.95e+01};
-        gold_runtimes.second = {7.75e+01};
+    // Read gold values from file
+    std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    std::string full_test_name = test_suite_name + "_" + test_name;
+
+    std::vector<double> golds_from_file = ReadGoldRuntimes(full_test_name, mode, using_gpu);
+    ASSERT_EQ(golds_from_file.size(), 2 * num_refinements) << "Gold values are not set up correctly for the test " << full_test_name;
+
+    // Set the gold values
+    for (size_t i = 0; i < num_refinements; ++i) {
+        gold_runtimes.first[i] = golds_from_file[i];
+        gold_runtimes.second[i] = golds_from_file[i + num_refinements];
     }
-#else
-    gold_runtimes.first.resize(num_refinements);
-    gold_runtimes.second.resize(num_refinements);
-    if (using_gpu) {
-        gold_runtimes.first = {2.1e-01, 1.55e+00};
-        gold_runtimes.second = {8.54e-03, 4.55e-02};
-    } else {
-        gold_runtimes.first = {1.66e+00, 1.31e+01};
-        gold_runtimes.second = {4.89e-01, 3.85e+00};
-    }
-#endif
 
     // Vectors to store the number of nodes and runtimes
     std::vector<double> num_nodes;
@@ -124,15 +124,20 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
         aperi::CoutP0() << "  Percent difference, Compadre: " << std::defaultfloat << 100.0 * (this_runtimes.first - gold_runtimes.first[i]) / gold_runtimes.first[i] << "%" << std::endl;
 
         std::string error_msg = "Gold values are determined for the system AperiAzureGPU1. If you are running on a different system, adjust the gold values.";
-        EXPECT_NEAR(this_runtimes.first, gold_runtimes.first[i], relative_tolerance * gold_runtimes.first[i]) << error_msg;
+        EXPECT_LT(this_runtimes.first, gold_runtimes.first[i] * (1 + relative_tolerance)) << error_msg;
+        if (this_runtimes.first < gold_runtimes.first[i] * (1 - relative_tolerance)) {
+            aperi::CoutP0() << "Warning: Compadre runtime is less than gold runtime. Consider adjusting the gold runtime." << std::endl;
+        }
 
         // Check the runtimes, Reproducing kernel
         aperi::CoutP0() << "  Runtime, Reproducing kernel:            " << std::scientific << this_runtimes.second << std::endl;
         aperi::CoutP0() << "  Gold runtime, Reproducing kernel:       " << std::scientific << gold_runtimes.second[i] << std::endl;
         aperi::CoutP0() << "  Percent difference, Reproducing kernel: " << std::defaultfloat << 100.0 * (this_runtimes.second - gold_runtimes.second[i]) / gold_runtimes.second[i] << "%" << std::endl;
 
-        EXPECT_NEAR(this_runtimes.second, gold_runtimes.second[i], relative_tolerance * gold_runtimes.second[i]) << error_msg;
-
+        EXPECT_LT(this_runtimes.second, gold_runtimes.second[i] * (1 + relative_tolerance)) << error_msg;
+        if (this_runtimes.second < gold_runtimes.second[i] * (1 - relative_tolerance)) {
+            aperi::CoutP0() << "Warning: Reproducing kernel runtime is less than gold runtime. Consider adjusting the gold runtime." << std::endl;
+        }
         // Setup for the next refinement
         ResetCompadreApproximationFunction();
     }
