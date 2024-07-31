@@ -71,7 +71,7 @@ jobs:
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             cd ~/aperi-mech
             echo "Fetching git branches..."
-            git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
+            git fetch --all
 
             echo "Checking out main branch and pulling latest changes..."
             git checkout main
@@ -80,11 +80,13 @@ jobs:
             echo "Checking out appropriate branch..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               git checkout ${{ github.sha }}
+              git pull origin ${{ github.sha }}
             elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
               git checkout main
               git pull origin main
             else
               git checkout ${{ github.ref }}
+              git pull origin ${{ github.ref }}
             fi
             git lfs pull # Pull LFS files
             rm -rf build # Remove build directory, this prevents some false positives in tests
