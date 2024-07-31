@@ -33,9 +33,9 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
 #ifndef NDEBUG
     mode = "debug";
     if (using_gpu) {
-        relative_tolerance = 0.5; // Allow for a larger tolerance in debug mode
+        relative_tolerance = 0.5;  // Allow for a larger tolerance in debug mode
     } else {
-        num_refinements = 1; // Do less refinements in debug mode as it takes longer
+        num_refinements = 1;  // Do less refinements in debug mode as it takes longer
     }
 #endif
 

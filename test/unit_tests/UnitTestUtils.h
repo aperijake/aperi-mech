@@ -247,7 +247,7 @@ void CheckEntityFieldPatchValues(const aperi::MeshData& mesh_data, const std::st
 
 inline std::vector<double> ReadGoldRuntimes(const std::string& test_name, const std::string& mode, bool using_gpu) {
     // Make sure file exists, if not throw an error
-    std::ifstream file("gold_values.csv"); // Should be copied to the build directory by CMake
+    std::ifstream file("gold_values.csv");  // Should be copied to the build directory by CMake
     if (!file.is_open()) {
         throw std::runtime_error("Could not open gold values file gold_values.csv. Make sure it is in the build directory.");
     }

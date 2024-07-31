@@ -64,10 +64,81 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Checkout Code on VM
+        # This step is only run if the workflow was triggered manually, assumes that the code is already checked out on the VM otherwise
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            cd ~/aperi-mech
+            echo "Fetching git branches..."
+            git fetch origin +refs/pull/*:refs/remotes/origin/pr/*
+
+            echo "Checking out appropriate branch..."
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              git checkout ${{ github.sha }}
+            elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              git checkout main
+              git pull origin main
+            else
+              git checkout ${{ github.ref }}
+            fi
+            git lfs pull # Pull LFS files
+            rm -rf build # Remove build directory, this prevents some false positives in tests
+          EOF
+
+  build-release:
+    name: Build Release
+    runs-on: ubuntu-latest
+    needs: setup
+    concurrency:
+      group: performance-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        # Only run if the workflow was triggered manually, assumes that the code is already built otherwise
+        # Also, want the job to run and just skip the steps. otherwise following steps might hang
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: ./.github/actions/build-action
+        with:
+          build-type: Release
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+
+  build-release-gpu:
+    name: Build Release, GPU
+    runs-on: ubuntu-latest
+    needs: setup
+    concurrency:
+      group: performance-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: ./.github/actions/build-action
+        with:
+          build-type: Release
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: true
+
   performance-test-release:
     name: Performance Test Release
     runs-on: ubuntu-latest
-    needs: [setup]
+    needs: [setup, build-release]
+    concurrency:
+      group: performance-vm-ci-cd
+      cancel-in-progress: false
     env:
       BUILD_TYPE: Release
       GPU: false
@@ -109,9 +180,12 @@ jobs:
           parallel: true
 
   performance-test-release-gpu:
-    name: Performance Test Release
+    name: Performance Test Release, GPU
     runs-on: ubuntu-latest
-    needs: [setup, performance-test-release]
+    needs: [setup, build-release-gpu]
+    concurrency:
+      group: performance-vm-ci-cd
+      cancel-in-progress: false
     env:
       BUILD_TYPE: Release
       GPU: true
@@ -146,7 +220,14 @@ jobs:
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
-    needs: [setup, performance-test-release, performance-test-release-gpu]
+    needs:
+      [
+        setup,
+        build-release,
+        build-release-gpu,
+        performance-test-release,
+        performance-test-release-gpu,
+      ]
     steps:
       # For debugging purposes
       - name: Print VM status
