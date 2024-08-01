@@ -84,8 +84,23 @@ else
 fi
 cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
 
-# Add the lcov path to the cmake command (assuming it is in /usr/bin, had trouble with spack)
-[[ ${CODE_COVERAGE} == true ]] && cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=/usr/bin"
+# Add the lcov path to the cmake command
+if ${CODE_COVERAGE}; then
+    # Verify that lcov is in /usr/bin
+    if [[ -f /usr/bin/lcov ]]; then
+        cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=/usr/bin"
+        echo "lcov found in /usr/bin."
+    else
+        echo "lcov not found in /usr/bin. Checking Spack environment."
+        if spack find -p lcov; then
+            cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=$(spack location -i --first lcov)/bin"
+        else
+            echo "lcov not found in Spack environment."
+            echo "lcov is required for code coverage. Please install lcov. Exiting."
+            exit 1
+        fi
+    fi
+fi
 cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
 
 if ${GPU}; then
