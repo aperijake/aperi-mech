@@ -472,10 +472,14 @@ jobs:
           code-coverage: true
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/Debug_cov
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            # Install Codecov on VM (not inside Docker, but could be done inside Docker)
+            # curl -Os https://cli.codecov.io/latest/linux/codecov
+            # sudo chmod +x codecov
+            cd ~/aperi-mech/build/Debug_cov
+            ../../../codecov --verbose upload-process --fail-on-error -t ${{ secrets.CODECOV_TOKEN }} -n unittest-${{ github.run_id }} --commit-sha ${{ github.sha }}
+          EOF
 
   teardown:
     runs-on: ubuntu-latest
@@ -493,6 +497,7 @@ jobs:
         test-debug-gpu,
         regression-test-release,
         regression-test-release-gpu,
+        code-coverage,
       ]
     steps:
       # For debugging purposes
