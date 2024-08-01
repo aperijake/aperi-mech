@@ -17,7 +17,7 @@ lint:
   enabled:
     - actionlint@1.7.1
     - hadolint@2.12.0
-    - taplo@0.9.2
+    - taplo@0.9.3
     - bandit@1.7.9
     - black@24.4.2
     - isort@5.13.2
@@ -28,13 +28,13 @@ lint:
     #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.54.0
+    - trivy@0.54.1
     - yamllint@1.35.1
-    - checkov@3.2.216
+    - checkov@3.2.217
     - git-diff-check
     - markdownlint@0.41.0
     - prettier@3.3.3
-    - trufflehog@3.80.3
+    - trufflehog@3.80.5
   disabled:
     - include-what-you-use
   ignore:
@@ -47,5 +47,7 @@ actions:
   disabled:
     - trunk-announce
   enabled:
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
     - git-lfs
     - trunk-upgrade-available

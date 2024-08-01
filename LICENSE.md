@@ -1,3 +1,5 @@
+<!-- trunk-ignore-all(markdownlint/MD041) -->
+
 BSD 3-Clause License
 
 Copyright (c) 2024, Aperi CMC, LLC

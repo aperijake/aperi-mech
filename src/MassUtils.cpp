@@ -17,7 +17,7 @@ namespace aperi {
 template <size_t NumNodes>
 struct ComputeMassFunctor {
     KOKKOS_FUNCTION
-    ComputeMassFunctor(double density) : m_density(density) {}
+    explicit ComputeMassFunctor(double density) : m_density(density) {}
 
     KOKKOS_INLINE_FUNCTION
     bool CheckNumNodes(size_t num_nodes) const {
@@ -38,8 +38,8 @@ struct ComputeMassFunctor {
         }
     }
 
-    private:
-      double m_density;
+   private:
+    double m_density;
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
@@ -89,7 +89,7 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
         value_from_generalized_field_processor->compute_value_from_generalized_field();
         value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
-    } else{
+    } else {
         node_processor.CopyFieldData(0, 1);
         node_processor.MarkFieldModifiedOnDevice(1);
         node_processor.SyncFieldDeviceToHost(1);

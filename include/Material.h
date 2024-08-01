@@ -12,7 +12,7 @@
 
 namespace aperi {
 
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d &displacement_gradient) {
+KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d& displacement_gradient) {
     // Compute the Green Lagrange strain tensor, Voigt Notation.
     // E = 0.5 * (H + H^T + H^T * H)
     Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
@@ -164,12 +164,12 @@ class ElasticMaterial : public Material {
             // Compute the 2nd Piola-Kirchhoff stress
             Eigen::Matrix<double, 3, 3> pk2_stress;
             const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-            pk2_stress(0,0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
-            pk2_stress(1,1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
-            pk2_stress(2,2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
-            pk2_stress(1,2) = pk2_stress(2,1) = m_two_mu * green_lagrange_strain(3);
-            pk2_stress(0,2) = pk2_stress(2,0) = m_two_mu * green_lagrange_strain(4);
-            pk2_stress(0,1) = pk2_stress(1,0) = m_two_mu * green_lagrange_strain(5);
+            pk2_stress(0, 0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
+            pk2_stress(1, 1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
+            pk2_stress(2, 2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
+            pk2_stress(1, 2) = pk2_stress(2, 1) = m_two_mu * green_lagrange_strain(3);
+            pk2_stress(0, 2) = pk2_stress(2, 0) = m_two_mu * green_lagrange_strain(4);
+            pk2_stress(0, 1) = pk2_stress(1, 0) = m_two_mu * green_lagrange_strain(5);
 
             // Compute the 1st Piola-Kirchhoff stress
             const Eigen::Matrix<double, 3, 3> F = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
@@ -247,7 +247,6 @@ class NeoHookeanMaterial : public Material {
 
         KOKKOS_INLINE_FUNCTION
         Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
-
             // Left Cauchy-Green tensor - I
             const Eigen::Matrix3d B_minus_I = displacement_gradient * displacement_gradient.transpose() + displacement_gradient.transpose() + displacement_gradient;
             const double J_minus_1 = aperi::DetApIm1(displacement_gradient);
