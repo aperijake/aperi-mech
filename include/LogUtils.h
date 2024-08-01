@@ -88,7 +88,7 @@ class Cout {
         int size = data.size();
         const void* data_ptr = data.c_str();
         MPI_Datatype datatype = MPI_CHAR;
-    
+
         // Send the size and the data itself
         MPI_Send(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
         MPI_Send(data_ptr, size, datatype, 0, 0, MPI_COMM_WORLD);
@@ -102,7 +102,7 @@ class Cout {
         MPI_Recv(&length, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &status);
 
         // Allocate a buffer to hold the string
-        char* buffer = new char[length + 1]; // +1 for the null terminator
+        char* buffer = new char[length + 1];  // +1 for the null terminator
 
         // Receive the string
         MPI_Recv(buffer, length, MPI_CHAR, rank, 0, MPI_COMM_WORLD, &status);

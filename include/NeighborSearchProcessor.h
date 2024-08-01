@@ -258,7 +258,7 @@ class NeighborSearchProcessor {
                 }
 
                 // Find where to insert the neighbor, based on the distance
-                size_t insert_index = (size_t)num_neighbors; // Default to the end of the list
+                size_t insert_index = (size_t)num_neighbors;  // Default to the end of the list
                 for (size_t j = 0; j < insert_index; ++j) {
                     if (distance_squared < p_function_values[j]) {
                         insert_index = j;
@@ -271,7 +271,7 @@ class NeighborSearchProcessor {
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
                     printf("Node %ld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
                     --reverse_start_index;
-                } else{
+                } else {
                     num_neighbors += 1;
                 }
                 for (size_t j = reverse_start_index; j > insert_index; --j) {
@@ -678,7 +678,7 @@ class FunctionValueStorageProcessor {
                 Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
                 Eigen::Matrix<double, NumNodes, 1> kernel_values;
 
-                double kernel_radius = npg_kernel_radius_field(node_index, 0); // for use_evaluation_point_kernels = true, to match Compadre
+                double kernel_radius = npg_kernel_radius_field(node_index, 0);  // for use_evaluation_point_kernels = true, to match Compadre
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Create the entity
@@ -819,7 +819,7 @@ class ValueFromGeneralizedFieldProcessor {
 
                 // If there are neighbors, compute the destination field from the function values and source fields.
                 // Do in reverse order. Adding smaller function_value terms first to help with parallel consistency
-                for (size_t k = num_neighbors; k-- > 0; ) {
+                for (size_t k = num_neighbors; k-- > 0;) {
                     // Create the entity
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);

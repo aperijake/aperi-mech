@@ -1,0 +1,4 @@
+ignore:
+  - test/performance_tests/*
+  - src/main.cpp
+  - src/material_driver_main.cpp

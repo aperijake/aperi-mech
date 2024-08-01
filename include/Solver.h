@@ -4,8 +4,8 @@
 #include <vector>
 
 #include "EntityProcessor.h"
-#include "IoMesh.h"
 #include "InternalForceContribution.h"
+#include "IoMesh.h"
 #include "MeshData.h"
 
 namespace aperi {
@@ -81,7 +81,7 @@ class Solver {
     std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
     int m_num_processors;                                                                           ///< The number of processors.
-    bool m_uses_generalized_fields;                                                                  ///< Whether the solver uses generalized fields.
+    bool m_uses_generalized_fields;                                                                 ///< Whether the solver uses generalized fields.
 };
 
 /**

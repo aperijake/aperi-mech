@@ -51,11 +51,11 @@ KOKKOS_INLINE_FUNCTION
 Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::StressFunctor* stress_functor,
                                                          const Kokkos::View<Eigen::Matrix<double, 3, 3>*> displacement_gradients,
                                                          const Kokkos::View<aperi::StressOutputType*> stress_output_type_view) {
-
     Kokkos::View<Eigen::Matrix<double, 3, 3>*> stress("stress", displacement_gradients.size());
 
     // Loop over the displacement gradients in a Kokkos parallel_for
-    Kokkos::parallel_for("CalculateStress", displacement_gradients.size(), KOKKOS_LAMBDA(const size_t i) {
+    Kokkos::parallel_for(
+        "CalculateStress", displacement_gradients.size(), KOKKOS_LAMBDA(const size_t i) {
         auto stress_output_type = stress_output_type_view(0);
         // Get the displacement gradient
         Eigen::Matrix<double, 3, 3> displacement_gradient = displacement_gradients(i);

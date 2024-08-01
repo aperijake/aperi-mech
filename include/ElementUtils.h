@@ -99,7 +99,7 @@ struct FlexibleComputeInternalForceFunctor {
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 2> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors) const {
-        const Eigen::Matrix3d& displacement_gradient = gathered_node_data_gradient[0];
+        const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
         // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
 
         // Compute the stress and internal force of the element.

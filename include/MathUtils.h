@@ -210,7 +210,7 @@ template <typename T>
 KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
     if (relevant_length == 0) return 0;
 
-    size_t index = 0; // Index to keep track of unique elements
+    size_t index = 0;  // Index to keep track of unique elements
 
     for (size_t j = 1; j < relevant_length; ++j) {
         bool found = false;
@@ -229,7 +229,7 @@ KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
     return index + 1;
 }
 
-template<int Size>
+template <int Size>
 KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const Eigen::Matrix<double, Size, Size> &mat) {
 #ifndef KOKKOS_ENABLE_CUDA
     assert(mat.fullPivLu().isInvertible());
@@ -256,15 +256,7 @@ KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::Matrix<T, 3, 3> &A) {
     // det(A - I) - 1 = I1(A) + I2(A) + ... + IN(A),
     // where the In are the principal invariants of A.
 
-  return A(0, 0) + A(1, 1) + A(2, 2)
-       - A(0, 1) * A(1, 0) * (1 + A(2, 2))
-       + A(0, 0) * A(1, 1) * (1 + A(2, 2))
-       - A(0, 2) * A(2, 0) * (1 + A(1, 1))
-       - A(1, 2) * A(2, 1) * (1 + A(0, 0))
-       + A(0, 0) * A(2, 2)
-       + A(1, 1) * A(2, 2)
-       + A(0, 1) * A(1, 2) * A(2, 0)
-       + A(0, 2) * A(1, 0) * A(2, 1);
+    return A(0, 0) + A(1, 1) + A(2, 2) - A(0, 1) * A(1, 0) * (1 + A(2, 2)) + A(0, 0) * A(1, 1) * (1 + A(2, 2)) - A(0, 2) * A(2, 0) * (1 + A(1, 1)) - A(1, 2) * A(2, 1) * (1 + A(0, 0)) + A(0, 0) * A(2, 2) + A(1, 1) * A(2, 2) + A(0, 1) * A(1, 2) * A(2, 0) + A(0, 2) * A(1, 0) * A(2, 1);
 }
 
 }  // namespace aperi

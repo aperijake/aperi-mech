@@ -244,6 +244,7 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
 }
 
 // Recursively check the input file against the schema
+// trunk-ignore(clang-tidy/misc-no-recursion): Recursion is necessary to check the input file against the schema.
 int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAML::Node& schema_sub_node, bool verbose) {
     // Get schema subitems
     std::pair<std::vector<YAML::Node>, int> schema_sub_node_subitems_pair = GetValueOrValueSequence(schema_sub_node, "subitems", verbose);
