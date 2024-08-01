@@ -68,24 +68,23 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
     size_t initial_num_elem_y = 7;
     size_t initial_num_elem_z = 21;
 
-    // Set up gold values. Will need to adjust if parameters or system change.
-    std::vector<double> gold_runtimes(4);
+    std::string mode = "release";
 #ifndef NDEBUG
-    // Allow for a longer runtime in debug mode, do less refinements
-    if (using_gpu) {
-        gold_runtimes = {1.195e-03, 1.32e-03, 3.3e-03};
-    } else {
+    mode = "debug";
+    // Allow for a longer runtime in debug mode on cpu, do less refinements
+    if (!using_gpu) {
         runtime = 50.0;
         num_refinements = 2;
-        gold_runtimes = {3.25e-01, 2.6};
-    }
-#else
-    if (using_gpu) {
-        gold_runtimes = {8.201956e-04, 9.459842e-04, 2.96e-03};
-    } else {
-        gold_runtimes = {1.246661e-03, 9.811962e-03, 7.899994e-02};
     }
 #endif
+
+    // Read gold values from file
+    std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    std::string full_test_name = test_suite_name + "_" + test_name;
+
+    std::vector<double> gold_runtimes = ReadGoldRuntimes(full_test_name, mode, using_gpu);
+    ASSERT_EQ(gold_runtimes.size(), num_refinements) << "Gold values are not set up correctly for the test " << full_test_name;
 
     // Vectors to store the number of nodes and runtimes
     std::vector<double> num_nodes;

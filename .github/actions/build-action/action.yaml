@@ -17,6 +17,10 @@ inputs:
     description: Enable GPU build
     required: true
     default: "false"
+  code-coverage:
+    description: Enable code coverage
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -31,6 +35,7 @@ runs:
       run: |
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
+        echo "code-coverage: ${{ inputs.code-coverage }}"
 
     - name: Build project
       shell: bash
@@ -40,7 +45,8 @@ runs:
 
           compose_file=docker-compose.yml
           service_name=aperi-mech-development
-          if [ ${{ inputs.gpu }} == 'true' ]; then
+          # Check if GPU build is enabled and code coverage is not enabled, overriding gpu flag if code coverage is enabled
+          if [ ${{ inputs.gpu }} == 'true' ] && [ ${{ inputs.code-coverage }} == 'false' ]; then
             compose_file=docker-compose_nvidia_t4_gpu.yml
             service_name=aperi-mech-gpu-development
           fi
@@ -55,9 +61,16 @@ runs:
               configure_flag=" --gpu"
               build_path=build/${{ inputs.build-type }}_gpu
             fi
+
+            # Check if code coverage is enabled, overriding gpu flag if code coverage is enabled
+            if [ ${{ inputs.code-coverage }} == "true" ]; then
+              configure_flag=" --code-coverage"
+              build_path=build/Debug_cov
+            fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
+            echo "In container, inputs.code-coverage: ${{ inputs.code-coverage }}"
             echo "In container, configure_flag: $configure_flag"
             echo "In container, build_path: $build_path"
 
@@ -67,10 +80,14 @@ runs:
             spack env activate aperi-mech
 
             echo "Configuring project..."
+            # do_configure will set build type to Debug if code coverage is enabled
             ./do_configure --build-type ${{ inputs.build-type }} ${configure_flag}
 
             echo "Building project..."
             cd $build_path
             make -j 4
+            if [ ${{ inputs.code-coverage }} == "true" ]; then
+              make coverage
+            fi
           '  || { echo "Build project step failed"; exit 1; }
         EOF
