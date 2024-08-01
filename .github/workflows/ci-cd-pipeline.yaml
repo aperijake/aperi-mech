@@ -450,6 +450,33 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
 
+  code-coverage:
+    name: Build Debug, Code Coverage
+    runs-on: ubuntu-latest
+    needs: [setup, test-debug-gpu]
+    concurrency:
+      group: build-and-test-vm-ci-cd
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+        uses: actions/checkout@v4
+
+      - name: Build Debug, Code Coverage
+        uses: ./.github/actions/build-action
+        with:
+          build-type: Debug
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: false
+          code-coverage: true
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/Debug_cov
+
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
