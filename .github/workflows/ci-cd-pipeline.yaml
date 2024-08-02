@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Access Azure VM
         id: vm-status
@@ -103,6 +105,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Release
         uses: ./.github/actions/build-action
@@ -123,6 +127,8 @@ jobs:
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Debug
         uses: ./.github/actions/build-action
@@ -143,6 +149,8 @@ jobs:
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Release, GPU
         uses: ./.github/actions/build-action
@@ -163,6 +171,8 @@ jobs:
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Debug, GPU
         uses: ./.github/actions/build-action
@@ -186,6 +196,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -243,6 +255,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -281,6 +295,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -339,6 +355,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -386,6 +404,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -415,6 +435,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -460,6 +482,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Debug, Code Coverage
         uses: ./.github/actions/build-action

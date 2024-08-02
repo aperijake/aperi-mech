@@ -26,6 +26,8 @@ Follow the instructions at [https://git-lfs.github.com/](https://git-lfs.github.
 ```bash
 # Install git-lfs
 sudo apt-get install git-lfs
+# or
+brew install git-lfs
 
 # Initialize git-lfs in your repository
 git lfs install
