@@ -269,7 +269,7 @@ class NeighborSearchProcessor {
                 // Shift the function values and neighbors to make room for the new neighbor
                 size_t reverse_start_index = (size_t)num_neighbors;
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %ld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
+                    printf("Node %lld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
                     --reverse_start_index;
                 } else {
                     num_neighbors += 1;
@@ -458,7 +458,7 @@ class NeighborSearchProcessor {
                 // TODO(jake): Make ways of handling this
                 if ((size_t)total_num_neighbors > MAX_CELL_NUM_NEIGHBORS) {
                     stk::mesh::Entity elem = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-                    printf("Element %ld has %ld neighbors. More than the maximum of %ld. Truncating.\n", ngp_mesh.identifier(elem), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
+                    printf("Element %lld has %ld neighbors. More than the maximum of %ld. Truncating.\n", ngp_mesh.identifier(elem), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
                     total_num_neighbors = MAX_CELL_NUM_NEIGHBORS;
                 }
 
