@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Access Azure VM
         id: vm-status
@@ -113,6 +115,8 @@ jobs:
         # Also, want the job to run and just skip the steps. otherwise following steps might hang
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Release
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -139,6 +143,8 @@ jobs:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Build Release
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -163,6 +169,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
@@ -212,6 +220,8 @@ jobs:
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-steps
