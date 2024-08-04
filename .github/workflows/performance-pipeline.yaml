@@ -94,7 +94,7 @@ jobs:
               git pull origin ${{ github.ref }}
             fi
             git lfs pull # Pull LFS files
-            # rm -rf build # Remove build directory, this prevents some false positives in tests
+            rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
       - name: Skipping Checkout Code on VM
@@ -110,7 +110,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Skipping build-release
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         run: echo "Skipping build-release. Assuming code is already built from CI/CD pipeline run."
 
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
@@ -122,7 +122,7 @@ jobs:
           lfs: false
 
       - name: Build Release
-        if: ${{ github.event_name != 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: ./.github/actions/build-action
         with:
           build-type: Release
@@ -140,11 +140,11 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Skipping build-release-gpu
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         run: echo "Skipping build-release-gpu. Assuming code is already built from CI/CD pipeline run."
 
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
-        if: ${{ github.event_name != 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v4
         with:
           lfs: false
