@@ -137,8 +137,22 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
     aperi::CoutP0() << "--------------------------------------------------------------------------------" << std::endl;
 
     for (size_t i = 0; i < num_refinements; ++i) {
-        ASSERT_GT((int)num_steps.back(), 3) << "Number of steps is too small. Adjust the parameters.";
+        ASSERT_GT(static_cast<int>(num_steps.back()), 3) << "Number of steps is too small. Adjust the parameters.";
     }
+
+    // Create a json file with the benchmark results
+    /*
+    // Example of the json output
+    [
+        {
+            "name": "Taylor Impact: 1 processors, cpu, 10 x 10 x 30 elements, runtime per increment",
+            "unit": "milliseconds",
+            "value": "0.123"
+        }
+    ]
+    */
+    std::ofstream json_file("outputs.txt");
+    json_file << "[" << std::endl;
 
     for (size_t i = 0; i < num_refinements; ++i) {
         // Create the next refinement
@@ -158,7 +172,7 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
         aperi::CoutP0() << "  Gold runtime / increment: " << std::scientific << gold_runtimes[i] << std::endl;
         aperi::CoutP0() << "  Percent difference:       " << std::defaultfloat << 100.0 * (average_increment_runtime - gold_runtimes[i]) / gold_runtimes[i] << "%" << std::endl;
 
-        double relative_tolerance = 0.05;
+        double relative_tolerance = 0.5;  // 50% relative tolerance, this is a large tolerance. Performance tests should be monitored by inspecting the charts at: https://aperijake.github.io/aperi-mech/
         std::string error_msg = "Gold values are determined for the system AperiAzureGPU1. If you are running on a different system, adjust the gold values.";
         // Release mode, perform the check
         if (m_num_procs == 1) {
@@ -168,15 +182,26 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
             aperi::CoutP0() << "WARNING: Gold values are not available for the number of processors: " << m_num_procs << ". Have gold values for 1 processors. Skipping checks.";
         }
 
+        // Output the results to a json file
+        if (i != 0) {
+            json_file << "  },";  // close the previous benchmark
+        }
+        json_file << "  {" << std::endl;
+        // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
+        std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
+        json_file << "    \"name\": \"" << name << "\"," << std::endl;
+        // Unit of the benchmark
+        std::string unit = "milliseconds";
+        json_file << "    \"unit\": \"" << unit << "\"," << std::endl;
+        // Value of the benchmark
+        double value = average_increment_runtime * 1000.0;
+        json_file << "    \"value\": " << value << std::endl;
+
         // Setup for the next refinement
         ResetSolverTest();
     }
 
-    // Output the results
-    std::ofstream file("benchmark_results.csv");
-    file << "Nodes, Runtime per increment (s)" << std::endl;
-    for (size_t i = 0; i < num_nodes.size(); ++i) {
-        file << num_nodes[i] << ", " << runtimes[i] << std::endl;
-    }
-    file.close();
+    json_file << "  }" << std::endl;  // close the last benchmark
+    json_file << "]" << std::endl;    // close the json file
+    json_file.close();
 }
