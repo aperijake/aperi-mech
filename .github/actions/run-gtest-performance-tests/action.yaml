@@ -61,3 +61,29 @@ runs:
 
           '  || { echo "Gtest performance test step failed"; exit 1; }
         EOF
+
+    - name: Transfer benchmark data from VM to GitHub Actions runner
+      shell: bash
+      run: |
+        build_path=~/aperi-mech/build/${{ inputs.build-type }}
+        if [ ${{ inputs.gpu }} == "true" ]; then
+          build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
+        fi
+        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:~/aperi-mech/build/${{ build_path }}/output.txt .
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Benchmark
+        tool: customSmallerIsBetter
+        output-file-path: output.txt
+        gh-pages-branch: gh-pages
+        benchmark-data-dir-path: dev/bench
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: 120%
+        comment-on-alert: true
+        summary-always: true
+        alert-comment-cc-users: "@aperijake"
+        fail-on-alert: true
+        fail-threshold: 200%

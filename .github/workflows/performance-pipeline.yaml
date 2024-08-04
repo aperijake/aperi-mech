@@ -10,7 +10,10 @@ on:
   workflow_dispatch: ~ # Allows manual triggering of the workflow
 
 permissions:
-  contents: read
+  # deployments permission to deploy GitHub pages website
+  deployments: write
+  # contents permission to update benchmark contents in gh-pages branch
+  contents: write
 
 jobs:
   setup:
