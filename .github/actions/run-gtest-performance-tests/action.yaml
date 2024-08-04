@@ -28,17 +28,6 @@ runs:
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
 
-    - name: Set environment variables
-      shell: bash
-      run: |
-        echo "BUILD_TYPE=${{ inputs.build-type }}" >> $GITHUB_ENV
-        echo "GPU=${{ inputs.gpu }}" >> $GITHUB_ENV
-        if [ "${{ inputs.gpu }}" == "true" ]; then
-          echo "BUILD_PATH=~/aperi-mech/build/${{ inputs.build-type }}_gpu" >> $GITHUB_ENV
-        else
-          echo "BUILD_PATH=~/aperi-mech/build/${{ inputs.build-type }}" >> $GITHUB_ENV
-        fi
-
     - name: Run gtest performance tests
       shell: bash
       run: |
@@ -56,12 +45,16 @@ runs:
           echo "On VM, Service name: $service_name"
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
+            build_path=~/aperi-mech/build/${{ inputs.build-type }}
+            if [ ${{ inputs.gpu }} == "true" ]; then
+              build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
+            fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
-            echo "In container, build_path: $BUILD_PATH
+            echo "In container, build_path: $build_path"
 
-            cd $BUILD_PATH
+            cd $build_path
             echo "Setting up Spack environment..."
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
@@ -75,7 +68,11 @@ runs:
     - name: Transfer benchmark data from VM to GitHub Actions runner
       shell: bash
       run: |
-        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:~/aperi-mech/build/${{ BUILD_PATH }}/output.txt .
+        build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/${{ inputs.build-type }}
+        if [ ${{ inputs.gpu }} == "true" ]; then
+          build_path=$build_path"_gpu"
+        fi
+        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/output.txt .
 
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1

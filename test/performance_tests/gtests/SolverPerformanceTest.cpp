@@ -151,7 +151,7 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
         }
     ]
     */
-    std::ofstream json_file("outputs.txt");
+    std::ofstream json_file("output.txt");
     json_file << "[" << std::endl;
 
     for (size_t i = 0; i < num_refinements; ++i) {
