@@ -186,6 +186,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
@@ -237,6 +238,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}

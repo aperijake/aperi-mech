@@ -7,6 +7,9 @@ inputs:
   SSH_PRIVATE_KEY:
     description: SSH private key for the VM
     required: true
+  GITHUB_TOKEN:
+    description: GitHub token
+    required: true
   VM_USERNAME:
     description: Username for the VM
     required: true
@@ -79,7 +82,7 @@ runs:
         output-file-path: output.txt
         gh-pages-branch: gh-pages
         benchmark-data-dir-path: dev/bench
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.GITHUB_TOKEN }}
         auto-push: true
         alert-threshold: 120%
         comment-on-alert: true
