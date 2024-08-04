@@ -78,18 +78,18 @@ jobs:
 
             echo "Checking out main branch and pulling latest changes..."
             git checkout main
-            git pull origin main
+            git pull origin main --rebase
 
             echo "Checking out appropriate branch..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               git checkout ${{ github.sha }}
-              git pull origin ${{ github.sha }}
+              git pull origin ${{ github.sha }} --rebase
             elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
               git checkout main
-              git pull origin main
+              git pull origin main --rebase
             else
               git checkout ${{ github.ref }}
-              git pull origin ${{ github.ref }}
+              git pull origin ${{ github.ref }} --rebase
             fi
             git lfs pull # Pull LFS files
             rm -rf build # Remove build directory, this prevents some false positives in tests
