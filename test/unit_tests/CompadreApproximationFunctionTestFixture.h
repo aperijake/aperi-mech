@@ -52,7 +52,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == num_entities);
         assert(field_view.extent(0) == num_entities);
 
-        stk::mesh::Field<DataType> *field = aperi::StkGetField(field_query_data, &meta_data);
+        stk::mesh::Field<DataType> *field = aperi::StkGetField<double>(field_query_data, &meta_data);
         stk::mesh::NgpField<DataType> ngp_field = stk::mesh::get_updated_ngp_field<DataType>(*field);
 
         if constexpr (std::is_same<ViewType, DataType *>::value) {
@@ -85,7 +85,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(topology_rank, selector);
         assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == entity_indices.extent(0));
 
-        stk::mesh::Field<OutputDataType> *field = aperi::StkGetField(field_query_data, &meta_data);
+        stk::mesh::Field<OutputDataType> *field = aperi::StkGetField<double>(field_query_data, &meta_data);
         stk::mesh::NgpField<OutputDataType> ngp_field = stk::mesh::get_updated_ngp_field<OutputDataType>(*field);
 
         // Calculate row starts

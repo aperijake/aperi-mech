@@ -1,18 +1,14 @@
 #pragma once
 
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "Constants.h"
 
 namespace aperi {
 
-/**
- * @enum FieldDataType
- * @brief Enum for field data types.
- */
-enum class FieldDataType { INT,
-                           DOUBLE };
+using FieldDataType = std::variant<int, double>;
 
 /**
  * @enum FieldDataRank
@@ -93,7 +89,7 @@ struct FieldQueryData {
     std::string name;                                                   // The name of the field.
     FieldQueryState state;                                              // The state of the field.
     FieldDataTopologyRank topology_rank = FieldDataTopologyRank::NODE;  // The rank of the field.
-    FieldDataType data_type = FieldDataType::DOUBLE;                    // The data type of the field.
+    FieldDataType data_type = double(0);                                // The data type of the field.
 };
 
 /**

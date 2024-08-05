@@ -59,7 +59,7 @@ class EntityProcessor {
 
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
-            m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
+            m_fields.push_back(StkGetField<double>(field_query_data_vec[i], meta_data));
             m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_fields.back());
         }
     }
