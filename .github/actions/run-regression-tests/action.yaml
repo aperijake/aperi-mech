@@ -25,7 +25,7 @@ runs:
         echo "gpu: ${{ inputs.gpu }}"
         echo "parallel: ${{ inputs.parallel }}"
 
-    - name: Run utils modules tests
+    - name: Run regression tests
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'

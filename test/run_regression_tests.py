@@ -74,7 +74,7 @@ def should_run_test(test_config, cpu_only, serial_only, parallel_only, gpu_only)
     return True
 
 
-def execute_test(test_config, dirpath, build_dir, keep_results):
+def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
     """
     Executes a single test and returns whether it passed.
     """
@@ -114,6 +114,7 @@ def execute_test(test_config, dirpath, build_dir, keep_results):
             stats["peak_memory"],
             inputs["peak_memory"],
             inputs["peak_memory_percent_tolerance"],
+            write_json,
         )
         memcheck_passed = peak_memory_check.run() == 0
 
@@ -124,6 +125,7 @@ def execute_test(test_config, dirpath, build_dir, keep_results):
             stats["run_time"],
             inputs["run_time"],
             inputs["run_time_percent_tolerance"],
+            write_json,
         )
         runtimecheck_passed = runtime_check.run() == 0
 
@@ -158,6 +160,7 @@ def run_regression_tests_from_directory(
     parallel_only=False,
     gpu_only=False,
     keep_results=False,
+    write_json=False,
 ):
     """
     Runs regression tests from the specified directory.
@@ -182,7 +185,9 @@ def run_regression_tests_from_directory(
                     ):
                         continue
 
-                    if execute_test(test_config, dirpath, build_dir, keep_results):
+                    if execute_test(
+                        test_config, dirpath, build_dir, keep_results, write_json
+                    ):
                         passing_tests += 1
                     total_tests += 1
 
@@ -202,6 +207,19 @@ def clean_logs(root_dir):
             print(f"Cleaning logs in {dirpath}")
             for log_file in glob.glob(f"{dirpath}/*.log"):
                 os.remove(log_file)
+            print("-----------------------------------\n")
+
+
+def clean_json_files(root_dir):
+    """
+    Cleans JSON files from the specified directory.
+    """
+    for dirpath, _, filenames in os.walk(root_dir):
+        if "test.yaml" in filenames:
+            print("-----------------------------------")
+            print(f"Cleaning JSON files in {dirpath}")
+            for json_file in glob.glob(f"{dirpath}/*.json"):
+                os.remove(json_file)
             print("-----------------------------------\n")
 
 
@@ -246,6 +264,11 @@ def parse_arguments():
         action="store_true",
     )
     parser.add_argument(
+        "--clean-json",
+        help="Clean the JSON files from the tests and exit",
+        action="store_true",
+    )
+    parser.add_argument(
         "--clean-results",
         help="Clean the results files from the tests and exit",
         action="store_true",
@@ -266,6 +289,9 @@ def parse_arguments():
         "--parallel", help="Only run parallel tests", action="store_true"
     )
     parser.add_argument("--gpu", help="Only run GPU tests", action="store_true")
+    parser.add_argument(
+        "--write-json", help="Write the results to a JSON file", action="store_true"
+    )
     return parser.parse_args()
 
 
@@ -274,18 +300,21 @@ if __name__ == "__main__":
     build_dir = os.path.abspath(os.path.expanduser(args.build_dir))
     directory = os.path.abspath(os.path.expanduser(args.directory))
 
-    # Clean logs and/or results if specified
-    if args.clean_logs or args.clean_results:
+    # Clean logs, json files and/or results if specified
+    if args.clean_logs or args.clean_results or args.clean_json:
         if args.clean_logs:
             clean_logs(directory)
+        if args.clean_json:
+            clean_json_files(directory)
         if args.clean_results:
             clean_results(directory)
         sys.exit(0)
 
-    # Pre-clean logs and results unless specified otherwise
+    # Pre-clean logs, json files, and results unless specified otherwise
     if not args.no_preclean:
         print("Cleaning logs and results before running the tests")
         clean_logs(directory)
+        clean_json_files(directory)
         clean_results(directory)
 
     # Run regression tests and measure time
@@ -298,6 +327,7 @@ if __name__ == "__main__":
         args.parallel,
         args.gpu,
         args.keep_results,
+        args.write_json,
     )
     end_time = time.perf_counter()
     print(f"Total time: {end_time - start_time:.4e} seconds")

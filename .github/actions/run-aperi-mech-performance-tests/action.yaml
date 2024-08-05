@@ -7,6 +7,9 @@ inputs:
   SSH_PRIVATE_KEY:
     description: SSH private key for the VM
     required: true
+  GITHUB_TOKEN:
+    description: GitHub token
+    required: true
   VM_USERNAME:
     description: Username for the VM
     required: true
@@ -25,7 +28,7 @@ runs:
         echo "gpu: ${{ inputs.gpu }}"
         echo "parallel: ${{ inputs.parallel }}"
 
-    - name: Run utils modules tests
+    - name: Run aperi-mech performance tests
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
@@ -43,8 +46,10 @@ runs:
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
             test_flags=""
+            build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/${{ inputs.build-type }}
             if [ ${{ inputs.gpu }} == "true" ]; then
               test_flags="$test_flags --gpu"
+              build_path=$build_path"_gpu"
             else
               test_flags="$test_flags --cpu"
             fi
@@ -57,14 +62,60 @@ runs:
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
             echo "In container, inputs.parallel: ${{ inputs.parallel }}"
             echo "In container, test_flags: $test_flags"
+            echo "In container, build_path: $build_path"
 
             echo "Setting up Spack environment..."
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
 
-            echo "Running aperi-mech performance tests..."
+            echo "Clean existing performance test results..."
+            cd $build_path
+            if [ -f performance_aperi_mech_all_results.json ]; then
+              echo "Removing: performance_aperi_mech_all_results.json"
+              rm -f performance_aperi_mech_all_results.json
+            fi
             cd ~/aperi-mech/test/
-            ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags
+            to_remove=($(find performance_tests/aperi-mech -type f -name 'performance_*.json'))
+            echo "Removing: "
+            for file in "${to_remove[@]}"; do
+                echo "$file"
+                rm -f "$file"
+            done
+
+            echo "Running aperi-mech performance tests..."
+            ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --write-json
+
+            echo "Collecting performance test results..."
+            new_results=($(find performance_tests/aperi-mech -type f -name 'performance_*.json'))
+            python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py "${new_results[@]}" performance_aperi_mech_all_results.json
+
+            mv performance_aperi_mech_all_results.json $build_path/performance_aperi_mech_all_results.json
 
           '  || { echo "Performance test step failed"; exit 1; }
         EOF
+
+    - name: Transfer benchmark data from VM to GitHub Actions runner
+      shell: bash
+      run: |
+        build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/${{ inputs.build-type }}
+        if [ ${{ inputs.gpu }} == "true" ]; then
+          build_path=$build_path"_gpu"
+        fi
+        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/performance_aperi_mech_all_results.json .
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Benchmark
+        tool: customSmallerIsBetter
+        output-file-path: performance_aperi_mech_all_results.json
+        gh-pages-branch: gh-pages
+        benchmark-data-dir-path: dev/bench/aperi_mech
+        github-token: ${{ inputs.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: 120%
+        comment-on-alert: true
+        summary-always: true
+        alert-comment-cc-users: "@aperijake"
+        fail-on-alert: true
+        fail-threshold: 200%
