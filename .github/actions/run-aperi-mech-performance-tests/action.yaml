@@ -46,7 +46,7 @@ runs:
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
             test_flags=""
-            build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/Release
+            build_path=~/aperi-mech/build/Release
             if [ ${{ inputs.gpu }} == "true" ]; then
               test_flags="$test_flags --gpu"
               build_path=$build_path"_gpu"
