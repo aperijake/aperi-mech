@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722866137240,
+  "lastUpdate": 1722868584637,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -341,6 +341,63 @@ window.BENCHMARK_DATA = {
           {
             "name": "Taylor Impact: 1 processors, cpu, hostname: e7da1a7f30da, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.2694,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "0045c3b4b02ed79ef50c063ff41d12905a8089d4",
+          "message": "fix path issue [skip ci]",
+          "timestamp": "2024-08-05T14:19:07Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/0045c3b4b02ed79ef50c063ff41d12905a8089d4"
+        },
+        "date": 1722868584177,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: 72e8127fcbbb, 48 x 48 x 144 elements, runtime",
+            "value": 1.67425,
+            "unit": "seconds"
+          },
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: 72e8127fcbbb, 96 x 96 x 288 elements, runtime",
+            "value": 13.1432,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: 72e8127fcbbb, 48 x 48 x 144 elements, runtime",
+            "value": 0.385803,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: 72e8127fcbbb, 96 x 96 x 288 elements, runtime",
+            "value": 3.03802,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: 72e8127fcbbb, 7 x 7 x 21 elements, runtime per increment",
+            "value": 1.23556,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: 72e8127fcbbb, 14 x 14 x 42 elements, runtime per increment",
+            "value": 9.75841,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: 72e8127fcbbb, 28 x 28 x 84 elements, runtime per increment",
+            "value": 78.3602,
             "unit": "milliseconds"
           }
         ]
