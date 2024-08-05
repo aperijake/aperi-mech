@@ -27,14 +27,12 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
     size_t initial_num_elem_y = 48;
     size_t initial_num_elem_z = 144;
 
-    double relative_tolerance = 0.2;
+    double relative_tolerance = 0.5;  // 50% relative tolerance, this is a large tolerance. Performance tests should be monitored by inspecting the charts at: https://aperijake.github.io/aperi-mech/
     std::string mode = "release";
 
 #ifndef NDEBUG
     mode = "debug";
-    if (using_gpu) {
-        relative_tolerance = 0.5;  // Allow for a larger tolerance in debug mode
-    } else {
+    if (!using_gpu) {
         num_refinements = 1;  // Do less refinements in debug mode as it takes longer
     }
 #endif
@@ -95,6 +93,11 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
     }
     std::cout << "--------------------------------------------------------------------------------" << std::endl;
 
+    std::ofstream json_file_compadre("performance_" + full_test_name + "_compadre.json");
+    std::ofstream json_file_reproducing_kernel("performance_" + full_test_name + "_reproducing_kernel.json");
+    json_file_compadre << "[" << std::endl;
+    json_file_reproducing_kernel << "[" << std::endl;
+
     for (size_t i = 0; i < num_refinements; ++i) {
         // Set the kernel factor
         m_kernel_factor = 1.1;
@@ -138,15 +141,36 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
         if (this_runtimes.second < gold_runtimes.second[i] * (1 - relative_tolerance)) {
             aperi::CoutP0() << "Warning: Reproducing kernel runtime is less than gold runtime. Consider adjusting the gold runtime." << std::endl;
         }
+
+        // Output the results to a json file
+        if (i != 0) {
+            json_file_compadre << "  },";            // close the previous benchmark
+            json_file_reproducing_kernel << "  },";  // close the previous benchmark
+        }
+        json_file_compadre << "  {" << std::endl;
+        json_file_reproducing_kernel << "  {" << std::endl;
+        // Name of the benchmark: Shape Function Construction: num_procs processors, cpu/gpu, hostname, num_elem_x x num_elem_y x num_elem_z elements, runtime"
+        std::string compadre_name = "Compadre Shape Function Construction: " + std::to_string(num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime";
+        json_file_compadre << R"(    "name": ")" << compadre_name << R"(",)" << std::endl;
+        std::string reproducing_kernel_name = "Reproducing Kernel Shape Function Construction: " + std::to_string(num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime";
+        json_file_reproducing_kernel << R"(    "name": ")" << reproducing_kernel_name << R"(",)" << std::endl;
+        // Unit of the benchmark
+        std::string unit = "seconds";
+        json_file_compadre << R"(    "unit": ")" << unit << R"(",)" << std::endl;
+        json_file_reproducing_kernel << R"(    "unit": ")" << unit << R"(",)" << std::endl;
+        // Value of the benchmark
+        json_file_compadre << R"(    "value": )" << this_runtimes.first << std::endl;
+        json_file_reproducing_kernel << R"(    "value": )" << this_runtimes.second << std::endl;
+
         // Setup for the next refinement
         ResetCompadreApproximationFunction();
     }
 
-    // Output the results
-    std::ofstream file("shape_function_benchmark_results.csv");
-    file << "Nodes, Compadre Runtime (s), Reproducing Kernel Runtime (s)" << std::endl;
-    for (size_t i = 0; i < num_nodes.size(); ++i) {
-        file << num_nodes[i] << ", " << runtimes[i].first << ", " << runtimes[i].second << std::endl;
-    }
-    file.close();
+    // Close the json file
+    json_file_compadre << "  }" << std::endl;  // close the last benchmark
+    json_file_compadre << "]" << std::endl;    // close the json file
+    json_file_compadre.close();
+    json_file_reproducing_kernel << "  }" << std::endl;  // close the last benchmark
+    json_file_reproducing_kernel << "]" << std::endl;    // close the json file
+    json_file_reproducing_kernel.close();
 }

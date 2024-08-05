@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 #include <yaml-cpp/yaml.h>
 
 #include <Eigen/Dense>
@@ -282,4 +283,12 @@ inline std::vector<double> ReadGoldRuntimes(const std::string& test_name, const 
         }
     }
     return gold_runtimes;
+}
+
+inline std::string GetHostName() {
+    char hostname[256];
+    if (!gethostname(hostname, 256) == 0) {
+        std::cerr << "Error getting hostname" << std::endl;
+    }
+    return std::string(hostname);
 }
