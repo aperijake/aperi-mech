@@ -45,7 +45,7 @@ void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value = -
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
-template <aperi::FieldDataRank Rank, typename T>
+template <aperi::FieldDataTopologyRank Rank, typename T>
 void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12, bool only_print_values = false) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
@@ -75,7 +75,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
 }
 
 // Check that the number of field values with an expected value matches the expected count
-template <aperi::FieldDataRank Rank, typename T>
+template <aperi::FieldDataTopologyRank Rank, typename T>
 void CheckEntityFieldValueCount(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const T& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
@@ -110,7 +110,7 @@ void CheckEntityFieldValueCount(const aperi::MeshData& mesh_data, const std::vec
 }
 
 // Check that two fields' values match the expected values
-template <aperi::FieldDataRank Rank>
+template <aperi::FieldDataTopologyRank Rank>
 void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_1_name, const std::string& field_2_name, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
     std::array<aperi::FieldQueryData, 2> field_query_data_array;
     field_query_data_array[0] = {field_1_name, field_query_state, Rank};
@@ -137,7 +137,7 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
 }
 
 // Check that the sum of different field values for an entity match the expected values
-template <aperi::FieldDataRank Rank>
+template <aperi::FieldDataTopologyRank Rank>
 void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, double expected_value, aperi::FieldQueryState field_query_state, bool verify_nonuniform = true, double tolerance = 1.0e-12) {
     std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
@@ -174,7 +174,7 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
 }
 
 // Check that the sum of the nodal field values match the expected values
-template <aperi::FieldDataRank Rank>
+template <aperi::FieldDataTopologyRank Rank>
 void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<double, 3>& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
     // Field Query Data
     std::array<aperi::FieldQueryData, 1> field_query_data = {{{field_name, field_query_state, Rank}}};
@@ -218,7 +218,7 @@ inline Eigen::Vector3d GetExpectedPatchValues(const Eigen::Vector3d& center_of_m
     return field_gradients * (coordinates - center_of_mass);
 }
 
-template <aperi::FieldDataRank Rank>
+template <aperi::FieldDataTopologyRank Rank>
 void CheckEntityFieldPatchValues(const aperi::MeshData& mesh_data, const std::string& field_name, const Eigen::Vector3d& center_of_mass, const Eigen::Matrix3d& field_gradients, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
     std::array<aperi::FieldQueryData, 2> field_query_data_array;
     field_query_data_array[0] = {field_name, field_query_state, Rank};

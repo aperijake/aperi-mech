@@ -45,11 +45,11 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         stk::mesh::BulkData *bulk_data = mesh_data.GetBulkData();
         stk::mesh::MetaData &meta_data = bulk_data->mesh_meta_data();
         stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);
-        stk::topology::rank_t rank = field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
+        stk::topology::rank_t topology_rank = field_query_data.topology_rank == aperi::FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
         // Slow host operation
-        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(rank, selector);
+        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(topology_rank, selector);
         const unsigned num_entities = entity_indices.extent(0);
-        assert(stk::mesh::count_entities(*m_bulk_data, rank, selector) == num_entities);
+        assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == num_entities);
         assert(field_view.extent(0) == num_entities);
 
         stk::mesh::Field<DataType> *field = aperi::StkGetField(field_query_data, &meta_data);
@@ -80,10 +80,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         stk::mesh::BulkData *bulk_data = mesh_data.GetBulkData();
         stk::mesh::MetaData &meta_data = bulk_data->mesh_meta_data();
         stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);
-        stk::topology::rank_t rank = field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
+        stk::topology::rank_t topology_rank = field_query_data.topology_rank == aperi::FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
         // Slow host operation
-        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(rank, selector);
-        assert(stk::mesh::count_entities(*m_bulk_data, rank, selector) == entity_indices.extent(0));
+        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(topology_rank, selector);
+        assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == entity_indices.extent(0));
 
         stk::mesh::Field<OutputDataType> *field = aperi::StkGetField(field_query_data, &meta_data);
         stk::mesh::NgpField<OutputDataType> ngp_field = stk::mesh::get_updated_ngp_field<OutputDataType>(*field);
@@ -155,7 +155,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // ---------------------
         // Node Coordinates
-        aperi::FieldQueryData field_query_data = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        aperi::FieldQueryData field_query_data = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_coordinates_view_device);
         Kokkos::deep_copy(m_coordinates_view_host, m_coordinates_view_device);
 
@@ -186,7 +186,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // ---------------------
         // Kernel Radius
-        field_query_data = {"kernel_radius", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        field_query_data = {"kernel_radius", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_kernel_radius_view_device);
         Kokkos::deep_copy(m_kernel_radius_view_host, m_kernel_radius_view_device);
 
@@ -199,7 +199,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // ---------------------
         // Number of Neighbors
-        field_query_data = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        field_query_data = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         TransferFieldToKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device);
         Kokkos::deep_copy(m_num_neighbors_view_host, m_num_neighbors_view_device);
         m_total_num_neighbors = SumKokkosView(m_num_neighbors_view_device);
@@ -225,7 +225,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_neighbor_lists_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("neighbors", m_total_num_neighbors);
         m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
 
-        field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        field_query_data = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, m_neighbor_lists_device);
         // Convert to 0-based index
         ConvertToZeroBasedIndex(m_neighbor_lists_device);
@@ -351,7 +351,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         auto alphas_host = Kokkos::create_mirror_view(alphas);
 
         // Transfer the function values to a Kokkos view
-        aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
+        aperi::FieldQueryData field_query_data = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace> function_values_device("function values", m_total_num_neighbors);  // All nodes are neighbors
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, function_values_device);
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);

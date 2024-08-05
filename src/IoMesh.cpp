@@ -126,35 +126,35 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
 
     for (const FieldData &field : field_data) {
         // Get the topology. TODO(jake): Move this to a separate function, general location
-        stk::topology::rank_t rank;
-        if (field.data_rank == FieldDataRank::NODE) {
-            rank = stk::topology::NODE_RANK;
-        } else if (field.data_rank == FieldDataRank::ELEMENT) {
-            rank = stk::topology::ELEMENT_RANK;
+        stk::topology::rank_t topology_rank;
+        if (field.data_topology_rank == FieldDataTopologyRank::NODE) {
+            topology_rank = stk::topology::NODE_RANK;
+        } else if (field.data_topology_rank == FieldDataTopologyRank::ELEMENT) {
+            topology_rank = stk::topology::ELEMENT_RANK;
         } else {
-            throw std::invalid_argument("FieldData: Invalid data rank.");
+            throw std::invalid_argument("FieldData: Invalid data topology rank.");
         }
 
         // Get the field output type. TODO(jake): Move this to a separate function, general location
         stk::io::FieldOutputType field_output_type;
-        if (field.data_type == FieldDataType::SCALAR) {
+        if (field.data_rank == FieldDataRank::SCALAR) {
             field_output_type = stk::io::FieldOutputType::SCALAR;
-        } else if (field.data_type == FieldDataType::VECTOR) {
+        } else if (field.data_rank == FieldDataRank::VECTOR) {
             field_output_type = stk::io::FieldOutputType::VECTOR_3D;
-        } else if (field.data_type == FieldDataType::TENSOR) {
+        } else if (field.data_rank == FieldDataRank::TENSOR) {
             field_output_type = stk::io::FieldOutputType::SYM_TENSOR_33;
-        } else if (field.data_type == FieldDataType::CUSTOM) {
+        } else if (field.data_rank == FieldDataRank::CUSTOM) {
             field_output_type = stk::io::FieldOutputType::CUSTOM;
         } else {
             throw std::invalid_argument("FieldData: Invalid data type.");
         }
 
         // Create the field
-        stk::mesh::FieldBase &data_field = meta_data.declare_field<double>(rank, field.name, field.number_of_states);
+        stk::mesh::FieldBase &data_field = meta_data.declare_field<double>(topology_rank, field.name, field.number_of_states);
 
         // Set the field properties
         stk::mesh::put_field_on_entire_mesh_with_initial_value(data_field, field.number_of_components, field.initial_values.data());
-        if (field.data_type != FieldDataType::CUSTOM) {
+        if (field.data_rank != FieldDataRank::CUSTOM) {
             stk::io::set_field_output_type(data_field, field_output_type);
         }
 

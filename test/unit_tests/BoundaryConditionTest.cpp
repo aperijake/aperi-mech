@@ -31,9 +31,9 @@ class BoundaryConditionTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.emplace_back("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
-        m_field_data.emplace_back("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
-        m_field_data.emplace_back("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
+        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
+        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
+        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
     }
 
     void TearDown() override {
@@ -220,8 +220,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
-                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
             }
         }
     }

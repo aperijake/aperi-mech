@@ -80,7 +80,7 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }
 
 // Test the ValueFromGeneralizedFieldProcessor with more neighbors
@@ -102,5 +102,5 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }

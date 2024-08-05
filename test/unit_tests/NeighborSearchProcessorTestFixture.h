@@ -62,7 +62,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         // Create the extra fields
         for (const auto &field_query_data : extra_fields) {
-            stk::mesh::Field<double> *p_field = &p_meta_data->declare_field<double>(field_query_data.rank == aperi::FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK, field_query_data.name, 1);
+            stk::mesh::Field<double> *p_field = &p_meta_data->declare_field<double>(field_query_data.topology_rank == aperi::FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK, field_query_data.name, 1);
             stk::mesh::put_field_on_entire_mesh(*p_field, 3);  // Hardcoded to 3 components. TODO(jake): Make this more flexible
         }
 

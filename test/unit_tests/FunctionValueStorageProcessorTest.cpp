@@ -28,10 +28,10 @@ TEST_F(FunctionValueStorageProcessorTestFixture, NodeFunctionValueStorage) {
     m_function_value_storage_processor->SyncFieldsToHost();
 
     std::array<double, 1> expected_num_neighbors_data = {1};
-    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     std::array<double, aperi::MAX_NODE_NUM_NEIGHBORS> expected_function_values_data;
     expected_function_values_data.fill(0.0);
     expected_function_values_data[0] = 1.0;
-    CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 }
