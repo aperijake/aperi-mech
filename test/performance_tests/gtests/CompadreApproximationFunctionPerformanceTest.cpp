@@ -151,16 +151,16 @@ TEST_F(CompadreApproximationFunctionTest, PerformanceBenchmark) {
         json_file_reproducing_kernel << "  {" << std::endl;
         // Name of the benchmark: Shape Function Construction: num_procs processors, cpu/gpu, hostname, num_elem_x x num_elem_y x num_elem_z elements, runtime"
         std::string compadre_name = "Compadre Shape Function Construction: " + std::to_string(num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime";
-        json_file_compadre << "    \"name\": \"" << compadre_name << "\"," << std::endl;
+        json_file_compadre << R"(    "name": ")" << compadre_name << R"(",)" << std::endl;
         std::string reproducing_kernel_name = "Reproducing Kernel Shape Function Construction: " + std::to_string(num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime";
-        json_file_reproducing_kernel << "    \"name\": \"" << reproducing_kernel_name << "\"," << std::endl;
+        json_file_reproducing_kernel << R"(    "name": ")" << reproducing_kernel_name << R"(",)" << std::endl;
         // Unit of the benchmark
         std::string unit = "seconds";
-        json_file_compadre << "    \"unit\": \"" << unit << "\"," << std::endl;
-        json_file_reproducing_kernel << "    \"unit\": \"" << unit << "\"," << std::endl;
+        json_file_compadre << R"(    "unit": ")" << unit << R"(",)" << std::endl;
+        json_file_reproducing_kernel << R"(    "unit": ")" << unit << R"(",)" << std::endl;
         // Value of the benchmark
-        json_file_compadre << "    \"value\": " << this_runtimes.first << std::endl;
-        json_file_reproducing_kernel << "    \"value\": " << this_runtimes.second << std::endl;
+        json_file_compadre << R"(    "value": )" << this_runtimes.first << std::endl;
+        json_file_reproducing_kernel << R"(    "value": )" << this_runtimes.second << std::endl;
 
         // Setup for the next refinement
         ResetCompadreApproximationFunction();

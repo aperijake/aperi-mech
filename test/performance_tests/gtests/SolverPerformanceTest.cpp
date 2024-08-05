@@ -189,13 +189,13 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
         json_file << "  {" << std::endl;
         // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, hostname, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
         std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
-        json_file << "    \"name\": \"" << name << "\"," << std::endl;
+        json_file << R"(    "name": ")" << name << R"(",)" << std::endl;
         // Unit of the benchmark
         std::string unit = "milliseconds";
-        json_file << "    \"unit\": \"" << unit << "\"," << std::endl;
+        json_file << R"(    "unit": ")" << unit << R"(",)" << std::endl;
         // Value of the benchmark
         double value = average_increment_runtime * 1000.0;
-        json_file << "    \"value\": " << value << std::endl;
+        json_file << R"(    "value": )" << value << std::endl;
 
         // Setup for the next refinement
         ResetSolverTest();
