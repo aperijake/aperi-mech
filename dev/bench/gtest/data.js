@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722837472486,
+  "lastUpdate": 1722838511862,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -227,6 +227,63 @@ window.BENCHMARK_DATA = {
           {
             "name": "Taylor Impact: 1 processors, cpu, hostname: c6494ced3d0a, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.0199,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71c84e4408e0f8fa46fbcdd6797060b7f80726aa",
+          "message": "Update action.yaml [skip ci]\n\nMore path issues",
+          "timestamp": "2024-08-05T05:57:47Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/71c84e4408e0f8fa46fbcdd6797060b7f80726aa"
+        },
+        "date": 1722838510968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: 49b89d46b84c, 48 x 48 x 144 elements, runtime",
+            "value": 0.202485,
+            "unit": "seconds"
+          },
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: 49b89d46b84c, 96 x 96 x 288 elements, runtime",
+            "value": 1.54187,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: 49b89d46b84c, 48 x 48 x 144 elements, runtime",
+            "value": 0.00738074,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: 49b89d46b84c, 96 x 96 x 288 elements, runtime",
+            "value": 0.060606,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: 49b89d46b84c, 7 x 7 x 21 elements, runtime per increment",
+            "value": 0.919168,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: 49b89d46b84c, 14 x 14 x 42 elements, runtime per increment",
+            "value": 1.00793,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: 49b89d46b84c, 28 x 28 x 84 elements, runtime per increment",
+            "value": 2.95549,
             "unit": "milliseconds"
           }
         ]
