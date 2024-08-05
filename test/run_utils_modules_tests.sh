@@ -19,4 +19,6 @@ fi
 
 # Run unit tests for all modules
 echo "Running unit tests for all utils modules..."
-python3 ./utils/unit_test_all_modules.py
+cd utils
+python3 ./unit_test_all_modules.py
+cd ../

@@ -6,17 +6,21 @@ from join_performance_results import join_performance_results
 
 
 class TestJoinPerformanceResults(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Get the current directory
+        cls.current_dir = os.path.dirname(os.path.abspath(__file__))
+
     def setUp(self):
+        self.original_dir = os.getcwd()
+        os.chdir(os.path.join(self.__class__.current_dir, "test_files"))
+
         # Paths to the test files
         self.data_1 = "data_1.json"
         self.data_2 = "data_2.json"
         self.gold_file = "all_data.json"
         self.output_file = "output.json"
-
-        # Current directory
-        self.current_dir = os.path.dirname(os.path.realpath(__file__))
-
-        os.chdir(os.path.join(self.current_dir, "test_files"))
 
         # Ensure the output file does not exist before the test
         if os.path.exists(self.output_file):
@@ -28,7 +32,7 @@ class TestJoinPerformanceResults(unittest.TestCase):
             os.remove(self.output_file)
 
         # Change back to the original directory
-        os.chdir(self.current_dir)
+        os.chdir(self.original_dir)
 
     def test_join_performance_results(self):
         # Run the join_performance_results function
