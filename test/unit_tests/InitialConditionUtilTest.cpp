@@ -18,9 +18,9 @@ class InitialConditionUtilTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
-        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
-        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2);
+        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
     }
 
     void TearDown() override {
