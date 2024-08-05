@@ -56,7 +56,7 @@ def run_tests(test_dirs):
 
 
 if __name__ == "__main__":
-    test_dirs = ["regression_test"]
+    test_dirs = ["regression_test", "scripts"]
     fail, all_passed_tests, all_failed_tests = run_tests(test_dirs)
 
     print("\n############## TEST SUMMARY ##############")

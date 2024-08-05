@@ -151,7 +151,7 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
         }
     ]
     */
-    std::ofstream json_file("output.txt");
+    std::ofstream json_file("performance_" + full_test_name + ".json");
     json_file << "[" << std::endl;
 
     for (size_t i = 0; i < num_refinements; ++i) {
@@ -187,8 +187,8 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
             json_file << "  },";  // close the previous benchmark
         }
         json_file << "  {" << std::endl;
-        // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
-        std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
+        // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, hostname, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
+        std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", hostname: " + GetHostName() + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
         json_file << "    \"name\": \"" << name << "\"," << std::endl;
         // Unit of the benchmark
         std::string unit = "milliseconds";

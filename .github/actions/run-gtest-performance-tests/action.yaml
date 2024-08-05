@@ -59,8 +59,14 @@ runs:
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
 
+            echo "Clean existing performance test results..."
+            rm -f performance_*.json
+
             echo "Running gtest performance tests..."
             ./performance_tests
+
+            echo "Collecting performance test results..."
+            python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py performance_*.json performance_all_results.json
 
           '  || { echo "Gtest performance test step failed"; exit 1; }
         EOF
@@ -72,16 +78,16 @@ runs:
         if [ ${{ inputs.gpu }} == "true" ]; then
           build_path=$build_path"_gpu"
         fi
-        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/output.txt .
+        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/performance_all_results.json .
 
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
         name: Benchmark
         tool: customSmallerIsBetter
-        output-file-path: output.txt
+        output-file-path: performance_all_results.json
         gh-pages-branch: gh-pages
-        benchmark-data-dir-path: dev/bench
+        benchmark-data-dir-path: dev/bench/gtest
         github-token: ${{ inputs.GITHUB_TOKEN }}
         auto-push: true
         alert-threshold: 120%
