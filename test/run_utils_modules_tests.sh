@@ -19,6 +19,6 @@ fi
 
 # Run unit tests for all modules
 echo "Running unit tests for all utils modules..."
-cd utils
+cd utils || exit
 python3 ./unit_test_all_modules.py
-cd ../
+cd ../ || exit
