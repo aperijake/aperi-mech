@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import os
 import shutil
 
@@ -145,7 +146,9 @@ def _print_pass_fail(test_name, return_code, executable_time, extra_message=None
 
 class RegressionTest:
 
-    def __init__(self, test_name, executable_path, num_procs, exe_args):
+    def __init__(
+        self, test_name, executable_path, num_procs, exe_args, write_json=False
+    ):
         self.test_name = test_name
         self.log_file = "regression_test.log"
         self.executable_path = executable_path
@@ -153,6 +156,30 @@ class RegressionTest:
         self.exe_args = exe_args
         self.executable_time = 0
         self.peak_memory = 0
+        self.write_json = write_json
+
+    def _write_json(self, return_code):
+        """Write the peak memory and run time to a JSON file
+        Example JSON output:
+        [
+          {
+             "name": "test_name",
+             "unit": "Return code",
+             "value": 1
+          }
+        ]
+        """
+        json_file = "performance_" + self.test_name + ".json"
+        data = []
+        data.append(
+            {
+                "name": self.test_name,
+                "unit": "Return code",
+                "value": return_code,
+            }
+        )
+        with open(json_file, "w") as f:
+            json.dump(data, f, indent=2)
 
     def run(self):
         _remove_file(self.log_file)
@@ -160,6 +187,8 @@ class RegressionTest:
         _print_pass_fail(self.test_name, return_code, self.executable_time)
         _move_log_files(self.log_file, self.test_name)
         stats["run_time"] = self.executable_time
+        if self.write_json:
+            self._write_json(return_code)
         return return_code, stats
 
     def _run(self):
@@ -181,11 +210,42 @@ class RegressionTest:
 
 class PeakMemoryCheck:
 
-    def __init__(self, test_name, peak_memory, gold_peak_memory, tolerance_percent):
+    def __init__(
+        self,
+        test_name,
+        peak_memory,
+        gold_peak_memory,
+        tolerance_percent,
+        write_json=False,
+    ):
         self.test_name = test_name
         self.peak_memory = peak_memory
         self.gold_peak_memory = gold_peak_memory
         self.tolerance_percent = tolerance_percent / 100.0
+        self.write_json = write_json
+
+    def _write_json(self):
+        """Write the peak memory to a JSON file
+        Example JSON output:
+        [
+          {
+             "name": "test_name",
+             "unit": "MB",
+             "value": 50
+          }
+        ]
+        """
+        json_file = "performance_" + self.test_name + ".json"
+        data = []
+        data.append(
+            {
+                "name": self.test_name,
+                "unit": "MB",
+                "value": self.peak_memory,
+            }
+        )
+        with open(json_file, "w") as f:
+            json.dump(data, f, indent=2)
 
     def run(self):
         # Check if the peak memory is within the tolerance
@@ -205,6 +265,8 @@ class PeakMemoryCheck:
             print(
                 f"    Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
             )
+        if self.write_json:
+            self._write_json()
         _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
@@ -213,12 +275,41 @@ class PeakMemoryCheck:
 class RunTimeCheck:
 
     def __init__(
-        self, test_name, executable_time, gold_executable_time, tolerance_percent
+        self,
+        test_name,
+        executable_time,
+        gold_executable_time,
+        tolerance_percent,
+        write_json=False,
     ):
         self.test_name = test_name
         self.executable_time = executable_time
         self.gold_executable_time = gold_executable_time
         self.tolerance_percent = tolerance_percent / 100.0
+        self.write_json = write_json
+
+    def _write_json(self):
+        """Write the run time to a JSON file
+        Example JSON output:
+        [
+          {
+             "name": "test_name",
+             "unit": "s",
+             "value": 50
+          }
+        ]
+        """
+        json_file = "performance_" + self.test_name + ".json"
+        data = []
+        data.append(
+            {
+                "name": self.test_name,
+                "unit": "s",
+                "value": self.executable_time,
+            }
+        )
+        with open(json_file, "w") as f:
+            json.dump(data, f, indent=2)
 
     def run(self):
         # Check if the executable time is within the tolerance
@@ -238,6 +329,8 @@ class RunTimeCheck:
             print(
                 f"    Consider changing the gold executable time to {self.executable_time:.4e} s"
             )
+        if self.write_json:
+            self._write_json()
         _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
@@ -253,6 +346,7 @@ class ExodiffCheck:
         exodiff_results_file,
         exodiff_gold_results_file,
         exodiff_args,
+        write_json=False,
     ):
         self.test_name = test_name
         self.log_file = "exodiff_check.log"
@@ -270,12 +364,38 @@ class ExodiffCheck:
         self.exodiff_gold_results_file = exodiff_gold_results_file
         self.exodiff_args = exodiff_args
         self.executable_time = 0
+        self.write_json = write_json
+
+    def _write_json(self, return_code):
+        """Write the exodiff results to a JSON file
+        Example JSON output:
+        [
+          {
+             "name": "test_name",
+             "unit": "Return code",
+             "value": 1
+          }
+        ]
+        """
+        json_file = "performance_" + self.test_name + ".json"
+        data = []
+        data.append(
+            {
+                "name": self.test_name,
+                "unit": "Return code",
+                "value": return_code,
+            }
+        )
+        with open(json_file, "w") as f:
+            json.dump(data, f, indent=2)
 
     def run(self):
         _remove_file(self.log_file)
         return_code = self._run()
         _print_pass_fail(self.test_name, return_code, self.executable_time)
         _move_log_files(self.log_file, self.test_name)
+        if self.write_json:
+            self._write_json(return_code)
         return return_code
 
     def _run(self):

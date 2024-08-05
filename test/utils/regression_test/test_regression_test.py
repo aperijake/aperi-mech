@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import unittest
@@ -39,6 +40,9 @@ class TestRegressionTest(unittest.TestCase):
             for f in files:
                 if f.startswith("regression_test_") or f.startswith("exodiff_check_"):
                     if f.endswith(".log"):
+                        os.remove(os.path.join(root, f))
+                elif f.startswith("performance_"):
+                    if f.endswith(".json"):
                         os.remove(os.path.join(root, f))
             if "test_output.log" in files:
                 os.remove(os.path.join(root, "test_output.log"))
@@ -111,6 +115,26 @@ class TestRegressionTest(unittest.TestCase):
 
 class TestPeakMemoryCheck(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Get the current directory
+        cls.current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Clean up any old files
+        for root, _dirs, files in os.walk(cls.current_dir):
+            for f in files:
+                if f.startswith("performance_"):
+                    if f.endswith(".json"):
+                        os.remove(os.path.join(root, f))
+
+    def setUp(self):
+        self.original_dir = os.getcwd()
+        os.chdir(os.path.join(self.__class__.current_dir, "test_files"))
+
+    def tearDown(self):
+        # Change back to the original directory
+        os.chdir(self.original_dir)
+
     def test_peak_memory_within_tolerance(self):
         check = PeakMemoryCheck(
             test_name="test_within_tolerance",
@@ -161,8 +185,49 @@ class TestPeakMemoryCheck(unittest.TestCase):
         result = check.run()
         self.assertEqual(result, 0)
 
+    def test_write_json(self):
+        check = PeakMemoryCheck(
+            test_name="test_write_json_peak_memory",
+            peak_memory=80,
+            gold_peak_memory=100,
+            tolerance_percent=10,
+            write_json=True,
+        )
+        check.run()
+        self.assertTrue(os.path.exists("performance_test_write_json_peak_memory.json"))
+        expected = [
+            {
+                "name": "test_write_json_peak_memory",
+                "unit": "MB",
+                "value": 80,
+            }
+        ]
+        with open("performance_test_write_json_peak_memory.json", "r") as f:
+            result = json.load(f)
+        self.assertEqual(result, expected)
+
 
 class TestRunTimeCheck(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Get the current directory
+        cls.current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Clean up any old files
+        for root, _dirs, files in os.walk(cls.current_dir):
+            for f in files:
+                if f.startswith("performance_"):
+                    if f.endswith(".json"):
+                        os.remove(os.path.join(root, f))
+
+    def setUp(self):
+        self.original_dir = os.getcwd()
+        os.chdir(os.path.join(self.__class__.current_dir, "test_files"))
+
+    def tearDown(self):
+        # Change back to the original directory
+        os.chdir(self.original_dir)
 
     def test_runtime_within_tolerance(self):
         check = RunTimeCheck(
@@ -213,6 +278,27 @@ class TestRunTimeCheck(unittest.TestCase):
         )
         result = check.run()
         self.assertEqual(result, 0)
+
+    def test_write_json(self):
+        check = RunTimeCheck(
+            test_name="test_write_json_run_time",
+            executable_time=90,
+            gold_executable_time=100,
+            tolerance_percent=10,
+            write_json=True,
+        )
+        check.run()
+        self.assertTrue(os.path.exists("performance_test_write_json_run_time.json"))
+        expected = [
+            {
+                "name": "test_write_json_run_time",
+                "unit": "s",
+                "value": 90,
+            }
+        ]
+        with open("performance_test_write_json_run_time.json", "r") as f:
+            result = json.load(f)
+        self.assertEqual(result, expected)
 
 
 if __name__ == "__main__":
