@@ -104,7 +104,7 @@ runs:
     - name: Transfer benchmark data from VM to GitHub Actions runner
       shell: bash
       run: |
-        build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/Release"
+        build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/Release
         if [ ${{ inputs.gpu }} == "true" ]; then
           build_path=$build_path"_gpu"
         fi
