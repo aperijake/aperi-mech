@@ -75,7 +75,7 @@ runs:
               rm -f performance_aperi_mech_all_results.json
             fi
             cd ~/aperi-mech/test/
-            to_remove=($(find performance_tests/aperi-mech -type f -name 'performance_*.json'))
+            to_remove=($(find performance_tests/aperi-mech -type f -name "performance_*.json"))
             echo "Removing: "
             for file in "${to_remove[@]}"; do
                 echo "$file"
@@ -86,7 +86,12 @@ runs:
             ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --write-json
 
             echo "Collecting performance test results..."
-            new_results=($(find performance_tests/aperi-mech -type f -name 'performance_*.json'))
+            new_results=($(find performance_tests/aperi-mech -type f -name "performance_*.json"))
+            echo "New results: "
+            for file in "${new_results[@]}"; do
+                echo "$file"
+            done
+            echo "Running: python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py ${new_results[@]} performance_aperi_mech_all_results.json"
             python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py "${new_results[@]}" performance_aperi_mech_all_results.json
 
             mv performance_aperi_mech_all_results.json $build_path/performance_aperi_mech_all_results.json
