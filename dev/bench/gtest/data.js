@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722870793771,
+  "lastUpdate": 1722872290326,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -455,6 +455,63 @@ window.BENCHMARK_DATA = {
           {
             "name": "Taylor Impact: 1 processors, cpu, hostname: f68575c9c5ab, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.1084,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "79f1004b234b2f6302be93e04fe75e668f730313",
+          "message": "fix missing double quote [skip ci]",
+          "timestamp": "2024-08-05T14:55:20Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/79f1004b234b2f6302be93e04fe75e668f730313"
+        },
+        "date": 1722872289461,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: ff653aad4200, 48 x 48 x 144 elements, runtime",
+            "value": 0.204639,
+            "unit": "seconds"
+          },
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: ff653aad4200, 96 x 96 x 288 elements, runtime",
+            "value": 1.55837,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: ff653aad4200, 48 x 48 x 144 elements, runtime",
+            "value": 0.00803633,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: ff653aad4200, 96 x 96 x 288 elements, runtime",
+            "value": 0.0454313,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: ff653aad4200, 7 x 7 x 21 elements, runtime per increment",
+            "value": 0.922822,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: ff653aad4200, 14 x 14 x 42 elements, runtime per increment",
+            "value": 1.0082,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, hostname: ff653aad4200, 28 x 28 x 84 elements, runtime per increment",
+            "value": 2.96311,
             "unit": "milliseconds"
           }
         ]
