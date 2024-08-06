@@ -121,7 +121,8 @@ class EntityProcessor {
 
     // Parallel sum including ghosted values
     void ParallelSumFieldData(int field_index) const {
-        stk::mesh::parallel_sum_including_ghosts(*m_bulk_data, {m_fields[field_index]});
+        std::vector<const stk::mesh::FieldBase *> fields = {m_fields[field_index]};
+        stk::mesh::parallel_sum_including_ghosts(*m_bulk_data, fields);
     }
 
     void ParallelSumAllFieldData() const {
