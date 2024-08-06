@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722968348083,
+  "lastUpdate": 1722975986558,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -626,6 +626,63 @@ window.BENCHMARK_DATA = {
           {
             "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
             "value": 78.1153,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "7d36f5780b8b2fd74a97819084593aa9efbf681a",
+          "message": "fix hostname on performance runs [skip ci]",
+          "timestamp": "2024-08-06T20:08:28Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/7d36f5780b8b2fd74a97819084593aa9efbf681a"
+        },
+        "date": 1722975986042,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "value": 1.69467,
+            "unit": "seconds"
+          },
+          {
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "value": 13.2477,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "value": 0.32413,
+            "unit": "seconds"
+          },
+          {
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "value": 2.54718,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "value": 1.22997,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "value": 9.70306,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "value": 78.0098,
             "unit": "milliseconds"
           }
         ]
