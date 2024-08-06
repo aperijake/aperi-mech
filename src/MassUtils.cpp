@@ -53,10 +53,10 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
-    std::array<FieldQueryData, 1> field_query_data_gather_vec = {FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
+    std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
     std::string mass_from_elements_name = "mass_from_elements";
     std::string mass_name = "mass";
-    FieldQueryData field_query_data_scatter = {mass_from_elements_name, FieldQueryState::None};
+    FieldQueryData<double> field_query_data_scatter = {mass_from_elements_name, FieldQueryState::None};
 
     ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
 
@@ -67,7 +67,7 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_mass_functor);
 
     // Sum the mass at the nodes
-    std::array<aperi::FieldQueryData, 2> mass_field_query_data;
+    std::array<aperi::FieldQueryData<double>, 2> mass_field_query_data;
     mass_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
     mass_field_query_data[1] = {mass_name, FieldQueryState::None};
     NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);
@@ -79,11 +79,11 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
 
     // Pass mass_from_elements through the approximation functions to get mass
     if (uses_generalized_fields) {
-        std::array<aperi::FieldQueryData, 1> src_field_query_data;
-        src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE, FieldDataType(double(0))};
+        std::array<aperi::FieldQueryData<double>, 1> src_field_query_data;
+        src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE};
 
-        std::array<aperi::FieldQueryData, 1> dest_field_query_data;
-        dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE, FieldDataType(double(0))};
+        std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data;
+        dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE};
 
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
         value_from_generalized_field_processor->compute_value_from_generalized_field();

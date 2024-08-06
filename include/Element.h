@@ -28,7 +28,7 @@ namespace aperi {
  * @param num_nodes The number of nodes in the element.
  * @return A shared pointer to the created ElementBase object.
  */
-inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, const std::shared_ptr<ApproximationSpaceParameters>& approximation_space_parameters, const std::shared_ptr<IntegrationSchemeParameters>& integration_scheme_parameters, std::vector<FieldQueryData> field_query_data_gather = {}, std::vector<std::string> part_names = {}, std::shared_ptr<aperi::MeshData> mesh_data = nullptr, std::shared_ptr<Material> material = nullptr) {
+inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, const std::shared_ptr<ApproximationSpaceParameters>& approximation_space_parameters, const std::shared_ptr<IntegrationSchemeParameters>& integration_scheme_parameters, std::vector<FieldQueryData<double>> field_query_data_gather = {}, std::vector<std::string> part_names = {}, std::shared_ptr<aperi::MeshData> mesh_data = nullptr, std::shared_ptr<Material> material = nullptr) {
     if (num_nodes == TET4_NUM_NODES) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {

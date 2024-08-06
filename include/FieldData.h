@@ -8,7 +8,7 @@
 
 namespace aperi {
 
-using FieldDataType = std::variant<int, double>;
+using FieldDataType = std::variant<uint64_t, double>;
 
 /**
  * @enum FieldDataRank
@@ -46,7 +46,7 @@ struct FieldData {
             throw std::invalid_argument("FieldData: Invalid data type. Use another constructor.");
         }
         if (initial_values_in.size() == 0) {
-            initial_values = std::vector<FieldDataType>(number_of_components, 0);
+            initial_values = std::vector<FieldDataType>(number_of_components, FieldDataType(0.0));
         } else if (initial_values_in.size() != number_of_components) {
             throw std::invalid_argument("FieldData: Size of initial values does not match number of components.");
         } else {
@@ -59,7 +59,7 @@ struct FieldData {
     FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in = {})
         : name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}) {
         if (initial_values_in.size() == 0) {
-            initial_values = std::vector<FieldDataType>(number_of_components, 0);
+            initial_values = std::vector<FieldDataType>(number_of_components, FieldDataType(0.0));
         } else if (initial_values_in.size() != number_of_components) {
             throw std::invalid_argument("FieldData: Size of initial values does not match number of components.");
         } else {
@@ -88,11 +88,11 @@ enum class FieldQueryState { None,
  * @struct FieldQueryData
  * @brief Represents the data of a field query.
  */
+template <typename T = double>
 struct FieldQueryData {
     std::string name;                                                   // The name of the field.
     FieldQueryState state;                                              // The state of the field.
     FieldDataTopologyRank topology_rank = FieldDataTopologyRank::NODE;  // The rank of the field.
-    FieldDataType data_type = FieldDataType(double(0));                 // The data type of the field.
 };
 
 /**
@@ -117,14 +117,14 @@ inline std::vector<FieldData> GetFieldData(bool use_strain_smoothing = true) {
     if (use_strain_smoothing) {
         // TODO(jake): Some of these fields are only really needed for RK, but NeighborSearchProcessor needs to be refactored to allow for this
         // Node neighbor data.
-        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                            // The number of neighbors for the node
-        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));        // The neighbors of the node
+        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));                          // The number of neighbors for the node
+        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<uint64_t>{}));      // The neighbors of the node
         field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The function values of neighbors at the node
         field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                            // The kernel radius for the node
 
         // Cell neighbor data.
-        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));                                   // The number of neighbors for the cell
-        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS, std::vector<double>{}));               // The neighbors of the cell
+        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));                                 // The number of neighbors for the cell
+        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS, std::vector<uint64_t>{}));             // The neighbors of the cell
         field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS, std::vector<double>{}));  // The function derivatives in x of neighbors at the cell
         field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS, std::vector<double>{}));  // The function derivatives in y of neighbors at the cell
         field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NEIGHBORS, std::vector<double>{}));  // The function derivatives in z of neighbors at the cell

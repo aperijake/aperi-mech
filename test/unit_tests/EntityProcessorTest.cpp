@@ -66,7 +66,7 @@ class NodeProcessingTestFixture : public ::testing::Test {
         m_mesh_data = std::make_shared<aperi::MeshData>(m_bulk_data.get());
 
         // Create the field query data
-        std::array<aperi::FieldQueryData, 3> field_query_data_vec;
+        std::array<aperi::FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"velocity", aperi::FieldQueryState::NP1};
         field_query_data_vec[1] = {"velocity", aperi::FieldQueryState::N};
         field_query_data_vec[2] = {"acceleration", aperi::FieldQueryState::N};

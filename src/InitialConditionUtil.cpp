@@ -20,7 +20,7 @@ struct FillInitialValueFunctor {
 
 void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::vector<std::pair<size_t, double>>& components_and_values) {
     // Create the field query data
-    std::array<FieldQueryData, 1> field_query_data;
+    std::array<FieldQueryData<double>, 1> field_query_data;
     field_query_data[0] = {field_name, FieldQueryState::NP1};
 
     // Create the node processor

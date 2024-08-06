@@ -51,7 +51,7 @@ class InitialConditionUtilTest : public ApplicationTest {
             const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
             // Create the field query data
-            std::array<aperi::FieldQueryData, 2> field_query_data;
+            std::array<aperi::FieldQueryData<double>, 2> field_query_data;
             field_query_data[0] = {type, aperi::FieldQueryState::NP1};
             field_query_data[1] = {type, aperi::FieldQueryState::N};
             std::vector<std::string> sets;

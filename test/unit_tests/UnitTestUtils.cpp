@@ -278,7 +278,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
 }
 
 void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value, double max_value) {
-    std::array<aperi::FieldQueryData, 1> field_query_data_array = {{{mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::NP1, aperi::FieldDataTopologyRank::NODE}}};
+    std::array<aperi::FieldQueryData<double>, 1> field_query_data_array = {{{mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::NP1, aperi::FieldDataTopologyRank::NODE}}};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);

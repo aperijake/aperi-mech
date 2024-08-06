@@ -21,12 +21,13 @@
 
 class NeighborSearchProcessorTestFixture : public ::testing::Test {
     using DoubleField = stk::mesh::Field<double>;
+    using UnsignedField = stk::mesh::Field<uint64_t>;
 
    protected:
     void SetUp() override {
     }
 
-    double CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::string extra_mesh_spec = "|tets", const std::vector<aperi::FieldQueryData> &extra_fields = {}) {
+    double CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::string extra_mesh_spec = "|tets", const std::vector<aperi::FieldQueryData<double>> &extra_fields = {}) {
         auto start = std::chrono::high_resolution_clock::now();
         MPI_Comm p_communicator = MPI_COMM_WORLD;
         m_bulk_data = stk::mesh::MeshBuilder(p_communicator).create();
@@ -41,10 +42,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         mesh_reader.add_all_mesh_fields_as_input_fields();
 
         // Create the fields, start with nodes
-        m_node_num_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "num_neighbors", 1);
+        m_node_num_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_num_neighbors_field, 1);
 
-        m_node_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "neighbors", 1);
+        m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
@@ -54,10 +55,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         stk::mesh::put_field_on_entire_mesh(*m_kernel_radius_field, 1);
 
         // Create the fields, same thing for elements
-        m_element_num_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "num_neighbors", 1);
+        m_element_num_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_element_num_neighbors_field, 1);
 
-        m_element_neighbors_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "neighbors", 1);
+        m_element_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_element_neighbors_field, aperi::MAX_CELL_NUM_NEIGHBORS);
 
         // Create the extra fields
@@ -103,12 +104,12 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     size_t m_num_elements_z = 4;
     std::shared_ptr<stk::mesh::BulkData> m_bulk_data;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    DoubleField *m_node_num_neighbors_field;
-    DoubleField *m_node_neighbors_field;
+    UnsignedField *m_node_num_neighbors_field;
+    UnsignedField *m_node_neighbors_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
-    DoubleField *m_element_num_neighbors_field;
-    DoubleField *m_element_neighbors_field;
-    std::vector<aperi::FieldQueryData> m_extra_fields;
+    UnsignedField *m_element_num_neighbors_field;
+    UnsignedField *m_element_neighbors_field;
+    std::vector<aperi::FieldQueryData<double>> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
 };

@@ -154,14 +154,14 @@ void ExplicitSolver::WriteOutput(double time) {
     */
 
     if (m_uses_generalized_fields) {
-        std::array<aperi::FieldQueryData, 3> dest_field_query_data;
+        std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
         dest_field_query_data[0] = {"displacement", FieldQueryState::NP1};
         dest_field_query_data[1] = {"velocity", FieldQueryState::NP1};
         dest_field_query_data[2] = {"acceleration", FieldQueryState::NP1};
         bool rotate_device_states = true;
         mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
 
-        std::array<aperi::FieldQueryData, 3> src_field_query_data;
+        std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
         src_field_query_data[0] = {"displacement", FieldQueryState::N};
         src_field_query_data[1] = {"velocity", FieldQueryState::N};
         src_field_query_data[2] = {"acceleration", FieldQueryState::N};
