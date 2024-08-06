@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722977299996,
+  "lastUpdate": 1722977783545,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -336,6 +336,48 @@ window.BENCHMARK_DATA = {
             "name": "fem_cpu_np_4_run_time",
             "value": 68.4184083959999,
             "unit": "s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "7d36f5780b8b2fd74a97819084593aa9efbf681a",
+          "message": "fix hostname on performance runs [skip ci]",
+          "timestamp": "2024-08-06T20:08:28Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/7d36f5780b8b2fd74a97819084593aa9efbf681a"
+        },
+        "date": 1722977782718,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rkpm_gpu_np_1_run_time",
+            "value": 325.9268741579999,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_gpu_np_1_peak_memory",
+            "value": 14320.3125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 40.50224444899959,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 1826.98828125,
+            "unit": "MB"
           }
         ]
       }
