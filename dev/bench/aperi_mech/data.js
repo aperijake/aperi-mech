@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722872667751,
+  "lastUpdate": 1722968103700,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -125,6 +125,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "fem_gpu_np_1_peak_memory",
             "value": 1852.1484375,
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a0868482a368aa35eeeed7c46ac0f0161eec9579",
+          "message": "Merge pull request #25 from aperijake/field_data_type_work",
+          "timestamp": "2024-08-06T17:24:47Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/a0868482a368aa35eeeed7c46ac0f0161eec9579"
+        },
+        "date": 1722968103140,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rkpm_gpu_np_1_run_time",
+            "value": 353.495041157,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_gpu_np_1_peak_memory",
+            "value": 14488.1484375,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 42.68335570199997,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 1854.6640625,
             "unit": "MB"
           }
         ]
