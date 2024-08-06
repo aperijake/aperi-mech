@@ -30,12 +30,12 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
         NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, "|tets", m_src_and_dest_field_query_data);
         FunctionValueStorageProcessorTestFixture::BuildFunctionValueStorageProcessor();
         // Create the ValueFromGeneralizedFieldProcessor
-        std::array<aperi::FieldQueryData, 1> src_field = {m_src_and_dest_field_query_data[0]};
-        std::array<aperi::FieldQueryData, 1> dest_field = {m_src_and_dest_field_query_data[1]};
+        std::array<aperi::FieldQueryData<double>, 1> src_field = {m_src_and_dest_field_query_data[0]};
+        std::array<aperi::FieldQueryData<double>, 1> dest_field = {m_src_and_dest_field_query_data[1]};
         m_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field, dest_field, m_mesh_data);
 
         // Create the field query data, coordinates and the src and dest fields
-        std::array<aperi::FieldQueryData, 3> field_query_data_vec;
+        std::array<aperi::FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
         field_query_data_vec[1] = m_src_and_dest_field_query_data[0];
         field_query_data_vec[2] = m_src_and_dest_field_query_data[1];
@@ -56,7 +56,7 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
         m_node_processor->SyncAllFieldsDeviceToHost();
     }
 
-    std::vector<aperi::FieldQueryData> m_src_and_dest_field_query_data;
+    std::vector<aperi::FieldQueryData<double>> m_src_and_dest_field_query_data;
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_value_from_generalized_field_processor;
     std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor;
 };
@@ -80,7 +80,7 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }
 
 // Test the ValueFromGeneralizedFieldProcessor with more neighbors
@@ -102,5 +102,5 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     m_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
 
-    CheckThatFieldsMatch<aperi::FieldDataRank::NODE>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }

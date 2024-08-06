@@ -35,8 +35,10 @@
 namespace aperi {
 
 class NeighborSearchProcessor {
-    using DoubleField = stk::mesh::Field<double>;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    using DoubleField = stk::mesh::Field<double>;
     using NgpDoubleField = stk::mesh::NgpField<double>;
+    using UnsignedField = stk::mesh::Field<uint64_t>;
+    using NgpUnsignedField = stk::mesh::NgpField<uint64_t>;
     using ExecSpace = stk::ngp::ExecSpace;
     using NodeIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
     using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<double>, NodeIdentProc>;
@@ -68,31 +70,31 @@ class NeighborSearchProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the node number of neighbors field
-        m_node_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_num_neighbors_field);
+        m_node_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_num_neighbors_field);
 
         // Get the node neighbors field
-        m_node_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_neighbors_field);
+        m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
 
         // Get the element number of neighbors field
-        m_element_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_element_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_num_neighbors_field);
+        m_element_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_element_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_num_neighbors_field);
 
         // Get the element neighbors field
-        m_element_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_neighbors_field);
+        m_element_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_neighbors_field);
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the kernel radius field
-        m_kernel_radius_field = StkGetField(FieldQueryData{"kernel_radius", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_kernel_radius_field = StkGetField(FieldQueryData<double>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
 
         // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
     }
 
     void SetKernelRadius(double kernel_radius) {
@@ -246,8 +248,8 @@ class NeighborSearchProcessor {
                 stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
                 const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
-                double *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-                double &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+                uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
+                uint64_t &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
                 double *p_function_values = stk::mesh::field_data(*m_function_values_field, node);
 
                 // Calculate the squared distance between the node and the neighbor
@@ -269,7 +271,7 @@ class NeighborSearchProcessor {
                 // Shift the function values and neighbors to make room for the new neighbor
                 size_t reverse_start_index = (size_t)num_neighbors;
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %lld has too many neighbors. The furthest neighbor will be removed.\n", m_bulk_data->identifier(node));
+                    printf("Node %lu has too many neighbors. The furthest neighbor will be removed.\n", static_cast<long unsigned int>(m_bulk_data->identifier(node)));
                     --reverse_start_index;
                 } else {
                     num_neighbors += 1;
@@ -458,7 +460,7 @@ class NeighborSearchProcessor {
                 // TODO(jake): Make ways of handling this
                 if ((size_t)total_num_neighbors > MAX_CELL_NUM_NEIGHBORS) {
                     stk::mesh::Entity elem = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-                    printf("Element %lld has %ld neighbors. More than the maximum of %ld. Truncating.\n", ngp_mesh.identifier(elem), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
+                    printf("Element %lu has %ld neighbors. More than the maximum of %ld. Truncating.\n", static_cast<long unsigned int>(ngp_mesh.identifier(elem)), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
                     total_num_neighbors = MAX_CELL_NUM_NEIGHBORS;
                 }
 
@@ -472,28 +474,28 @@ class NeighborSearchProcessor {
         m_ngp_element_num_neighbors_field->modify_on_device();
     }
 
-    std::map<std::string, double> GetNumNeighborStats(const aperi::FieldDataRank &rank) {
+    std::map<std::string, double> GetNumNeighborStats(const aperi::FieldDataTopologyRank &rank) {
         // Initialize the min and max values
         double max_num_neighbors = 0;
         double min_num_neighbors = std::numeric_limits<double>::max();
         double total_num_neighbors = 0;
         double num_entities = 0;
         int reserved_memory = 0;
-        NgpDoubleField ngp_num_neighbors_field;
+        NgpUnsignedField ngp_num_neighbors_field;
 
         stk::topology::rank_t rank_type;
-        if (rank == aperi::FieldDataRank::ELEMENT) {
+        if (rank == aperi::FieldDataTopologyRank::ELEMENT) {
             num_entities = GetNumOwnedElements();
             ngp_num_neighbors_field = *m_ngp_element_num_neighbors_field;
             rank_type = stk::topology::ELEMENT_RANK;
             reserved_memory = MAX_CELL_NUM_NEIGHBORS;
-        } else if (rank == aperi::FieldDataRank::NODE) {
+        } else if (rank == aperi::FieldDataTopologyRank::NODE) {
             num_entities = GetNumOwnedNodes();
             ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
             rank_type = stk::topology::NODE_RANK;
             reserved_memory = MAX_NODE_NUM_NEIGHBORS;
         } else {
-            throw std::runtime_error("Invalid rank type. Must be aperi::FieldDataRank::ELEMENT or aperi::FieldDataRank::NODE.");
+            throw std::runtime_error("Invalid rank type. Must be aperi::FieldDataTopologyRank::ELEMENT or aperi::FieldDataTopologyRank::NODE.");
         }
 
         FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(rank_type, m_owned_selector);
@@ -503,7 +505,7 @@ class NeighborSearchProcessor {
             "calculate_stats",
             num_entities,
             KOKKOS_LAMBDA(int i, double &max_num_neighbors, double &min_num_neighbors, double &total_num_neighbors) {
-                stk::mesh::EntityFieldData<double> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
+                stk::mesh::EntityFieldData<uint64_t> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
                 double num_neighbors = num_neighbors_field[0];
                 max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
                 min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);
@@ -530,7 +532,7 @@ class NeighborSearchProcessor {
 
     void PrintNumNeighborsStats() {
         // Node
-        std::map<std::string, double> node_stats = GetNumNeighborStats(aperi::FieldDataRank::NODE);
+        std::map<std::string, double> node_stats = GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
 
         aperi::CoutP0() << "Node Stats: " << std::endl;
         aperi::CoutP0() << "    Total Num Nodes: " << node_stats["num_entities"] << std::endl;
@@ -541,7 +543,7 @@ class NeighborSearchProcessor {
                         << std::endl;  // Add a new line for readability
 
         // Element
-        std::map<std::string, double> element_stats = GetNumNeighborStats(aperi::FieldDataRank::ELEMENT);
+        std::map<std::string, double> element_stats = GetNumNeighborStats(aperi::FieldDataTopologyRank::ELEMENT);
 
         aperi::CoutP0() << "Element Stats: " << std::endl;
         aperi::CoutP0() << "  Total Num Elements: " << element_stats["num_entities"] << std::endl;
@@ -589,30 +591,32 @@ class NeighborSearchProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;       // The mesh data object.
-    std::vector<std::string> m_sets;                    // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                   // The bulk data object.
-    stk::mesh::Selector m_selector;                     // The selector
-    stk::mesh::Selector m_owned_selector;               // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                      // The ngp mesh object.
-    DoubleField *m_coordinates_field;                   // The coordinates field
-    DoubleField *m_node_num_neighbors_field;            // The number of neighbors field
-    DoubleField *m_node_neighbors_field;                // The neighbors field
-    DoubleField *m_element_num_neighbors_field;         // The number of neighbors field
-    DoubleField *m_element_neighbors_field;             // The neighbors field
-    DoubleField *m_kernel_radius_field;                 // The kernel radius field
-    DoubleField *m_function_values_field;               // The function values field
-    NgpDoubleField *m_ngp_coordinates_field;            // The ngp coordinates field
-    NgpDoubleField *m_ngp_node_num_neighbors_field;     // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_node_neighbors_field;         // The ngp neighbors field
-    NgpDoubleField *m_ngp_element_num_neighbors_field;  // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_element_neighbors_field;      // The ngp neighbors field
-    NgpDoubleField *m_ngp_kernel_radius_field;          // The ngp kernel radius field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;         // The mesh data object.
+    std::vector<std::string> m_sets;                      // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                     // The bulk data object.
+    stk::mesh::Selector m_selector;                       // The selector
+    stk::mesh::Selector m_owned_selector;                 // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                        // The ngp mesh object.
+    DoubleField *m_coordinates_field;                     // The coordinates field
+    UnsignedField *m_node_num_neighbors_field;            // The number of neighbors field
+    UnsignedField *m_node_neighbors_field;                // The neighbors field
+    UnsignedField *m_element_num_neighbors_field;         // The number of neighbors field
+    UnsignedField *m_element_neighbors_field;             // The neighbors field
+    DoubleField *m_kernel_radius_field;                   // The kernel radius field
+    DoubleField *m_function_values_field;                 // The function values field
+    NgpDoubleField *m_ngp_coordinates_field;              // The ngp coordinates field
+    NgpUnsignedField *m_ngp_node_num_neighbors_field;     // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_node_neighbors_field;         // The ngp neighbors field
+    NgpUnsignedField *m_ngp_element_num_neighbors_field;  // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_element_neighbors_field;      // The ngp neighbors field
+    NgpDoubleField *m_ngp_kernel_radius_field;            // The ngp kernel radius field
 };
 
 class FunctionValueStorageProcessor {
-    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -633,23 +637,23 @@ class FunctionValueStorageProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
 
         // Get the kernel radius field
-        m_kernel_radius_field = StkGetField(FieldQueryData{"kernel_radius", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_kernel_radius_field = StkGetField(FieldQueryData<double>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
     }
 
@@ -668,7 +672,7 @@ class FunctionValueStorageProcessor {
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
-                double num_neighbors = ngp_num_neighbors_field(node_index, 0);
+                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
                 Eigen::Matrix<double, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {
@@ -722,13 +726,13 @@ class FunctionValueStorageProcessor {
     stk::mesh::Selector m_selector;                // The selector
     stk::mesh::Selector m_owned_selector;          // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-    DoubleField *m_num_neighbors_field;            // The number of neighbors field
-    DoubleField *m_neighbors_field;                // The neighbors field
+    UnsignedField *m_num_neighbors_field;          // The number of neighbors field
+    UnsignedField *m_neighbors_field;              // The neighbors field
     DoubleField *m_coordinates_field;              // The coordinates field
     DoubleField *m_function_values_field;          // The function values field
     DoubleField *m_kernel_radius_field;            // The kernel radius field
-    NgpDoubleField *m_ngp_num_neighbors_field;     // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_neighbors_field;         // The ngp neighbors field
+    NgpUnsignedField *m_ngp_num_neighbors_field;   // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;       // The ngp neighbors field
     NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
     NgpDoubleField *m_ngp_function_values_field;   // The ngp function values field
     NgpDoubleField *m_ngp_kernel_radius_field;     // The ngp kernel radius field
@@ -736,11 +740,13 @@ class FunctionValueStorageProcessor {
 
 template <size_t NumFields>
 class ValueFromGeneralizedFieldProcessor {
-    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData, NumFields> source_field_query_data, const std::array<FieldQueryData, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData<double>, NumFields> source_field_query_data, const std::array<FieldQueryData<double>, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -758,15 +764,15 @@ class ValueFromGeneralizedFieldProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
 
         // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
 
         // Get the source (generalized) and destination fields
@@ -797,7 +803,7 @@ class ValueFromGeneralizedFieldProcessor {
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
-                double num_neighbors = ngp_num_neighbors_field(node_index, 0);
+                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
 
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
@@ -952,11 +958,11 @@ class ValueFromGeneralizedFieldProcessor {
     stk::mesh::Selector m_selector;                                       // The selector
     stk::mesh::Selector m_owned_selector;                                 // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                                        // The ngp mesh object.
-    DoubleField *m_num_neighbors_field;                                   // The number of neighbors field
-    DoubleField *m_neighbors_field;                                       // The neighbors field
+    UnsignedField *m_num_neighbors_field;                                 // The number of neighbors field
+    UnsignedField *m_neighbors_field;                                     // The neighbors field
     DoubleField *m_function_values_field;                                 // The function values field
-    NgpDoubleField *m_ngp_num_neighbors_field;                            // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_neighbors_field;                                // The ngp neighbors field
+    NgpUnsignedField *m_ngp_num_neighbors_field;                          // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;                              // The ngp neighbors field
     NgpDoubleField *m_ngp_function_values_field;                          // The ngp function values field
     std::vector<DoubleField *> m_source_fields;                           // The fields to process
     Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_source_fields;       // The ngp fields to process

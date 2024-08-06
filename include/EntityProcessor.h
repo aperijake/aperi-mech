@@ -37,13 +37,10 @@ struct PrintFieldFunctor {
 };
 
 // A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
-template <stk::topology::rank_t Rank, size_t N>
+template <stk::topology::rank_t Rank, size_t N, typename T = double>
 class EntityProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-
    public:
-    EntityProcessor(const std::array<FieldQueryData, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
+    EntityProcessor(const std::array<FieldQueryData<T>, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -60,7 +57,7 @@ class EntityProcessor {
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         for (size_t i = 0; i < N; ++i) {
             m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
-            m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_fields.back());
+            m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<T>(*m_fields.back());
         }
     }
 
@@ -124,7 +121,8 @@ class EntityProcessor {
 
     // Parallel sum including ghosted values
     void ParallelSumFieldData(int field_index) const {
-        stk::mesh::parallel_sum_including_ghosts(*m_bulk_data, {m_fields[field_index]});
+        std::vector<const stk::mesh::FieldBase *> fields = {m_fields[field_index]};
+        stk::mesh::parallel_sum_including_ghosts(*m_bulk_data, fields);
     }
 
     void ParallelSumAllFieldData() const {
@@ -145,7 +143,7 @@ class EntityProcessor {
     template <typename Func, std::size_t... Is>
     void for_each_component_impl(const Func &func, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
         // Create an array of ngp fields
-        Kokkos::Array<NgpDoubleField, N> fields;
+        Kokkos::Array<stk::mesh::NgpField<T>, N> fields;
         for (size_t i = 0; i < N; ++i) {
             fields[i] = *m_ngp_fields[i];
         }
@@ -169,7 +167,7 @@ class EntityProcessor {
     template <typename Func, std::size_t... Is>
     void for_component_i_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
         // Create an array of ngp fields
-        Kokkos::Array<NgpDoubleField, N> fields;
+        Kokkos::Array<stk::mesh::NgpField<T>, N> fields;
         for (size_t i = 0; i < N; ++i) {
             fields[i] = *m_ngp_fields[i];
         }
@@ -246,7 +244,7 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_entity_host(const Func &func, const stk::mesh::Selector &selector) const {
-        std::array<double *, N> field_data = {};  // Array to hold field data
+        std::array<T *, N> field_data = {};  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
@@ -395,24 +393,24 @@ class EntityProcessor {
     }
 
    private:
-    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields;  // The ngp fields to process
-    std::vector<DoubleField *> m_fields;              // The fields to process
-    stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
-    stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
-    stk::mesh::Selector m_selector;                   // The selector for the entities
-    stk::mesh::Selector m_owned_selector;             // The selector for the owned entities
+    Kokkos::Array<stk::mesh::NgpField<T> *, N> m_ngp_fields;  // The ngp fields to process
+    std::vector<stk::mesh::Field<T> *> m_fields;              // The fields to process
+    stk::mesh::BulkData *m_bulk_data;                         // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;                            // The ngp mesh object.
+    stk::mesh::Selector m_selector;                           // The selector for the entities
+    stk::mesh::Selector m_owned_selector;                     // The selector for the owned entities
 };
 
 // Node processor
-template <size_t N>
-using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, N>;
+template <size_t N, typename T = double>
+using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, N, T>;
 
 // Element processor
-template <size_t N>
-using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, N>;
+template <size_t N, typename T = double>
+using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, N, T>;
 
-// Change the aperi::FieldDataRank to stk::topology::rank_t and use the appropriate EntityProcessor
-template <aperi::FieldDataRank Rank, size_t N>
-using AperiEntityProcessor = std::conditional_t<Rank == aperi::FieldDataRank::NODE, NodeProcessor<N>, ElementProcessor<N>>;
+// Change the aperi::FieldDataTopologyRank to stk::topology::rank_t and use the appropriate EntityProcessor
+template <aperi::FieldDataTopologyRank Rank, size_t N, typename T = double>
+using AperiEntityProcessor = std::conditional_t<Rank == aperi::FieldDataTopologyRank::NODE, NodeProcessor<N, T>, ElementProcessor<N, T>>;
 
 }  // namespace aperi

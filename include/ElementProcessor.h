@@ -31,6 +31,8 @@ template <size_t N, bool UsePrecomputedDerivatives = false>
 class ElementGatherScatterProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     /**
@@ -40,8 +42,7 @@ class ElementGatherScatterProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    template <typename T>
-    ElementGatherScatterProcessor(const T &field_query_data_gather_vec, const FieldQueryData field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    ElementGatherScatterProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -66,23 +67,23 @@ class ElementGatherScatterProcessor {
 
         if constexpr (UsePrecomputedDerivatives) {
             // Get the element volume field
-            m_element_volume = StkGetField(FieldQueryData{"volume", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
 
             // Get the function derivatives fields
             std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
             for (size_t i = 0; i < 3; ++i) {
-                m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+                m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
                 m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
             }
 
             // Get the number of neighbors field
-            m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-            m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+            m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
 
             // Get the neighbors field
-            m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-            m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+            m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
         }
     }
 
@@ -308,20 +309,22 @@ class ElementGatherScatterProcessor {
     DoubleField *m_field_to_scatter;                                       // The field to scatter
     DoubleField *m_element_volume;                                         // The element volume field
     std::array<DoubleField *, 3> m_function_derivatives_fields;            // The function derivatives fields
-    DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
-    DoubleField *m_neighbors_field;                                        // The neighbors field
+    UnsignedField *m_num_neighbors_field;                                  // The number of neighbors field
+    UnsignedField *m_neighbors_field;                                      // The neighbors field
     Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;             // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                                // The ngp field to scatter
     NgpDoubleField *m_ngp_element_volume;                                  // The ngp element volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
-    NgpDoubleField *m_ngp_num_neighbors_field;                             // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_neighbors_field;                                 // The ngp neighbors field
+    NgpUnsignedField *m_ngp_num_neighbors_field;                           // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;                               // The ngp neighbors field
 };
 
 // TODO(jake): Probably dont need to keep both of these classes. Can probably just use the one with the precomputed derivatives. Leaving both for now.
 class StrainSmoothingProcessor {
-    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -340,25 +343,25 @@ class StrainSmoothingProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
-        m_element_volume_field = StkGetField(FieldQueryData{"volume", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+        m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
 
         // Get the function derivatives fields
         std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
-            m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
         }
     }
@@ -428,21 +431,23 @@ class StrainSmoothingProcessor {
     stk::mesh::Selector m_selector;                                        // The selector
     stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    DoubleField *m_num_neighbors_field;                                    // The number of neighbors field
-    DoubleField *m_neighbors_field;                                        // The neighbors field
+    UnsignedField *m_num_neighbors_field;                                  // The number of neighbors field
+    UnsignedField *m_neighbors_field;                                      // The neighbors field
     DoubleField *m_coordinates_field;                                      // The coordinates field
     DoubleField *m_element_volume_field;                                   // The element volume field
     Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
-    NgpDoubleField *m_ngp_num_neighbors_field;                             // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_neighbors_field;                                 // The ngp neighbors field
+    NgpUnsignedField *m_ngp_num_neighbors_field;                           // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;                               // The ngp neighbors field
     NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 class StrainSmoothingFromStoredNodeValuesProcessor {
-    typedef stk::mesh::Field<double> DoubleField;  // TODO(jake): Change these to unsigned. Need to update FieldData to handle.
+    typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     StrainSmoothingFromStoredNodeValuesProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -462,37 +467,37 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
         m_owned_selector = meta_data->locally_owned_part() & m_selector;
 
         // Get the node number of neighbors field
-        m_node_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_num_neighbors_field);
+        m_node_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_num_neighbors_field);
 
         // Get the node neighbors field
-        m_node_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
-        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_neighbors_field);
+        m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
 
         // Get th node function values field
-        m_node_function_values_field = StkGetField(FieldQueryData{"function_values", FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_node_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
 
         // Get the element number of neighbors field
-        m_element_num_neighbors_field = StkGetField(FieldQueryData{"num_neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_element_num_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_num_neighbors_field);
+        m_element_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_element_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_num_neighbors_field);
 
         // Get the element neighbors field
-        m_element_neighbors_field = StkGetField(FieldQueryData{"neighbors", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
-        m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_neighbors_field);
+        m_element_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_neighbors_field);
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataRank::NODE}, meta_data);
+        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
-        m_element_volume_field = StkGetField(FieldQueryData{"volume", FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+        m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
 
         // Get the function derivatives fields
         std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
-            m_function_derivatives_fields[i] = StkGetField(FieldQueryData{function_derivatives_field_names[i], FieldQueryState::None, FieldDataRank::ELEMENT}, meta_data);
+            m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
         }
     }
@@ -576,19 +581,19 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
     stk::mesh::Selector m_selector;                                        // The selector
     stk::mesh::Selector m_owned_selector;                                  // The owned selector
     stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    DoubleField *m_node_num_neighbors_field;                               // The number of neighbors field
-    DoubleField *m_node_neighbors_field;                                   // The neighbors field
+    UnsignedField *m_node_num_neighbors_field;                             // The number of neighbors field
+    UnsignedField *m_node_neighbors_field;                                 // The neighbors field
     DoubleField *m_node_function_values_field;                             // The function values field
-    DoubleField *m_element_num_neighbors_field;                            // The number of neighbors field
-    DoubleField *m_element_neighbors_field;                                // The neighbors field
+    UnsignedField *m_element_num_neighbors_field;                          // The number of neighbors field
+    UnsignedField *m_element_neighbors_field;                              // The neighbors field
     DoubleField *m_coordinates_field;                                      // The coordinates field
     DoubleField *m_element_volume_field;                                   // The element volume field
     Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
-    NgpDoubleField *m_ngp_node_num_neighbors_field;                        // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_node_neighbors_field;                            // The ngp neighbors field
+    NgpUnsignedField *m_ngp_node_num_neighbors_field;                      // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_node_neighbors_field;                          // The ngp neighbors field
     NgpDoubleField *m_ngp_node_function_values_field;                      // The ngp function values field
-    NgpDoubleField *m_ngp_element_num_neighbors_field;                     // The ngp number of neighbors field
-    NgpDoubleField *m_ngp_element_neighbors_field;                         // The ngp neighbors field
+    NgpUnsignedField *m_ngp_element_num_neighbors_field;                   // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_element_neighbors_field;                       // The ngp neighbors field
     NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields

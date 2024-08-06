@@ -1,12 +1,14 @@
 #pragma once
 
 #include <stdexcept>
+#include <stk_io/IossBridge.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/FieldState.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
+#include <stk_topology/topology.hpp>
 #include <string>
 #include <vector>
 
@@ -15,9 +17,10 @@
 
 namespace aperi {
 
-inline stk::mesh::Field<double> *StkGetField(const FieldQueryData &field_query_data, stk::mesh::MetaData *meta_data) {
-    stk::topology::rank_t rank = field_query_data.rank == FieldDataRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
-    stk::mesh::Field<double> *field = meta_data->get_field<double>(rank, field_query_data.name);
+template <typename T>
+inline stk::mesh::Field<T> *StkGetField(const FieldQueryData<T> &field_query_data, stk::mesh::MetaData *meta_data) {
+    stk::topology::rank_t topology_rank = field_query_data.topology_rank == FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
+    stk::mesh::Field<T> *field = meta_data->get_field<T>(topology_rank, field_query_data.name);
     if (field == nullptr) {
         throw std::runtime_error("Field " + field_query_data.name + " not found.");
     }
@@ -48,6 +51,33 @@ inline stk::mesh::Selector StkGetSelector(const std::vector<std::string> &sets, 
         parts.push_back(part);
     }
     return stk::mesh::selectUnion(parts);
+}
+
+// Function to get the topology rank
+inline stk::topology::rank_t GetTopologyRank(FieldDataTopologyRank data_topology_rank) {
+    if (data_topology_rank == FieldDataTopologyRank::NODE) {
+        return stk::topology::NODE_RANK;
+    }
+    if (data_topology_rank == FieldDataTopologyRank::ELEMENT) {
+        return stk::topology::ELEMENT_RANK;
+    }
+    throw std::invalid_argument("FieldData: Invalid data topology rank.");
+}
+
+// Function to get the field output type
+inline stk::io::FieldOutputType GetFieldOutputType(FieldDataRank data_rank) {
+    switch (data_rank) {
+        case FieldDataRank::SCALAR:
+            return stk::io::FieldOutputType::SCALAR;
+        case FieldDataRank::VECTOR:
+            return stk::io::FieldOutputType::VECTOR_3D;
+        case FieldDataRank::TENSOR:
+            return stk::io::FieldOutputType::SYM_TENSOR_33;
+        case FieldDataRank::CUSTOM:
+            return stk::io::FieldOutputType::CUSTOM;
+        default:
+            throw std::invalid_argument("FieldData: Invalid data type.");
+    }
 }
 
 }  // namespace aperi

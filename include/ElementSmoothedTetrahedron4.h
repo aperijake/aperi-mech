@@ -30,7 +30,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material, true), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material, true), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateElementProcessor();
         CreateFunctors();
     }
@@ -44,7 +44,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
     void CreateElementProcessor() {
         // Create the element processor
-        const FieldQueryData field_query_data_scatter = {"force", FieldQueryState::NP1};
+        const FieldQueryData<double> field_query_data_scatter = {"force", FieldQueryState::NP1};
         m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
@@ -107,7 +107,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
    private:
     ShapeFunctionsFunctorTet4 *m_compute_functions_functor;
     SmoothedQuadrature<TET4_NUM_NODES> *m_integration_functor;
-    const std::vector<FieldQueryData> m_field_query_data_gather;
+    const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<3, false>> m_element_processor;

@@ -200,12 +200,13 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+        bool use_strain_smoothing = true;
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(use_strain_smoothing);
         m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"}, field_data);
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
         // Make an element processor
-        std::vector<aperi::FieldQueryData> field_query_data_gather_vec(3);  // not used, but needed for the constructor. TODO(jake) change this?
+        std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the constructor. TODO(jake) change this?
         field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
         field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
         field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
@@ -217,30 +218,36 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         // Create the element
         std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
-        std::array<aperi::FieldQueryData, 6> elem_field_query_data_gather_vec;
-        elem_field_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-        elem_field_query_data_gather_vec[1] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataRank::NODE};
-        elem_field_query_data_gather_vec[2] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-        elem_field_query_data_gather_vec[3] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-        elem_field_query_data_gather_vec[4] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-        elem_field_query_data_gather_vec[5] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataRank::ELEMENT};
-        auto entity_processor = std::make_shared<aperi::ElementProcessor<6>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+        std::array<aperi::FieldQueryData<double>, 5> elem_field_query_data_gather_vec;
+        elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
         entity_processor->MarkAllFieldsModifiedOnDevice();
         entity_processor->SyncAllFieldsDeviceToHost();
 
+        std::array<aperi::FieldQueryData<uint64_t>, 1> elem_num_neighbors_query_data_gather_vec;
+        elem_num_neighbors_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        auto num_neighbors_processor = std::make_shared<aperi::ElementProcessor<1, uint64_t>>(elem_num_neighbors_query_data_gather_vec, mesh_data, part_names);
+        num_neighbors_processor->MarkAllFieldsModifiedOnDevice();
+        num_neighbors_processor->SyncAllFieldsDeviceToHost();
+
         // Check the volume
-        double expected_volume = num_elems_z;
-        CheckEntityFieldSum<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", {expected_volume}, aperi::FieldQueryState::None);
+        std::array<double, 1> expected_volume;
+        expected_volume[0] = num_elems_z;
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", expected_volume, aperi::FieldQueryState::None);
 
         // Check the partition of unity for the shape functions
         if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) {  // not storing shape function values for FiniteElement
-            CheckEntityFieldSumOfComponents<aperi::FieldDataRank::NODE>(*mesh_data, {"block_1"}, "function_values", 1.0, aperi::FieldQueryState::None);
+            CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::NODE>(*mesh_data, {"block_1"}, "function_values", 1.0, aperi::FieldQueryState::None);
         }
 
         // Check partition of nullity for the shape function derivatives
-        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
+        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
+        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
+        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
     }
 
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
@@ -260,8 +267,8 @@ TEST_F(ElementStrainSmoothingTest, SmoothedTet4Storing) {
     std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
     // Check the number of neighbors
-    std::array<int, 1> expected_num_neighbors = {4};
-    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
+    std::array<uint64_t, 1> expected_num_neighbors = {4};
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Smoothed reproducing kernel on tet4 element
@@ -279,8 +286,8 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4) {
     std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
     // Check the number of neighbors
-    std::array<int, 1> expected_num_neighbors = {4};
-    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
+    std::array<uint64_t, 1> expected_num_neighbors = {4};
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Smoothed reproducing kernel on tet4 element with more neighbors
@@ -303,8 +310,8 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4MoreNeighbors) {
     std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
     // Check the number of neighbors
-    std::array<int, 1> expected_num_neighbors = {20};
-    CheckEntityFieldValues<aperi::FieldDataRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
+    std::array<uint64_t, 1> expected_num_neighbors = {20};
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests
@@ -416,19 +423,19 @@ class ElementPatchAndForceTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the first set
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, aperi::FieldQueryState::N, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the force on the second set
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::N, 1.0e-8);
 
         // Check the mass
         auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -440,11 +447,11 @@ class ElementPatchAndForceTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_zero, aperi::FieldQueryState::N);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_zero, aperi::FieldQueryState::N);
     }
 
     Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
@@ -474,7 +481,7 @@ class ElementPatchAndForceTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::N);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -487,8 +494,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
@@ -496,8 +503,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
@@ -505,8 +512,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, aperi::FieldQueryState::N, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, aperi::FieldQueryState::N, tolerance);
     }
 
     void CheckPatchTest() {
@@ -514,14 +521,14 @@ class ElementPatchAndForceTest : public SolverTest {
         auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckEntityFieldSum<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
 
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
-        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
-        CheckEntityFieldPatchValues<aperi::FieldDataRank::NODE>(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }

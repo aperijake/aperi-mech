@@ -44,7 +44,7 @@ class MassMatrixTest : public CaptureOutputTest {
         // Get the mass fields
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
         // Sum the mass at the nodes
-        std::array<aperi::FieldQueryData, 2> mass_field_query_data;
+        std::array<aperi::FieldQueryData<double>, 2> mass_field_query_data;
         mass_field_query_data[0] = {"mass", aperi::FieldQueryState::None};
         mass_field_query_data[1] = {"mass_from_elements", aperi::FieldQueryState::None};
         aperi::NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);

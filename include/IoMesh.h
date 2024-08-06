@@ -4,7 +4,7 @@
 #include <string>  // for string
 #include <vector>  // for vector
 
-#include "FieldData.h"  // for FieldDataType, FieldData
+#include "FieldData.h"  // for FieldDataRank, FieldData
 #include "MeshData.h"
 #include "mpi.h"  // for MPI_Comm
 

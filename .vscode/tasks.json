@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --local-compadre && cd build/Release && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure && cd build/Release && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -20,7 +20,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --local-compadre --gpu && cd build/Release_gpu && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --gpu && cd build/Release_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -33,7 +33,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --local-compadre --build-type Debug && cd build/Debug && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type Debug && cd build/Debug && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -46,7 +46,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --local-compadre --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-develop && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -59,7 +59,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --local-compadre --build-type RelWithDebInfo && cd build/RelWithDebInfo && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd build/RelWithDebInfo && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -72,7 +72,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --local-compadre --build-type RelWithDebInfo --gpu && cd build/RelWithDebInfo_gpu && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo --gpu && cd build/RelWithDebInfo_gpu && make -j 4"
       ],
       "group": {
         "kind": "build",
@@ -85,7 +85,7 @@
       "command": "bash",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --local-compadre --code-coverage && cd build/Debug_cov && make -j 4"
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --code-coverage && cd build/Debug_cov && make -j 4"
       ],
       "group": {
         "kind": "build",

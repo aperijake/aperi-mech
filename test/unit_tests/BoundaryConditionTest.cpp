@@ -31,9 +31,9 @@ class BoundaryConditionTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.emplace_back("velocity", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
-        m_field_data.emplace_back("displacement", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
-        m_field_data.emplace_back("acceleration", aperi::FieldDataType::VECTOR, aperi::FieldDataRank::NODE, 2);
+        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
     }
 
     void TearDown() override {
@@ -60,7 +60,7 @@ class BoundaryConditionTest : public ApplicationTest {
         }
 
         // Create a node processor for all fields
-        std::array<aperi::FieldQueryData, 6> field_query_data_vec;
+        std::array<aperi::FieldQueryData<double>, 6> field_query_data_vec;
         field_query_data_vec[0] = {"velocity", aperi::FieldQueryState::NP1};
         field_query_data_vec[1] = {"velocity", aperi::FieldQueryState::N};
         field_query_data_vec[2] = {"displacement", aperi::FieldQueryState::NP1};
@@ -75,7 +75,7 @@ class BoundaryConditionTest : public ApplicationTest {
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}A
 
         // Field query data
-        std::array<aperi::FieldQueryData, 3> field_query_data_array;
+        std::array<aperi::FieldQueryData<double>, 3> field_query_data_array;
         field_query_data_array[0] = {"displacement", aperi::FieldQueryState::NP1};
         field_query_data_array[1] = {"displacement", aperi::FieldQueryState::N};
         field_query_data_array[2] = {"velocity", aperi::FieldQueryState::NP1};
@@ -220,8 +220,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
-                CheckEntityFieldValues<aperi::FieldDataRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
             }
         }
     }
