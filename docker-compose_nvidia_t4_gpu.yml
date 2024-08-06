@@ -9,6 +9,7 @@ version: "3.8"
 services:
   aperi-mech-gpu-development:
     image: aperi-mech-gpu:latest
+    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile_Nvidia_T4_GPU

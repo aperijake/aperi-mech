@@ -19,9 +19,9 @@ lint:
     - hadolint@2.12.0
     - taplo@0.9.3
     - bandit@1.7.9
-    - black@24.4.2
+    - black@24.8.0
     - isort@5.13.2
-    - ruff@0.5.5
+    - ruff@0.5.6
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
@@ -30,11 +30,11 @@ lint:
     - clang-format@16.0.3
     - trivy@0.54.1
     - yamllint@1.35.1
-    - checkov@3.2.217
+    - checkov@3.2.219
     - git-diff-check
     - markdownlint@0.41.0
     - prettier@3.3.3
-    - trufflehog@3.80.5
+    - trufflehog@3.81.6
   disabled:
     - include-what-you-use
   ignore:
