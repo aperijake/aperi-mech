@@ -24,37 +24,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.6657,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.0688,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.384334,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.01558,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.24664,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.84237,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 78.9503,
             "unit": "milliseconds"
           }
@@ -81,37 +81,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.242396,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54012,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00764798,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0573971,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.935559,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 1.00754,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.94053,
             "unit": "milliseconds"
           }
@@ -138,37 +138,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.201741,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54083,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00735574,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0454183,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.900704,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 0.998154,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.94596,
             "unit": "milliseconds"
           }
@@ -195,37 +195,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.68512,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1129,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.383916,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.01306,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.24946,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.8674,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.0199,
             "unit": "milliseconds"
           }
@@ -252,37 +252,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.202485,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54187,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00738074,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.060606,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.919168,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 1.00793,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.95549,
             "unit": "milliseconds"
           }
@@ -309,37 +309,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.68125,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1194,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.388426,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.03682,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.25068,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.89822,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.2694,
             "unit": "milliseconds"
           }
@@ -366,37 +366,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.67425,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1432,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.385803,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.03802,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.23556,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.75841,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 78.3602,
             "unit": "milliseconds"
           }
@@ -423,37 +423,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.70493,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.3578,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.385609,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.02746,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.24958,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.85944,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 79.1084,
             "unit": "milliseconds"
           }
@@ -480,37 +480,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.204639,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.55837,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00803633,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0454313,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.922822,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 1.0082,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.96311,
             "unit": "milliseconds"
           }
@@ -537,37 +537,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.212259,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.53231,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00713924,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.055384,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.947394,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 0.998618,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.93149,
             "unit": "milliseconds"
           }
@@ -594,37 +594,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.69772,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1827,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.32472,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 2.55452,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.23086,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.73825,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 78.1153,
             "unit": "milliseconds"
           }
@@ -651,37 +651,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.69467,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.2477,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.32413,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, hostname: AperiAzureGPU2, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 2.54718,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.22997,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.70306,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, cpu, hostname: AperiAzureGPU2, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 78.0098,
             "unit": "milliseconds"
           }
@@ -708,37 +708,37 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: 52a596209955, 48 x 48 x 144 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.210147,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, hostname: 52a596209955, 96 x 96 x 288 elements, runtime",
+            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.60543,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: 52a596209955, 48 x 48 x 144 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00725623,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, hostname: 52a596209955, 96 x 96 x 288 elements, runtime",
+            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0453107,
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: 52a596209955, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.87934,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: 52a596209955, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 0.986475,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact: 1 processors, gpu, hostname: 52a596209955, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.92149,
             "unit": "milliseconds"
           }
