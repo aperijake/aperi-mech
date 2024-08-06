@@ -290,7 +290,9 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         }
     }
 
-    std::pair<double, double> TestBuildingApproximationFunctions(bool use_variable_ball = true) {
+    std::map<std::string, double> TestBuildingApproximationFunctions(bool use_variable_ball = true) {
+        std::map<std::string, double> runtimes;
+
         auto start = std::chrono::high_resolution_clock::now();
         // Perform non-Compadre neighbor search
         auto search_start_time = std::chrono::high_resolution_clock::now();  // benchmark
@@ -301,14 +303,14 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         }
         auto search_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> search_runtime = search_end_time - search_start_time;
-        std::cout << "Search runtime: " << search_runtime.count() << " (s)" << std::endl;
+        runtimes.emplace("neighbor_search", search_runtime.count());
 
         auto field_to_view_start = std::chrono::high_resolution_clock::now();  // benchmark
         bool check_fields = false;                                             // Checked in test above
         SetupFieldToViewTransfer(check_fields);
         auto field_to_view_end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> field_to_view_runtime = field_to_view_end - field_to_view_start;
-        std::cout << "Field to view runtime: " << field_to_view_runtime.count() << " (s)" << std::endl;
+        runtimes.emplace("field_to_view_transfer", field_to_view_runtime.count());
 
         // Compute the function values using the shape functions functor for comparison
         BuildFunctionValueStorageProcessor();
@@ -317,6 +319,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, use_target_center_kernel);
         auto rk_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> rk_runtime = rk_end_time - rk_start_time;
+        runtimes.emplace("compute_reproducing_kernel", rk_runtime.count());
 
         // initialize an instance of the GMLS class
         int dimension = 3;
@@ -345,6 +348,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
         auto compadre_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> compadre_runtime = compadre_end_time - compadre_start_time;
+        runtimes.emplace("compute_compadre", compadre_runtime.count());
 
         auto solution = gmls_problem.getSolutionSetHost();
         auto alphas = solution->getAlphas();
@@ -356,6 +360,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, function_values_device);
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
         Kokkos::deep_copy(function_values_host, function_values_device);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end - start;
+        runtimes.emplace("total", elapsed_seconds.count());
 
         // Check the alphas
         double tolerance = 1.0e-6;
@@ -384,11 +392,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         }
         EXPECT_GT(num_with_value, num_with_zero);  // Sanity check
 
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
-        std::cout << "Total TestBuildingApproximationFunctions runtime: " << elapsed_seconds.count() << " (s)" << std::endl;
-
-        return {compadre_runtime.count(), rk_runtime.count()};
+        return runtimes;
     }
 
    protected:
