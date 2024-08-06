@@ -69,26 +69,25 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
     size_t initial_num_elem_z = 21;
 
     std::string mode = "release";
+    // Golds just used for approximating the number of steps to give the desired runtime
+    std::vector<double> gold_runtimes = {1.24661e-03, 9.811962e-03, 7.899994e-02};  // release, cpu
 #ifndef NDEBUG
     mode = "debug";
     // Allow for a longer runtime in debug mode on cpu, do less refinements
     if (!using_gpu) {
         runtime = 50.0;
         num_refinements = 2;
+        gold_runtimes = {3.25e-01, 2.6};  // debug, cpu
+    } else {
+        gold_runtimes = {1.195e-03, 1.32e-03, 3.3e-03};  // debug, gpu
     }
 #endif
-
-    // Read gold values from file
-    std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
-    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-    std::string full_test_name = test_suite_name + "_" + test_name;
-
-    std::vector<double> gold_runtimes = ReadGoldRuntimes(full_test_name, mode, using_gpu);
-    ASSERT_EQ(gold_runtimes.size(), num_refinements) << "Gold values are not set up correctly for the test " << full_test_name;
+    if (using_gpu && mode == "release") {
+        gold_runtimes = {8.8e-04, 1.0e-03, 3.0e-03};  // release, gpu
+    }
 
     // Vectors to store the number of nodes and runtimes
     std::vector<double> num_nodes;
-    std::vector<double> runtimes;
 
     // Mesh size vectors
     std::vector<size_t> num_elem_x;
@@ -141,17 +140,12 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
     }
 
     // Create a json file with the benchmark results
-    /*
-    // Example of the json output
-    [
-        {
-            "name": "Taylor Impact: 1 processors, cpu, 10 x 10 x 30 elements, runtime per increment",
-            "unit": "milliseconds",
-            "value": "0.123"
-        }
-    ]
-    */
-    std::ofstream json_file("performance_" + full_test_name + ".json");
+    std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    std::string full_test_name = test_suite_name + "_" + test_name;
+
+    std::string run_specs = "_" + mode + "_procs_" + std::to_string(m_num_procs) + (using_gpu ? "_gpu" : "_cpu");
+    std::ofstream json_file("performance_gtest_" + full_test_name + run_specs + ".json");
     json_file << "[" << std::endl;
 
     for (size_t i = 0; i < num_refinements; ++i) {
@@ -162,25 +156,9 @@ TEST_F(SolverTest, BenchmarkTaylorImpact) {
 
         // Run the solver
         double average_increment_runtime = RunSolver();
-        aperi::CoutP0() << "Average increment runtime: " << average_increment_runtime << " seconds" << std::endl;
 
-        // Store the results
-        runtimes.push_back(average_increment_runtime);
-
-        // Check the runtimes
-        aperi::CoutP0() << "  Runtime / increment:      " << std::scientific << average_increment_runtime << std::endl;
-        aperi::CoutP0() << "  Gold runtime / increment: " << std::scientific << gold_runtimes[i] << std::endl;
-        aperi::CoutP0() << "  Percent difference:       " << std::defaultfloat << 100.0 * (average_increment_runtime - gold_runtimes[i]) / gold_runtimes[i] << "%" << std::endl;
-
-        double relative_tolerance = 0.5;  // 50% relative tolerance, this is a large tolerance. Performance tests should be monitored by inspecting the charts at: https://aperijake.github.io/aperi-mech/
-        std::string error_msg = "Gold values are determined for the system AperiAzureGPU1. If you are running on a different system, adjust the gold values.";
-        // Release mode, perform the check
-        if (m_num_procs == 1) {
-            EXPECT_NEAR(average_increment_runtime, gold_runtimes[i], relative_tolerance * gold_runtimes[i]) << error_msg;
-        } else {
-            // Found tests to be too flaky with multiple processors
-            aperi::CoutP0() << "WARNING: Gold values are not available for the number of processors: " << m_num_procs << ". Have gold values for 1 processors. Skipping checks.";
-        }
+        // Print the results
+        aperi::CoutP0() << "  Runtime (s) / increment:      " << std::scientific << average_increment_runtime << std::endl;
 
         // Output the results to a json file
         if (i != 0) {
