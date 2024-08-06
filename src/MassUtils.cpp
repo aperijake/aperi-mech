@@ -80,10 +80,10 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     // Pass mass_from_elements through the approximation functions to get mass
     if (uses_generalized_fields) {
         std::array<aperi::FieldQueryData, 1> src_field_query_data;
-        src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
+        src_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE, FieldDataType(double(0))};
 
         std::array<aperi::FieldQueryData, 1> dest_field_query_data;
-        dest_field_query_data[0] = {mass_name, FieldQueryState::None};
+        dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE, FieldDataType(double(0))};
 
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
         value_from_generalized_field_processor->compute_value_from_generalized_field();

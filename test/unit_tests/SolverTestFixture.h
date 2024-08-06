@@ -41,12 +41,18 @@ class SolverTest : public ApplicationTest {
 
         // Get the part names
         std::vector<std::string> part_names;
+        part_names.reserve(parts.size());
+        bool has_strain_smoothing = false;
         for (auto part : parts) {
             part_names.push_back(part["set"].as<std::string>());
+            // Check if integration scheme is "strain_smoothing"
+            if (part["formulation"]["integration_scheme"]["strain_smoothing"]) {
+                has_strain_smoothing = true;
+            }
         }
 
         // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(has_strain_smoothing);
 
         // Read the mesh
         m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names, field_data);

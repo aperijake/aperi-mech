@@ -92,14 +92,14 @@ struct FieldQueryData {
     std::string name;                                                   // The name of the field.
     FieldQueryState state;                                              // The state of the field.
     FieldDataTopologyRank topology_rank = FieldDataTopologyRank::NODE;  // The rank of the field.
-    FieldDataType data_type = double(0);                                // The data type of the field.
+    FieldDataType data_type = FieldDataType(double(0));                 // The data type of the field.
 };
 
 /**
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */
-inline std::vector<FieldData> GetFieldData(bool has_reproducing_kernel = true, bool use_strain_smoothing = true) {
+inline std::vector<FieldData> GetFieldData(bool use_strain_smoothing = true) {
     std::vector<FieldData> field_data;
 
     // Node data
