@@ -10,6 +10,7 @@
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
 #include "UnitTestUtils.h"
+#include "ValueFromGeneralizedFieldProcessor.h"
 
 struct FillLinearFieldFunctor {
     explicit FillLinearFieldFunctor(double slope) : m_slope(slope) {}

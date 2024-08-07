@@ -14,9 +14,9 @@
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NeighborSearchProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
+#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 

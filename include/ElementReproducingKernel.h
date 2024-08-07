@@ -10,6 +10,7 @@
 #include "ElementProcessor.h"
 #include "ElementUtils.h"
 #include "FieldData.h"
+#include "FunctionValueStorageProcessor.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "MeshData.h"
