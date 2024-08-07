@@ -4,12 +4,6 @@ inputs:
   VM_IP:
     description: IP address of the VM
     required: true
-  SSH_PRIVATE_KEY:
-    description: SSH private key for the VM
-    required: true
-  GITHUB_TOKEN:
-    description: GitHub token
-    required: true
   VM_USERNAME:
     description: Username for the VM
     required: true
@@ -68,62 +62,9 @@ runs:
             . ~/spack/share/spack/setup-env.sh
             spack env activate aperi-mech
 
-            echo "Clean existing performance test results..."
-            cd $build_path
-            if [ -f performance_aperi_mech_all_results.json ]; then
-              echo "Removing: performance_aperi_mech_all_results.json"
-              rm -f performance_aperi_mech_all_results.json
-            fi
-            cd ~/aperi-mech/test/
-            to_remove=($(find performance_tests/aperi-mech -type f -name "performance_*.json"))
-            echo "Removing: "
-            for file in "${to_remove[@]}"; do
-                echo "$file"
-                rm -f "$file"
-            done
-
             echo "Running aperi-mech performance tests..."
+            cd ~/aperi-mech/test/
             ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --write-json
-
-            echo "Collecting performance test results..."
-            new_results=($(find performance_tests/aperi-mech -type f -name "performance_*.json"))
-            echo "New results: "
-            for file in "${new_results[@]}"; do
-                echo "$file"
-            done
-            echo "Running: python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py ${new_results[@]} performance_aperi_mech_all_results.json"
-            python3 ~/aperi-mech/test/utils/scripts/join_performance_results.py "${new_results[@]}" performance_aperi_mech_all_results.json
-
-            echo "Copying performance test results to build directory..."
-            echo "Running: mv performance_aperi_mech_all_results.json $build_path/performance_aperi_mech_all_results.json"
-            mv performance_aperi_mech_all_results.json $build_path/performance_aperi_mech_all_results.json
 
           '  || { echo "Performance test step failed"; exit 1; }
         EOF
-
-    - name: Transfer benchmark data from VM to GitHub Actions runner
-      shell: bash
-      run: |
-        build_path=/home/${{ inputs.VM_USERNAME }}/aperi-mech/build/Release
-        if [ ${{ inputs.gpu }} == "true" ]; then
-          build_path=$build_path"_gpu"
-        fi
-        echo "Running: scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/performance_aperi_mech_all_results.json ."
-        scp -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }}:${build_path}/performance_aperi_mech_all_results.json .
-
-    - name: Store benchmark result
-      uses: benchmark-action/github-action-benchmark@v1
-      with:
-        name: Benchmark
-        tool: customSmallerIsBetter
-        output-file-path: performance_aperi_mech_all_results.json
-        gh-pages-branch: gh-pages
-        benchmark-data-dir-path: dev/bench/aperi_mech
-        github-token: ${{ inputs.GITHUB_TOKEN }}
-        auto-push: true
-        alert-threshold: 120%
-        comment-on-alert: true
-        summary-always: true
-        alert-comment-cc-users: "@aperijake"
-        fail-on-alert: true
-        fail-threshold: 200%
