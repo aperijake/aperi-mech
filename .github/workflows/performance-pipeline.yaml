@@ -107,12 +107,11 @@ jobs:
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
             set -e # Exit on error
-            cd ~/aperi-mech/build
+            cd ~/aperi-mech
             echo "Clean existing gtest performance test results..."
-            rm -f */performance_*.json performance_*.json
+            rm -f build/*/performance_*.json build/performance_*.json
 
-            cd ~/aperi-mech/test/
-            to_remove=($(find performance_tests/aperi-mech -type f -name "performance_*.json"))
+            to_remove=($(find test/performance_tests/aperi-mech -type f -name "performance_*.json"))
             echo "Clean existing aperi-mech performance test results..."
             echo "Removing: "
             for file in "${to_remove[@]}"; do
