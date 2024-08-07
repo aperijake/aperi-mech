@@ -6,7 +6,6 @@ BUILD_TYPE="Release"
 CHECK_CODE_COVERAGE=OFF
 USE_GPU=OFF
 USE_PROTEGO_MECH=OFF
-USE_LOCAL_COMPADRE=false
 
 # Get the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -34,11 +33,6 @@ while [[ $# -gt 0 ]]; do
 	-p | --protego-mech)
 		USE_PROTEGO_MECH=ON
 		echo "Including protego-mech."
-		shift
-		;;
-	-l | --local-compadre)
-		USE_LOCAL_COMPADRE=true
-		echo "Using local compadre."
 		shift
 		;;
 	*)
