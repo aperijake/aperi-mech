@@ -10,6 +10,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
+#include "Preprocessor.h"
 #include "Scheduler.h"
 #include "Solver.h"
 #include "TimeStepper.h"
@@ -89,6 +90,9 @@ void Application::Run(const std::string& input_filename) {
 
     // Get the output scheduler
     std::shared_ptr<aperi::Scheduler> output_scheduler = CreateScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
+
+    // Run pre-processing
+    aperi::DoPreprocessing(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions);
 
     // Create solver
     m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
