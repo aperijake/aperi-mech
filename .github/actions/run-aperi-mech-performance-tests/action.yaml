@@ -26,6 +26,7 @@ runs:
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
+          set -e # Exit on error
           cd ~/aperi-mech
 
           compose_file=docker-compose.yml
