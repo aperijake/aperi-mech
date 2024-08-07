@@ -108,6 +108,7 @@
     "mpirun",
     "pamgen",
     "pnetcdf",
+    "protego",
     "SIDESET",
     "spack",
     "spyhis",

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(aperi-mech)
 
+# Add options
+option(CHECK_CODE_COVERAGE "Enable code coverage" OFF)
+option(USE_GPU "Enable GPU support" OFF)
+option(USE_PROTEGO_MECH "Include protego-mech library" OFF)
+
 # Set the flags for the RelWithDebInfo configuration
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -pg")
 

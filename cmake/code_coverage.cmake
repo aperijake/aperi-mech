@@ -1,5 +1,5 @@
 ############# CODE COVERAGE #############
-if (CODE_COVERAGE)
+if (CHECK_CODE_COVERAGE)
     list(APPEND CMAKE_PREFIX_PATH "${LCOV_BIN_DIR}")
     include(CodeCoverage)
     append_coverage_compiler_flags()

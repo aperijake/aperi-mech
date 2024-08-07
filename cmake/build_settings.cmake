@@ -5,7 +5,7 @@ set(CMAKE_CUDA_STANDARD 14)
 
 # Set the project languages
 enable_language(CXX)
-IF(GPU)
+IF(USE_GPU)
     enable_language(CUDA)
     set(CUDA_SEPARABLE_COMPILATION ON)
 ENDIF()

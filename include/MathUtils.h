@@ -8,6 +8,10 @@
 #include <stdexcept>
 #include <vector>
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoMathUtils.h"
+#endif
+
 namespace aperi {
 
 // Compute the cross product of two vectors
@@ -239,6 +243,7 @@ KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const
 #endif
 }
 
+#ifndef USE_PROTEGO_MECH
 KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3> &vector_neighbor_to_point, double R) {
     const double normalized_radius = vector_neighbor_to_point.norm() / (R);
     // Calculate the kernel value using a cubic b-spline kernel
@@ -249,6 +254,10 @@ KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3> &vect
     }
     return 0.0;
 }
+
+#else  // USE_PROTEGO_MECH
+using protego::ComputeKernel;
+#endif
 
 template <typename T>
 KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::Matrix<T, 3, 3> &A) {
