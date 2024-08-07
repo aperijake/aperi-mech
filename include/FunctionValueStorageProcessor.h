@@ -25,7 +25,13 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoFunctionValueStorageProcessor.h"
+#endif
+
 namespace aperi {
+
+#ifndef USE_PROTEGO_MECH
 
 class FunctionValueStorageProcessor {
     typedef stk::mesh::Field<double> DoubleField;
@@ -152,5 +158,9 @@ class FunctionValueStorageProcessor {
     NgpDoubleField *m_ngp_function_values_field;   // The ngp function values field
     NgpDoubleField *m_ngp_kernel_radius_field;     // The ngp kernel radius field
 };
+
+#else  // USE_PROTEGO_MECH
+using protego::FunctionValueStorageProcessor;
+#endif
 
 }  // namespace aperi
