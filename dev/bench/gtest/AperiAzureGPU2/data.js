@@ -24,22 +24,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.6657,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.0688,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.384334,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.01558,
             "unit": "seconds"
           },
@@ -81,22 +81,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.242396,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54012,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00764798,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0573971,
             "unit": "seconds"
           },
@@ -138,22 +138,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.201741,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54083,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00735574,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0454183,
             "unit": "seconds"
           },
@@ -195,22 +195,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.68512,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1129,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.383916,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.01306,
             "unit": "seconds"
           },
@@ -252,22 +252,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.202485,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.54187,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00738074,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.060606,
             "unit": "seconds"
           },
@@ -309,22 +309,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.68125,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1194,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.388426,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.03682,
             "unit": "seconds"
           },
@@ -366,22 +366,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.67425,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1432,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.385803,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.03802,
             "unit": "seconds"
           },
@@ -423,22 +423,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.70493,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.3578,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.385609,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 3.02746,
             "unit": "seconds"
           },
@@ -480,22 +480,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.204639,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.55837,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00803633,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0454313,
             "unit": "seconds"
           },
@@ -537,22 +537,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.212259,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.53231,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00713924,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.055384,
             "unit": "seconds"
           },
@@ -594,22 +594,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.69772,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.1827,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.32472,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 2.55452,
             "unit": "seconds"
           },
@@ -651,22 +651,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 1.69467,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 13.2477,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
             "value": 0.32413,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
             "value": 2.54718,
             "unit": "seconds"
           },
@@ -708,22 +708,22 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.210147,
             "unit": "seconds"
           },
           {
-            "name": "Compadre Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 1.60543,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
             "value": 0.00725623,
             "unit": "seconds"
           },
           {
-            "name": "Reproducing Kernel Shape Function Construction: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
             "value": 0.0453107,
             "unit": "seconds"
           },
