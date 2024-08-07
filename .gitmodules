@@ -1,0 +1,3 @@
+[submodule "protego-mech"]
+	path = protego-mech
+	url = git@github.com:aperijake/protego-mech.git
