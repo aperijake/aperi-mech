@@ -48,6 +48,12 @@ else()
 	set(GPU_OR_CPU "CPU")
 endif()
 
+IF(USE_PROTEGO_MECH)
+    set(PROTEGO_MECH "ON")
+else()
+    set(PROTEGO_MECH "OFF")
+endif()
+
 # Generate git_commit.h with the current hash
 configure_file(
 	${CMAKE_SOURCE_DIR}/include/git_commit.h.in
