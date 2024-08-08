@@ -74,28 +74,47 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            set -e # Exit on error
-            cd ~/aperi-mech
-            echo "Fetching git branches..."
-            git fetch --all
+              set -e # Exit on error
 
-            echo "Checking out main branch and pulling latest changes..."
-            git checkout main
-            git pull origin main
+              cd ~/aperi-mech
+              echo "Fetching git branches..."
+              git fetch --all
 
-            echo "Checking out appropriate branch..."
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              git checkout ${{ github.sha }}
-              git pull origin ${{ github.sha }}
-            elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "Stashing any unstaged changes..."
+              git stash --include-untracked
+
+              echo "Checking out main branch and pulling latest changes..."
               git checkout main
-              git pull origin main
-            else
-              git checkout ${{ github.ref }}
-              git pull origin ${{ github.ref }}
-            fi
-            git lfs pull # Pull LFS files
-            rm -rf build # Remove build directory, this prevents some false positives in tests
+              git pull origin main --rebase
+
+              # Configure git to use the CICD_REPO_SECRET for fetching submodules
+              if ! git config --global --get url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf; then
+                git config --global url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf "https://github.com/"
+              fi
+              # For authenticated access to the repository the secret will be changed periodically and the git config will have to be updated
+              # On the VM, do:
+              #   git config --global --get-regexp url.*.insteadOf
+              # to see the current git config. And then remove the config with:
+              #   git config --global --unset-all url.https://OLD_SECRET@github.com/.insteadof
+              # Where OLD_SECRET is the old secret from the first command. Then add the new secret with:
+              #   git config --global url."https://NEW_SECRET@github.com/".insteadOf "
+              # Where the NEW_SECRET is genertated in developer settings on GitHub and added to the repository secrets.
+              # or, it will be automatically updated when this action runs again.
+
+              echo "Initializing and updating submodules..."
+              git submodule update --init --recursive --remote
+
+              echo "Checking out appropriate branch..."
+              if [ "${{ github.event_name }}" = "pull_request" ]; then
+                git fetch origin ${{ github.sha }}
+                git checkout ${{ github.sha }}
+              elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+                git checkout main
+              else
+                git checkout ${{ github.ref }}
+              fi
+              git lfs pull # Pull LFS files
+              rm -rf build # Remove build directory, this prevents some false positives in tests
           EOF
 
       - name: Skipping Checkout Code on VM

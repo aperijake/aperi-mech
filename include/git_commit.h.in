@@ -6,3 +6,4 @@
 #define BUILD_TIME "@BUILD_TIME@"
 #define GIT_DIRTY "@GIT_DIRTY@"
 #define GPU_OR_CPU "@GPU_OR_CPU@"
+#define PROTEGO_MECH "@PROTEGO_MECH@"

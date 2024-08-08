@@ -19,6 +19,9 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
 void PrintVersion() {
     std::string version;
     version += std::string(GIT_COMMIT_HASH) + "-" + std::string(BUILD_TYPE) + "-" + std::string(GPU_OR_CPU);
+    if (std::string(PROTEGO_MECH) == "ON") {
+        version += "-protego-mech";
+    }
     if (std::string(GIT_DIRTY) == "dirty") {
         version += "-uncommitted_changes";
     }
@@ -35,6 +38,9 @@ void PrintHeader() {
     aperi::CoutP0() << "  Git Tag: " << GIT_TAG << std::endl;
     aperi::CoutP0() << "  Build Date: " << BUILD_DATE << std::endl;
     aperi::CoutP0() << "  Build Time: " << BUILD_TIME << std::endl;
+    if (std::string(PROTEGO_MECH) == "ON") {
+        aperi::CoutP0() << "  With protego-mech" << std::endl;
+    }
     aperi::CoutP0() << "############################################\n"
                     << std::endl;
 }

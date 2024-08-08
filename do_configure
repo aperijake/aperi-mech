@@ -3,9 +3,9 @@ set -e
 
 # Initialize variables with default values
 BUILD_TYPE="Release"
-CODE_COVERAGE=false
-GPU=false
-USE_LOCAL_COMPADRE=false
+CHECK_CODE_COVERAGE=OFF
+USE_GPU=OFF
+USE_PROTEGO_MECH=OFF
 
 # Get the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -20,19 +20,19 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	-c | --code-coverage)
-		CODE_COVERAGE=true
+		CHECK_CODE_COVERAGE=ON
 		BUILD_TYPE="Debug"
 		echo "Requested code coverage. Build type set to Debug"
 		shift
 		;;
 	-g | --gpu)
-		GPU=true
+		USE_GPU=ON
 		echo "Requested GPU support."
 		shift
 		;;
-	-l | --local-compadre)
-		USE_LOCAL_COMPADRE=true
-		echo "Using local compadre."
+	-p | --protego-mech)
+		USE_PROTEGO_MECH=ON
+		echo "Including protego-mech."
 		shift
 		;;
 	*)
@@ -42,21 +42,8 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-# Build directory base
-BUILD_DIR="build/"
-
-# Append to build directory based on build type
-BUILD_DIR+="${BUILD_TYPE}"
-
 # If some of the spack commmands below fail, make sure the correct environment is activated. e.g.:
 # spack env activate aperi-mech
-
-CUDA_PATH=""
-# Set build directory and GPU option
-if ${GPU}; then
-	BUILD_DIR+="_gpu"
-	CUDA_PATH=$(spack location -i cuda)
-fi
 
 # Check for cmake in the spack environment, if not found, use the system cmake
 if spack find -p cmake; then
@@ -68,7 +55,8 @@ fi
 # Configure CMake with specified build type and other options
 cmake_command="${cmake}"
 
-cmake_command+=" -D GPU:BOOL=${GPU}"
+cmake_command+=" -D USE_GPU:BOOL=${USE_GPU}"
+cmake_command+=" -D USE_PROTEGO_MECH:BOOL=${USE_PROTEGO_MECH}"
 cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
@@ -76,16 +64,10 @@ cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"
-
-if ${USE_LOCAL_COMPADRE}; then
-	COMPADRE_PATH="/home/azureuser/projects/compadre/${BUILD_DIR}/install"
-else
-	COMPADRE_PATH=$(spack location -i compadre)
-fi
-cmake_command+=" -D COMPADRE_PATH:FILEPATH=${COMPADRE_PATH}"
+cmake_command+=" -D COMPADRE_PATH:FILEPATH=$(spack location -i compadre)"
 
 # Add the lcov path to the cmake command
-if ${CODE_COVERAGE}; then
+if [[ ${CHECK_CODE_COVERAGE} == "ON" ]]; then
 	# Verify that lcov is in /usr/bin
 	if [[ -f /usr/bin/lcov ]]; then
 		cmake_command+=" -D LCOV_BIN_DIR:FILEPATH=/usr/bin"
@@ -101,9 +83,11 @@ if ${CODE_COVERAGE}; then
 		fi
 	fi
 fi
-cmake_command+=" -D CODE_COVERAGE:BOOL=${CODE_COVERAGE}"
+cmake_command+=" -D CHECK_CODE_COVERAGE:BOOL=${CHECK_CODE_COVERAGE}"
 
-if ${GPU}; then
+if [[ ${USE_GPU} == "ON" ]]; then
+	# Add the cuda path to the cmake command
+	CUDA_PATH=$(spack location -i cuda)
 	# Add the cuda compiler to the cmake command
 	cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=${CUDA_PATH}/bin/nvcc"
 	# Add the cuda flags to the cmake command. There has got to be a better way to do this. Needed?
@@ -134,7 +118,20 @@ cmake_command+=" -D CMAKE_CXX_EXTENSIONS=Off"
 cmake_command+=" ${SCRIPT_DIR}"
 
 # Create build directory
-[[ ${CODE_COVERAGE} == true ]] && BUILD_DIR+="_cov"
+# Build directory base
+BUILD_DIR="build/${BUILD_TYPE}"
+
+# Append to build directory based on GPU usage
+if [[ ${USE_GPU} == "ON" ]]; then
+	BUILD_DIR+="_gpu"
+fi
+
+# Append to build directory based on code coverage
+if [[ ${CHECK_CODE_COVERAGE} == "ON" ]]; then
+	BUILD_DIR+="_cov"
+fi
+
+# Create the build directory and change to it
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}" || exit
 

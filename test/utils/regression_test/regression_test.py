@@ -7,6 +7,7 @@ import shutil
 # trunk-ignore(bandit/B404)
 import subprocess
 import sys
+import threading
 import time
 
 import psutil
@@ -15,6 +16,12 @@ import psutil
 def _log_output(log_file, message):
     with open(log_file, "a") as f:
         f.write(message)
+
+
+def _read_output(pipe, log_file):
+    with pipe:
+        for line in iter(pipe.readline, b""):
+            _log_output(log_file, line.decode("utf-8"))
 
 
 def _run_executable(
@@ -40,6 +47,15 @@ def _run_executable(
             ps_process = psutil.Process(process.pid)
             peak_memory = 0
 
+            stdout_thread = threading.Thread(
+                target=_read_output, args=(process.stdout, log_file)
+            )
+            stderr_thread = threading.Thread(
+                target=_read_output, args=(process.stderr, log_file)
+            )
+            stdout_thread.start()
+            stderr_thread.start()
+
             while process.poll() is None:
                 try:
                     total_memory = ps_process.memory_info().rss
@@ -50,7 +66,8 @@ def _run_executable(
                     pass
                 time.sleep(0.01)
 
-            stdout, stderr = process.communicate()
+            stdout_thread.join()
+            stderr_thread.join()
             return_code = process.wait()
 
             peak_memory_mb = peak_memory / (1024 * 1024)

@@ -14,6 +14,7 @@
 #include <stk_mesh/base/Types.hpp>
 
 #include "Constants.h"
+#include "FunctionValueStorageProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 

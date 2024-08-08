@@ -24,6 +24,13 @@ target_include_directories(aperimech PRIVATE
     ${MPI_INCLUDE_PATH}
 )
 
+# Conditionally include protego-mech
+if(USE_PROTEGO_MECH)
+    add_subdirectory(protego-mech)
+    target_link_libraries(aperimech protegomech)
+    target_compile_definitions(aperimech PRIVATE USE_PROTEGO_MECH)
+endif()
+
 # Add the executable
 set(MAIN_SOURCES
     src/main.cpp;

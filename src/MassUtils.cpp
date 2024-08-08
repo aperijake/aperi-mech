@@ -8,7 +8,7 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "NeighborSearchProcessor.h"
+#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
