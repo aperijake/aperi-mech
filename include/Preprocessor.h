@@ -24,10 +24,16 @@ class ExternalForceContribution;
  * @param external_force_contributions The vector of external force contributions.
  * @return A unique pointer to the created solver object.
  */
-void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions) {
+inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions) {
 #ifdef USE_PROTEGO_MECH
     protego::DoPreprocessing(io_mesh, force_contributions, external_force_contributions, boundary_conditions);
 #endif
+    for (const auto& force_contribution : force_contributions) {
+        force_contribution->Preprocess();
+    }
+    for (const auto& external_force_contribution : external_force_contributions) {
+        external_force_contribution->Preprocess();
+    }
 }
 
 }  // namespace aperi

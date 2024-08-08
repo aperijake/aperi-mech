@@ -11,12 +11,7 @@
 
 namespace aperi {
 
-InternalForceContribution::InternalForceContribution(InternalForceContributionParameters parameters) : m_internal_force_contribution_parameters(std::move(parameters)) {
-    // Setup the internal force contribution
-    SetupInternalForceContribution();
-}
-
-void InternalForceContribution::SetupInternalForceContribution() {
+void InternalForceContribution::Preprocess() {
     // Get the number of nodes per element
     m_num_nodes_per_element = m_internal_force_contribution_parameters.mesh_data->GetNumNodesPerElement(m_internal_force_contribution_parameters.part_name);
     if (m_num_nodes_per_element != 4) {

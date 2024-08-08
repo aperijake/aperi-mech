@@ -27,7 +27,7 @@ class InternalForceContribution : public ForceContribution {
      *
      * @param parameters The parameters associated with the force contribution.
      */
-    InternalForceContribution(InternalForceContributionParameters parameters);
+    InternalForceContribution(InternalForceContributionParameters parameters) : m_internal_force_contribution_parameters(std::move(parameters)) {}
 
     /**
      * @brief Computes the internal forces.
@@ -68,9 +68,9 @@ class InternalForceContribution : public ForceContribution {
         return m_element->UsesGeneralizedFields();
     }
 
-   protected:
-    void SetupInternalForceContribution();
+    void Preprocess() override;
 
+   protected:
     InternalForceContributionParameters m_internal_force_contribution_parameters;  ///< The parameters associated with the force contribution.
     size_t m_num_nodes_per_element;                                                ///< The number of nodes per element.
     std::shared_ptr<aperi::ElementBase> m_element;                                 ///< The element associated with the force contribution.
