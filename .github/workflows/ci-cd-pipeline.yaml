@@ -85,6 +85,9 @@ jobs:
             git checkout main
             git pull origin main --rebase
 
+            git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+            git submodule update --init --recursive
+
             echo "Checking out appropriate branch..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               git checkout ${{ github.sha }}
