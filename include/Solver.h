@@ -7,6 +7,7 @@
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MeshData.h"
+#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -44,6 +45,19 @@ class Solver {
                 break;
             }
         }
+        if (m_uses_generalized_fields) {
+            // Create a value from generalized field processor
+            std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
+            src_field_query_data[0] = {"displacement_coefficients", FieldQueryState::NP1};
+            src_field_query_data[1] = {"velocity_coefficients", FieldQueryState::NP1};
+            src_field_query_data[2] = {"acceleration_coefficients", FieldQueryState::NP1};
+
+            std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
+            dest_field_query_data[0] = {"displacement", FieldQueryState::None};
+            dest_field_query_data[1] = {"velocity", FieldQueryState::None};
+            dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
+            m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+        }
     }
 
     /**
@@ -73,15 +87,16 @@ class Solver {
      */
     virtual void ComputeForce() = 0;
 
-    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                       ///< The input/output mesh object.
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;  ///< The vector of internal force contributions.
-    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The vector of external force contributions.
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The vector of boundary conditions.
-    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
-    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
-    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
-    int m_num_processors;                                                                           ///< The number of processors.
-    bool m_uses_generalized_fields;                                                                 ///< Whether the solver uses generalized fields.
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                  ///< The vector of internal force contributions.
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                  ///< The vector of external force contributions.
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                                   ///< The vector of boundary conditions.
+    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                             ///< The time stepper object.
+    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                                           ///< The output scheduler object.
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
+    int m_num_processors;                                                                                           ///< The number of processors.
+    bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
 };
 
 /**
@@ -116,12 +131,12 @@ class ExplicitSolver : public Solver {
         std::array<FieldQueryData<double>, 9> field_query_data_vec;
         field_query_data_vec[0] = {"force", FieldQueryState::N};
         field_query_data_vec[1] = {"force", FieldQueryState::NP1};
-        field_query_data_vec[2] = {"displacement", FieldQueryState::N};
-        field_query_data_vec[3] = {"displacement", FieldQueryState::NP1};
-        field_query_data_vec[4] = {"velocity", FieldQueryState::N};
-        field_query_data_vec[5] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[6] = {"acceleration", FieldQueryState::N};
-        field_query_data_vec[7] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[2] = {"displacement_coefficients", FieldQueryState::N};
+        field_query_data_vec[3] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[4] = {"velocity_coefficients", FieldQueryState::N};
+        field_query_data_vec[5] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::N};
+        field_query_data_vec[7] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[8] = {"mass", FieldQueryState::None};
         return std::make_shared<NodeProcessor<9>>(field_query_data_vec, mp_mesh_data);
     }
@@ -137,9 +152,9 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorFirstUpdate() {
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"velocity", FieldQueryState::N};
-        field_query_data_vec[2] = {"acceleration", FieldQueryState::N};
+        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"velocity_coefficients", FieldQueryState::N};
+        field_query_data_vec[2] = {"acceleration_coefficients", FieldQueryState::N};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -147,9 +162,9 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorUpdateDisplacements() {
         // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"displacement", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"displacement", FieldQueryState::N};
-        field_query_data_vec[2] = {"velocity", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
+        field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -157,8 +172,8 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<2>> CreateNodeProcessorSecondUpdate() {
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         std::array<FieldQueryData<double>, 2> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"acceleration_coefficients", FieldQueryState::NP1};
         return std::make_shared<NodeProcessor<2>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -166,7 +181,7 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorAcceleration() {
         // Compute the acceleration: a^{n+1} = f^{n+1}/m
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"force", FieldQueryState::NP1};
         field_query_data_vec[2] = {"mass", FieldQueryState::None};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);

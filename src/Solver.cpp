@@ -146,48 +146,20 @@ void ExplicitSolver::UpdateFieldStates() {
 }
 
 void ExplicitSolver::WriteOutput(double time) {
-    /** We are done with state N at this point. For fields that are generalized, calculate values from the stored function value coefficients:
-    //   - Rotate states to put N into NP1
-    //   - Calculate physical quantities at the temporary NP1
-    //   - Write output (along with any other fields that are not generalized)
-    //   - Rotate back
-    */
-
     if (m_uses_generalized_fields) {
-        std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
-        dest_field_query_data[0] = {"displacement", FieldQueryState::NP1};
-        dest_field_query_data[1] = {"velocity", FieldQueryState::NP1};
-        dest_field_query_data[2] = {"acceleration", FieldQueryState::NP1};
-        bool rotate_device_states = true;
-        mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
-
-        std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
-        src_field_query_data[0] = {"displacement", FieldQueryState::N};
-        src_field_query_data[1] = {"velocity", FieldQueryState::N};
-        src_field_query_data[2] = {"acceleration", FieldQueryState::N};
-        std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
-
         // Make sure all source fields are up to date on the device
-        value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
-        value_from_generalized_field_processor->CommunicateAllSourceFieldData();
-        value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
-        value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
+        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
+        m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
+        m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
+        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
 
         // Compute the values of the destination fields from the source fields
-        value_from_generalized_field_processor->compute_value_from_generalized_field();
-        value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-
-        // Write the field results
-        m_node_processor_all->SyncAllFieldsDeviceToHost();
-        m_io_mesh->WriteFieldResults(time);
-
-        // Rotate back
-        mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
-    } else {
-        // Just write the field results
-        m_node_processor_all->SyncAllFieldsDeviceToHost();
-        m_io_mesh->WriteFieldResults(time);
+        m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+        m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     }
+    // Write the field results
+    m_node_processor_all->SyncAllFieldsDeviceToHost();
+    m_io_mesh->WriteFieldResults(time);
 }
 
 void LogHeader() {

@@ -65,7 +65,7 @@ class InternalForceContribution : public ForceContribution {
      * @return True if the element uses generalized fields, false otherwise.
      */
     bool UsesGeneralizedFields() const {
-        return m_element->UsesGeneralizedFields();
+        return m_internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields();
     }
 
     void Preprocess() override;

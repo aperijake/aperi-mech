@@ -31,7 +31,9 @@ class MassMatrixTest : public CaptureOutputTest {
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_procs);
 
         // Create FieldData
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData();
+        bool uses_generalized_fields = false;
+        bool uses_strain_smoothing = true;  // I don't think this flag matters for this test
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing);
 
         // Make a 1x1xnum_procs mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";

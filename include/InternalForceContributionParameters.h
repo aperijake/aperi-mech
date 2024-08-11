@@ -31,8 +31,13 @@ class ApproximationSpaceParameters {
         return approximation_space;
     }
 
+    bool UsesGeneralizedFields() const {
+        return uses_generalized_fields;
+    }
+
    protected:
     std::string approximation_space = "finite_element";
+    bool uses_generalized_fields = false;
     ApproximationSpaceType approximation_space_type = ApproximationSpaceType::FiniteElement;
 };
 
@@ -52,14 +57,17 @@ class ApproximationSpaceReproducingKernelParameters : public ApproximationSpaceP
    public:
     ApproximationSpaceReproducingKernelParameters() {
         approximation_space = "reproducing_kernel";
+        uses_generalized_fields = true;
         approximation_space_type = ApproximationSpaceType::ReproducingKernel;
     }
     ApproximationSpaceReproducingKernelParameters(double kernel_radius_scale_factor) : kernel_radius_scale_factor(kernel_radius_scale_factor) {
         approximation_space = "reproducing_kernel";
+        uses_generalized_fields = true;
         approximation_space_type = ApproximationSpaceType::ReproducingKernel;
     }
     ApproximationSpaceReproducingKernelParameters(const YAML::Node& reproduction_kernel_node) {
         approximation_space = "reproducing_kernel";
+        uses_generalized_fields = true;
         approximation_space_type = ApproximationSpaceType::ReproducingKernel;
         kernel_radius_scale_factor = reproduction_kernel_node["kernel_radius_scale_factor"].as<double>();
     }

@@ -18,9 +18,9 @@ class InitialConditionUtilTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
-        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
-        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("velocity_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("displacement_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("acceleration_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
     }
 
     void TearDown() override {
@@ -47,13 +47,13 @@ class InitialConditionUtilTest : public ApplicationTest {
         // Need to sync from device to host before updating states
         for (const auto& initial_condition : initial_conditions) {
             // Get the type and initial condition node
-            auto type = initial_condition.begin()->first.as<std::string>();
+            auto field = initial_condition.begin()->first.as<std::string>() + "_coefficients";
             const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
             // Create the field query data
             std::array<aperi::FieldQueryData<double>, 2> field_query_data;
-            field_query_data[0] = {type, aperi::FieldQueryState::NP1};
-            field_query_data[1] = {type, aperi::FieldQueryState::N};
+            field_query_data[0] = {field, aperi::FieldQueryState::NP1};
+            field_query_data[1] = {field, aperi::FieldQueryState::N};
             std::vector<std::string> sets;
             if (initial_condition_node["sets"]) {
                 sets = initial_condition_node["sets"].as<std::vector<std::string>>();
@@ -93,7 +93,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInput) {
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
     // Check the field values
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity_coefficients", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test AddInitialConditions function with valid input, using component values instead of vector
@@ -118,7 +118,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsValidInputComponentValues) 
     AddTestInitialConditions();
 
     // Check the field values
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"block_1"}, "velocity_coefficients", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test initial conditions on multiple sets
@@ -145,10 +145,10 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsMultipleSets) {
     EXPECT_GT(expected_values[0] * expected_values[0] + expected_values[1] * expected_values[1] + expected_values[2] * expected_values[2], 0.0);
 
     // Check the field values for the first set
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity_coefficients", expected_values, aperi::FieldQueryState::N);
 
     // Check the field values for the second set
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity_coefficients", expected_values, aperi::FieldQueryState::N);
 }
 
 // Test Adding two initial conditions
@@ -189,7 +189,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     EXPECT_GT(expected_values_1[0] * expected_values_1[0] + expected_values_1[1] * expected_values_1[1] + expected_values_1[2] * expected_values_1[2], 0.0);
 
     // Check the field values for the first set
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity", expected_values_1, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_1"}, "velocity_coefficients", expected_values_1, aperi::FieldQueryState::N);
 
     // Get the initial condition values
     auto magnitude_2 = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][1]["velocity"]["vector"]["magnitude"].as<double>();
@@ -198,7 +198,7 @@ TEST_F(InitialConditionUtilTest, AddInitialConditionsTwoInitialConditions) {
     EXPECT_GT(expected_values_2[0] * expected_values_2[0] + expected_values_2[1] * expected_values_2[1] + expected_values_2[2] * expected_values_2[2], 0.0);
 
     // Check the field values for the second set
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity", expected_values_2, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), {"surface_2"}, "velocity_coefficients", expected_values_2, aperi::FieldQueryState::N);
 }
 
 // Test AddInitialConditions function with invalid type

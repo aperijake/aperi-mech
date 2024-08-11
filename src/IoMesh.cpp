@@ -135,7 +135,7 @@ void DeclareField(stk::mesh::MetaData &meta_data, const FieldData &field) {
                field.data_type);
 }
 
-void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data) {
+void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names) {
     // Make sure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
@@ -158,15 +158,7 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
         }
     }
 
-    // Create the fields
-    for (const FieldData &field : field_data) {
-        // Create the field
-        DeclareField(meta_data, field);
-    }
-
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
-
-    mp_io_broker->populate_bulk_data();  // committing here
 
     // if (m_add_edges) {
     //     stk::mesh::create_edges(mp_io_broker->bulk_data());
@@ -177,15 +169,40 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     // }
 }
 
-void IoMesh::CreateFieldResultsFile(const std::string &filename) {
+void IoMesh::AddFields(const std::vector<aperi::FieldData> &field_data) {
+    // Make sure ReadMesh has been called
+    if (m_input_index == -1) {
+        throw std::runtime_error("AddFields called before ReadMesh");
+    }
+    // Get the meta data
+    stk::mesh::MetaData &meta_data = mp_io_broker->meta_data();
+
+    // Create the fields
+    for (const FieldData &field : field_data) {
+        // Create the field
+        DeclareField(meta_data, field);
+    }
+}
+
+void IoMesh::CompleteInitialization() {
+    // Make sure ReadMesh has been called
+    if (m_input_index == -1) {
+        throw std::runtime_error("CompleteInitialization called before ReadMesh");
+    }
+    mp_io_broker->populate_bulk_data();  // committing here
+}
+
+void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data) {
     m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 
     // Iterate all fields and set them as results fields...
-    const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
-    for (auto *p_field : fields) {
+    for (const auto &field : field_data) {
+        stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
+        stk::mesh::FieldBase *p_field = mp_io_broker->meta_data().get_field(topology_rank, field.name);
+        assert(p_field != nullptr);
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*p_field);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            mp_io_broker->add_field(m_results_index, *p_field);  // results output
+            mp_io_broker->add_field(m_results_index, *p_field, field.output_name);  // results output
         }
     }
 }

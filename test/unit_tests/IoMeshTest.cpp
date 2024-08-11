@@ -47,6 +47,7 @@ TEST_F(IoMeshTest, ReadWrite) {
     aperi::IoMesh io_mesh_read(p_comm, io_mesh_read_parameters);
     std::vector<size_t> expected_owned = {4U * static_cast<size_t>(num_procs + 1), 0U, 0U, static_cast<size_t>(num_procs)};
     io_mesh_read.ReadMesh(output_f_name, {"block_1"});
+    io_mesh_read.CompleteInitialization();
     CheckMeshCounts(*io_mesh_read.GetMeshData(), expected_owned);
 
     // Clean up the temporary file

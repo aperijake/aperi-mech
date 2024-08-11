@@ -200,9 +200,12 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
+        bool uses_generalized_fields = false;
         bool use_strain_smoothing = true;
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(use_strain_smoothing);
-        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"}, field_data);
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
+        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"});
+        m_io_mesh->AddFields(field_data);
+        m_io_mesh->CompleteInitialization();
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
         // Make an element processor
@@ -447,11 +450,11 @@ class ElementPatchAndForceTest : public SolverTest {
         std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
         std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
 
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration", expected_zero, aperi::FieldQueryState::N);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "displacement_coefficients", expected_displacement_negative, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "displacement_coefficients", expected_displacement_positive, aperi::FieldQueryState::N, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "velocity_coefficients", expected_velocity_negative, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "velocity_coefficients", expected_velocity_positive, aperi::FieldQueryState::N, 1.0e-4);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration_coefficients", expected_zero, aperi::FieldQueryState::N);
     }
 
     Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
@@ -526,9 +529,9 @@ class ElementPatchAndForceTest : public SolverTest {
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)
 
-        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "acceleration", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
-        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "displacement", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
-        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "velocity", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "acceleration_coefficients", m_center_of_mass, Eigen::Matrix3d::Zero(), aperi::FieldQueryState::N);
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "displacement_coefficients", m_center_of_mass, m_displacement_gradient, aperi::FieldQueryState::N, 1.0e-9);  // Large tolerance due to explicit dynamics
+        CheckEntityFieldPatchValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), "velocity_coefficients", m_center_of_mass, velocity_gradient, aperi::FieldQueryState::N, 1.0e-4);            // Large tolerance due to explicit dynamics
 
         CheckPatchTestForces();
     }
