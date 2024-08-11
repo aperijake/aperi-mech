@@ -52,7 +52,7 @@ void Application::Run(const std::string& input_filename) {
     m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names, field_data);
 
     // Create the field results file
-    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
+    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), field_data);
 
     // Loop over parts, create materials, and add parts to force contributions
     for (const auto& part : parts) {

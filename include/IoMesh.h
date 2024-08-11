@@ -35,7 +35,7 @@ class IoMesh {
 
     void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data = {});
 
-    void CreateFieldResultsFile(const std::string &filename);
+    void CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data);
 
     void WriteFieldResults(double time) const;
 

@@ -59,7 +59,7 @@ class SolverTest : public ApplicationTest {
         m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names, field_data);
 
         // Create the field results file
-        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0));
+        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0), field_data);
 
         // Loop over parts, create materials, and add parts to force contributions
         for (auto part : parts) {

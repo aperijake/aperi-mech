@@ -177,12 +177,14 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     // }
 }
 
-void IoMesh::CreateFieldResultsFile(const std::string &filename) {
+void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data) {
     m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 
     // Iterate all fields and set them as results fields...
-    const stk::mesh::FieldVector &fields = mp_io_broker->meta_data().get_fields();
-    for (auto *p_field : fields) {
+    for (auto &field : field_data) {
+        stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
+        stk::mesh::FieldBase *p_field = mp_io_broker->meta_data().get_field(topology_rank, field.name);
+        assert(p_field != nullptr);
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*p_field);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
             mp_io_broker->add_field(m_results_index, *p_field);  // results output

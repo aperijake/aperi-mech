@@ -238,7 +238,7 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     // CheckMeshCounts(*io_mesh.GetMeshData(), expected_owned);
 
     // Write the generated mesh
-    io_mesh.CreateFieldResultsFile(filename);
+    io_mesh.CreateFieldResultsFile(filename, field_data);
     io_mesh.WriteFieldResults(0);
     std::ifstream after_write_file(filename);
     EXPECT_TRUE(after_write_file.good());
