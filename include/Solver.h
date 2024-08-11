@@ -116,12 +116,12 @@ class ExplicitSolver : public Solver {
         std::array<FieldQueryData<double>, 9> field_query_data_vec;
         field_query_data_vec[0] = {"force", FieldQueryState::N};
         field_query_data_vec[1] = {"force", FieldQueryState::NP1};
-        field_query_data_vec[2] = {"displacement", FieldQueryState::N};
-        field_query_data_vec[3] = {"displacement", FieldQueryState::NP1};
-        field_query_data_vec[4] = {"velocity", FieldQueryState::N};
-        field_query_data_vec[5] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[6] = {"acceleration", FieldQueryState::N};
-        field_query_data_vec[7] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[2] = {"displacement_coefficients", FieldQueryState::N};
+        field_query_data_vec[3] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[4] = {"velocity_coefficients", FieldQueryState::N};
+        field_query_data_vec[5] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::N};
+        field_query_data_vec[7] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[8] = {"mass", FieldQueryState::None};
         return std::make_shared<NodeProcessor<9>>(field_query_data_vec, mp_mesh_data);
     }
@@ -137,9 +137,9 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorFirstUpdate() {
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"velocity", FieldQueryState::N};
-        field_query_data_vec[2] = {"acceleration", FieldQueryState::N};
+        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"velocity_coefficients", FieldQueryState::N};
+        field_query_data_vec[2] = {"acceleration_coefficients", FieldQueryState::N};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -147,9 +147,9 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorUpdateDisplacements() {
         // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"displacement", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"displacement", FieldQueryState::N};
-        field_query_data_vec[2] = {"velocity", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
+        field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -157,8 +157,8 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<2>> CreateNodeProcessorSecondUpdate() {
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         std::array<FieldQueryData<double>, 2> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"acceleration_coefficients", FieldQueryState::NP1};
         return std::make_shared<NodeProcessor<2>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -166,7 +166,7 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorAcceleration() {
         // Compute the acceleration: a^{n+1} = f^{n+1}/m
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"acceleration", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"force", FieldQueryState::NP1};
         field_query_data_vec[2] = {"mass", FieldQueryState::None};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);

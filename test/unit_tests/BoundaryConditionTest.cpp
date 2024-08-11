@@ -31,9 +31,9 @@ class BoundaryConditionTest : public ApplicationTest {
         ApplicationTest::SetUp();
 
         // Initialize field data
-        m_field_data.emplace_back("velocity", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
-        m_field_data.emplace_back("displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
-        m_field_data.emplace_back("acceleration", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("velocity_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("displacement_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("acceleration_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
     }
 
     void TearDown() override {
@@ -61,12 +61,12 @@ class BoundaryConditionTest : public ApplicationTest {
 
         // Create a node processor for all fields
         std::array<aperi::FieldQueryData<double>, 6> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", aperi::FieldQueryState::NP1};
-        field_query_data_vec[1] = {"velocity", aperi::FieldQueryState::N};
-        field_query_data_vec[2] = {"displacement", aperi::FieldQueryState::NP1};
-        field_query_data_vec[3] = {"displacement", aperi::FieldQueryState::N};
-        field_query_data_vec[4] = {"acceleration", aperi::FieldQueryState::NP1};
-        field_query_data_vec[5] = {"acceleration", aperi::FieldQueryState::N};
+        field_query_data_vec[0] = {"velocity_coefficients", aperi::FieldQueryState::NP1};
+        field_query_data_vec[1] = {"velocity_coefficients", aperi::FieldQueryState::N};
+        field_query_data_vec[2] = {"displacement_coefficients", aperi::FieldQueryState::NP1};
+        field_query_data_vec[3] = {"displacement_coefficients", aperi::FieldQueryState::N};
+        field_query_data_vec[4] = {"acceleration_coefficients", aperi::FieldQueryState::NP1};
+        field_query_data_vec[5] = {"acceleration_coefficients", aperi::FieldQueryState::N};
 
         m_all_field_node_processor = std::make_shared<aperi::NodeProcessor<6>>(field_query_data_vec, m_io_mesh->GetMeshData());
     }
@@ -76,9 +76,9 @@ class BoundaryConditionTest : public ApplicationTest {
 
         // Field query data
         std::array<aperi::FieldQueryData<double>, 3> field_query_data_array;
-        field_query_data_array[0] = {"displacement", aperi::FieldQueryState::NP1};
-        field_query_data_array[1] = {"displacement", aperi::FieldQueryState::N};
-        field_query_data_array[2] = {"velocity", aperi::FieldQueryState::NP1};
+        field_query_data_array[0] = {"displacement_coefficients", aperi::FieldQueryState::NP1};
+        field_query_data_array[1] = {"displacement_coefficients", aperi::FieldQueryState::N};
+        field_query_data_array[2] = {"velocity_coefficients", aperi::FieldQueryState::NP1};
 
         // Create a node processor
         aperi::NodeProcessor<3> node_processor(field_query_data_array, m_io_mesh->GetMeshData());
@@ -220,8 +220,8 @@ class BoundaryConditionTest : public ApplicationTest {
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement", expected_displacement, aperi::FieldQueryState::N);
-                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity", expected_velocity, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement_coefficients", expected_displacement, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity_coefficients", expected_velocity, aperi::FieldQueryState::N);
             }
         }
     }

@@ -155,16 +155,16 @@ void ExplicitSolver::WriteOutput(double time) {
 
     if (m_uses_generalized_fields) {
         std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
-        dest_field_query_data[0] = {"displacement", FieldQueryState::NP1};
-        dest_field_query_data[1] = {"velocity", FieldQueryState::NP1};
-        dest_field_query_data[2] = {"acceleration", FieldQueryState::NP1};
+        dest_field_query_data[0] = {"displacement_coefficients", FieldQueryState::NP1};
+        dest_field_query_data[1] = {"velocity_coefficients", FieldQueryState::NP1};
+        dest_field_query_data[2] = {"acceleration_coefficients", FieldQueryState::NP1};
         bool rotate_device_states = true;
         mp_mesh_data->UpdateFieldDataStates(dest_field_query_data, rotate_device_states);
 
         std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
-        src_field_query_data[0] = {"displacement", FieldQueryState::N};
-        src_field_query_data[1] = {"velocity", FieldQueryState::N};
-        src_field_query_data[2] = {"acceleration", FieldQueryState::N};
+        src_field_query_data[0] = {"displacement_coefficients", FieldQueryState::N};
+        src_field_query_data[1] = {"velocity_coefficients", FieldQueryState::N};
+        src_field_query_data[2] = {"acceleration_coefficients", FieldQueryState::N};
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
 
         // Make sure all source fields are up to date on the device

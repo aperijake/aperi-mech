@@ -12,7 +12,6 @@
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
-#include "SolverTestFixture.h"
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 

@@ -48,7 +48,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std
         std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
 
         // Get the type of initial condition
-        const auto type = initial_condition.begin()->first.as<std::string>();
+        const auto field = initial_condition.begin()->first.as<std::string>() + "_coefficients";
 
         // Loop over sets from initial condition
         aperi::CoutP0() << "Adding initial condition for sets:" << std::endl;
@@ -59,7 +59,7 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std
         }
 
         // Set the initial field values
-        SetInitialFieldValues(mesh_data, sets, type, components_and_values);
+        SetInitialFieldValues(mesh_data, sets, field, components_and_values);
     }
 }
 
