@@ -28,7 +28,7 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank) {
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */
-std::vector<FieldData> GetFieldData(bool use_strain_smoothing) {
+std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing) {
     std::vector<FieldData> field_data;
 
     // Node data

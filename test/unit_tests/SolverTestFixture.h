@@ -52,21 +52,28 @@ class SolverTest : public ApplicationTest {
             }
         }
 
-        // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(has_strain_smoothing);
-
         // Read the mesh
-        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names, field_data);
+        m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(0), part_names);
 
-        // Create the field results file
-        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0), field_data);
+        bool uses_generalized_fields = false;
 
         // Loop over parts, create materials, and add parts to force contributions
         for (auto part : parts) {
             // Create InternalForceContributionParameters
             aperi::InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
             m_internal_force_contributions.push_back(aperi::CreateInternalForceContribution(internal_force_contribution_parameters));
+            uses_generalized_fields = internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields() || uses_generalized_fields;
         }
+
+        // Get field data
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing);
+
+        // Add fields to the mesh and complete initialization
+        m_io_mesh->AddFields(field_data);
+        m_io_mesh->CompleteInitialization();
+
+        // Create the field results file
+        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(0), field_data);
 
         // Get loads
         std::vector<YAML::Node> loads = m_io_input_file->GetLoads(0);

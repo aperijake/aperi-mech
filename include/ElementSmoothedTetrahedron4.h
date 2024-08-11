@@ -30,7 +30,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material, true), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateElementProcessor();
         CreateFunctors();
     }

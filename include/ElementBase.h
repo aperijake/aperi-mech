@@ -22,7 +22,7 @@ class ElementBase {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr, bool uses_generalized_fields = false) : m_num_nodes(num_nodes), m_material(material), m_uses_generalized_fields(uses_generalized_fields) {}
+    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_material(material) {}
 
     /**
      * @brief Gets the number of nodes in the element.
@@ -48,19 +48,9 @@ class ElementBase {
         m_material = material;
     }
 
-    /**
-     * @brief Gets whether the element uses generalized fields.
-     *
-     * @return True if the element uses generalized fields, false otherwise.
-     */
-    bool UsesGeneralizedFields() const {
-        return m_uses_generalized_fields;
-    }
-
    protected:
-    size_t m_num_nodes;                      ///< The number of nodes in the element.
-    std::shared_ptr<Material> m_material;    ///< The material of the element.
-    bool m_uses_generalized_fields = false;  ///< Whether the element uses generalized fields.
+    size_t m_num_nodes;                    ///< The number of nodes in the element.
+    std::shared_ptr<Material> m_material;  ///< The material of the element.
 };
 
 }  // namespace aperi

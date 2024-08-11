@@ -233,7 +233,9 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     EXPECT_FALSE(before_write_file.good());
 
     // Generate a mesh
-    io_mesh.ReadMesh(mesh_string, {"block_1"}, field_data);
+    io_mesh.ReadMesh(mesh_string, {"block_1"});
+    io_mesh.AddFields(field_data);
+    io_mesh.CompleteInitialization();
     // std::vector<size_t> expected_owned = {8, 0, 0, 1};
     // CheckMeshCounts(*io_mesh.GetMeshData(), expected_owned);
 

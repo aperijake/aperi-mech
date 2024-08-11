@@ -135,7 +135,7 @@ void DeclareField(stk::mesh::MetaData &meta_data, const FieldData &field) {
                field.data_type);
 }
 
-void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data) {
+void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names) {
     // Make sure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
@@ -158,15 +158,7 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
         }
     }
 
-    // Create the fields
-    for (const FieldData &field : field_data) {
-        // Create the field
-        DeclareField(meta_data, field);
-    }
-
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
-
-    mp_io_broker->populate_bulk_data();  // committing here
 
     // if (m_add_edges) {
     //     stk::mesh::create_edges(mp_io_broker->bulk_data());
@@ -175,6 +167,29 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     // if (m_add_faces) {
     //     stk::mesh::create_faces(mp_io_broker->bulk_data());
     // }
+}
+
+void IoMesh::AddFields(const std::vector<aperi::FieldData> &field_data) {
+    // Make sure ReadMesh has been called
+    if (m_input_index == -1) {
+        throw std::runtime_error("AddFields called before ReadMesh");
+    }
+    // Get the meta data
+    stk::mesh::MetaData &meta_data = mp_io_broker->meta_data();
+
+    // Create the fields
+    for (const FieldData &field : field_data) {
+        // Create the field
+        DeclareField(meta_data, field);
+    }
+}
+
+void IoMesh::CompleteInitialization() {
+    // Make sure ReadMesh has been called
+    if (m_input_index == -1) {
+        throw std::runtime_error("CompleteInitialization called before ReadMesh");
+    }
+    mp_io_broker->populate_bulk_data();  // committing here
 }
 
 void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data) {

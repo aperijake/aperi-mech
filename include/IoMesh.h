@@ -33,7 +33,11 @@ class IoMesh {
 
     void Finalize();
 
-    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names, const std::vector<aperi::FieldData> &field_data = {});
+    void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names);
+
+    void CompleteInitialization();
+
+    void AddFields(const std::vector<aperi::FieldData> &field_data);
 
     void CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data);
 
