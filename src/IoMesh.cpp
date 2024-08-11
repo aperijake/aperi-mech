@@ -187,7 +187,7 @@ void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vect
         assert(p_field != nullptr);
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*p_field);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            mp_io_broker->add_field(m_results_index, *p_field);  // results output
+            mp_io_broker->add_field(m_results_index, *p_field, field.output_name);  // results output
         }
     }
 }
