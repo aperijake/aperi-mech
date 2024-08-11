@@ -15,13 +15,14 @@ namespace aperi {
 size_t FieldDataRankToNumberComponents(FieldDataRank data_rank) {
     if (data_rank == FieldDataRank::SCALAR) {
         return 1;
-    } else if (data_rank == FieldDataRank::VECTOR) {
-        return 3;
-    } else if (data_rank == FieldDataRank::TENSOR) {
-        return 9;
-    } else {
-        throw std::invalid_argument("FieldData: Invalid data type.");
     }
+    if (data_rank == FieldDataRank::VECTOR) {
+        return 3;
+    }
+    if (data_rank == FieldDataRank::TENSOR) {
+        return 9;
+    }
+    throw std::invalid_argument("FieldData: Invalid data type.");
 }
 
 /**
@@ -32,12 +33,24 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     std::vector<FieldData> field_data;
 
     // Node data
-    field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized
-    field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized
-    field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized
-    field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));                                      // The force field, generalized
-    field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                         // The mass as determined from the attached elements
-    field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                                       // The mass field (mass_from_elements as coefficients on the approximation functions)
+    if (uses_generalized_fields) {
+        // Generalized fields, output as "_coefficients"
+        field_data.push_back(FieldData("displacement_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field
+        field_data.push_back(FieldData("velocity_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));      // The velocity field
+        field_data.push_back(FieldData("acceleration_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field
+        // Actual field data at nodes, no state is needed as it is calculated from the coefficients which have states
+        field_data.push_back(FieldData("displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement field
+        field_data.push_back(FieldData("velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));      // The velocity field
+        field_data.push_back(FieldData("acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The acceleration field
+    } else {
+        // Field data at nodes is the same as generalized fields. Just output coefficients.
+        field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized
+        field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized
+        field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized
+    }
+    field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));               // The force field, generalized
+    field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements
+    field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));

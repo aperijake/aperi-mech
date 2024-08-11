@@ -7,6 +7,7 @@
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MeshData.h"
+#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -44,6 +45,19 @@ class Solver {
                 break;
             }
         }
+        if (m_uses_generalized_fields) {
+            // Create a value from generalized field processor
+            std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
+            src_field_query_data[0] = {"displacement_coefficients", FieldQueryState::NP1};
+            src_field_query_data[1] = {"velocity_coefficients", FieldQueryState::NP1};
+            src_field_query_data[2] = {"acceleration_coefficients", FieldQueryState::NP1};
+
+            std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
+            dest_field_query_data[0] = {"displacement", FieldQueryState::None};
+            dest_field_query_data[1] = {"velocity", FieldQueryState::None};
+            dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
+            m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+        }
     }
 
     /**
@@ -73,15 +87,16 @@ class Solver {
      */
     virtual void ComputeForce() = 0;
 
-    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                       ///< The input/output mesh object.
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;  ///< The vector of internal force contributions.
-    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The vector of external force contributions.
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The vector of boundary conditions.
-    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                             ///< The time stepper object.
-    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                           ///< The output scheduler object.
-    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                  ///< The mesh data object.
-    int m_num_processors;                                                                           ///< The number of processors.
-    bool m_uses_generalized_fields;                                                                 ///< Whether the solver uses generalized fields.
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                  ///< The vector of internal force contributions.
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                  ///< The vector of external force contributions.
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                                   ///< The vector of boundary conditions.
+    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                             ///< The time stepper object.
+    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                                           ///< The output scheduler object.
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
+    int m_num_processors;                                                                                           ///< The number of processors.
+    bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
 };
 
 /**
