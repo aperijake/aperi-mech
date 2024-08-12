@@ -94,7 +94,8 @@ class NeighborSearchProcessor {
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
 
         // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_node_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
     }
 
     void SetKernelRadius(double kernel_radius) {
@@ -250,7 +251,7 @@ class NeighborSearchProcessor {
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
                 uint64_t &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-                double *p_function_values = stk::mesh::field_data(*m_function_values_field, node);
+                double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
 
                 // Calculate the squared distance between the node and the neighbor
                 double distance_squared = 0.0;
@@ -322,11 +323,12 @@ class NeighborSearchProcessor {
     }
 
     // Loop over each element and add the element's nodes to the neighbors field
-    void add_nodes_ring_0_nodes() {
+    void add_nodes_ring_0_nodes(bool set_first_function_value_to_one = false) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
         auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
+        auto ngp_node_function_values_field = *m_ngp_node_function_values_field;
 
         // Add itself to the neighbors field
         stk::mesh::for_each_entity_run(
@@ -337,9 +339,16 @@ class NeighborSearchProcessor {
                 double starting_num_nodes = ngp_node_num_neighbors_field(node_index, 0);
                 ngp_node_num_neighbors_field(node_index, 0) += 1;
                 ngp_node_neighbors_field(node_index, (size_t)starting_num_nodes) = (double)node.local_offset();
+                if (set_first_function_value_to_one) {
+                    ngp_node_function_values_field(node_index, (size_t)starting_num_nodes) = 1.0;
+                }
             });
         m_ngp_node_num_neighbors_field->clear_sync_state();
         m_ngp_node_num_neighbors_field->modify_on_device();
+        if (set_first_function_value_to_one) {
+            m_ngp_node_function_values_field->clear_sync_state();
+            m_ngp_node_function_values_field->modify_on_device();
+        }
     }
 
     void DoBallSearch() {
@@ -556,6 +565,7 @@ class NeighborSearchProcessor {
 
     void SyncFieldsToHost() {
         m_ngp_node_num_neighbors_field->sync_to_host();
+        m_ngp_node_function_values_field->sync_to_host();
         m_ngp_kernel_radius_field->clear_sync_state();
         m_ngp_kernel_radius_field->sync_to_host();
         m_ngp_element_num_neighbors_field->sync_to_host();
@@ -603,13 +613,14 @@ class NeighborSearchProcessor {
     UnsignedField *m_element_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_element_neighbors_field;             // The neighbors field
     DoubleField *m_kernel_radius_field;                   // The kernel radius field
-    DoubleField *m_function_values_field;                 // The function values field
+    DoubleField *m_node_function_values_field;            // The function values field
     NgpDoubleField *m_ngp_coordinates_field;              // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;     // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;         // The ngp neighbors field
     NgpUnsignedField *m_ngp_element_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_element_neighbors_field;      // The ngp neighbors field
     NgpDoubleField *m_ngp_kernel_radius_field;            // The ngp kernel radius field
+    NgpDoubleField *m_ngp_node_function_values_field;     // The ngp function values field
 };
 
 }  // namespace aperi

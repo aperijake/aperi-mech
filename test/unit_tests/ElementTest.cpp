@@ -200,7 +200,7 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
-        bool uses_generalized_fields = false;
+        bool uses_generalized_fields = approximation_space_parameters->UsesGeneralizedFields();
         bool use_strain_smoothing = true;
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
         m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"});

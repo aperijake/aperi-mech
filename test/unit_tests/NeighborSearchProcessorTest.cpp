@@ -50,10 +50,16 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_ring_0_nodes();
+    bool set_first_function_value = true;
+    m_search_processor->add_nodes_ring_0_nodes(set_first_function_value);
     m_search_processor->SyncFieldsToHost();
     std::array<uint64_t, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
+
+    std::array<double, aperi::MAX_NODE_NUM_NEIGHBORS> expected_function_values_data;
+    expected_function_values_data.fill(0.0);
+    expected_function_values_data[0] = 1.0;
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
     // - Node
