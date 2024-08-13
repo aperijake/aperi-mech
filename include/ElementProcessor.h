@@ -77,10 +77,6 @@ class ElementGatherScatterProcessor {
                 m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
             }
 
-            // Get the node function values field
-            m_node_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-            m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
-
             // Get the element number of neighbors field
             m_num_element_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_num_element_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_element_neighbors_field);
@@ -88,14 +84,6 @@ class ElementGatherScatterProcessor {
             // Get the element neighbors field
             m_element_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_neighbors_field);
-
-            // Get the node number of neighbors field
-            m_num_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-            m_ngp_num_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_node_neighbors_field);
-
-            // Get the node neighbors field
-            m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-            m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
         }
     }
 
@@ -178,8 +166,7 @@ class ElementGatherScatterProcessor {
                 // Kokkos::Profiling::pushRegion("get_neighbors");
                 Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
-                    stk::mesh::Entity entity(ngp_element_neighbors_field(elem_index, num_nodes - i - 1));  // Reverse the order of the neighbors
+                    stk::mesh::Entity entity(ngp_element_neighbors_field(elem_index, i));
                     nodes[i] = ngp_mesh.fast_mesh_index(entity);
                 }
                 // Kokkos::Profiling::popRegion();
@@ -189,7 +176,7 @@ class ElementGatherScatterProcessor {
                 Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, num_nodes - i - 1);  // Reverse the order of the neighbors
+                        B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, i);
                     }
                 }
                 // Kokkos::Profiling::popRegion();
@@ -235,141 +222,12 @@ class ElementGatherScatterProcessor {
     }
 
     // Loop over each element and apply the function
-    template <size_t NumCellNodes, size_t NumNodeNeighbors, typename Func>
-    void for_each_element_gather_scatter_nodal_data_precomputed_2(Func func) {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp gather fields
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
-        for (size_t i = 0; i < NumFields; ++i) {
-            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
-        }
-
-        // Get the ngp scatter field
-        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
-
-        // Get the ngp element volume field
-        auto ngp_element_volume = *m_ngp_element_volume;
-
-        // Get the ngp element function derivatives fields
-        Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
-        for (size_t i = 0; i < 3; ++i) {
-            ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
-        }
-
-        // Get the ngp node function values field
-        auto ngp_num_element_neighbors_field = *m_ngp_num_element_neighbors_field;
-        auto ngp_element_neighbors_field = *m_ngp_element_neighbors_field;
-
-        // Get the ngp node number of neighbors field
-        auto ngp_num_node_neighbors_field = *m_ngp_num_node_neighbors_field;
-        auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
-
-        // Get the ngp node function values field
-        auto ngp_node_function_values_field = *m_ngp_node_function_values_field;
-
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the number of cell nodes
-                size_t num_cell_nodes = ngp_num_element_neighbors_field(elem_index, 0);
-                assert(num_cell_nodes <= NumCellNodes);
-
-                // Get the cell nodes
-                // Kokkos::Profiling::pushRegion("get_cell_nodes");
-                Kokkos::Array<stk::mesh::FastMeshIndex, NumCellNodes> cell_nodes;
-                for (size_t i = 0; i < num_cell_nodes; ++i) {
-                    // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
-                    stk::mesh::Entity entity(ngp_element_neighbors_field(elem_index, num_cell_nodes - i - 1));  // Reverse the order of the neighbors
-                    cell_nodes[i] = ngp_mesh.fast_mesh_index(entity);
-                }
-                // Kokkos::Profiling::popRegion();
-
-                // Build the B matrix
-                // Kokkos::Profiling::pushRegion("build_B");
-                Eigen::Matrix<double, NumCellNodes, 3> B;
-                for (size_t j = 0; j < 3; ++j) {
-                    for (size_t i = 0; i < num_cell_nodes; ++i) {
-                        B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, num_cell_nodes - i - 1);  // Reverse the order of the neighbors
-                    }
-                }
-                // Kokkos::Profiling::popRegion();
-
-                // Build the node neighbor matrix
-                // Kokkos::Profiling::pushRegion("build_node_neighbors");
-                Kokkos::Array<Kokkos::Array<stk::mesh::FastMeshIndex, NumNodeNeighbors>, NumCellNodes> node_neighbors;
-                Kokkos::Array<Kokkos::Array<double, NumNodeNeighbors>, NumCellNodes> node_neighbor_values;
-                for (size_t i = 0; i < num_cell_nodes; ++i) {
-                    size_t num_node_neighbors = ngp_num_node_neighbors_field(cell_nodes[i], 0);
-                    // printf("node: %lu\n", cell_nodes[i]);
-                    // printf("  num_node_neighbors: %lu\n", num_node_neighbors);
-                    assert(num_node_neighbors <= NumNodeNeighbors);
-                    for (size_t j = 0; j < num_node_neighbors; ++j) {
-                        // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
-                        stk::mesh::Entity entity(ngp_node_neighbors_field(cell_nodes[i], num_node_neighbors - j - 1));  // Reverse the order of the neighbors
-                        node_neighbors[i][j] = ngp_mesh.fast_mesh_index(entity);
-                        node_neighbor_values[i][j] = ngp_node_function_values_field(node_neighbors[i][j], 0);
-                        // printf("    neighbor: %lu, value: %f\n", node_neighbors[i][j], node_neighbor_values[i][j]);
-                    }
-                }
-
-                // Set up the field data to gather
-                // Kokkos::Profiling::pushRegion("gather_data");
-                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
-
-                // Set up the results matrix
-                Eigen::Matrix<double, NumCellNodes, 3> results_to_scatter;
-
-                // Gather the field data for each node
-                for (size_t f = 0; f < NumFields; ++f) {
-                    field_data_to_gather_gradient[f].fill(0.0);
-                    // Gradient in the x, y, and z directions
-                    for (size_t i = 0; i < 3; ++i) {
-                        // Each cell node
-                        for (size_t k = 0; k < num_cell_nodes; ++k) {
-                            double field_data_ki = ngp_fields_to_gather[f](cell_nodes[k], i);
-                            uint64_t num_node_neighbors = ngp_num_node_neighbors_field(cell_nodes[k], 0);
-                            // Scale by each node neighbor value
-                            for (size_t j = 0; j < num_node_neighbors; ++j) {
-                                field_data_to_gather_gradient[f].row(i) += field_data_ki * B.row(k) * node_neighbor_values[k][j];
-                            }
-                        }
-                    }
-                }
-                // Kokkos::Profiling::popRegion();
-
-                // Get the element volume
-                // Kokkos::Profiling::pushRegion("get_volume");
-                double element_volume = ngp_element_volume(elem_index, 0);
-                // Kokkos::Profiling::popRegion();
-
-                // Apply the function to the gathered data
-                // Kokkos::Profiling::pushRegion("apply_function");
-                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_cell_nodes);
-                // Kokkos::Profiling::popRegion();
-
-                // Scatter the force to the nodes
-                // Kokkos::Profiling::pushRegion("scatter_data");
-                for (size_t j = 0; j < 3; ++j) {
-                    for (size_t i = 0; i < num_cell_nodes; ++i) {
-                        uint64_t num_node_neighbors = ngp_num_node_neighbors_field(cell_nodes[i], 0);
-                        for (size_t k = 0; k < num_node_neighbors; ++k) {
-                            Kokkos::atomic_add(&ngp_field_to_scatter(node_neighbors[i][k], j), results_to_scatter(i, j) * node_neighbor_values[i][k]);
-                        }
-                    }
-                }
-                // Kokkos::Profiling::popRegion();
-            });
-    }
-
-    // Loop over each element and apply the function
-    template <size_t NumNodes, typename Func>
+    template <size_t NumCellNodes, typename Func>
     void for_each_element_gather_scatter_nodal_data(Func func) {
         if constexpr (UsePrecomputedDerivatives) {
-            // for_each_element_gather_scatter_nodal_data_precomputed<NumNodes, Func>(func);
-            for_each_element_gather_scatter_nodal_data_precomputed_2<NumNodes, 1, Func>(func);
+            for_each_element_gather_scatter_nodal_data_precomputed<NumCellNodes, Func>(func);
         } else {
-            for_each_element_gather_scatter_nodal_data_not_precomputed<NumNodes, Func>(func);
+            for_each_element_gather_scatter_nodal_data_not_precomputed<NumCellNodes, Func>(func);
         }
     }
 
@@ -452,18 +310,12 @@ class ElementGatherScatterProcessor {
     std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
     UnsignedField *m_num_element_neighbors_field;                                  // The number of neighbors field
     UnsignedField *m_element_neighbors_field;                                      // The neighbors field
-    UnsignedField *m_num_node_neighbors_field;                                     // The number of neighbors field
-    UnsignedField *m_node_neighbors_field;                                         // The neighbors field
-    DoubleField *m_node_function_values_field;                                     // The node function values field
     Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
     NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
     NgpUnsignedField *m_ngp_num_element_neighbors_field;                           // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_element_neighbors_field;                               // The ngp neighbors field
-    NgpUnsignedField *m_ngp_num_node_neighbors_field;                              // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_node_neighbors_field;                                  // The ngp neighbors field;
-    NgpDoubleField *m_ngp_node_function_values_field;                              // The ngp node function values field
 };
 
 // TODO(jake): Probably dont need to keep both of these classes. Can probably just use the one with the precomputed derivatives. Leaving both for now.

@@ -93,7 +93,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      */
     ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : ExternalForceContribution(mesh_data, components_and_values) {
         std::array<FieldQueryData<double>, 2> field_query_data;
-        field_query_data[0] = {"force", FieldQueryState::NP1};
+        field_query_data[0] = {"force", FieldQueryState::None};
         field_query_data[1] = {"mass", FieldQueryState::None};
         m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data, m_mesh_data);
     }

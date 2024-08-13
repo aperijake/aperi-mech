@@ -62,7 +62,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/Debug/aperi-mech",
       "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
       "preLaunchTask": "make_debug"
     },
     {

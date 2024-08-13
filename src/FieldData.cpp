@@ -42,13 +42,15 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.push_back(FieldData("displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement field
         field_data.push_back(FieldData("velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));      // The velocity field
         field_data.push_back(FieldData("acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The acceleration field
+        // Local force field
+        field_data.push_back(FieldData("force_local", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
     } else {
         // Field data at nodes is the same as generalized fields. Just output coefficients.
         field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized
         field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized
         field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized
     }
-    field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));               // The force field, generalized
+    field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));               // The force field
     field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements
     field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
 
