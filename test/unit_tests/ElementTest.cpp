@@ -426,13 +426,13 @@ class ElementPatchAndForceTest : public SolverTest {
 
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::None, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force_coefficients", expected_zero, aperi::FieldQueryState::None, 1.0e-8);
 
         // Check the force on the first set
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force, aperi::FieldQueryState::None, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force_coefficients", expected_force, aperi::FieldQueryState::None, 1.0e-8);
 
         // Check the force on the second set
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative, aperi::FieldQueryState::None, 1.0e-8);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force_coefficients", expected_force_negative, aperi::FieldQueryState::None, 1.0e-8);
 
         // Check the mass
         auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
@@ -484,7 +484,7 @@ class ElementPatchAndForceTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force", expected_zero, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "force_coefficients", expected_zero, aperi::FieldQueryState::None);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -497,8 +497,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, "force_coefficients", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, "force_coefficients", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
@@ -506,8 +506,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_3"}, "force_coefficients", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_4"}, "force_coefficients", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
@@ -515,8 +515,8 @@ class ElementPatchAndForceTest : public SolverTest {
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_5"}, "force_coefficients", expected_force_positive_array, aperi::FieldQueryState::None, tolerance);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_6"}, "force_coefficients", expected_force_negative_array, aperi::FieldQueryState::None, tolerance);
     }
 
     void CheckPatchTest() {

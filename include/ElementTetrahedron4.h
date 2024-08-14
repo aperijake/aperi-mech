@@ -54,7 +54,7 @@ class ElementTetrahedron4 : public ElementBase {
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
             return;
         }
-        const FieldQueryData<double> field_query_data_scatter = {"force", FieldQueryState::None};
+        const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
         m_element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<3, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 

@@ -45,7 +45,7 @@ class ElementSmoothedTetrahedron4Storing : public ElementBase {
 
     void CreateElementProcessor() {
         // Create the element processor
-        const FieldQueryData<double> field_query_data_scatter = {"force", FieldQueryState::None};
+        const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
         m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
