@@ -90,6 +90,47 @@ class NeighborSearchProcessor {
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
     }
 
+    bool CheckAllNeighborsAreWithinKernelRadius() {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+        auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+        auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the node's coordinates
+                double kernel_radius = ngp_kernel_radius_field(node_index, 0);
+                stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
+                uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
+                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(neighbor);
+                    stk::mesh::EntityFieldData<double> neighbor_coords = ngp_coordinates_field(neighbor_index);
+                    double neighbor_kernel_radius = ngp_kernel_radius_field(neighbor_index, 0);
+                    double distance = 0.0;
+                    for (size_t j = 0; j < 3; ++j) {
+                        distance += (coords[j] - neighbor_coords[j]) * (coords[j] - neighbor_coords[j]);
+                    }
+                    distance = sqrt(distance);
+                    if (distance > neighbor_kernel_radius) {
+                        Kokkos::printf("--------------------\n");
+                        Kokkos::printf("Node coordinates: %f %f %f\n", coords[0], coords[1], coords[2]);
+                        Kokkos::printf("Neighbor coordinates: %f %f %f\n", neighbor_coords[0], neighbor_coords[1], neighbor_coords[2]);
+                        Kokkos::printf("Distance: %f\n", distance);
+                        Kokkos::printf("Kernel radius: %f\n", kernel_radius);
+                        Kokkos::printf("Neighbor Kernel radius (relevant for traditional RK): %f\n", kernel_radius);
+                        Kokkos::printf("FAIL: Node %lu has a neighbor %lu that is outside the neighbor kernel radius.\n", static_cast<long unsigned int>(ngp_mesh.identifier(node)), static_cast<long unsigned int>(ngp_mesh.identifier(neighbor)));
+                        Kokkos::abort("Neighbor outside kernel radius.");
+                    }
+                }
+            });
+        return true;
+    }
+
     void SetKernelRadius(double kernel_radius) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -356,6 +397,8 @@ class NeighborSearchProcessor {
         GhostNodeNeighbors(host_search_results);
 
         UnpackSearchResultsIntoField(host_search_results);
+
+        assert(CheckAllNeighborsAreWithinKernelRadius());
 
         // FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_selector);
 
