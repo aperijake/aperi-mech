@@ -231,12 +231,6 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         entity_processor->MarkAllFieldsModifiedOnDevice();
         entity_processor->SyncAllFieldsDeviceToHost();
 
-        std::array<aperi::FieldQueryData<uint64_t>, 1> elem_num_neighbors_query_data_gather_vec;
-        elem_num_neighbors_query_data_gather_vec[0] = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        auto num_neighbors_processor = std::make_shared<aperi::ElementProcessor<1, uint64_t>>(elem_num_neighbors_query_data_gather_vec, mesh_data, part_names);
-        num_neighbors_processor->MarkAllFieldsModifiedOnDevice();
-        num_neighbors_processor->SyncAllFieldsDeviceToHost();
-
         // Check the volume
         std::array<double, 1> expected_volume;
         expected_volume[0] = num_elems_z;
@@ -266,12 +260,6 @@ TEST_F(ElementStrainSmoothingTest, SmoothedTet4Storing) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
 
     RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
-
-    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
-
-    // Check the number of neighbors
-    std::array<uint64_t, 1> expected_num_neighbors = {4};
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Smoothed reproducing kernel on tet4 element
@@ -285,12 +273,6 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     RunStrainSmoothedFormulation(num_procs, approximation_space_parameters);
-
-    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
-
-    // Check the number of neighbors
-    std::array<uint64_t, 1> expected_num_neighbors = {4};
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Smoothed reproducing kernel on tet4 element with more neighbors
@@ -309,12 +291,6 @@ TEST_F(ElementStrainSmoothingTest, ReproducingKernelOnTet4MoreNeighbors) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     RunStrainSmoothedFormulation(4, approximation_space_parameters);
-
-    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
-
-    // Check the number of neighbors
-    std::array<uint64_t, 1> expected_num_neighbors = {4};
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors, aperi::FieldQueryState::None);
 }
 
 // Fixture for ElementBase patch tests

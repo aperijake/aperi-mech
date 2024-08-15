@@ -58,7 +58,6 @@ class ElementReproducingKernel : public ElementBase {
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         search_processor.add_nodes_neighbors_within_variable_ball(m_kernel_radius_scale_factor);
-        search_processor.add_elements_ring_0_nodes();  // This is needed for the strain smoothing processor, just uses fem neighbors
 
         search_processor.SyncFieldsToHost();  // Just needed for output
         search_processor.PrintNumNeighborsStats();

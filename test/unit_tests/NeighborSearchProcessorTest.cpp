@@ -11,37 +11,6 @@
 #include "NeighborSearchProcessorTestFixture.h"
 #include "UnitTestUtils.h"
 
-TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchElement) {
-    // Skip if running with more than 4 processes
-    int num_procs;
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    if (num_procs > 4) {
-        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
-    }
-    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_elements_ring_0_nodes();
-    m_search_processor->SyncFieldsToHost();
-    std::array<uint64_t, 1> expected_num_neighbors_data = {4};
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
-
-    // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 0);  // 0 because these were not filled
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 0);
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 0);
-    size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
-
-    // - Element
-    std::map<std::string, double> element_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::ELEMENT);
-    EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 4);
-    EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 4);
-    EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 4);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
-    EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
-}
-
 TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     // Skip if running with more than 4 processes
     int num_procs;
@@ -63,20 +32,12 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
     EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
-
-    // - Element
-    std::map<std::string, double> element_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::ELEMENT);
-    EXPECT_EQ(element_neighbor_stats["min_num_neighbors"], 0);  // 0 because these were not filled
-    EXPECT_EQ(element_neighbor_stats["max_num_neighbors"], 0);
-    EXPECT_EQ(element_neighbor_stats["avg_num_neighbors"], 0);
-    size_t expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z * 6;  // 6 tets per hex
-    EXPECT_EQ(element_neighbor_stats["num_entities"], expected_num_elements);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
@@ -94,7 +55,7 @@ TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
@@ -119,7 +80,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
     EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
@@ -148,7 +109,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], num_nodes);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], num_nodes);
     EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], num_nodes);
@@ -180,7 +141,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 4);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 7);
@@ -205,7 +166,7 @@ TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch5x5x5) {
 
     // Check the neighbor stats
     // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats(aperi::FieldDataTopologyRank::NODE);
+    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
     EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 8);
     EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 27);
     EXPECT_NEAR(node_neighbor_stats["avg_num_neighbors"], 18.713, 0.001);

@@ -72,18 +72,9 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The kernel radius for the node
 
         // Cell neighbor data.
-        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));  // The number of neighbors for the cell
-        if (uses_generalized_fields) {
-            field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<uint64_t>{}));             // The neighbors of the cell
-            field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in x of neighbors at the cell
-            field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in y of neighbors at the cell
-            field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in z of neighbors at the cell
-        } else {
-            field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<uint64_t>{}));             // The neighbors of the cell
-            field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in x of neighbors at the cell
-            field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in y of neighbors at the cell
-            field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in z of neighbors at the cell
-        }
+        field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in x of neighbors at the cell
+        field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in y of neighbors at the cell
+        field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in z of neighbors at the cell
 
 #ifdef USE_PROTEGO_MECH
         std::vector<FieldData> protego_field_data = protego::GetFieldData();
