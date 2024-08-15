@@ -67,7 +67,7 @@ void ExplicitSolver::ComputeForce() {
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
     if (m_uses_generalized_fields) {
-        m_force_field_processor->scatter_local_values();
+        m_force_field_processor->ScatterLocalValues();
         m_force_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
     }
 

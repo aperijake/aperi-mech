@@ -59,7 +59,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         stk::mesh::put_field_on_entire_mesh(*m_element_num_neighbors_field, 1);
 
         m_element_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "neighbors", 1);
-        stk::mesh::put_field_on_entire_mesh(*m_element_neighbors_field, aperi::MAX_CELL_NUM_NEIGHBORS);
+        stk::mesh::put_field_on_entire_mesh(*m_element_neighbors_field, aperi::MAX_CELL_NUM_NODES);
 
         // Create the extra fields
         for (const auto &field_query_data : extra_fields) {

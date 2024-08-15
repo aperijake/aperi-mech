@@ -308,7 +308,7 @@ class NeighborSearchProcessor {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 double num_nodes = nodes.size();
-                assert(num_nodes <= MAX_CELL_NUM_NEIGHBORS);
+                assert(num_nodes <= MAX_CELL_NUM_NODES);
 
                 double starting_num_nodes = ngp_element_num_neighbors_field(elem_index, 0);
                 ngp_element_num_neighbors_field(elem_index, 0) += num_nodes;
@@ -432,57 +432,6 @@ class NeighborSearchProcessor {
         DoBallSearch();
     }
 
-    // Create the element neighbors from the node neighbors. Neighbors are local offsets.
-    template <size_t NumCellNodes>
-    void set_element_neighbors_from_node_neighbors() {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
-        auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
-        auto ngp_element_num_neighbors_field = *m_ngp_element_num_neighbors_field;
-        auto ngp_element_neighbors_field = *m_ngp_element_neighbors_field;
-
-        // Add the nodes attached to the element
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element's nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                assert(nodes.size() == NumCellNodes);
-                Kokkos::Array<size_t, MAX_NODE_NUM_NEIGHBORS * NumCellNodes> node_neighbors;
-
-                // Get the node neighbors, full list with potential duplicates
-                size_t total_num_neighbors = 0;
-                for (size_t i = 0; i < NumCellNodes; ++i) {
-                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
-                    size_t num_neighbors = (size_t)ngp_node_num_neighbors_field(node_index, 0);
-                    for (size_t j = 0; j < num_neighbors; ++j) {
-                        node_neighbors[total_num_neighbors] = (size_t)ngp_node_neighbors_field(node_index, j);
-                        ++total_num_neighbors;
-                    }
-                }
-
-                // Remove duplicates. Don't want to sort as the earlier neighbors should have larger values and want to keep that order to help with parallel consistency. (sum small values first)
-                total_num_neighbors = RemoveDuplicates(node_neighbors, total_num_neighbors);
-
-                // Make sure we don't exceed the maximum number of neighbors
-                // TODO(jake): Make ways of handling this
-                if ((size_t)total_num_neighbors > MAX_CELL_NUM_NEIGHBORS) {
-                    stk::mesh::Entity elem = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-                    printf("Element %lu has %ld neighbors. More than the maximum of %ld. Truncating.\n", static_cast<long unsigned int>(ngp_mesh.identifier(elem)), total_num_neighbors, MAX_CELL_NUM_NEIGHBORS);
-                    total_num_neighbors = MAX_CELL_NUM_NEIGHBORS;
-                }
-
-                // Set the element neighbors
-                ngp_element_num_neighbors_field(elem_index, 0) = total_num_neighbors;
-                for (size_t i = 0; i < total_num_neighbors; ++i) {
-                    ngp_element_neighbors_field(elem_index, i) = (double)node_neighbors[i];
-                }
-            });
-        m_ngp_element_num_neighbors_field->clear_sync_state();
-        m_ngp_element_num_neighbors_field->modify_on_device();
-    }
-
     std::map<std::string, double> GetNumNeighborStats(const aperi::FieldDataTopologyRank &rank) {
         // Initialize the min and max values
         double max_num_neighbors = 0;
@@ -497,7 +446,7 @@ class NeighborSearchProcessor {
             num_entities = GetNumOwnedElements();
             ngp_num_neighbors_field = *m_ngp_element_num_neighbors_field;
             rank_type = stk::topology::ELEMENT_RANK;
-            reserved_memory = MAX_CELL_NUM_NEIGHBORS;
+            reserved_memory = MAX_CELL_NUM_NODES;
         } else if (rank == aperi::FieldDataTopologyRank::NODE) {
             num_entities = GetNumOwnedNodes();
             ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;

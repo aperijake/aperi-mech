@@ -168,7 +168,7 @@ class ValueFromGeneralizedFieldProcessor {
             });
     }
 
-    void scatter_local_values() {
+    void scatter_local_values(const stk::mesh::Selector &selector) {
         assert(check_partition_of_unity());
 
         auto ngp_mesh = m_ngp_mesh;
@@ -183,20 +183,8 @@ class ValueFromGeneralizedFieldProcessor {
             ngp_destination_fields[i] = *m_ngp_destination_fields[i];
         }
 
-        // First zero out the destination fields
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
-                for (size_t i = 0; i < NumFields; ++i) {
-                    for (size_t j = 0; j < num_components; ++j) {
-                        ngp_destination_fields[i](node_index, j) = 0.0;
-                    }
-                }
-            });
-
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
@@ -230,6 +218,14 @@ class ValueFromGeneralizedFieldProcessor {
                     }
                 }
             });
+    }
+
+    void ScatterOwnedLocalValues() {
+        scatter_local_values(m_owned_selector);
+    }
+
+    void ScatterLocalValues() {
+        scatter_local_values(m_selector);
     }
 
     // Marking modified on device
