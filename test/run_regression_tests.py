@@ -113,12 +113,13 @@ def should_run_test(
     """
     Determines if a test should be run based on the provided flags.
     """
+    build = get_build(test_config).split("_")[0]
     if (
         (cpu_only and test_config["hardware"] != "cpu")
         or (serial_only and test_config["num_processors"] != 1)
         or (parallel_only and test_config["num_processors"] == 1)
-        or (release_only and test_config["build"] != "Release")
-        or (debug_only and test_config["build"] != "Debug")
+        or (release_only and build != "Release")
+        or (debug_only and build != "Debug")
         or (gpu_only and test_config["hardware"] != "gpu")
     ):
         return False
