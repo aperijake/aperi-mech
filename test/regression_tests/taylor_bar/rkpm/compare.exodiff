@@ -61,8 +61,8 @@ NODAL VARIABLES relative 1.e-6 floor 0.0
 	velocity_coefficients_y       # min:               0 @ t1,n1	max:       210.82657 @ t2,n13
 	velocity_coefficients_z       # min:               0 @ t2,n1	max:             373 @ t1,n1
 
-ELEMENT VARIABLES relative 1.e-6 floor 0.0
-	volume                        # min:   2.6981576e-07 @ t1,b1,e660	max:   3.2081389e-06 @ t1,b1,e453
+# ELEMENT VARIABLES relative 1.e-6 floor 0.0
+# 	volume                        # min:   2.6981576e-07 @ t1,b1,e660	max:   3.2081389e-06 @ t1,b1,e453
 
 # No NODESET VARIABLES
 
