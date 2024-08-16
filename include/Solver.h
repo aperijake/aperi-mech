@@ -46,7 +46,7 @@ class Solver {
             }
         }
         if (m_uses_generalized_fields) {
-            // Create a value from generalized field processor
+            // Create a value from generalized field processor for all generalized fields
             std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
             src_field_query_data[0] = {"displacement_coefficients", FieldQueryState::NP1};
             src_field_query_data[1] = {"velocity_coefficients", FieldQueryState::NP1};
@@ -57,6 +57,23 @@ class Solver {
             dest_field_query_data[1] = {"velocity", FieldQueryState::None};
             dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
             m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+
+            // Create a value from generalized field processor for fields that need to be computed for internal force contributions
+            std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_kinematics;
+            src_field_query_data_kinematics[0] = {"displacement_coefficients", FieldQueryState::NP1};
+            // Will need to add velocity here at some point, but not needed for now
+
+            std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_kinematics;
+            dest_field_query_data_kinematics[0] = {"displacement", FieldQueryState::None};
+            m_kinematics_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
+
+            // Create a value from generalized field processor for the force field
+            std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_force;
+            src_field_query_data_force[0] = {"force_local", FieldQueryState::None};
+
+            std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
+            dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
+            m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
         }
     }
 
@@ -97,6 +114,8 @@ class Solver {
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
 };
 
 /**
@@ -122,29 +141,38 @@ class ExplicitSolver : public Solver {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         m_node_processor_all = CreateNodeProcessorAll();
+        if (m_uses_generalized_fields) {
+            m_node_processor_force_local = CreateNodeProcessorForceLocal();
+        }
     }
 
     ~ExplicitSolver() {}
 
     // Create node processor for all fields to make syncing easier
-    std::shared_ptr<NodeProcessor<9>> CreateNodeProcessorAll() {
-        std::array<FieldQueryData<double>, 9> field_query_data_vec;
-        field_query_data_vec[0] = {"force", FieldQueryState::N};
-        field_query_data_vec[1] = {"force", FieldQueryState::NP1};
-        field_query_data_vec[2] = {"displacement_coefficients", FieldQueryState::N};
-        field_query_data_vec[3] = {"displacement_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[4] = {"velocity_coefficients", FieldQueryState::N};
-        field_query_data_vec[5] = {"velocity_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::N};
-        field_query_data_vec[7] = {"acceleration_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[8] = {"mass", FieldQueryState::None};
-        return std::make_shared<NodeProcessor<9>>(field_query_data_vec, mp_mesh_data);
+    std::shared_ptr<NodeProcessor<8>> CreateNodeProcessorAll() {
+        std::array<FieldQueryData<double>, 8> field_query_data_vec;
+        field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
+        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
+        field_query_data_vec[2] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[3] = {"velocity_coefficients", FieldQueryState::N};
+        field_query_data_vec[4] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[5] = {"acceleration_coefficients", FieldQueryState::N};
+        field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[7] = {"mass", FieldQueryState::None};
+        return std::make_shared<NodeProcessor<8>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for force
     std::shared_ptr<NodeProcessor<1>> CreateNodeProcessorForce() {
         std::array<FieldQueryData<double>, 1> field_query_data_vec;
-        field_query_data_vec[0] = {"force", FieldQueryState::NP1};
+        field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
+        return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+    }
+
+    // Create a node processor for local force
+    std::shared_ptr<NodeProcessor<1>> CreateNodeProcessorForceLocal() {
+        std::array<FieldQueryData<double>, 1> field_query_data_vec;
+        field_query_data_vec[0] = {"force_local", FieldQueryState::None};
         return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
     }
 
@@ -182,7 +210,7 @@ class ExplicitSolver : public Solver {
         // Compute the acceleration: a^{n+1} = f^{n+1}/m
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"acceleration_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"force", FieldQueryState::NP1};
+        field_query_data_vec[1] = {"force_coefficients", FieldQueryState::None};
         field_query_data_vec[2] = {"mass", FieldQueryState::None};
         return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
@@ -243,7 +271,8 @@ class ExplicitSolver : public Solver {
     void UpdateFieldStates();
 
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force;
-    std::shared_ptr<NodeProcessor<9>> m_node_processor_all;
+    std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
+    std::shared_ptr<NodeProcessor<8>> m_node_processor_all;
 
     /**
      * @brief Writes the output.

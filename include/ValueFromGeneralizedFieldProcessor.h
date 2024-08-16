@@ -73,8 +73,43 @@ class ValueFromGeneralizedFieldProcessor {
         }
     }
 
+    bool check_partition_of_unity() {
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+        auto ngp_function_values_field = *m_ngp_function_values_field;
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the number of neighbors
+                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+
+                // If there are no neighbors then the partition of unity is satisfied in compute_value_from_generalized_field
+                if (num_neighbors == 0) {
+                    return;
+                }
+
+                double function_sum = 0.0;
+                // Do in reverse order, just to be like compute_value_from_generalized_field
+                for (size_t k = num_neighbors; k-- > 0;) {
+                    // Get the function value
+                    double function_value = ngp_function_values_field(node_index, k);
+                    function_sum += function_value;
+                }
+                if (std::abs(function_sum - 1.0) > 1.0e-10) {
+                    Kokkos::printf("Error: Partition of unity not satisfied: %f\n", function_sum);
+                    Kokkos::abort("Partition of unity assertion failed");
+                }
+            });
+
+        return true;  // Should throw with Kokkos::abort if partition of unity is not satisfied
+    }
+
     void compute_value_from_generalized_field() {
         // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
+        assert(check_partition_of_unity());
 
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -131,6 +166,66 @@ class ValueFromGeneralizedFieldProcessor {
                     }
                 }
             });
+    }
+
+    void scatter_local_values(const stk::mesh::Selector &selector) {
+        assert(check_partition_of_unity());
+
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
+        auto ngp_neighbors_field = *m_ngp_neighbors_field;
+        auto ngp_function_values_field = *m_ngp_function_values_field;
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        for (size_t i = 0; i < NumFields; i++) {
+            ngp_source_fields[i] = *m_ngp_source_fields[i];
+            ngp_destination_fields[i] = *m_ngp_destination_fields[i];
+        }
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the number of neighbors
+                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+
+                const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
+
+                // If there are no neighbors, set the destination field to the source field as there is nothing to scatter
+                if (num_neighbors == 0) {
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                        }
+                    }
+                    return;
+                }
+
+                for (size_t k = 0; k < num_neighbors; ++k) {
+                    // Create the entity
+                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
+                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
+
+                    // Get the function value
+                    double function_value = ngp_function_values_field(node_index, k);
+
+                    // Get the source field values
+                    for (size_t i = 0; i < NumFields; ++i) {
+                        for (size_t j = 0; j < num_components; ++j) {
+                            double source_value = ngp_source_fields[i](node_index, j);
+                            Kokkos::atomic_add(&ngp_destination_fields[i](neighbor_index, j), source_value * function_value);
+                        }
+                    }
+                }
+            });
+    }
+
+    void ScatterOwnedLocalValues() {
+        scatter_local_values(m_owned_selector);
+    }
+
+    void ScatterLocalValues() {
+        scatter_local_values(m_selector);
     }
 
     // Marking modified on device

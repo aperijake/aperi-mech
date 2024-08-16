@@ -52,9 +52,30 @@ void ExplicitSolver::ComputeForce() {
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
 
+    // Compute kinematic field values from the generalized fields
+    if (m_uses_generalized_fields) {
+        m_kinematics_from_generalized_field_processor->compute_value_from_generalized_field();
+        m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+        m_node_processor_force_local->FillField(0.0, 0);
+        m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
+    }
+
+    // Compute internal force contributions
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
     }
+
+    // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
+    if (m_uses_generalized_fields) {
+        if (m_num_processors > 1) {
+            m_node_processor_force_local->SyncFieldDeviceToHost(0);
+            m_node_processor_force_local->ParallelSumFieldData(0);
+        }
+        m_force_field_processor->ScatterOwnedLocalValues();
+        // No need to sync back to device as the local force field is not used until the next time step
+    }
+
+    // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
@@ -75,7 +96,7 @@ struct ComputeAccelerationFunctor {
 };
 
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration) {
-    // Compute acceleration: a^{n} = M^{–1}(f^{n})
+    // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_component(compute_acceleration_functor);
     node_processor_acceleration->MarkFieldModifiedOnDevice(0);
@@ -252,7 +273,7 @@ double ExplicitSolver::Solve() {
         double time_midstep = time + half_time_increment;
         double time_next = time + time_increment;
 
-        // Compute first partial update
+        // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
@@ -266,7 +287,7 @@ double ExplicitSolver::Solve() {
         // Compute the force, f^{n+1}
         ComputeForce();
 
-        // Compute the acceleration, a^{n+1}
+        // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
@@ -274,7 +295,7 @@ double ExplicitSolver::Solve() {
             boundary_condition->ApplyAcceleration(time_next);
         }
 
-        // Compute the second partial update
+        // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
 
         // Compute the energy balance

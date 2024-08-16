@@ -27,7 +27,7 @@ namespace aperi {
  * This class provides functionality to process elements in a mesh.
  * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
  */
-template <size_t N, bool UsePrecomputedDerivatives = false>
+template <size_t NumFields, bool UsePrecomputedDerivatives = false>
 class ElementGatherScatterProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
@@ -58,7 +58,7 @@ class ElementGatherScatterProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the fields to gather and scatter
-        for (size_t i = 0; i < N; ++i) {
+        for (size_t i = 0; i < NumFields; ++i) {
             m_fields_to_gather[i] = StkGetField(field_query_data_gather_vec[i], meta_data);
             m_ngp_fields_to_gather[i] = &stk::mesh::get_updated_ngp_field<double>(*m_fields_to_gather[i]);
         }
@@ -71,19 +71,11 @@ class ElementGatherScatterProcessor {
             m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
 
             // Get the function derivatives fields
-            std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+            std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
             for (size_t i = 0; i < 3; ++i) {
-                m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-                m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
+                m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+                m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
             }
-
-            // Get the number of neighbors field
-            m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
-
-            // Get the neighbors field
-            m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
         }
     }
 
@@ -92,8 +84,8 @@ class ElementGatherScatterProcessor {
     void for_each_element_gather_scatter_nodal_data_not_precomputed(Func func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
-        Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
-        for (size_t i = 0; i < N; ++i) {
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
+        for (size_t i = 0; i < NumFields; ++i) {
             ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
         }
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
@@ -107,13 +99,13 @@ class ElementGatherScatterProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
+                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather;
 
                 // Set up the results matrix
                 Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
 
                 // Gather the field data for each node
-                for (size_t f = 0; f < N; ++f) {
+                for (size_t f = 0; f < NumFields; ++f) {
                     for (size_t i = 0; i < num_nodes; ++i) {
                         for (size_t j = 0; j < 3; ++j) {
                             field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](ngp_mesh.fast_mesh_index(nodes[i]), j);
@@ -138,8 +130,8 @@ class ElementGatherScatterProcessor {
     void for_each_element_gather_scatter_nodal_data_precomputed(Func func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
-        Kokkos::Array<NgpDoubleField, N> ngp_fields_to_gather;
-        for (size_t i = 0; i < N; ++i) {
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
+        for (size_t i = 0; i < NumFields; ++i) {
             ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
         }
 
@@ -147,29 +139,19 @@ class ElementGatherScatterProcessor {
 
         auto ngp_element_volume = *m_ngp_element_volume;
 
-        Kokkos::Array<NgpDoubleField, 3> ngp_function_derivatives_fields;
+        Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
-            ngp_function_derivatives_fields[i] = *m_ngp_function_derivatives_fields[i];
+            ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
         }
-
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the number of neighbors
-                size_t num_nodes = ngp_num_neighbors_field(elem_index, 0);
-
                 // Get the neighbors
                 // Kokkos::Profiling::pushRegion("get_neighbors");
-                Kokkos::Array<stk::mesh::FastMeshIndex, NumNodes> nodes;
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    // Reverse the order of the neighbors. Later neighbors should have smaller function values. Want to sum smaller values first for better parallel consistency.
-                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, num_nodes - i - 1));  // Reverse the order of the neighbors
-                    nodes[i] = ngp_mesh.fast_mesh_index(entity);
-                }
+                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
+                size_t num_nodes = nodes.size();
                 // Kokkos::Profiling::popRegion();
 
                 // Build the B matrix
@@ -177,24 +159,25 @@ class ElementGatherScatterProcessor {
                 Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        B(i, j) = ngp_function_derivatives_fields[j](elem_index, num_nodes - i - 1);  // Reverse the order of the neighbors
+                        B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, i);
                     }
                 }
                 // Kokkos::Profiling::popRegion();
 
                 // Set up the field data to gather
                 // Kokkos::Profiling::pushRegion("gather_data");
-                Kokkos::Array<Eigen::Matrix<double, 3, 3>, N> field_data_to_gather_gradient;
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
 
                 // Set up the results matrix
                 Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
 
                 // Gather the field data for each node
-                for (size_t f = 0; f < N; ++f) {
+                for (size_t f = 0; f < NumFields; ++f) {
                     field_data_to_gather_gradient[f].fill(0.0);
                     for (size_t i = 0; i < 3; ++i) {
                         for (size_t k = 0; k < num_nodes; ++k) {
-                            double field_data_ki = ngp_fields_to_gather[f](nodes[k], i);
+                            stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[k]);
+                            double field_data_ki = ngp_fields_to_gather[f](node_index, i);
                             field_data_to_gather_gradient[f].row(i) += field_data_ki * B.row(k);
                         }
                     }
@@ -215,7 +198,8 @@ class ElementGatherScatterProcessor {
                 // Kokkos::Profiling::pushRegion("scatter_data");
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        Kokkos::atomic_add(&ngp_field_to_scatter(nodes[i], j), results_to_scatter(i, j));
+                        stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
+                        Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), results_to_scatter(i, j));
                     }
                 }
                 // Kokkos::Profiling::popRegion();
@@ -223,12 +207,12 @@ class ElementGatherScatterProcessor {
     }
 
     // Loop over each element and apply the function
-    template <size_t NumNodes, typename Func>
+    template <size_t NumCellNodes, typename Func>
     void for_each_element_gather_scatter_nodal_data(Func func) {
         if constexpr (UsePrecomputedDerivatives) {
-            for_each_element_gather_scatter_nodal_data_precomputed<NumNodes, Func>(func);
+            for_each_element_gather_scatter_nodal_data_precomputed<NumCellNodes, Func>(func);
         } else {
-            for_each_element_gather_scatter_nodal_data_not_precomputed<NumNodes, Func>(func);
+            for_each_element_gather_scatter_nodal_data_not_precomputed<NumCellNodes, Func>(func);
         }
     }
 
@@ -240,8 +224,8 @@ class ElementGatherScatterProcessor {
             throw std::invalid_argument("for_each_element_host_gather_scatter_nodal_data does not support precomputed derivatives.");
         }
         // Set up the field data to gather
-        Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, N> field_data_to_gather;
-        for (size_t f = 0; f < N; ++f) {
+        Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather;
+        for (size_t f = 0; f < NumFields; ++f) {
             field_data_to_gather[f].resize(NumNodes, 3);
         }
 
@@ -257,7 +241,7 @@ class ElementGatherScatterProcessor {
                 stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(mesh_element);
 
                 // Gather the coordinates, displacements, and velocities of the nodes
-                for (size_t f = 0; f < N; ++f) {
+                for (size_t f = 0; f < NumFields; ++f) {
                     for (size_t i = 0; i < NumNodes; ++i) {
                         double *element_node_data = stk::mesh::field_data(*m_fields_to_gather[f], element_nodes[i]);
                         for (size_t j = 0; j < 3; ++j) {
@@ -299,32 +283,26 @@ class ElementGatherScatterProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
-    std::vector<std::string> m_sets;                                       // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
-    stk::mesh::Selector m_selector;                                        // The selector
-    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    std::array<DoubleField *, N> m_fields_to_gather;                       // The fields to gather
-    DoubleField *m_field_to_scatter;                                       // The field to scatter
-    DoubleField *m_element_volume;                                         // The element volume field
-    std::array<DoubleField *, 3> m_function_derivatives_fields;            // The function derivatives fields
-    UnsignedField *m_num_neighbors_field;                                  // The number of neighbors field
-    UnsignedField *m_neighbors_field;                                      // The neighbors field
-    Kokkos::Array<NgpDoubleField *, N> m_ngp_fields_to_gather;             // The ngp fields to gather
-    NgpDoubleField *m_ngp_field_to_scatter;                                // The ngp field to scatter
-    NgpDoubleField *m_ngp_element_volume;                                  // The ngp element volume field
-    Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
-    NgpUnsignedField *m_ngp_num_neighbors_field;                           // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;                               // The ngp neighbors field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                                  // The mesh data object.
+    std::vector<std::string> m_sets;                                               // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                              // The bulk data object.
+    stk::mesh::Selector m_selector;                                                // The selector
+    stk::mesh::Selector m_owned_selector;                                          // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
+    std::array<DoubleField *, NumFields> m_fields_to_gather;                       // The fields to gather
+    DoubleField *m_field_to_scatter;                                               // The field to scatter
+    DoubleField *m_element_volume;                                                 // The element volume field
+    std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
+    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
+    NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
+    NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
+    Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 // TODO(jake): Probably dont need to keep both of these classes. Can probably just use the one with the precomputed derivatives. Leaving both for now.
 class StrainSmoothingProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -342,14 +320,6 @@ class StrainSmoothingProcessor {
         }
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
-        // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
-
-        // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
-
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
@@ -359,10 +329,10 @@ class StrainSmoothingProcessor {
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
 
         // Get the function derivatives fields
-        std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+        std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
-            m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
+            m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
         }
     }
 
@@ -370,13 +340,11 @@ class StrainSmoothingProcessor {
     void for_each_neighbor_compute_derivatives(const FunctionsFunctor &functions_functor, const IntegrationFunctor &integration_functor) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_element_volume_field = *m_ngp_element_volume_field;
-        Kokkos::Array<NgpDoubleField, 3> ngp_function_derivatives_fields;
+        Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
-            ngp_function_derivatives_fields[i] = *m_ngp_function_derivatives_fields[i];
+            ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
         }
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
@@ -398,23 +366,13 @@ class StrainSmoothingProcessor {
                     }
                 }
 
-                size_t num_neighbors = ngp_num_neighbors_field(elem_index, 0);
-                Eigen::Matrix<double, NumNodes, 3> neighbor_coordinates;
-                for (size_t i = 0; i < num_neighbors; ++i) {
-                    // Create the entity
-                    stk::mesh::Entity entity(ngp_neighbors_field(elem_index, i));
-                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
-                    // Get the neighbor's coordinates
-                    for (size_t j = 0; j < 3; ++j) {
-                        neighbor_coordinates(i, j) = ngp_coordinates_field(neighbor_index, j);
-                    }
-                }
+                // TODO(jake): Simplify further. This is leftover from the "single pass" implementation.
                 assert(integration_functor->NumGaussPoints() == 1);
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, *functions_functor, 0, num_neighbors);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, cell_node_coordinates, *functions_functor, 0, num_nodes);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
-                for (size_t i = 0; i < num_neighbors; ++i) {
+                for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        ngp_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
+                        ngp_element_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
                     }
                 }
             });
@@ -425,22 +383,18 @@ class StrainSmoothingProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
-    std::vector<std::string> m_sets;                                       // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
-    stk::mesh::Selector m_selector;                                        // The selector
-    stk::mesh::Selector m_owned_selector;                                  // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;                                  // The number of neighbors field
-    UnsignedField *m_neighbors_field;                                      // The neighbors field
-    DoubleField *m_coordinates_field;                                      // The coordinates field
-    DoubleField *m_element_volume_field;                                   // The element volume field
-    Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
-    NgpUnsignedField *m_ngp_num_neighbors_field;                           // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;                               // The ngp neighbors field
-    NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
-    NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
-    Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                                  // The mesh data object.
+    std::vector<std::string> m_sets;                                               // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                              // The bulk data object.
+    stk::mesh::Selector m_selector;                                                // The selector
+    stk::mesh::Selector m_owned_selector;                                          // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
+    DoubleField *m_coordinates_field;                                              // The coordinates field
+    DoubleField *m_element_volume_field;                                           // The element volume field
+    Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
+    NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
+    NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
+    Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 class StrainSmoothingFromStoredNodeValuesProcessor {
@@ -478,14 +432,6 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
         m_node_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
 
-        // Get the element number of neighbors field
-        m_element_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_element_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_num_neighbors_field);
-
-        // Get the element neighbors field
-        m_element_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_element_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_element_neighbors_field);
-
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
@@ -495,10 +441,10 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
 
         // Get the function derivatives fields
-        std::vector<std::string> function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+        std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
-            m_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_function_derivatives_fields[i]);
+            m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
         }
     }
 
@@ -509,13 +455,11 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
         auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
         auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
         auto ngp_node_function_values_field = *m_ngp_node_function_values_field;
-        auto ngp_element_num_neighbors_field = *m_ngp_element_num_neighbors_field;
-        auto ngp_element_neighbors_field = *m_ngp_element_neighbors_field;
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_element_volume_field = *m_ngp_element_volume_field;
-        Kokkos::Array<NgpDoubleField, 3> ngp_function_derivatives_fields;
+        Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
-            ngp_function_derivatives_fields[i] = *m_ngp_function_derivatives_fields[i];
+            ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
         }
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
@@ -537,34 +481,18 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
                     }
                 }
 
-                size_t num_cell_neighbors = ngp_element_num_neighbors_field(elem_index, 0);
+                // TODO(jake): simplify further? Some of this may be leftover from doing the previous "one pass" way.
                 Eigen::Matrix<double, NumNodes, 4> cell_neighbor_function_values = Eigen::Matrix<double, NumNodes, 4>::Zero();
                 // Loop over the cell's neighbors, find where the cell's nodes are in the neighbor's neighbors, and get the function values
-                for (size_t i = 0; i < num_cell_neighbors; ++i) {
-                    // The neighbor of the cell
-                    stk::mesh::Entity cell_neighbor_node(ngp_element_neighbors_field(elem_index, i));
-                    // Loop over the cell's nodes
-                    for (size_t j = 0; j < num_cell_nodes; ++j) {
-                        // The cell's node
-                        stk::mesh::FastMeshIndex cell_node_index = ngp_mesh.fast_mesh_index(cell_nodes[j]);
-                        size_t num_cell_node_neighbors = ngp_node_num_neighbors_field(cell_node_index, 0);
-                        // Loop over the cell's node's neighbors
-                        for (size_t k = 0; k < num_cell_node_neighbors; ++k) {
-                            stk::mesh::Entity cell_node_neighbor_node(ngp_node_neighbors_field(cell_node_index, k));
-                            // If the cell's node's neighbor is the cell's neighbor, get the function value
-                            if (cell_node_neighbor_node == cell_neighbor_node) {
-                                cell_neighbor_function_values(i, j) = ngp_node_function_values_field(cell_node_index, k);
-                                break;
-                            }
-                        }
-                    }
+                for (size_t i = 0; i < num_cell_nodes; ++i) {
+                    cell_neighbor_function_values(i, i) = 1.0;
                 }
                 assert(integration_functor->NumGaussPoints() == 1);
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, cell_neighbor_function_values, 0, num_cell_neighbors);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, cell_neighbor_function_values, 0, num_cell_nodes);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
-                for (size_t i = 0; i < num_cell_neighbors; ++i) {
+                for (size_t i = 0; i < num_cell_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {
-                        ngp_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
+                        ngp_element_function_derivatives_fields[j](elem_index, i) = derivatives_and_weight.first(i, j);
                     }
                 }
             });
@@ -575,28 +503,24 @@ class StrainSmoothingFromStoredNodeValuesProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
-    std::vector<std::string> m_sets;                                       // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                      // The bulk data object.
-    stk::mesh::Selector m_selector;                                        // The selector
-    stk::mesh::Selector m_owned_selector;                                  // The owned selector
-    stk::mesh::NgpMesh m_ngp_mesh;                                         // The ngp mesh object.
-    UnsignedField *m_node_num_neighbors_field;                             // The number of neighbors field
-    UnsignedField *m_node_neighbors_field;                                 // The neighbors field
-    DoubleField *m_node_function_values_field;                             // The function values field
-    UnsignedField *m_element_num_neighbors_field;                          // The number of neighbors field
-    UnsignedField *m_element_neighbors_field;                              // The neighbors field
-    DoubleField *m_coordinates_field;                                      // The coordinates field
-    DoubleField *m_element_volume_field;                                   // The element volume field
-    Kokkos::Array<DoubleField *, 3> m_function_derivatives_fields;         // The function derivatives fields
-    NgpUnsignedField *m_ngp_node_num_neighbors_field;                      // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_node_neighbors_field;                          // The ngp neighbors field
-    NgpDoubleField *m_ngp_node_function_values_field;                      // The ngp function values field
-    NgpUnsignedField *m_ngp_element_num_neighbors_field;                   // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_element_neighbors_field;                       // The ngp neighbors field
-    NgpDoubleField *m_ngp_coordinates_field;                               // The ngp coordinates field
-    NgpDoubleField *m_ngp_element_volume_field;                            // The ngp element volume field
-    Kokkos::Array<NgpDoubleField *, 3> m_ngp_function_derivatives_fields;  // The ngp function derivatives fields
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                                  // The mesh data object.
+    std::vector<std::string> m_sets;                                               // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                              // The bulk data object.
+    stk::mesh::Selector m_selector;                                                // The selector
+    stk::mesh::Selector m_owned_selector;                                          // The owned selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
+    UnsignedField *m_node_num_neighbors_field;                                     // The number of neighbors field
+    UnsignedField *m_node_neighbors_field;                                         // The neighbors field
+    DoubleField *m_node_function_values_field;                                     // The function values field
+    DoubleField *m_coordinates_field;                                              // The coordinates field
+    DoubleField *m_element_volume_field;                                           // The element volume field
+    Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
+    NgpUnsignedField *m_ngp_node_num_neighbors_field;                              // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_node_neighbors_field;                                  // The ngp neighbors field
+    NgpDoubleField *m_ngp_node_function_values_field;                              // The ngp function values field
+    NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
+    NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
+    Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 }  // namespace aperi

@@ -59,7 +59,7 @@ void Application::Run(const std::string& input_filename) {
     }
 
     // Get field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
 
     // Add fields to the mesh and complete initialization
     m_io_mesh->AddFields(field_data);

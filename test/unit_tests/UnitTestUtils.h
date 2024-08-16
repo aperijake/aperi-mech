@@ -57,7 +57,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
 
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<T*, 1>& field_data) {
-        ASSERT_EQ(num_components, expected_values.size()) << "Number of components is not consistent";
+        ASSERT_EQ(num_components, expected_values.size()) << "Number of components is not consistent for field " << field_name;
         for (size_t i = 0; i < num_components; i++) {
             found_at_least_one_entity = true;
             if constexpr (std::is_floating_point_v<T>) {
