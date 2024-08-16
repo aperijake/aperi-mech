@@ -81,11 +81,16 @@ def _run_executable(
             stdout, stderr = result.stdout, result.stderr
             return_code = result.returncode
 
-        # Decode stdout and stderr if they are in bytes
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8")
+            # Decode stdout and stderr if they are in bytes
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode("utf-8")
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode("utf-8")
+
+            if stdout:
+                _log_output(log_file, "Standard output:\n" + stdout)
+            if stderr:
+                _log_output(log_file, "Standard error:\n" + stderr)
 
         if return_code == 0:
             _log_output(log_file, "Executable ran successfully.\nPASSED\n")
@@ -96,11 +101,6 @@ def _run_executable(
             )
             _log_output(log_file, error_message)
             print(error_message)
-
-        if stdout:
-            _log_output(log_file, "Standard output:\n" + stdout)
-        if stderr:
-            _log_output(log_file, "Standard error:\n" + stderr)
 
     except FileNotFoundError as e:
         error_message = f"File not found: {e}"
