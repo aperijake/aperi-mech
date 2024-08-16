@@ -2,6 +2,7 @@
 defaults: &defaults
   num_processors: 1
   input_file: input.yaml
+  build: Release
   cleanup:
     remove: [results.exo, "*.log"]
   exodiff:
@@ -19,5 +20,15 @@ tests:
   - <<: *defaults
     hardware: gpu
   - <<: *defaults
-    num_processors: 4 # Override the default num_processors for this test
+    num_processors: 4
     hardware: cpu
+  - <<: *defaults
+    hardware: gpu
+    build: Debug
+  - <<: *defaults
+    hardware: cpu
+    build: Debug
+  - <<: *defaults
+    num_processors: 4
+    hardware: cpu
+    build: Debug

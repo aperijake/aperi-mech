@@ -15,10 +15,49 @@ from utils.regression_test import (
 )
 
 
+def get_build(yaml_node):
+    """
+    Gets the build from the yaml node.
+    """
+
+    # Default to Release
+    build = "Release"
+
+    # If a build is specified in the yaml file, use that instead
+    if "build" in yaml_node:
+        # Make sure it is Release or Debug, handle upper and lower case
+        if yaml_node["build"].lower() not in ["release", "debug"]:
+            raise ValueError(
+                f"Invalid build type {yaml_node['build']}. Must be Release or Debug."
+            )
+
+        if yaml_node["build"].lower() == "release":
+            build = "Release"
+        else:
+            build = "Debug"
+
+    if "hardware" in yaml_node:
+        build += "_gpu" if yaml_node["hardware"] == "gpu" else ""
+
+    return build
+
+
+def set_exe_path(build_dir, build):
+    """
+    Sets the executable path based on the build and hardware.
+    """
+    # Set the executable path
+    executable_path = os.path.join(build_dir, build, "aperi-mech")
+
+    return executable_path
+
+
 def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
     """
     Extracts test inputs from a YAML node.
     """
+
+    # Set the inputs
     inputs = {
         "test_name": f"{test_name_prefix}_{yaml_node['hardware']}_np_{yaml_node['num_processors']}",
         "input_file": yaml_node["input_file"],
@@ -31,13 +70,14 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
             "percent_tolerance"
         ),
         "exodiff": [],
-        "executable_path": os.path.join(
-            build_dir,
-            "Release_gpu" if yaml_node["hardware"] == "gpu" else "Release",
-            "aperi-mech",
-        ),
+        "executable_path": None,
         "num_processors": yaml_node["num_processors"],
     }
+
+    # Set the executable path
+    inputs["executable_path"] = set_exe_path(build_dir, get_build(yaml_node))
+
+    # Set the exodiff inputs
     if "exodiff" in yaml_node:
         for exodiff in yaml_node["exodiff"]:
             inputs["exodiff"].append(
@@ -47,6 +87,7 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
                     "gold_file": exodiff["gold_file"],
                 }
             )
+
     return inputs
 
 
@@ -60,7 +101,15 @@ def expand_wildcards(file_patterns):
     return expanded_files
 
 
-def should_run_test(test_config, cpu_only, serial_only, parallel_only, gpu_only):
+def should_run_test(
+    test_config,
+    cpu_only,
+    serial_only,
+    parallel_only,
+    gpu_only,
+    release_only,
+    debug_only,
+):
     """
     Determines if a test should be run based on the provided flags.
     """
@@ -68,6 +117,8 @@ def should_run_test(test_config, cpu_only, serial_only, parallel_only, gpu_only)
         (cpu_only and test_config["hardware"] != "cpu")
         or (serial_only and test_config["num_processors"] != 1)
         or (parallel_only and test_config["num_processors"] == 1)
+        or (release_only and test_config["build"] != "Release")
+        or (debug_only and test_config["build"] != "Debug")
         or (gpu_only and test_config["hardware"] != "gpu")
     ):
         return False
@@ -159,6 +210,8 @@ def run_regression_tests_from_directory(
     serial_only=False,
     parallel_only=False,
     gpu_only=False,
+    release_only=False,
+    debug_only=False,
     keep_results=False,
     write_json=False,
 ):
@@ -181,7 +234,13 @@ def run_regression_tests_from_directory(
 
                 for test_config in test_configs:
                     if not should_run_test(
-                        test_config, cpu_only, serial_only, parallel_only, gpu_only
+                        test_config,
+                        cpu_only,
+                        serial_only,
+                        parallel_only,
+                        gpu_only,
+                        release_only,
+                        debug_only,
                     ):
                         continue
 
@@ -289,6 +348,8 @@ def parse_arguments():
         "--parallel", help="Only run parallel tests", action="store_true"
     )
     parser.add_argument("--gpu", help="Only run GPU tests", action="store_true")
+    parser.add_argument("--release", help="Only run Release tests", action="store_true")
+    parser.add_argument("--debug", help="Only run Debug tests", action="store_true")
     parser.add_argument(
         "--write-json", help="Write the results to a JSON file", action="store_true"
     )
@@ -326,6 +387,8 @@ if __name__ == "__main__":
         args.serial,
         args.parallel,
         args.gpu,
+        args.release,
+        args.debug,
         args.keep_results,
         args.write_json,
     )

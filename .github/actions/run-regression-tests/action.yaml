@@ -16,6 +16,9 @@ inputs:
   parallel:
     description: Run parallel tests
     required: true
+  build:
+    description: The build type to run, release or debug
+    required: true
 runs:
   using: composite
   steps:
@@ -53,6 +56,11 @@ runs:
               test_flags="$test_flags --parallel"
             else
               test_flags="$test_flags --serial"
+            fi
+            if [ ${{ inputs.build }} == "release" ]; then
+              test_flags="$test_flags --release"
+            else
+              test_flags="$test_flags --debug"
             fi
             # Debugging
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
