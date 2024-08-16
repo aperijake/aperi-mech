@@ -40,11 +40,9 @@ runs:
           echo "On VM, Service name: $service_name"
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            test_flags=""
-            build_path=~/aperi-mech/build/Release
+            test_flags="--release"
             if [ ${{ inputs.gpu }} == "true" ]; then
               test_flags="$test_flags --gpu"
-              build_path=$build_path"_gpu"
             else
               test_flags="$test_flags --cpu"
             fi
@@ -57,7 +55,6 @@ runs:
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
             echo "In container, inputs.parallel: ${{ inputs.parallel }}"
             echo "In container, test_flags: $test_flags"
-            echo "In container, build_path: $build_path"
 
             echo "Setting up Spack environment..."
             . ~/spack/share/spack/setup-env.sh
