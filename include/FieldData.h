@@ -111,6 +111,6 @@ struct FieldQueryData {
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */
-std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing);
+std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, bool add_debug_fields = false);
 
 }  // namespace aperi

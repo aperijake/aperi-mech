@@ -67,8 +67,12 @@ void ExplicitSolver::ComputeForce() {
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
     if (m_uses_generalized_fields) {
-        m_force_field_processor->ScatterLocalValues();
-        m_force_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+        if (m_num_processors > 1) {
+            m_node_processor_force_local->SyncFieldDeviceToHost(0);
+            m_node_processor_force_local->ParallelSumFieldData(0);
+        }
+        m_force_field_processor->ScatterOwnedLocalValues();
+        // No need to sync back to device as the local force field is not used until the next time step
     }
 
     // Compute external force contributions

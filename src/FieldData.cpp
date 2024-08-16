@@ -29,7 +29,7 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank) {
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */
-std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing) {
+std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, bool add_debug_fields) {
     std::vector<FieldData> field_data;
 
     // Node data
@@ -81,6 +81,13 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.insert(field_data.end(), protego_field_data.begin(), protego_field_data.end());
 #endif
     }
+
+    if (add_debug_fields) {
+        field_data.push_back(FieldData("neighbor_coordinates_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The x coordinates of the neighbors of the node
+        field_data.push_back(FieldData("neighbor_coordinates_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The y coordinates of the neighbors of the node
+        field_data.push_back(FieldData("neighbor_coordinates_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The z coordinates of the neighbors of the node
+    }
+
     return field_data;
 }
 

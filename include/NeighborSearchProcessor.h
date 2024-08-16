@@ -90,6 +90,38 @@ class NeighborSearchProcessor {
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
     }
 
+    void PopulateDebugFields() {
+        DoubleField *m_neighbor_coordinates_x_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_x", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpDoubleField *m_ngp_coordinates_x_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_x_field);
+        DoubleField *m_neighbor_coordinates_y_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_y", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpDoubleField *m_ngp_coordinates_y_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_y_field);
+        DoubleField *m_neighbor_coordinates_z_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_z", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpDoubleField *m_ngp_coordinates_z_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_z_field);
+
+        auto ngp_mesh = m_ngp_mesh;
+        // Get the ngp fields
+        auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+        auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
+        auto ngp_coordinates_x_field = *m_ngp_coordinates_x_field;
+        auto ngp_coordinates_y_field = *m_ngp_coordinates_y_field;
+        auto ngp_coordinates_z_field = *m_ngp_coordinates_z_field;
+
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
+                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(neighbor);
+                    stk::mesh::EntityFieldData<double> neighbor_coords = ngp_coordinates_field(neighbor_index);
+                    ngp_coordinates_x_field(node_index, i) = neighbor_coords[0];
+                    ngp_coordinates_y_field(node_index, i) = neighbor_coords[1];
+                    ngp_coordinates_z_field(node_index, i) = neighbor_coords[2];
+                }
+            });
+    }
+
     bool CheckAllNeighborsAreWithinKernelRadius() {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -356,7 +388,7 @@ class NeighborSearchProcessor {
         }
     }
 
-    void DoBallSearch() {
+    void DoBallSearch(bool populate_debug_fields = false) {
         DomainViewType node_points = CreateNodePoints();
         RangeViewType node_spheres = CreateNodeSpheres();
 
@@ -400,6 +432,10 @@ class NeighborSearchProcessor {
 
         assert(CheckAllNeighborsAreWithinKernelRadius());
 
+        if (populate_debug_fields) {
+            PopulateDebugFields();
+        }
+
         // FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_selector);
 
         // int rank;
@@ -429,14 +465,14 @@ class NeighborSearchProcessor {
         // }
     }
 
-    void add_nodes_neighbors_within_variable_ball(double scale_factor) {
+    void add_nodes_neighbors_within_variable_ball(double scale_factor, bool populate_debug_fields = false) {
         ComputeKernelRadius(scale_factor);
-        DoBallSearch();
+        DoBallSearch(populate_debug_fields);
     }
 
-    void add_nodes_neighbors_within_constant_ball(double ball_radius) {
+    void add_nodes_neighbors_within_constant_ball(double ball_radius, bool populate_debug_fields = false) {
         SetKernelRadius(ball_radius);
-        DoBallSearch();
+        DoBallSearch(populate_debug_fields);
     }
 
     std::map<std::string, double> GetNumNeighborStats() {
