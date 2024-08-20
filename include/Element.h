@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "Constants.h"
 #include "ElementBase.h"
 #include "ElementReproducingKernel.h"
 #include "ElementSmoothedTetrahedron4.h"
@@ -28,8 +29,8 @@ namespace aperi {
  * @param num_nodes The number of nodes in the element.
  * @return A shared pointer to the created ElementBase object.
  */
-inline std::shared_ptr<ElementBase> CreateElement(size_t num_nodes, const std::shared_ptr<ApproximationSpaceParameters>& approximation_space_parameters, const std::shared_ptr<IntegrationSchemeParameters>& integration_scheme_parameters, std::vector<FieldQueryData<double>> field_query_data_gather = {}, std::vector<std::string> part_names = {}, std::shared_ptr<aperi::MeshData> mesh_data = nullptr, std::shared_ptr<Material> material = nullptr) {
-    if (num_nodes == TET4_NUM_NODES) {
+inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& element_topology, const std::shared_ptr<ApproximationSpaceParameters>& approximation_space_parameters, const std::shared_ptr<IntegrationSchemeParameters>& integration_scheme_parameters, std::vector<FieldQueryData<double>> field_query_data_gather = {}, std::vector<std::string> part_names = {}, std::shared_ptr<aperi::MeshData> mesh_data = nullptr, std::shared_ptr<Material> material = nullptr) {
+    if (element_topology == ElementTopology::Tetrahedron4) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);

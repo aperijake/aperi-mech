@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ApplicationTestFixture.h"
+#include "Constants.h"
 #include "Element.h"
 #include "ElementBase.h"
 #include "EntityProcessor.h"
@@ -219,7 +220,7 @@ class ElementStrainSmoothingTest : public ::testing::Test {
         auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
         // Create the element
-        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
+        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(aperi::ElementTopology::Tetrahedron4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
         std::array<aperi::FieldQueryData<double>, 5> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};

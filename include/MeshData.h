@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "AperiStkUtils.h"
+#include "Constants.h"
 #include "FieldData.h"
 
 namespace aperi {
@@ -40,13 +41,12 @@ class MeshData {
 
     std::string GetCoordinatesFieldName() const { return m_bulk_data->mesh_meta_data().coordinate_field_name(); }
 
-    size_t GetNumNodesPerElement(std::string part_name) const {
+    aperi::ElementTopology GetElementTopology(std::string part_name) const {
         stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
         if (part == nullptr) {
             throw std::runtime_error("Part " + part_name + " not found.");
         }
-        stk::topology topology = part->topology();
-        return topology.num_nodes();
+        return aperi::GetElementTopology(part->topology());
     }
 
     std::vector<size_t> GetCommMeshCounts() const {

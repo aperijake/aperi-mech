@@ -12,10 +12,23 @@
 #include <string>
 #include <vector>
 
+#include "Constants.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 
 namespace aperi {
+
+// Function to get the aperi::ElementTopology from a stk::topology
+inline aperi::ElementTopology GetElementTopology(const stk::topology &topology) {
+    if (topology == stk::topology::TET_4) {
+        return aperi::ElementTopology::Tetrahedron4;
+    } else if (topology == stk::topology::HEX_8) {
+        return aperi::ElementTopology::Hexahedron8;
+    } else {
+        throw std::invalid_argument("Element topology not supported.");
+    }
+    return aperi::ElementTopology::None;
+}
 
 // Function to get the topology rank
 inline stk::topology::rank_t GetTopologyRank(FieldDataTopologyRank data_topology_rank) {
