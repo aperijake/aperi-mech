@@ -10,7 +10,6 @@
 #include "ElementBase.h"
 #include "ElementReproducingKernel.h"
 #include "ElementSmoothedTetrahedron4.h"
-#include "ElementSmoothedTetrahedron4Storing.h"
 #include "ElementTetrahedron4.h"
 #include "FieldData.h"
 #include "InternalForceContributionParameters.h"
@@ -33,8 +32,7 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
     if (element_topology == ElementTopology::Tetrahedron4) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
-                return std::make_shared<ElementSmoothedTetrahedron4Storing>(field_query_data_gather, part_names, mesh_data, material);
-                // return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
+                return std::make_shared<ElementSmoothedTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
             } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
                 return std::make_shared<ElementTetrahedron4>(field_query_data_gather, part_names, mesh_data, material);
             }

@@ -12,7 +12,6 @@
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
-#include "MeshData.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
 
@@ -30,9 +29,11 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+        // Find and store the element neighbors
         CreateElementProcessor();
         CreateFunctors();
+        ComputeNeighborValues();
     }
 
     /**
@@ -45,7 +46,18 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     void CreateElementProcessor() {
         // Create the element processor
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<3, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+    }
+
+    void ComputeNeighborValues() {
+        assert(m_element_processor != nullptr);
+        // Loop over all elements and store the neighbors
+        aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        bool set_first_function_value_to_one = true;
+        search_processor.add_nodes_ring_0_nodes(set_first_function_value_to_one);
+        search_processor.SyncFieldsToHost();  // Just needed for output
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_compute_functions_functor, m_integration_functor);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -55,14 +67,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         auto compute_tet4_functions_functor_functor = (ShapeFunctionsFunctorTet4 *)Kokkos::kokkos_malloc(compute_tet4_functions_functor_functor_size);
         assert(compute_tet4_functions_functor_functor != nullptr);
 
-        // Functor for 1-pt gauss quadrature
+        // Functor for smooth quadrature
         size_t integration_functor_size = sizeof(SmoothedQuadrature<TET4_NUM_NODES>);
         auto integration_functor = (SmoothedQuadrature<TET4_NUM_NODES> *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Initialize the functors
         Kokkos::parallel_for(
-            "CreateSmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
+            "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
                 new ((ShapeFunctionsFunctorTet4 *)compute_tet4_functions_functor_functor) ShapeFunctionsFunctorTet4();
                 new ((SmoothedQuadrature<TET4_NUM_NODES> *)integration_functor) SmoothedQuadrature<TET4_NUM_NODES>();
             });
@@ -98,7 +110,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        ComputeInternalForceFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, SmoothedQuadrature<TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_compute_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+        FlexibleComputeInternalForceFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
@@ -110,7 +122,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<3, false>> m_element_processor;
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
 };
 
 }  // namespace aperi

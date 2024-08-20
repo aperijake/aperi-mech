@@ -299,7 +299,6 @@ class ElementGatherScatterProcessor {
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
-// TODO(jake): Probably dont need to keep both of these classes. Can probably just use the one with the precomputed derivatives. Leaving both for now.
 class StrainSmoothingProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
