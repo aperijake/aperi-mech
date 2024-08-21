@@ -335,8 +335,8 @@ class StrainSmoothingProcessor {
         }
     }
 
-    template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor>
-    void for_each_neighbor_compute_derivatives(const FunctionsFunctor &functions_functor, const IntegrationFunctor &integration_functor) {
+    template <size_t NumNodes, typename IntegrationFunctor>
+    void for_each_neighbor_compute_derivatives(const IntegrationFunctor &integration_functor) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -367,7 +367,7 @@ class StrainSmoothingProcessor {
 
                 // TODO(jake): Simplify further. This is leftover from the "single pass" implementation.
                 assert(integration_functor->NumGaussPoints() == 1);
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates, cell_node_coordinates, *functions_functor, 0, num_nodes);
+                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates);
                 ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     for (size_t j = 0; j < 3; ++j) {

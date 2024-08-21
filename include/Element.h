@@ -39,7 +39,7 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
-                return std::make_shared<ElementReproducingKernel>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
+                return std::make_shared<ElementReproducingKernel<TET4_NUM_NODES>>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }

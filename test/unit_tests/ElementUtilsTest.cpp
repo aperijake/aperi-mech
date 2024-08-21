@@ -48,17 +48,6 @@ class ElementUtilsTest : public ::testing::Test {
     }
 
     template <typename QuadratureFunctor, typename FunctionsFunctor>
-    Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> ComputeElementBMatrixAndWeight(QuadratureFunctor& quad1, const Eigen::Matrix<double, 4, 3>& node_coordinates, FunctionsFunctor& functions_functor) {
-        return quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
-    }
-
-    // TODO(jake): Generalize to more than tet4 elements
-    template <typename QuadratureFunctor, typename FunctionsFunctor>
-    Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> ComputeCellBMatrixAndWeight(QuadratureFunctor& quad1, const Eigen::Matrix<double, 4, 3>& cell_node_coordinates, const Eigen::Matrix<double, 4, 3>& neighbor_coordinates, FunctionsFunctor& functions_functor) {
-        return quad1.ComputeBMatrixAndWeight(cell_node_coordinates, neighbor_coordinates, functions_functor, 0, 4);
-    }
-
-    template <typename QuadratureFunctor, typename FunctionsFunctor>
     void RunAllTestCases(QuadratureFunctor& quad1, FunctionsFunctor& functions_functor, bool use_strain_smoothing = false) {
         // ------------------------------
         // Reference tetrahedron
@@ -72,7 +61,7 @@ class ElementUtilsTest : public ::testing::Test {
 
         Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight;
         if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -96,7 +85,7 @@ class ElementUtilsTest : public ::testing::Test {
         node_coordinates *= factor;
 
         if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -116,7 +105,7 @@ class ElementUtilsTest : public ::testing::Test {
         node_coordinates.rowwise() += translation.transpose();
 
         if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -139,7 +128,7 @@ class ElementUtilsTest : public ::testing::Test {
         node_coordinates *= rotation;
 
         if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
@@ -174,7 +163,7 @@ class ElementUtilsTest : public ::testing::Test {
         deformation_gradient = deformation_gradient * bounding_box_dimensions.asDiagonal().inverse();
 
         if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, node_coordinates, functions_functor, 0, 4);
+            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
         } else {
             b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
         }
