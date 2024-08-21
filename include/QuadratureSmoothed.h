@@ -39,6 +39,7 @@ struct SmoothedQuadrature {
     // Compute the B matrix and integration weight for a given gauss point, function values are provided
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumCellNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumCellNeighbors, 3> &cell_node_coordinates) const {
         Eigen::Matrix<double, NumCellNeighbors, 3> b_matrix = Eigen::Matrix<double, NumCellNeighbors, 3>::Zero();
+        // const Eigen::Matrix<double, NumCellNeighbors, NumCellNeighbors> cell_node_function_values = Eigen::Matrix<double, NumCellNeighbors, NumCellNeighbors>::Identity();
 
         double volume = 0.0;
 
@@ -53,18 +54,21 @@ struct SmoothedQuadrature {
             // Add the contribution of the current face to the volume
             volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
 
-            for (auto face_node : m_face_nodes.row(j)) {
-                b_matrix.row(face_node) += face_normal.transpose() / 3.0;
+            // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
+            for (size_t k = 0; k < NumCellNeighbors; ++k) {
+                // double shape_function_value = 0.0;
+                // for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
+                //     shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
+                // }
+                // shape_function_value /= 3.0;  // for the average of the 3 nodes
+                // b_matrix.row(k) += shape_function_value * face_normal.transpose();
+                for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
+                    if (k == m_face_nodes(j, l)) {
+                        b_matrix.row(k) += face_normal.transpose() / 3.0;  // for the average of the 3 nodes
+                        break;
+                    }
+                }
             }
-            //// Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
-            // for (size_t k = 0; k < NumCellNeighbors; ++k) {
-            //     double shape_function_value = 0.0;
-            //     for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
-            //         shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
-            //     }
-            //     shape_function_value /= 3.0;  // for the average of the 3 nodes
-            //     b_matrix.row(k) += shape_function_value * face_normal.transpose();
-            // }
         }
         volume /= 3.0;  // 3x volume
         b_matrix /= volume;
@@ -77,7 +81,7 @@ struct SmoothedQuadrature {
         return 1;
     }
 
-    Eigen::Matrix<int, NumCellNeighbors, 3> m_face_nodes;
+    Eigen::Matrix<size_t, NumCellNeighbors, 3> m_face_nodes;
     size_t m_num_faces = 4;
 };
 }  // namespace aperi
