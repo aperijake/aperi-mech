@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
 #include "ElementProcessor.h"
-#include "ElementUtils.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
@@ -99,7 +99,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the compute force functor
-        FlexibleComputeInternalForceFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
+        ComputeInternalForceFromSmoothingCellFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);

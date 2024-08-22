@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "Element.h"
-#include "ElementUtils.h"
 #include "FieldData.h"
 #include "QuadratureGaussian.h"
 #include "QuadratureSmoothed.h"
@@ -15,20 +14,13 @@
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
-// Fixture for ElementBase tests
-class ElementUtilsTest : public ::testing::Test {
+// Base fixture for quadrature tests
+class QuadratureTest : public ::testing::Test {
    protected:
     // Set up the test fixture
     void SetUp() override {
         // Seed the random number generator
         std::srand(42);
-    }
-
-    // check partition of nullity
-    static void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& function_vals) {
-        // Check the partition of nullity
-        double sum = function_vals.sum();
-        EXPECT_NEAR(sum, 0.0, 1.0e-12);
     }
 
     // Check b matrix and weight
@@ -181,7 +173,7 @@ class ElementUtilsTest : public ::testing::Test {
 };
 
 // Test b matrix and weight for a 4-node tetrahedron element. This test is for a 1-point quadrature.
-TEST_F(ElementUtilsTest, Tet4BMatrixAndWeight) {
+TEST_F(QuadratureTest, Tet4BMatrixAndWeight) {
     // Initialize the quadrature. TODO(jake): Move points and weights to a more general location.
     const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
     const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
@@ -193,7 +185,7 @@ TEST_F(ElementUtilsTest, Tet4BMatrixAndWeight) {
 }
 
 // Test b matrix and weight for a 4-node tetrahedron element. This test is for strain smoothing.
-TEST_F(ElementUtilsTest, Tet4StrainSmoothingBMatrixAndWeight) {
+TEST_F(QuadratureTest, Tet4StrainSmoothingBMatrixAndWeight) {
     // Initialize the quadrature.
     aperi::SmoothedQuadrature<4> quad1;
 
@@ -205,7 +197,7 @@ TEST_F(ElementUtilsTest, Tet4StrainSmoothingBMatrixAndWeight) {
 }
 
 // Test b matrix and weight for reproducing kernel strain smoothed on a 4-node tetrahedron element.
-TEST_F(ElementUtilsTest, ReproducingKernelOnTet4BMatrixAndWeight) {
+TEST_F(QuadratureTest, ReproducingKernelOnTet4BMatrixAndWeight) {
     // Initialize the quadrature.
     aperi::SmoothedQuadrature<4> quad1;
 

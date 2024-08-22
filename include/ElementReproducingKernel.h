@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
 #include "ElementProcessor.h"
-#include "ElementUtils.h"
 #include "FieldData.h"
 #include "FunctionValueStorageProcessor.h"
 #include "Kokkos_Core.hpp"
@@ -119,7 +119,7 @@ class ElementReproducingKernel : public ElementBase {
         assert(m_element_processor != nullptr);
 
         // Create the compute force functor
-        FlexibleComputeInternalForceFunctor<NumCellNodes, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
+        ComputeInternalForceFromSmoothingCellFunctor<NumCellNodes, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_element_gather_scatter_nodal_data<NumCellNodes>(compute_force_functor);
