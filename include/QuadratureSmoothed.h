@@ -19,13 +19,6 @@ struct SmoothedQuadrature {
             0, 2, 1;
     }
 
-    // Compute the B matrix and integration weight for a given gauss point. This is for Gauss quadrature.
-    template <typename FunctionFunctor>
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumCellNeighbors, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumCellNeighbors, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
-        Kokkos::abort("Not implemented");
-        return Kokkos::make_pair(Eigen::Matrix<double, NumCellNeighbors, 3>::Zero(), 0.0);
-    }
-
     KOKKOS_INLINE_FUNCTION bool CheckPartitionOfNullity(const Eigen::Matrix<double, NumCellNeighbors, 3> &b_matrix) const {
         double tolerance = 1.0e-6;
         for (size_t k = 0; k < 3; ++k) {

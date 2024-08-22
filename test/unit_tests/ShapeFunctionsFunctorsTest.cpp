@@ -116,7 +116,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 };
 
 // Test shape functions for a tet4 element
-TEST_F(ShapeFunctionsFunctorsTest, Tet4ShapeFunctions) {
+TEST_F(ShapeFunctionsFunctorsTest, Tet4) {
     // Create the tet4 functions functor
     aperi::ShapeFunctionsFunctorTet4 functions_functor;
 
@@ -125,11 +125,43 @@ TEST_F(ShapeFunctionsFunctorsTest, Tet4ShapeFunctions) {
     TestFunctionsFunctorDerivatives(functions_functor, node_coordinates);
 }
 
+template <size_t MaxNumNeighbors>
+struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
+    /**
+     * @brief Computes the shape functions of the element.
+     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
+     * @param cell_node_coordinates The physical coordinates of the nodes of the element.
+     * @param neighbor_coordinates The physical coordinates of the neighbors.
+     * @param actual_num_neighbors The actual number of neighbors.
+     * @return The shape function values at the evaluation point.
+     * @note This function is used for testing purposes only.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+        Eigen::Matrix<double, 1, aperi::TET4_NUM_NODES> cell_shape_functions;
+        cell_shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
+            parametric_coordinates(0),
+            parametric_coordinates(1),
+            parametric_coordinates(2);
+        Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = cell_shape_functions * cell_node_coordinates;
+        Eigen::Matrix<double, MaxNumNeighbors, 3> shifted_neighbor_coordinates;
+        Eigen::Matrix<double, MaxNumNeighbors, 1> kernel_values;
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
+            shifted_neighbor_coordinates.row(i) = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
+            kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), 1.76);
+        }
+
+        // Construct a ShapeFunctionsFunctorReproducingKernel object
+        aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> shape_functions_functor_reproducing_kernel;
+
+        return shape_functions_functor_reproducing_kernel.values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
+    }
+};
+
 // Test reproducing kernel shape functions on a tet4 element
 // This is a basic, small test to ensure the reproducing kernel shape functions are working
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
     // Create the tet4 functions functor
-    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     TestFunctionsFunctorValues(functions_functor, node_coordinates, node_coordinates);
@@ -149,7 +181,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly)
 // This is a basic, small test to ensure the reproducing kernel shape functions are working
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
     // Create the tet4 functions functor
-    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<8> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<8> functions_functor;
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
     // Find the bounding box dimensions

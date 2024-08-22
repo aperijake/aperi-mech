@@ -13,12 +13,6 @@ struct Quadrature {
     KOKKOS_INLINE_FUNCTION Quadrature(const Eigen::Matrix<double, NumQuadPoints, 3> &gauss_points, const Eigen::Matrix<double, NumQuadPoints, 1> &gauss_weights) : m_gauss_points(gauss_points), m_gauss_weights(gauss_weights) {}
 
     // Compute the B matrix and integration weight for a given gauss point
-    KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &cell_node_coordinates) const {
-        Kokkos::abort("Not implemented");
-        return Kokkos::make_pair(Eigen::Matrix<double, NumFunctions, 3>::Zero(), 0.0);
-    }
-
-    // Compute the B matrix and integration weight for a given gauss point
     template <typename FunctionFunctor>
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, NumFunctions, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, NumFunctions, 3> &node_coordinates, FunctionFunctor &function_functor, int gauss_id) const {
         assert((size_t)gauss_id <= NumQuadPoints);

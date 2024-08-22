@@ -14,6 +14,116 @@
 #include "UnitTestUtils.h"
 #include "yaml-cpp/yaml.h"
 
+// Set of inputs and expected values for the ComputeBMatrixAndWeight function
+std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>, double, std::string>> GetComputeBMatrixAndWeightInputsAndGolds() {
+    // Cases:
+    // 1. Reference tetrahedron
+    // 2. Contracted (dilation < 1) reference tetrahedron
+    // 3. Translated reference tetrahedron
+    // 4. Rotated reference tetrahedron
+    // 5. Random deformed tetrahedron
+
+    std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>, double, std::string>> inputs_and_golds;
+    // ------------------------------
+    // Reference tetrahedron
+    // ------------------------------
+    // Set up node coordinates
+    Eigen::Matrix<double, 4, 3> node_coordinates;
+    node_coordinates << 0.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+
+    Eigen::Matrix<double, 4, 3> expected_b_matrix;
+    expected_b_matrix << -1.0, -1.0, -1.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+    double expected_weight = 1.0 / 6.0;
+
+    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Reference tetrahedron"));
+
+    // ------------------------------
+    // Contracted (dilation < 1) reference tetrahedron
+    // ------------------------------
+    double factor = 0.78;
+
+    // Set up node coordinates
+    node_coordinates *= factor;
+
+    // Check the B matrix and weight
+    expected_b_matrix /= factor;
+    expected_weight *= factor * factor * factor;
+
+    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Contracted reference tetrahedron"));
+
+    // ------------------------------
+    // Translated reference tetrahedron
+    // ------------------------------
+    Eigen::Vector3d translation(0.512, -4.79, 103.1);
+
+    // Set up node coordinates
+    node_coordinates.rowwise() += translation.transpose();
+
+    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Contracted and translated reference tetrahedron"));
+
+    // ------------------------------
+    // Rotated reference tetrahedron
+    // ------------------------------
+    Eigen::Vector3d axis(1.2, -2.3, 1.4);
+    axis.normalize();
+    double angle = 0.36 * M_PI;
+
+    // Set up node coordinates
+    Eigen::Matrix3d rotation = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
+    node_coordinates << 0.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+    node_coordinates *= rotation;
+
+    expected_b_matrix << -1.0, -1.0, -1.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+    expected_b_matrix *= rotation;
+
+    expected_weight = 1.0 / 6.0;
+
+    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Rotated reference tetrahedron"));
+
+    // ------------------------------
+    // Deformed tetrahedron
+    // ------------------------------
+    // Set up node coordinates
+    node_coordinates << 0.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+
+    Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
+    node_coordinates *= deformation_gradient;
+    // Find the bounding box of the deformed tetrahedron
+    Eigen::Matrix<double, 3, 1> min = node_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = node_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    node_coordinates = (node_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+    deformation_gradient = deformation_gradient * bounding_box_dimensions.asDiagonal().inverse();
+
+    expected_b_matrix << -1.0, -1.0, -1.0,
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0;
+    expected_b_matrix *= deformation_gradient.inverse().transpose();
+
+    expected_weight = deformation_gradient.determinant() * 1.0 / 6.0;
+
+    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Deformed tetrahedron"));
+
+    return inputs_and_golds;
+}
+
 // Base fixture for quadrature tests
 class QuadratureTest : public ::testing::Test {
    protected:
@@ -39,171 +149,49 @@ class QuadratureTest : public ::testing::Test {
         EXPECT_NEAR(b_matrix_and_weight.second, expected_weight, 1.0e-12) << message;
     }
 
-    template <typename QuadratureFunctor, typename FunctionsFunctor>
-    void RunAllTestCases(QuadratureFunctor& quad1, FunctionsFunctor& functions_functor, bool use_strain_smoothing = false) {
-        // ------------------------------
-        // Reference tetrahedron
-        // ------------------------------
-        // Set up node coordinates
-        Eigen::Matrix<double, 4, 3> node_coordinates;
-        node_coordinates << 0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
+    void RunAllTestCasesGaussQuadrature() {
+        // Initialize the quadrature. TODO(jake): Move points and weights to a more general location.
+        const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
+        const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
+        aperi::Quadrature<1, 4> quad1(gauss_points, gauss_weights);
 
-        Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight;
-        if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
-        } else {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
+
+        // Get the inputs and expected values
+        auto inputs_and_golds = GetComputeBMatrixAndWeightInputsAndGolds();
+
+        EXPECT_GT(inputs_and_golds.size(), 0) << "No test cases found";
+
+        // Loop over the test cases
+        for (const auto& [node_coordinates, expected_b_matrix, expected_weight, message] : inputs_and_golds) {
+            Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, tet4_functions_functor, 0);
+            CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, message);
         }
+    }
 
-        // Check the B matrix and weight
-        Eigen::Matrix<double, 4, 3> expected_b_matrix;
-        expected_b_matrix << -1.0, -1.0, -1.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-        double expected_weight = 1.0 / 6.0;
+    void RunAllTestCasesStrainSmoothing() {
+        // Initialize the quadrature.
+        aperi::SmoothedQuadrature<4> quad1;
 
-        CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Reference tetrahedron");
+        // Get the inputs and expected values
+        auto inputs_and_golds = GetComputeBMatrixAndWeightInputsAndGolds();
 
-        // ------------------------------
-        // Contracted (dilation < 1) reference tetrahedron
-        // ------------------------------
-        double factor = 0.78;
+        EXPECT_GT(inputs_and_golds.size(), 0) << "No test cases found";
 
-        // Set up node coordinates
-        node_coordinates *= factor;
-
-        if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
-        } else {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
+        // Loop over the test cases
+        for (const auto& [node_coordinates, expected_b_matrix, expected_weight, message] : inputs_and_golds) {
+            Kokkos::pair<Eigen::Matrix<double, 4, 3>, double> b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
+            CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, message);
         }
-
-        // Check the B matrix and weight
-        expected_b_matrix /= factor;
-        expected_weight *= factor * factor * factor;
-
-        CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Dilated reference tetrahedron");
-
-        // ------------------------------
-        // Translated reference tetrahedron
-        // ------------------------------
-        Eigen::Vector3d translation(0.512, -4.79, 103.1);
-
-        // Set up node coordinates
-        node_coordinates.rowwise() += translation.transpose();
-
-        if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
-        } else {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
-        }
-
-        CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Translated reference tetrahedron");
-
-        // ------------------------------
-        // Rotated reference tetrahedron
-        // ------------------------------
-        Eigen::Vector3d axis(1.2, -2.3, 1.4);
-        axis.normalize();
-        double angle = 0.36 * M_PI;
-
-        // Set up node coordinates
-        Eigen::Matrix3d rotation = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
-        node_coordinates << 0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-        node_coordinates *= rotation;
-
-        if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
-        } else {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
-        }
-
-        expected_b_matrix << -1.0, -1.0, -1.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-        expected_b_matrix *= rotation;
-
-        expected_weight = 1.0 / 6.0;
-
-        CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Rotated reference tetrahedron");
-
-        // ------------------------------
-        // Deformed tetrahedron
-        // ------------------------------
-        // Set up node coordinates
-        node_coordinates << 0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-
-        Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
-        node_coordinates *= deformation_gradient;
-        // Find the bounding box of the deformed tetrahedron
-        Eigen::Matrix<double, 3, 1> min = node_coordinates.colwise().minCoeff();
-        Eigen::Matrix<double, 3, 1> max = node_coordinates.colwise().maxCoeff();
-        Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
-        // Scale to be within the unit cube
-        node_coordinates = (node_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
-        deformation_gradient = deformation_gradient * bounding_box_dimensions.asDiagonal().inverse();
-
-        if (use_strain_smoothing) {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates);
-        } else {
-            b_matrix_and_weight = quad1.ComputeBMatrixAndWeight(node_coordinates, functions_functor, 0);
-        }
-
-        expected_b_matrix << -1.0, -1.0, -1.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0;
-        expected_b_matrix *= deformation_gradient.inverse().transpose();
-
-        expected_weight = deformation_gradient.determinant() * 1.0 / 6.0;
-
-        CheckBMatrixAndWeight(b_matrix_and_weight, expected_b_matrix, expected_weight, "Deformed tetrahedron");
     }
 };
 
 // Test b matrix and weight for a 4-node tetrahedron element. This test is for a 1-point quadrature.
-TEST_F(QuadratureTest, Tet4BMatrixAndWeight) {
-    // Initialize the quadrature. TODO(jake): Move points and weights to a more general location.
-    const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
-    const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
-    aperi::Quadrature<1, 4> quad1(gauss_points, gauss_weights);
-
-    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
-
-    RunAllTestCases(quad1, tet4_functions_functor);
+TEST_F(QuadratureTest, Tet4GaussQuadrature) {
+    RunAllTestCasesGaussQuadrature();
 }
 
 // Test b matrix and weight for a 4-node tetrahedron element. This test is for strain smoothing.
-TEST_F(QuadratureTest, Tet4StrainSmoothingBMatrixAndWeight) {
-    // Initialize the quadrature.
-    aperi::SmoothedQuadrature<4> quad1;
-
-    bool use_strain_smoothing = true;
-
-    aperi::ShapeFunctionsFunctorTet4 tet4_functions_functor;
-
-    RunAllTestCases(quad1, tet4_functions_functor, use_strain_smoothing);
-}
-
-// Test b matrix and weight for reproducing kernel strain smoothed on a 4-node tetrahedron element.
-TEST_F(QuadratureTest, ReproducingKernelOnTet4BMatrixAndWeight) {
-    // Initialize the quadrature.
-    aperi::SmoothedQuadrature<4> quad1;
-
-    bool use_strain_smoothing = true;
-
-    aperi::ShapeFunctionsFunctorReproducingKernelOnTet4<4> functions_functor;
-
-    RunAllTestCases(quad1, functions_functor, use_strain_smoothing);
+TEST_F(QuadratureTest, Tet4StrainSmoothing) {
+    RunAllTestCasesStrainSmoothing();
 }
