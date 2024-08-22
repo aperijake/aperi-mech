@@ -42,7 +42,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
         // Calculate the physical coordinates of the evaluation point
         aperi::ShapeFunctionsFunctorTet4 functions_functor;
         // Calculate the shape functions at the evaluation point
-        Eigen::Matrix<double, Eigen::Dynamic, 1> cell_shape_functions = functions_functor.values(evaluation_points_parametric_coordinates, node_coordinates, node_coordinates, 4);
+        Eigen::Matrix<double, Eigen::Dynamic, 1> cell_shape_functions = functions_functor.Values(evaluation_points_parametric_coordinates, node_coordinates, node_coordinates, 4);
         const Eigen::Matrix<double, 1, 3>& evaluation_point_physical_coordinates = cell_shape_functions.transpose() * node_coordinates;
 
         // Check the linear completeness
@@ -87,7 +87,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
     void TestFunctionsFunctorValues(FunctionsFunctor& functions_functor, const Eigen::Matrix<double, 4, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const size_t expected_num_shape_functions = 4, bool check_values = true) {
         for (size_t i = 0; i < m_evaluation_points_parametric_coordinates.size(); ++i) {
             // Check the shape functions
-            Eigen::Matrix<double, Eigen::Dynamic, 1> shape_functions = functions_functor.values(m_evaluation_points_parametric_coordinates[i], node_coordinates, neighbor_coordinates, expected_num_shape_functions);
+            Eigen::Matrix<double, Eigen::Dynamic, 1> shape_functions = functions_functor.Values(m_evaluation_points_parametric_coordinates[i], node_coordinates, neighbor_coordinates, expected_num_shape_functions);
             CheckShapeFunctionCompleteness(shape_functions, node_coordinates, neighbor_coordinates, m_evaluation_points_parametric_coordinates[i]);
             if (check_values) {
                 CheckShapeFunctionValues(shape_functions, m_expected_values[i], expected_num_shape_functions);
@@ -105,7 +105,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
             0.0, 0.0, 1.0;
         // Check the shape function derivatives
         for (auto& m_evaluation_points_parametric_coordinate : m_evaluation_points_parametric_coordinates) {
-            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.derivatives(m_evaluation_points_parametric_coordinate);
+            Eigen::Matrix<double, 4, 3> shape_function_derivatives = functions_functor.Derivatives(m_evaluation_points_parametric_coordinate);
             CheckShapeFunctionDerivativeCompleteness(shape_function_derivatives);
             CheckShapeFunctionDerivativeValues(shape_function_derivatives, expected_shape_function_derivatives, expected_num_shape_functions);
         }
@@ -136,7 +136,7 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
      * @return The shape function values at the evaluation point.
      * @note This function is used for testing purposes only.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
         Eigen::Matrix<double, 1, aperi::TET4_NUM_NODES> cell_shape_functions;
         cell_shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
             parametric_coordinates(0),
@@ -153,7 +153,7 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
         // Construct a ShapeFunctionsFunctorReproducingKernel object
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> shape_functions_functor_reproducing_kernel;
 
-        return shape_functions_functor_reproducing_kernel.values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
+        return shape_functions_functor_reproducing_kernel.Values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
     }
 };
 

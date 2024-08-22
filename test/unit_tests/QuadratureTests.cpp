@@ -41,7 +41,7 @@ std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>,
         0.0, 0.0, 1.0;
     double expected_weight = 1.0 / 6.0;
 
-    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Reference tetrahedron"));
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Reference tetrahedron");
 
     // ------------------------------
     // Contracted (dilation < 1) reference tetrahedron
@@ -55,7 +55,7 @@ std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>,
     expected_b_matrix /= factor;
     expected_weight *= factor * factor * factor;
 
-    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Contracted reference tetrahedron"));
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Contracted reference tetrahedron");
 
     // ------------------------------
     // Translated reference tetrahedron
@@ -65,7 +65,7 @@ std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>,
     // Set up node coordinates
     node_coordinates.rowwise() += translation.transpose();
 
-    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Contracted and translated reference tetrahedron"));
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Contracted and translated reference tetrahedron");
 
     // ------------------------------
     // Rotated reference tetrahedron
@@ -90,7 +90,7 @@ std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>,
 
     expected_weight = 1.0 / 6.0;
 
-    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Rotated reference tetrahedron"));
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Rotated reference tetrahedron");
 
     // ------------------------------
     // Deformed tetrahedron
@@ -119,7 +119,7 @@ std::vector<std::tuple<Eigen::Matrix<double, 4, 3>, Eigen::Matrix<double, 4, 3>,
 
     expected_weight = deformation_gradient.determinant() * 1.0 / 6.0;
 
-    inputs_and_golds.push_back(std::make_tuple(node_coordinates, expected_b_matrix, expected_weight, "Deformed tetrahedron"));
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Deformed tetrahedron");
 
     return inputs_and_golds;
 }
@@ -149,7 +149,7 @@ class QuadratureTest : public ::testing::Test {
         EXPECT_NEAR(b_matrix_and_weight.second, expected_weight, 1.0e-12) << message;
     }
 
-    void RunAllTestCasesGaussQuadrature() {
+    static void RunAllTestCasesGaussQuadrature() {
         // Initialize the quadrature. TODO(jake): Move points and weights to a more general location.
         const Eigen::Matrix<double, 1, 3> gauss_points = Eigen::Matrix<double, 1, 3>::Constant(0.25);
         const Eigen::Matrix<double, 1, 1> gauss_weights = Eigen::Matrix<double, 1, 1>::Constant(1.0 / 6.0);
@@ -169,7 +169,7 @@ class QuadratureTest : public ::testing::Test {
         }
     }
 
-    void RunAllTestCasesStrainSmoothing() {
+    static void RunAllTestCasesStrainSmoothing() {
         // Initialize the quadrature.
         aperi::SmoothedQuadrature<4> quad1;
 

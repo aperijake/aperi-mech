@@ -18,7 +18,7 @@ struct Quadrature {
         assert((size_t)gauss_id <= NumQuadPoints);
 
         // Compute shape function derivatives
-        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.derivatives(m_gauss_points.row(gauss_id));
+        const Eigen::Matrix<double, NumFunctions, 3> shape_function_derivatives = function_functor.Derivatives(m_gauss_points.row(gauss_id));
 
         // Compute Jacobian matrix
         const Eigen::Matrix3d jacobian = node_coordinates.transpose() * shape_function_derivatives;
