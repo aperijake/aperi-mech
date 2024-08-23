@@ -109,31 +109,38 @@ struct SmoothedQuadratureHex8 {
 
         // Loop over faces
         for (size_t j = 0; j < m_num_faces; ++j) {
-            // Get the area weighted face normal, cross product of two edges
-            const Eigen::Vector3d edge1 = cell_node_coordinates.row(m_face_nodes(j, 1)) - cell_node_coordinates.row(m_face_nodes(j, 0));
-            const Eigen::Vector3d edge2 = cell_node_coordinates.row(m_face_nodes(j, 2)) - cell_node_coordinates.row(m_face_nodes(j, 0));
+            // Compute the mid point of the face
+            Eigen::Vector3d face_mid_point = Eigen::Vector3d::Zero();
+            for (size_t k = 0; k < 4; ++k) {
+                face_mid_point += cell_node_coordinates.row(m_face_nodes(j, k));
+            }
+            face_mid_point /= 4.0;
 
-            const Eigen::Vector3d face_normal = edge1.cross(edge2);  // Area weighted normal
+            // Each quad face is divided into four triangles
+            size_t k_minus_1 = 3;
+            for (size_t k = 0; k < 4; ++k) {
+                // Create two edges of the triangle, from mid point to two nodes
+                const Eigen::Vector3d edge1 = cell_node_coordinates.row(m_face_nodes(j, k_minus_1)).transpose() - face_mid_point;
+                const Eigen::Vector3d edge2 = cell_node_coordinates.row(m_face_nodes(j, k)).transpose() - face_mid_point;
 
-            // Add the contribution of the current face to the volume
-            volume += cell_node_coordinates.row(m_face_nodes(j, 0)).dot(face_normal);
+                // Compute the area weighted normal
+                const Eigen::Vector3d sub_face_normal = edge1.cross(edge2) / 2.0;  // Area weighted normal
 
-            // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
-            for (size_t k = 0; k < aperi::HEX8_NUM_NODES; ++k) {
-                // double shape_function_value = 0.0;
-                // for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
-                //     shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
-                // }
-                // shape_function_value /= 3.0;  // for the average of the 3 nodes
-                // b_matrix.row(k) += shape_function_value * face_normal.transpose();
-                for (size_t l = 0; l < 4; ++l) {  // Loop over nodes per face
-                    if (k == m_face_nodes(j, l)) {
-                        b_matrix.row(k) += face_normal.transpose();
-                        break;
+                // Add the contribution of the current face to the volume
+                volume += face_mid_point.dot(sub_face_normal);
+
+                // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
+                for (size_t l = 0; l < 4; ++l) {                                                       // Loop over nodes per full quad face
+                    if (l == k || l == k_minus_1) {                                                    // The two nodes on the sub-face
+                        b_matrix.row(m_face_nodes(j, l)) += sub_face_normal.transpose() * 5.0 / 12.0;  // Average of the value on the three sub-face nodes avg(1, 1/4, 0)
+                    } else {
+                        b_matrix.row(m_face_nodes(j, l)) += sub_face_normal.transpose() * 1.0 / 12.0;  // Average of the value on the three sub-face nodes avg(1/4, 0, 0)
                     }
                 }
+                k_minus_1 = k;
             }
         }
+
         volume /= 3.0;  // 3x volume
         b_matrix /= volume;
         assert(CheckPartitionOfNullity(b_matrix));

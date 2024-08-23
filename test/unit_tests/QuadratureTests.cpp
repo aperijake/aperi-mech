@@ -149,14 +149,15 @@ std::vector<std::tuple<Eigen::Matrix<double, 8, 3>, Eigen::Matrix<double, 8, 3>,
         0.0, 1.0, 1.0;
 
     Eigen::Matrix<double, 8, 3> expected_b_matrix;
-    expected_b_matrix << -1.0, -1.0, -1.0,
-        1.0, -1.0, -1.0,
-        1.0, 1.0, -1.0,
-        -1.0, 1.0, -1.0,
-        -1.0, -1.0, 1.0,
-        1.0, -1.0, 1.0,
-        1.0, 1.0, 1.0,
-        -1.0, 1.0, 1.0;
+    double b_matrix_scaler = 0.25;
+    expected_b_matrix << -b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, b_matrix_scaler;
 
     double expected_weight = 1.0;
 
@@ -206,14 +207,14 @@ std::vector<std::tuple<Eigen::Matrix<double, 8, 3>, Eigen::Matrix<double, 8, 3>,
         0.0, 1.0, 1.0;
     node_coordinates *= rotation;
 
-    expected_b_matrix << -1.0, -1.0, -1.0,
-        1.0, -1.0, -1.0,
-        1.0, 1.0, -1.0,
-        -1.0, 1.0, -1.0,
-        -1.0, -1.0, 1.0,
-        1.0, -1.0, 1.0,
-        1.0, 1.0, 1.0,
-        -1.0, 1.0, 1.0;
+    expected_b_matrix << -b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, b_matrix_scaler;
     expected_b_matrix *= rotation;
 
     expected_weight = 1.0;
@@ -237,23 +238,50 @@ std::vector<std::tuple<Eigen::Matrix<double, 8, 3>, Eigen::Matrix<double, 8, 3>,
     Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Random();
     node_coordinates *= deformation_gradient;
 
-    expected_b_matrix << -1.0, -1.0, -1.0,
-        1.0, -1.0, -1.0,
-        1.0, 1.0, -1.0,
-        -1.0, 1.0, -1.0,
-        -1.0, -1.0, 1.0,
-        1.0, -1.0, 1.0,
-        1.0, 1.0, 1.0,
-        -1.0, 1.0, 1.0;
+    expected_b_matrix << -b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, -b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, -b_matrix_scaler,
+        -b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, -b_matrix_scaler, b_matrix_scaler,
+        b_matrix_scaler, b_matrix_scaler, b_matrix_scaler,
+        -b_matrix_scaler, b_matrix_scaler, b_matrix_scaler;
     expected_b_matrix *= deformation_gradient.inverse().transpose();
     expected_weight = deformation_gradient.determinant();
 
-    std::cout << "deformation_gradient: " << deformation_gradient << std::endl;
-    std::cout << "node_coordinates: " << node_coordinates << std::endl;
-    std::cout << "expected_b_matrix: " << expected_b_matrix << std::endl;
-    std::cout << "expected_weight: " << expected_weight << std::endl;
-
     inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Deformed hexahedron");
+
+    // ------------------------------
+    // Non-planar faced hexahedron
+    // ------------------------------
+
+    // Set up node coordinates, shear the top and bottom z faces in opposite directions
+    double shear = 0.2;
+
+    // Set up node coordinates
+    node_coordinates << shear, 0.0, 0.0,
+        1.0 + shear, 0.0, 0.0,
+        1.0 - shear, 1.0, 0.0,
+        -shear, 1.0, 0.0,
+        shear, 0.0, 1.0,
+        1.0 + shear, 0.0, 1.0,
+        1.0 - shear, 1.0, 1.0,
+        -shear, 1.0, 1.0;
+
+    // TODO(jake): Add more rigor to the expected B matrix calculation
+    double b_matrix_scaler_shear = shear / 2.0;
+    expected_b_matrix << -b_matrix_scaler, -(b_matrix_scaler + b_matrix_scaler_shear), -b_matrix_scaler,
+        b_matrix_scaler, -(b_matrix_scaler - b_matrix_scaler_shear), -b_matrix_scaler,
+        b_matrix_scaler, (b_matrix_scaler + b_matrix_scaler_shear), -b_matrix_scaler,
+        -b_matrix_scaler, (b_matrix_scaler - b_matrix_scaler_shear), -b_matrix_scaler,
+        -b_matrix_scaler, -(b_matrix_scaler + b_matrix_scaler_shear), b_matrix_scaler,
+        b_matrix_scaler, -(b_matrix_scaler - b_matrix_scaler_shear), b_matrix_scaler,
+        b_matrix_scaler, (b_matrix_scaler + b_matrix_scaler_shear), b_matrix_scaler,
+        -b_matrix_scaler, (b_matrix_scaler - b_matrix_scaler_shear), b_matrix_scaler;
+
+    expected_weight = 1.0;
+
+    inputs_and_golds.emplace_back(node_coordinates, expected_b_matrix, expected_weight, "Non-planar faced hexahedron");
 
     return inputs_and_golds;
 }
@@ -275,7 +303,7 @@ class QuadratureTest : public ::testing::Test {
         for (size_t j = 0; j < 3; ++j) {
             // Check the shape function derivatives
             for (int i = 0; i < b_matrix_and_weight.first.rows(); ++i) {
-                EXPECT_NEAR(b_matrix_and_weight.first(i, j), expected_b_matrix(i, j), 1.0e-12) << message;
+                EXPECT_NEAR(b_matrix_and_weight.first(i, j), expected_b_matrix(i, j), 1.0e-12) << "Node / i: " << i << " Dimension / j: " << j << " " << message << "\n---------------------";
             }
             // Check the partition of nullity
             CheckPartitionOfNullity(b_matrix_and_weight.first.col(j));
