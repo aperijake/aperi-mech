@@ -39,7 +39,11 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementProcessor();
         FindNeighbors();
         ComputeAndStoreFunctionValues();
-        ComputeSmoothedQuadrature();
+        if (NumCellNodes == 4) {
+            ComputeSmoothedQuadratureTet4();
+        } else {
+            throw std::runtime_error("ElementReproducingKernel only supports 4-node tetrahedron elements.");
+        }
     }
 
     /**
@@ -86,16 +90,16 @@ class ElementReproducingKernel : public ElementBase {
         Kokkos::kokkos_free(compute_node_functions_functor);
     }
 
-    void ComputeSmoothedQuadrature() {
+    void ComputeSmoothedQuadratureTet4() {
         // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadrature<NumCellNodes>);
-        auto integration_functor = (SmoothedQuadrature<NumCellNodes> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
+        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadrature<NumCellNodes> *)integration_functor) SmoothedQuadrature<NumCellNodes>();
+                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
             });
 
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
@@ -104,7 +108,7 @@ class ElementReproducingKernel : public ElementBase {
         // Destroy the functors
         Kokkos::parallel_for(
             "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadrature<NumCellNodes>();
+                integration_functor->~SmoothedQuadratureTet4();
             });
 
         Kokkos::kokkos_free(integration_functor);

@@ -63,14 +63,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadrature<TET4_NUM_NODES>);
-        auto integration_functor = (SmoothedQuadrature<TET4_NUM_NODES> *)Kokkos::kokkos_malloc(integration_functor_size);
+        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
+        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
         assert(integration_functor != nullptr);
 
         // Initialize the functors
         Kokkos::parallel_for(
             "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadrature<TET4_NUM_NODES> *)integration_functor) SmoothedQuadrature<TET4_NUM_NODES>();
+                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
             });
 
         // Set the functors
@@ -81,7 +81,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         auto integration_functor = m_integration_functor;
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadrature();
+                integration_functor->~SmoothedQuadratureTet4();
             });
 
         Kokkos::kokkos_free(m_integration_functor);
@@ -106,7 +106,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
    private:
-    SmoothedQuadrature<TET4_NUM_NODES> *m_integration_functor;
+    SmoothedQuadratureTet4 *m_integration_functor;
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
