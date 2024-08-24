@@ -352,10 +352,9 @@ class StrainSmoothingProcessor {
                 // Get the element's nodes
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 size_t num_nodes = nodes.size();
-                assert(num_nodes == 4);  // TODO(jake): Support other element topologies. (tet4 is hardcoded here.)
 
                 // Set up the field data to gather
-                Eigen::Matrix<double, 4 /*tet4 hard code for now*/, 3> cell_node_coordinates;
+                Eigen::Matrix<double, NumNodes, 3> cell_node_coordinates;
 
                 // Gather the field data for each node
                 for (size_t i = 0; i < num_nodes; ++i) {

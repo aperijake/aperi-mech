@@ -39,17 +39,14 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementProcessor();
         FindNeighbors();
         ComputeAndStoreFunctionValues();
-        if (NumCellNodes == 4) {
-            ComputeSmoothedQuadratureTet4();
-        } else {
-            throw std::runtime_error("ElementReproducingKernel only supports 4-node tetrahedron elements.");
-        }
     }
 
     /**
      * @brief Destroys a ElementReproducingKernel object.
      */
     ~ElementReproducingKernel() {}
+
+    virtual void ComputeSmoothedQuadrature() = 0;
 
     void CreateElementProcessor() {
         // Create the element processor
@@ -90,30 +87,6 @@ class ElementReproducingKernel : public ElementBase {
         Kokkos::kokkos_free(compute_node_functions_functor);
     }
 
-    void ComputeSmoothedQuadratureTet4() {
-        // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
-        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
-        assert(integration_functor != nullptr);
-
-        // Initialize the functors
-        Kokkos::parallel_for(
-            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
-            });
-
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        strain_smoothing_processor.for_each_neighbor_compute_derivatives<NumCellNodes>(integration_functor);
-
-        // Destroy the functors
-        Kokkos::parallel_for(
-            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadratureTet4();
-            });
-
-        Kokkos::kokkos_free(integration_functor);
-    }
-
     /**
      * @brief Computes the internal force of all elements.
      *
@@ -129,12 +102,94 @@ class ElementReproducingKernel : public ElementBase {
         m_element_processor->for_each_element_gather_scatter_nodal_data<NumCellNodes>(compute_force_functor);
     }
 
-   private:
+   protected:
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
+};
+
+/**
+ * @brief Reproducing kernel functions smoothed over an tet4 element/integration cell.
+ *
+ * This class inherits from the ElementReproducingKernel base class and provides a specific implementation
+ * for a reproducing kernel tet4 element. It contains functionality to compute the internal force
+ * of the element.
+ */
+class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4_NUM_NODES> {
+   public:
+    /**
+     * @brief Constructs a ElementReproducingKernelTet4 object.
+     */
+    ElementReproducingKernelTet4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor) {
+        ComputeSmoothedQuadrature();
+    }
+
+    void ComputeSmoothedQuadrature() override {
+        // Functor for smooth quadrature
+        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
+        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
+        assert(integration_functor != nullptr);
+
+        // Initialize the functors
+        Kokkos::parallel_for(
+            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
+            });
+
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
+        strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::TET4_NUM_NODES>(integration_functor);
+
+        // Destroy the functors
+        Kokkos::parallel_for(
+            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+                integration_functor->~SmoothedQuadratureTet4();
+            });
+
+        Kokkos::kokkos_free(integration_functor);
+    }
+};
+
+/**
+ * @brief Reproducing kernel functions smoothed over an hex8 element/integration cell.
+ *
+ * This class inherits from the ElementReproducingKernel base class and provides a specific implementation
+ * for a reproducing kernel hex8 element. It contains functionality to compute the internal force
+ * of the element.
+ */
+class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8_NUM_NODES> {
+   public:
+    /**
+     * @brief Constructs a ElementReproducingKernelHex8 object.
+     */
+    ElementReproducingKernelHex8(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor) {
+        ComputeSmoothedQuadrature();
+    }
+
+    void ComputeSmoothedQuadrature() override {
+        // Functor for smooth quadrature
+        size_t integration_functor_size = sizeof(SmoothedQuadratureHex8);
+        auto integration_functor = (SmoothedQuadratureHex8 *)Kokkos::kokkos_malloc(integration_functor_size);
+        assert(integration_functor != nullptr);
+
+        // Initialize the functors
+        Kokkos::parallel_for(
+            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+                new ((SmoothedQuadratureHex8 *)integration_functor) SmoothedQuadratureHex8();
+            });
+
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
+        strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
+
+        // Destroy the functors
+        Kokkos::parallel_for(
+            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+                integration_functor->~SmoothedQuadratureHex8();
+            });
+
+        Kokkos::kokkos_free(integration_functor);
+    }
 };
 
 }  // namespace aperi

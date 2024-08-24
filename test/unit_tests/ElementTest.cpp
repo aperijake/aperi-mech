@@ -16,7 +16,7 @@
 class CreateElementStrainSmoothedTest : public ::testing::Test {
    protected:
     // Run the strain smoothed formulation
-    void CreateAndRunStrainSmoothedElement(int num_elems_z, const std::shared_ptr<aperi::ApproximationSpaceParameters>& approximation_space_parameters) {
+    void CreateAndRunStrainSmoothedElement(int num_elems_z, aperi::ElementTopology element_topology, const std::shared_ptr<aperi::ApproximationSpaceParameters>& approximation_space_parameters) {
         // Make a mesh
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
@@ -25,7 +25,9 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         bool uses_generalized_fields = approximation_space_parameters->UsesGeneralizedFields();
         bool use_strain_smoothing = true;
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
-        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + "|tets", {"block_1"});
+        bool tet_mesh = element_topology == aperi::ElementTopology::Tetrahedron4;
+        std::string mesh_type_str = tet_mesh ? "|tets" : "";
+        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + mesh_type_str, {"block_1"});
         m_io_mesh->AddFields(field_data);
         m_io_mesh->CompleteInitialization();
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
@@ -41,7 +43,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(aperi::ElementTopology::Tetrahedron4, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
+        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
         std::array<aperi::FieldQueryData<double>, 5> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
@@ -81,7 +83,8 @@ TEST_F(CreateElementStrainSmoothedTest, SmoothedTet4Storing) {
     // Tet4 element
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
 
-    CreateAndRunStrainSmoothedElement(num_procs, approximation_space_parameters);
+    aperi::ElementTopology element_topology = aperi::ElementTopology::Tetrahedron4;
+    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
 }
 
 // Smoothed reproducing kernel on tet4 element
@@ -94,5 +97,20 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4) {
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
-    CreateAndRunStrainSmoothedElement(num_procs, approximation_space_parameters);
+    aperi::ElementTopology element_topology = aperi::ElementTopology::Tetrahedron4;
+    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
+}
+
+// Smoothed reproducing kernel on hex8 element
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8) {
+    // Get number of processors
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+    // Reproducing kernel on hex8 element
+    double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+
+    aperi::ElementTopology element_topology = aperi::ElementTopology::Hexahedron8;
+    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
 }
