@@ -5,6 +5,8 @@
 
 #include "CaptureOutputTestFixture.h"
 #include "FieldData.h"
+#include "InternalForceContribution.h"
+#include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 
@@ -29,17 +31,32 @@ class MassMatrixTest : public CaptureOutputTest {
 
         // Get number of mpi processes
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_procs);
+    }
 
+    void TestComputeMassMatrix(const bool uses_generalized_fields, const bool tet_elements = true, const double density = 1.23) {
         // Create FieldData
-        bool uses_generalized_fields = false;
-        bool uses_strain_smoothing = true;  // I don't think this flag matters for this test
+        bool uses_strain_smoothing = uses_generalized_fields;
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing);
 
         // Make a 1x1xnum_procs mesh
-        std::string mesh_string = "1x1x" + std::to_string(m_num_procs) + "|tets";
+        std::string mesh_string = "1x1x" + std::to_string(m_num_procs);
+        if (tet_elements) {
+            mesh_string = mesh_string + "|tets";
+        }
         WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_data);
-    }
-    void TestComputeMassMatrix(bool uses_generalized_fields, double density = 1.23) {
+
+        if (uses_generalized_fields) {
+            // Create an internal force contribution in order to run strain smoothing and populate the volume field, needed for the mass matrix computation
+            aperi::InternalForceContributionParameters internal_force_contribution_parameters;
+            internal_force_contribution_parameters.part_name = "block_1";
+            internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
+            internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>();
+            internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
+
+            auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
+            internal_force_contrib->Preprocess();
+        }
+
         // Compute mass matrix
         double total_mass = aperi::ComputeMassMatrix(m_io_mesh->GetMeshData(), "block_1", density, uses_generalized_fields);
 
@@ -81,7 +98,12 @@ TEST_F(MassMatrixTest, ComputeMassMatrix) {
     TestComputeMassMatrix(false);
 }
 
-// Test ComputeMassMatrix with generalized fields
-TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFields) {
+// Test ComputeMassMatrix with generalized fields for tet elements
+TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsTets) {
     TestComputeMassMatrix(true);
+}
+
+// Test ComputeMassMatrix with generalized fields for hex elements
+TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsHexes) {
+    TestComputeMassMatrix(true, false);
 }

@@ -1,0 +1,20 @@
+undo on
+create cylinder height 0.2346 radius 0.0391
+set duplicate block elements off
+block 1 add volume 1
+move surface 2 location 0 0 0 include_merged
+nodeset 1 add surface 2
+volume 1 size 0.02
+surface 2 scheme circle
+surface 2 scheme circle
+mesh surface 2
+volume 1 redistribute nodes off
+volume 1 scheme Sweep source surface 2 target surface 3 sweep transform least squares
+volume 1 autosmooth target on fixed imprints off smart smooth off
+volume 1 redistribute nodes off
+volume 1 scheme Sweep source surface 2 target surface 3 sweep transform least squares
+volume 1 autosmooth target on fixed imprints off smart smooth off
+mesh volume 1
+set exodus netcdf4 off
+set large exodus file on
+export mesh "cylinder0p02_hex.exo" overwrite

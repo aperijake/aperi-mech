@@ -130,9 +130,11 @@ def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
     """
     Executes a single test and returns whether it passed.
     """
-    print(f"  Running test {test_config['hardware']}_{test_config['num_processors']}")
     inputs = get_inputs_from_yaml_node(
         test_config, os.path.basename(dirpath), build_dir
+    )
+    print(
+        f"  Running test {test_config['hardware']}_{test_config['num_processors']}, executable: {inputs['executable_path']}"
     )
     regression_test = RegressionTest(
         inputs["test_name"],

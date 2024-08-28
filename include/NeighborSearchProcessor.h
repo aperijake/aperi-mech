@@ -180,6 +180,11 @@ class NeighborSearchProcessor {
     }
 
     void ComputeKernelRadius(double scale_factor) {
+        // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
+        // If the in/out check can flip one way or the other if a neighbor is right on the edge.
+        if (scale_factor == 1.0) {
+            scale_factor += 1.0e-6;
+        }
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
