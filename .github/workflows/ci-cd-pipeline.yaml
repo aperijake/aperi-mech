@@ -529,7 +529,7 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     env:
-      BUILD_TYPE: debug
+      BUILD_TYPE: Debug
       GPU: true
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM

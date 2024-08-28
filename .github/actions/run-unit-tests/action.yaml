@@ -47,9 +47,13 @@ runs:
           echo "On VM, Service name: $service_name"
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            build_path=~/aperi-mech/build/${{ inputs.build-type }}
+            build_type="Debug"
+            if [ ${{ inputs.build-type,, }} == "release" ]; then
+              build_type="Release"
+            fi
+            build_path=~/aperi-mech/build/${{ build_type }}
             if [ ${{ inputs.gpu }} == "true" ]; then
-              build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
+              build_path=~/aperi-mech/build/${{ build_type }}_gpu
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
