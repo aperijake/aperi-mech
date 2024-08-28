@@ -121,6 +121,11 @@ cmake_command+=" ${SCRIPT_DIR}"
 # Build directory base
 BUILD_DIR="build/${BUILD_TYPE}"
 
+# Prepend to build directory based on protego-mech usage
+if [[ ${USE_PROTEGO_MECH} == "ON" ]]; then
+	BUILD_DIR="protego-mech/build/${BUILD_TYPE}"
+fi
+
 # Append to build directory based on GPU usage
 if [[ ${USE_GPU} == "ON" ]]; then
 	BUILD_DIR+="_gpu"

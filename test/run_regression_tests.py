@@ -305,16 +305,54 @@ def clean_results(root_dir):
             print("-----------------------------------\n")
 
 
+def read_directories_from_yaml_file(file):
+    """
+    Reads directories from a YAML file.
+    """
+    # Absolute path to the directory containing the yaml file
+    yaml_dir = os.path.dirname(os.path.abspath(file))
+    directories = []
+    with open(file, "r") as file:
+        yaml_node = yaml.safe_load(file)
+        for path in yaml_node["paths"]:
+            directory = os.path.abspath(
+                os.path.expanduser(os.path.join(yaml_dir, path["path"]))
+            )
+            for dirpath, _, filenames in os.walk(directory):
+                # Check if the directory should be excluded
+                exclude_dir = False
+                if "exclude" in path and path["exclude"] is not None:
+                    for exclude in path["exclude"]:
+                        exclude_path = os.path.abspath(
+                            os.path.expanduser(os.path.join(directory, exclude))
+                        )
+                        if exclude_path in dirpath:
+                            exclude_dir = True
+                            break
+                if not exclude_dir and "test.yaml" in filenames:
+                    directories.append(dirpath)
+    return directories
+
+
 def parse_arguments():
     """
     Parses command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Run regression tests.")
-    parser.add_argument(
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--directory",
         help="Directory root containing the tests. Will recursively search for test.yaml files.",
-        default="regression_tests",
+        default=None,
     )
+
+    group.add_argument(
+        "--directory-file",
+        help="File containing directories to test",
+        default=None,
+    )
+
     parser.add_argument(
         "--build-dir",
         help="Directory containing the build",
@@ -356,45 +394,60 @@ def parse_arguments():
     parser.add_argument(
         "--write-json", help="Write the results to a JSON file", action="store_true"
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.directory is None and args.directory_file is None:
+        args.directory = "regression_tests"
+
+    return args
 
 
 if __name__ == "__main__":
     args = parse_arguments()
+    directories = []
+    if args.directory_file:
+        directories = read_directories_from_yaml_file(args.directory_file)
+    else:
+        directories = [os.path.abspath(os.path.expanduser(args.directory))]
     build_dir = os.path.abspath(os.path.expanduser(args.build_dir))
-    directory = os.path.abspath(os.path.expanduser(args.directory))
 
     # Clean logs, json files and/or results if specified
     if args.clean_logs or args.clean_results or args.clean_json:
-        if args.clean_logs:
-            clean_logs(directory)
-        if args.clean_json:
-            clean_json_files(directory)
-        if args.clean_results:
-            clean_results(directory)
+        for directory in directories:
+            if args.clean_logs:
+                clean_logs(directory)
+            if args.clean_json:
+                clean_json_files(directory)
+            if args.clean_results:
+                clean_results(directory)
         sys.exit(0)
 
     # Pre-clean logs, json files, and results unless specified otherwise
     if not args.no_preclean:
         print("Cleaning logs and results before running the tests")
-        clean_logs(directory)
-        clean_json_files(directory)
-        clean_results(directory)
+        for directory in directories:
+            clean_logs(directory)
+            clean_json_files(directory)
+            clean_results(directory)
 
     # Run regression tests and measure time
     start_time = time.perf_counter()
-    passing_tests, total_tests = run_regression_tests_from_directory(
-        directory,
-        build_dir,
-        args.cpu,
-        args.serial,
-        args.parallel,
-        args.gpu,
-        args.release,
-        args.debug,
-        args.keep_results,
-        args.write_json,
-    )
+    passing_tests = 0
+    total_tests = 0
+    for directory in directories:
+        passing_tests_dir, total_tests_dir = run_regression_tests_from_directory(
+            directory,
+            build_dir,
+            args.cpu,
+            args.serial,
+            args.parallel,
+            args.gpu,
+            args.release,
+            args.debug,
+            args.keep_results,
+            args.write_json,
+        )
+        passing_tests += passing_tests_dir
+        total_tests += total_tests_dir
     end_time = time.perf_counter()
     print(f"Total time: {end_time - start_time:.4e} seconds")
 
