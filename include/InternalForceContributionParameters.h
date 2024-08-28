@@ -154,6 +154,9 @@ inline std::shared_ptr<IntegrationSchemeParameters> CreateIntegrationScheme(cons
 }
 
 struct InternalForceContributionParameters {
+    // Default constructor
+    InternalForceContributionParameters() = default;
+
     // Constructor using YAML node
     InternalForceContributionParameters(const YAML::Node& part, const std::shared_ptr<IoInputFile>& io_input_file, std::shared_ptr<aperi::MeshData> input_mesh_data) {
         YAML::Node material_node = io_input_file->GetMaterialFromPart(part);
@@ -174,8 +177,8 @@ struct InternalForceContributionParameters {
     std::shared_ptr<Material> material = nullptr;
     std::shared_ptr<aperi::MeshData> mesh_data = nullptr;
     std::string part_name = "";
-    std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters;
-    std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters;
+    std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters = nullptr;
+    std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters = nullptr;
 };
 
 }  // namespace aperi

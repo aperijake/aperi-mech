@@ -15,7 +15,7 @@ struct ShapeFunctionsFunctorReproducingKernel {
      * @param actual_num_neighbors The actual number of neighbors.
      * @return The shape function values at the evaluation point.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
         // Allocate function values
         Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
 
@@ -64,58 +64,6 @@ struct ShapeFunctionsFunctorReproducingKernel {
         }
 
         return function_values;
-    }
-};
-
-template <size_t MaxNumNeighbors>
-struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
-    /**
-     * @brief Computes the shape function derivatives of the element.
-     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
-     * @return The shape function derivatives of the element.
-     */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
-        Kokkos::abort("Not implemented. Should not be calling derivatives on ShapeFunctionsFunctorReproducingKernelOnTet4 now.");
-        return Eigen::Matrix<double, MaxNumNeighbors, 3>::Zero();
-    }
-
-    /**
-     * @brief Computes the shape functions of the element.
-     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
-     * @return The shape function values of the element.
-     */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
-        Kokkos::abort("Not implemented. Reproducing kernel needs physical coordinates. Call 'values' with physical coordinates.");
-        return Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
-    }
-
-    /**
-     * @brief Computes the shape functions of the element.
-     * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
-     * @param cell_node_coordinates The physical coordinates of the nodes of the element.
-     * @param neighbor_coordinates The physical coordinates of the neighbors.
-     * @param actual_num_neighbors The actual number of neighbors.
-     * @return The shape function values at the evaluation point.
-     * @note This function is used for testing purposes only.
-     */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& cell_node_coordinates, const Eigen::Matrix<double, MaxNumNeighbors, 3>& neighbor_coordinates, size_t actual_num_neighbors) const {
-        Eigen::Matrix<double, 1, TET4_NUM_NODES> cell_shape_functions;
-        cell_shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
-            parametric_coordinates(0),
-            parametric_coordinates(1),
-            parametric_coordinates(2);
-        Eigen::Matrix<double, 1, 3> evaluation_point_physical_coordinates = cell_shape_functions * cell_node_coordinates;
-        Eigen::Matrix<double, MaxNumNeighbors, 3> shifted_neighbor_coordinates;
-        Eigen::Matrix<double, MaxNumNeighbors, 1> kernel_values;
-        for (size_t i = 0; i < actual_num_neighbors; i++) {
-            shifted_neighbor_coordinates.row(i) = evaluation_point_physical_coordinates - neighbor_coordinates.row(i);
-            kernel_values(i, 0) = ComputeKernel(shifted_neighbor_coordinates.row(i), 1.76);
-        }
-
-        // Construct a ShapeFunctionsFunctorReproducingKernel object
-        ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> shape_functions_functor_reproducing_kernel;
-
-        return shape_functions_functor_reproducing_kernel.values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
     }
 };
 

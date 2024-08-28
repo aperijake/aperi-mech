@@ -327,7 +327,7 @@ TEST(MathUtilsTest, SortAndRemoveDuplicates) {
 }
 
 // Test the remove duplicates function
-TEST(MathUtilsTests, RemoveDuplicates) {
+TEST(MathUtilsTest, RemoveDuplicates) {
     std::vector<double> values = {1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
     std::vector<double> expected = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
     RunRemoveDuplicatesTest(values, expected);

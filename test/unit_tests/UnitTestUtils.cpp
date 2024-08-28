@@ -300,3 +300,26 @@ void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value, do
     entity_processor.MarkAllFieldsModifiedOnHost();
     entity_processor.SyncAllFieldsHostToDevice();
 }
+
+// Check partition of unity
+void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions) {
+    // Check the partition of unity
+    double sum = shape_functions.sum();
+    EXPECT_NEAR(sum, 1.0, 1.0e-12);
+}
+
+// Check partition of nullity
+void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives) {
+    // Check the partition of nullity
+    double sum = shape_function_derivatives.sum();
+    EXPECT_NEAR(sum, 0.0, 1.0e-12);
+}
+
+// Check linear completeness
+void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
+    // Check the linear completeness
+    const Eigen::Matrix<double, 1, 3>& calculated_physical_coordinates = shape_functions.transpose() * neighbor_coordinates;
+    for (size_t i = 0; i < 3; ++i) {
+        EXPECT_NEAR(calculated_physical_coordinates(0, i), evaluation_point_phyiscal_coordinates(0, i), 1.0e-12);
+    }
+}

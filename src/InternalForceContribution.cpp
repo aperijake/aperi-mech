@@ -12,12 +12,6 @@
 namespace aperi {
 
 void InternalForceContribution::Preprocess() {
-    // Get the number of nodes per element
-    m_num_nodes_per_element = m_internal_force_contribution_parameters.mesh_data->GetNumNodesPerElement(m_internal_force_contribution_parameters.part_name);
-    if (m_num_nodes_per_element != 4) {
-        throw std::runtime_error("Unsupported element topology");
-    }
-
     // Get the field query data and part names
     const std::vector<std::string> part_names = {m_internal_force_contribution_parameters.part_name};
     std::vector<FieldQueryData<double>> field_query_data_gather;
@@ -38,8 +32,11 @@ void InternalForceContribution::Preprocess() {
         field_query_data_gather[2] = FieldQueryData<double>{"velocity_coefficients", FieldQueryState::NP1};
     }
 
+    // Get the number of nodes per element
+    aperi::ElementTopology element_topology = m_internal_force_contribution_parameters.mesh_data->GetElementTopology(m_internal_force_contribution_parameters.part_name);
+
     // Create the element.
-    m_element = CreateElement(m_num_nodes_per_element, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, field_query_data_gather, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
+    m_element = CreateElement(element_topology, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, field_query_data_gather, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
 }
 
 }  // namespace aperi

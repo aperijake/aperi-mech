@@ -24,7 +24,7 @@ struct ShapeFunctionsFunctorTet4 {
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 3> derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 3> Derivatives(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Eigen::Matrix<double, TET4_NUM_NODES, 3> shape_function_derivatives;
         shape_function_derivatives << -1.0, -1.0, -1.0,
             1.0, 0.0, 0.0,
@@ -38,7 +38,7 @@ struct ShapeFunctionsFunctorTet4 {
      * @param parametric_coordinates The parametric coordinates of the element (xi, eta, zeta).
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 1> Values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates) const {
         Eigen::Matrix<double, TET4_NUM_NODES, 1> shape_functions;
         shape_functions << 1.0 - parametric_coordinates(0) - parametric_coordinates(1) - parametric_coordinates(2),
             parametric_coordinates(0),
@@ -53,9 +53,9 @@ struct ShapeFunctionsFunctorTet4 {
      * @param node_coordinates The physical coordinates of the nodes of the element (not needed for ShapeFunctionsFunctorTet4)
      * @return The shape function derivatives of the element.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 1> values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& node_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& neighbor_coordinates, size_t actual_num_neighbors = 4) const {
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, TET4_NUM_NODES, 1> Values(const Eigen::Matrix<double, 3, 1>& parametric_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& node_coordinates, const Eigen::Matrix<double, TET4_NUM_NODES, 3>& neighbor_coordinates, size_t actual_num_neighbors = 4) const {
         // Node coordinates and neighbor coordinates are not used in this function, but needed for the interface.
-        return values(parametric_coordinates);
+        return Values(parametric_coordinates);
     }
 };
 

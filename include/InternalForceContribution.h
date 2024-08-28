@@ -72,7 +72,6 @@ class InternalForceContribution : public ForceContribution {
 
    protected:
     InternalForceContributionParameters m_internal_force_contribution_parameters;  ///< The parameters associated with the force contribution.
-    size_t m_num_nodes_per_element;                                                ///< The number of nodes per element.
     std::shared_ptr<aperi::ElementBase> m_element;                                 ///< The element associated with the force contribution.
 };
 

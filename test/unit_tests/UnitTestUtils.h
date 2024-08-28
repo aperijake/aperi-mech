@@ -42,6 +42,9 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);
 void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value = -0.5, double max_value = 0.5);
+void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions);
+void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& shape_function_derivatives);
+void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
@@ -72,6 +75,40 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
         }
     });
     EXPECT_TRUE(found_at_least_one_entity);
+}
+
+// Get the Entity Field Values as an Eigen Matrix
+template <aperi::FieldDataTopologyRank Rank, typename T, size_t N>
+Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, aperi::FieldQueryState field_query_state) {
+    std::array<aperi::FieldQueryData<T>, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
+
+    // Make a entity processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+
+    // Get the sum of the field values
+    size_t num_components = 0;
+    bool num_components_set = false;
+    size_t num_entities = 0;
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t entity_num_components, std::array<T*, 1>& field_data) {
+        if (num_components_set) {
+            EXPECT_EQ(entity_num_components, num_components) << "Number of components is not consistent";
+        } else {
+            num_components = entity_num_components;
+            num_components_set = true;
+        }
+        num_entities++;
+    });
+    Eigen::Matrix<T, Eigen::Dynamic, N> field_values(num_entities, num_components);
+    size_t i_entity = 0;
+    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t entity_num_components, std::array<T*, 1>& field_data) {
+        for (size_t i = 0; i < num_components; i++) {
+            field_values.row(i_entity) = Eigen::Map<Eigen::Matrix<T, 1, N>>(field_data[0] + i_entity_start);
+        }
+        i_entity++;
+    });
+
+    return field_values;
 }
 
 // Check that the number of field values with an expected value matches the expected count
