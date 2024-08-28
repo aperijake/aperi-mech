@@ -272,7 +272,7 @@ jobs:
       cancel-in-progress: false
     env:
       GPU: false
-      BUILD: Release
+      BUILD: release
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
@@ -314,7 +314,7 @@ jobs:
       cancel-in-progress: false
     env:
       GPU: false
-      BUILD: Debug
+      BUILD: debug
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
@@ -466,7 +466,7 @@ jobs:
       cancel-in-progress: false
     env:
       GPU: true
-      BUILD: Release
+      BUILD: release
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
@@ -498,7 +498,7 @@ jobs:
       cancel-in-progress: false
     env:
       GPU: true
-      BUILD: Debug
+      BUILD: debug
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
@@ -529,7 +529,7 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     env:
-      BUILD_TYPE: Debug
+      BUILD_TYPE: debug
       GPU: true
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM

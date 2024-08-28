@@ -57,7 +57,7 @@ runs:
             else
               test_flags="$test_flags --serial"
             fi
-            if [ ${{ inputs.build }} == "release" ]; then
+            if [ "${{ inputs.build,, }}" == "release" ]; then
               test_flags="$test_flags --release"
             else
               test_flags="$test_flags --debug"
