@@ -122,6 +122,9 @@ jobs:
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
+    env:
+      BUILD_TYPE: Release
+      GPU: false
     steps:
       - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
         uses: actions/checkout@v4
@@ -131,11 +134,21 @@ jobs:
       - name: Build Release
         uses: ./.github/actions/build-action
         with:
-          build-type: Release
+          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: false
+          gpu: ${{ env.GPU }}
+
+      - name: Build Release, Protego
+        uses: ./.github/actions/build-action
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: true
 
   build-debug:
     name: Build Debug
@@ -144,6 +157,9 @@ jobs:
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
+    env:
+      BUILD_TYPE: Debug
+      GPU: false
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
@@ -153,11 +169,21 @@ jobs:
       - name: Build Debug
         uses: ./.github/actions/build-action
         with:
-          build-type: Debug
+          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: false
+          gpu: ${{ env.GPU }}
+
+      - name: Build Debug, Protego
+        uses: ./.github/actions/build-action
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: true
 
   build-release-gpu:
     name: Build Release, GPU
@@ -166,6 +192,9 @@ jobs:
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
+    env:
+      BUILD_TYPE: Release
+      GPU: true
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
@@ -175,11 +204,21 @@ jobs:
       - name: Build Release, GPU
         uses: ./.github/actions/build-action
         with:
-          build-type: Release
+          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: true
+          gpu: ${{ env.GPU }}
+
+      - name: Build Release, Protego, GPU
+        uses: ./.github/actions/build-action
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: true
 
   build-debug-gpu:
     name: Build Debug, GPU
@@ -188,6 +227,9 @@ jobs:
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
+    env:
+      BUILD_TYPE: Debug
+      GPU: true
     steps:
       - name: Checkout code # Just to get required actions in .github/
         uses: actions/checkout@v4
@@ -197,11 +239,21 @@ jobs:
       - name: Build Debug, GPU
         uses: ./.github/actions/build-action
         with:
-          build-type: Debug
+          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: true
+          gpu: ${{ env.GPU }}
+
+      - name: Build Debug, Protego, GPU
+        uses: ./.github/actions/build-action
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: true
 
   test-release:
     name: Test Release
@@ -305,6 +357,28 @@ jobs:
           parallel: true
           build: ${{ env.BUILD }}
 
+      - name: Run regression tests, serial, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+          build: ${{ env.BUILD }}
+          with-protego: true
+
+      - name: Run regression tests, parallel, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: true
+          build: ${{ env.BUILD }}
+          with-protego: true
+
   regression-test-debug:
     name: Regression Test Debug
     runs-on: ubuntu-latest
@@ -346,6 +420,28 @@ jobs:
           gpu: ${{ env.GPU }}
           parallel: true
           build: ${{ env.BUILD }}
+
+      - name: Run regression tests, serial, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+          build: ${{ env.BUILD }}
+          with-protego: true
+
+      - name: Run regression tests, parallel, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: true
+          build: ${{ env.BUILD }}
+          with-protego: true
 
   test-debug:
     name: Test Debug
@@ -489,6 +585,17 @@ jobs:
           parallel: false
           build: ${{ env.BUILD }}
 
+      - name: Run regression tests, serial, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+          build: ${{ env.BUILD }}
+          with-protego: true
+
   regression-test-debug-gpu:
     name: Regression Test Debug, GPU
     runs-on: ubuntu-latest
@@ -520,6 +627,17 @@ jobs:
           gpu: ${{ env.GPU }}
           parallel: false
           build: ${{ env.BUILD }}
+
+      - name: Run regression tests, serial, protego
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+          build: ${{ env.BUILD }}
+          with-protego: true
 
   test-debug-gpu:
     name: Test Debug, GPU

@@ -13,6 +13,10 @@ inputs:
   build-type:
     description: Build type (e.g., Release, Debug)
     required: true
+  with-protego:
+    description: Enable Protego build
+    required: false
+    default: "false"
   gpu:
     description: Enable GPU build
     required: true
@@ -36,6 +40,7 @@ runs:
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
         echo "code-coverage: ${{ inputs.code-coverage }}"
+        echo "with-protego: ${{ inputs.with-protego }}"
 
     - name: Build project
       shell: bash
@@ -57,16 +62,21 @@ runs:
 
           docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
             configure_flag=""
-            build_path=build/${{ inputs.build-type }}
+            build_root=build
+            if [ ${{ inputs.with-protego }} == "true" ]; then
+              build_root=protego-mech/build
+              configure_flag=" --protego-mech"
+            fi
+            build_path="${build_root}/${{ inputs.build-type }}"
             if [ ${{ inputs.gpu }} == "true" ]; then
-              configure_flag=" --gpu"
-              build_path=build/${{ inputs.build-type }}_gpu
+              configure_flag="${configure_flag} --gpu"
+              build_path="${build_path}_gpu"
             fi
 
             # Check if code coverage is enabled, overriding gpu flag if code coverage is enabled
             if [ ${{ inputs.code-coverage }} == "true" ]; then
-              configure_flag=" --code-coverage"
-              build_path=build/Debug_cov
+              configure_flag="${configure_flag} --code-coverage"
+              build_path="${build_root}_code_coverage"
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"

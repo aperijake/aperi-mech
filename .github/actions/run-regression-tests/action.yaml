@@ -19,6 +19,10 @@ inputs:
   build:
     description: The build type to run, release or debug
     required: true
+  with-protego:
+    description: Enable Protego build
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -27,6 +31,8 @@ runs:
       run: |
         echo "gpu: ${{ inputs.gpu }}"
         echo "parallel: ${{ inputs.parallel }}"
+        echo "build: ${{ inputs.build }}"
+        echo "with-protego: ${{ inputs.with-protego }}"
 
     - name: Run regression tests
       shell: bash
@@ -74,7 +80,11 @@ runs:
 
             echo "Running regression tests..."
             cd ~/aperi-mech/test/
-            ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech/build/ $test_flags
+            if [ ${{ inputs.with-protego }} == "true" ]; then
+              ./run_regression_tests.py --directory-file ~/aperi-mech/protego-mech/test/regression_tests/regression_test_paths.yaml --build-dir ~/aperi-mech/protego-mech/build/ $test_flags
+            else
+              ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech/build/ $test_flags
+            fi
 
           '  || { echo "Regression test step failed"; exit 1; }
         EOF
