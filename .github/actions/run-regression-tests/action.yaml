@@ -57,7 +57,8 @@ runs:
             else
               test_flags="$test_flags --serial"
             fi
-            if [ "${{ inputs.build,, }}" == "release" ]; then
+            build_type_lower=$(echo "${{ inputs.build }}" | tr "[:upper:]" "[:lower:]")
+            if [ "$build_type_lower" == "release" ]; then
               test_flags="$test_flags --release"
             else
               test_flags="$test_flags --debug"
