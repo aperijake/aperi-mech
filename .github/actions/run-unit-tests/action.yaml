@@ -19,6 +19,10 @@ inputs:
   num-processes:
     description: Number of processes to use for parallel unit tests
     required: true
+  with-protego:
+    description: Enable Protego build
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -28,6 +32,7 @@ runs:
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
         echo "num-processes: ${{ inputs.num-processes }}"
+        echo "with-protego: ${{ inputs.with-protego }}"
 
     - name: Run unit tests
       shell: bash
@@ -52,9 +57,13 @@ runs:
             if [ "$build_type_lower" == "release" ]; then
               build_type="Release"
             fi
-            build_path=~/aperi-mech/build/${build_type}
+            build_root=~/aperi-mech/build
+            if [ ${{ inputs.with-protego }} == "true" ]; then
+              build_root=~/aperi-mech/protego-mech/build
+            fi
+            build_path="${build_root}/${build_type}"
             if [ ${{ inputs.gpu }} == "true" ]; then
-              build_path=~/aperi-mech/build/${build_type}_gpu
+              build_path="${build_path}-gpu"
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"

@@ -298,6 +298,28 @@ jobs:
           gpu: ${{ env.GPU }}
           num-processes: 3
 
+      - name: Run unit tests, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+          with-protego: true
+
+      - name: Run unit tests, parallel, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 3
+          with-protego: true
+
       - name: Run material tests
         uses: ./.github/actions/run-material-tests
         with:
@@ -486,6 +508,28 @@ jobs:
           gpu: ${{ env.GPU }}
           num-processes: 3
 
+      - name: Run unit tests, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+          with-protego: true
+
+      - name: Run unit tests, parallel, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 3
+          with-protego: true
+
       - name: Run material tests
         uses: ./.github/actions/run-material-tests
         with:
@@ -535,6 +579,17 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           num-processes: 1
+
+      - name: Run unit tests, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+          with-protego: true
 
       - name: Run material tests
         uses: ./.github/actions/run-material-tests
@@ -671,6 +726,17 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           num-processes: 1
+
+      - name: Run unit tests, protego
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+          with-protego: true
 
       - name: Run material tests
         uses: ./.github/actions/run-material-tests
