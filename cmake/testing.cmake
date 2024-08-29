@@ -3,6 +3,12 @@ enable_testing()
 include(GoogleTest)
 file(GLOB TEST_SOURCES "test/unit_tests/*.cpp")
 
+# Add protego-mech tests
+if(USE_PROTEGO_MECH)
+    file(GLOB PROTEGO_MECH_TEST_SOURCES "protego-mech/test/unit_tests/*.cpp")
+    list(APPEND TEST_SOURCES ${PROTEGO_MECH_TEST_SOURCES})
+endif()
+
 # Add an executable for the unit tests
 add_executable(unit_tests
     ${TEST_SOURCES}

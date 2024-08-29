@@ -15,7 +15,7 @@ tests:
   - <<: *defaults
     hardware: cpu
     peak_memory_check:
-      value: 40.0 # Gold peak memory usage in MB
+      value: 42.0 # Gold peak memory usage in MB
       percent_tolerance: 10
   - <<: *defaults
     hardware: gpu

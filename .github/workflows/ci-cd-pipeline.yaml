@@ -113,6 +113,7 @@ jobs:
             fi
             git lfs pull # Pull LFS files
             rm -rf build # Remove build directory, this prevents some false positives in tests
+            rm -rf protego-mech/build # Remove protego-mech build directory, this prevents some false positives in tests
           EOF
 
   build-release:
