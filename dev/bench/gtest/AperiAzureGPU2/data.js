@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724944062120,
+  "lastUpdate": 1724968808784,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -2108,6 +2108,158 @@ window.BENCHMARK_DATA = {
           {
             "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.84528,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d71efd656a416748d56c4420612c632a75b388f1",
+          "message": "Merge pull request #33 from aperijake/protego_tests",
+          "timestamp": "2024-08-29T20:35:30Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/d71efd656a416748d56c4420612c632a75b388f1"
+        },
+        "date": 1724968807872,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "compute_compadre: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "value": 1.70233,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "value": 0.33716,
+            "unit": "seconds"
+          },
+          {
+            "name": "field_to_view_transfer: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "value": 0.0391891,
+            "unit": "seconds"
+          },
+          {
+            "name": "neighbor_search: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "value": 12.5729,
+            "unit": "seconds"
+          },
+          {
+            "name": "total: 1 processors, cpu, 48 x 48 x 144 elements, runtime",
+            "value": 14.6941,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_compadre: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "value": 13.223,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_reproducing_kernel: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "value": 2.65113,
+            "unit": "seconds"
+          },
+          {
+            "name": "field_to_view_transfer: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "value": 0.312594,
+            "unit": "seconds"
+          },
+          {
+            "name": "neighbor_search: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "value": 112.11,
+            "unit": "seconds"
+          },
+          {
+            "name": "total: 1 processors, cpu, 96 x 96 x 288 elements, runtime",
+            "value": 128.595,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
+            "value": 1.24978,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
+            "value": 9.7238,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
+            "value": 78.1776,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "compute_compadre: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "value": 0.202907,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "value": 0.00735009,
+            "unit": "seconds"
+          },
+          {
+            "name": "field_to_view_transfer: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "value": 0.040173,
+            "unit": "seconds"
+          },
+          {
+            "name": "neighbor_search: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "value": 2.04959,
+            "unit": "seconds"
+          },
+          {
+            "name": "total: 1 processors, gpu, 48 x 48 x 144 elements, runtime",
+            "value": 2.35878,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_compadre: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "value": 1.53583,
+            "unit": "seconds"
+          },
+          {
+            "name": "compute_reproducing_kernel: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "value": 0.072458,
+            "unit": "seconds"
+          },
+          {
+            "name": "field_to_view_transfer: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "value": 0.23858,
+            "unit": "seconds"
+          },
+          {
+            "name": "neighbor_search: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "value": 16.3389,
+            "unit": "seconds"
+          },
+          {
+            "name": "total: 1 processors, gpu, 96 x 96 x 288 elements, runtime",
+            "value": 18.5556,
+            "unit": "seconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
+            "value": 0.865913,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
+            "value": 0.970652,
+            "unit": "milliseconds"
+          },
+          {
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
+            "value": 2.86081,
             "unit": "milliseconds"
           }
         ]
