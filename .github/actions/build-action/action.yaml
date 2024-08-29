@@ -76,7 +76,7 @@ runs:
             # Check if code coverage is enabled, overriding gpu flag if code coverage is enabled
             if [ ${{ inputs.code-coverage }} == "true" ]; then
               configure_flag="${configure_flag} --code-coverage"
-              build_path="${build_root}_code_coverage"
+              build_path="${build_path}_cov"
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
