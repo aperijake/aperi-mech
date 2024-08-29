@@ -25,11 +25,6 @@ void Application::Run(const std::string& input_filename) {
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
-    // Create an IO mesh object
-    IoMeshParameters io_mesh_parameters;  // Default parameters
-    io_mesh_parameters.compose_output = true;
-    m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
-
     // Get parts
     std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
 
@@ -44,6 +39,11 @@ void Application::Run(const std::string& input_filename) {
             has_strain_smoothing = true;
         }
     }
+
+    // Create an IO mesh object
+    IoMeshParameters io_mesh_parameters;  // Default parameters
+    io_mesh_parameters.compose_output = true;
+    m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
     // Read the mesh
     m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names);

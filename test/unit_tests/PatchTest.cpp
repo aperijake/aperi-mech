@@ -76,7 +76,10 @@ class PatchTest : public SolverTest {
         // Add strain smoothing
         if (use_strain_smoothing) {
             // Create strain smoothing node
+            YAML::Node element_smoothing_cell_node;
+            element_smoothing_cell_node["subdomains"] = 1;
             YAML::Node strain_smoothing_node;
+            strain_smoothing_node["element_smoothing_cell"] = element_smoothing_cell_node;
             m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"]["integration_scheme"]["strain_smoothing"] = strain_smoothing_node;
             // Remove the gauss_quadrature node
             m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"]["integration_scheme"].remove("gauss_quadrature");
