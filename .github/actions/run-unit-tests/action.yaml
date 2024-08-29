@@ -63,7 +63,7 @@ runs:
             fi
             build_path="${build_root}/${build_type}"
             if [ ${{ inputs.gpu }} == "true" ]; then
-              build_path="${build_path}-gpu"
+              build_path="${build_path}_gpu"
             fi
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"

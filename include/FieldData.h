@@ -105,6 +105,7 @@ struct FieldQueryData {
     std::string name;                                                   // The name of the field.
     FieldQueryState state;                                              // The state of the field.
     FieldDataTopologyRank topology_rank = FieldDataTopologyRank::NODE;  // The rank of the field.
+    size_t number_of_components = 3;                                    // The number of components of the field. Not relevant for most queries.
 };
 
 /**

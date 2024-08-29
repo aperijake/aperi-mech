@@ -23,8 +23,8 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
     void SetUp() override {
         FunctionValueStorageProcessorTestFixture::SetUp();
         m_src_and_dest_field_query_data.resize(2);
-        m_src_and_dest_field_query_data[0] = {"src_field", aperi::FieldQueryState::None};
-        m_src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None};
+        m_src_and_dest_field_query_data[0] = {"src_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE, 3};
+        m_src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE, 3};
     }
 
     void BuildValueFromGeneralizedFieldProcessor() {
