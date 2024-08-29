@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724944067322,
+  "lastUpdate": 1724968813855,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -1075,6 +1075,88 @@ window.BENCHMARK_DATA = {
           {
             "name": "fem_gpu_np_1_peak_memory",
             "value": 1814.90234375,
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d71efd656a416748d56c4420612c632a75b388f1",
+          "message": "Merge pull request #33 from aperijake/protego_tests",
+          "timestamp": "2024-08-29T20:35:30Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/d71efd656a416748d56c4420612c632a75b388f1"
+        },
+        "date": 1724968813031,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rkpm_cpu_np_1_run_time",
+            "value": 184.24570818899883,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_4_run_time",
+            "value": 70.35620394999933,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_1_peak_memory",
+            "value": 2970.16796875,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_cpu_np_4_peak_memory",
+            "value": 3480.49609375,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_gpu_np_1_run_time",
+            "value": 71.97705792899978,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_gpu_np_1_peak_memory",
+            "value": 3606.16796875,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_peak_memory",
+            "value": 1588.640625,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_run_time",
+            "value": 69.46753913400062,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_run_time",
+            "value": 271.957513632,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_peak_memory",
+            "value": 1277.08203125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 43.09597736500109,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 1814.47265625,
             "unit": "MB"
           }
         ]
