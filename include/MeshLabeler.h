@@ -5,6 +5,7 @@
 
 #include "FieldData.h"
 #include "MeshData.h"
+#include "MeshLabelerProcessor.h"
 
 namespace aperi {
 
@@ -18,6 +19,7 @@ struct MeshLabelerParameters {
     std::shared_ptr<MeshData> mesh_data;    // The mesh data object
     SmoothingCellType smoothing_cell_type;  // The type of smoothing cell
     size_t num_subcells;                    // The number of subcells
+    std::string set;                        // The set to process
 };
 
 class MeshLabeler {
@@ -27,7 +29,11 @@ class MeshLabeler {
     ~MeshLabeler() = default;
 
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
-        // TODO(jake): Implement this method
+        // TODO(jake): This is hard coded to one scenario, need to generalize
+        // Create the mesh labeler processor
+        MeshLabelerProcessor mesh_labeler_processor(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
+        mesh_labeler_processor.SetActiveFieldForNodalIntegration();
+        mesh_labeler_processor.SyncFieldsToDevice();  // Mesh modification, host operation
     }
 
     std::vector<FieldData> GetFieldData() {

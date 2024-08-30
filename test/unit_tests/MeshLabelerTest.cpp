@@ -36,6 +36,7 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
     std::shared_ptr<aperi::MeshData> m_mesh_data;        ///< The mesh data object
 };
 
+// Basic test to check that the mesh labeler can be created
 TEST_F(MeshLabelerTestFixture, CreateMeshLabeler) {
     // Check that the mesh labeler object is not null
     ASSERT_NE(m_mesh_labeler, nullptr);
@@ -45,14 +46,78 @@ TEST_F(MeshLabelerTestFixture, CreateMeshLabeler) {
     ASSERT_GT(field_data.size(), 0);
 }
 
+// Check that the mesh labeler can be created and the field data can be retrieved
 TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     ReadThexMesh();
+
     // Check the active node field
     auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
-    ASSERT_EQ(active_nodes.rows(), 15);
+
+    size_t num_rows = active_nodes.rows();
+    size_t num_rows_global = 0;
+    MPI_Allreduce(&num_rows, &num_rows_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    ASSERT_EQ(num_rows_global, 15);
     ASSERT_EQ(active_nodes.cols(), 1);
 
     for (int i = 0; i < active_nodes.size(); ++i) {
         EXPECT_EQ(active_nodes(i), 1);
     }
+
+    // Check the cell id field
+    auto cell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
+
+    num_rows = cell_id.rows();
+    num_rows_global = 0;
+    MPI_Allreduce(&num_rows, &num_rows_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    ASSERT_EQ(num_rows_global, 4);
+    ASSERT_EQ(cell_id.cols(), 1);
+
+    for (int i = 0; i < cell_id.size(); ++i) {
+        EXPECT_EQ(cell_id(i), 0);
+    }
+
+    // Check the subcell id field
+    auto subcell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "subcell_id", aperi::FieldQueryState::None);
+
+    num_rows = subcell_id.rows();
+    num_rows_global = 0;
+    MPI_Allreduce(&num_rows, &num_rows_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    ASSERT_EQ(num_rows_global, 4);
+    ASSERT_EQ(subcell_id.cols(), 1);
+
+    for (int i = 0; i < subcell_id.size(); ++i) {
+        EXPECT_EQ(subcell_id(i), 0);
+    }
+}
+
+// Check that node active values can be set correctly for nodal smoothing
+TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
+    ReadThexMesh();
+
+    // Set the node active values
+    aperi::MeshLabelerParameters mesh_labeler_parameters;
+    mesh_labeler_parameters.mesh_data = m_mesh_data;
+    mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    mesh_labeler_parameters.num_subcells = 1;
+    m_mesh_labeler->LabelPart(mesh_labeler_parameters);
+
+    // Check the active node field
+    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    if (m_num_procs == 1) {
+        ASSERT_EQ(active_nodes.rows(), 15);
+        ASSERT_EQ(active_nodes.cols(), 1);
+    }
+
+    // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
+    uint64_t num_active_nodes = 0;
+    for (int i = 0; i < active_nodes.size(); ++i) {
+        EXPECT_TRUE(active_nodes(i) == 0 || active_nodes(i) == 1);
+        if (active_nodes(i) == 1) {
+            num_active_nodes++;
+        }
+    }
+    uint64_t num_active_nodes_global = 0;
+    MPI_Allreduce(&num_active_nodes, &num_active_nodes_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    EXPECT_EQ(num_active_nodes, 4);
+    // In LabelPart, the processor checks to make sure each element has exactly one active node, so if we have 4 active nodes they should be the correct ones
 }

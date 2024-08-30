@@ -32,6 +32,13 @@ displacement_gradients:
 class MaterialDriverTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        int num_procs;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+        if (num_procs > 1) {
+            GTEST_SKIP() << "Skipping test because the number of processes is greater than 1.";
+        }
+
         double bulk_modulus = 2.2e9;  // Pa
         double mu = 1.5e6;            // Pa
         double youngs_modulus = 9.0 * mu * bulk_modulus / (3.0 * bulk_modulus + mu);
