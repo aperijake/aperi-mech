@@ -1,0 +1,17 @@
+undo on
+
+# Single tet
+create pyramid height 1 sides 3 radius 1 top 0
+volume 1 size 2
+volume 1 scheme tetmesh
+mesh volume 1
+block 1 add volume 1
+set exodus netcdf4 off
+set large exodus file on
+# export mesh "tet.exo" overwrite
+
+# Nodal domains on a single tet
+thex volume all
+set exodus netcdf4 off
+set large exodus file on
+export mesh "thex.exo" overwrite

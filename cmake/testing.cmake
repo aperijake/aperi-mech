@@ -34,6 +34,15 @@ add_custom_target(run_unit_tests
 #--------------------------------------------------
 
 #--------------------------------------------------
+# Create a symbolic link to the test/unit_tests/test_inputs directory in the build directory so that unit_tests can find it
+add_custom_target(create_inputs_symlink ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+    ${CMAKE_SOURCE_DIR}/test/unit_tests/test_inputs ${CMAKE_CURRENT_BINARY_DIR}/test_inputs
+    COMMENT "Creating symlink to test_inputs directory"
+)
+#--------------------------------------------------
+
+#--------------------------------------------------
 # Add a custom target to run all the material tests, the testbook tests in the python notebooks (e.g. material_tests)
 add_custom_target(run_material_tests
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_material_tests.sh
