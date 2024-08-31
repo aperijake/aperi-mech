@@ -3,6 +3,7 @@
 #include <string>
 
 #include "IoMeshTestFixture.h"
+#include "MeshData.h"
 #include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
@@ -99,6 +100,7 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
     mesh_labeler_parameters.mesh_data = m_mesh_data;
     mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     mesh_labeler_parameters.num_subcells = 1;
+    mesh_labeler_parameters.set = "block_1";
     m_mesh_labeler->LabelPart(mesh_labeler_parameters);
 
     // Check the active node field
@@ -120,4 +122,10 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
     MPI_Allreduce(&num_active_nodes, &num_active_nodes_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     EXPECT_EQ(num_active_nodes, 4);
     // In LabelPart, the processor checks to make sure each element has exactly one active node, so if we have 4 active nodes they should be the correct ones
+
+    // Check the number of node in the active part
+    size_t num_nodes_total = m_mesh_data->GetNumNodes({"block_1"});
+    EXPECT_EQ(num_nodes_total, 15);
+    size_t num_nodes_in_active_part = m_mesh_data->GetNumNodes({"block_1_active"});
+    EXPECT_EQ(num_nodes_in_active_part, 4);
 }

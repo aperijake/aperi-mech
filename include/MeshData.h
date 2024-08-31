@@ -63,6 +63,11 @@ class MeshData {
         return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
     }
 
+    size_t GetNumNodes(const std::vector<std::string> &sets) {
+        stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
+        return stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector);
+    }
+
    private:
     stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
 };

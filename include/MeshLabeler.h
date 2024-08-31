@@ -34,6 +34,9 @@ class MeshLabeler {
         MeshLabelerProcessor mesh_labeler_processor(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
         mesh_labeler_processor.SetActiveFieldForNodalIntegration();
         mesh_labeler_processor.SyncFieldsToDevice();  // Mesh modification, host operation
+
+        // After setting the active field, check that the nodal integration mesh is correct
+        mesh_labeler_processor.CheckNodalIntegrationOnRefinedMesh();
     }
 
     std::vector<FieldData> GetFieldData() {
