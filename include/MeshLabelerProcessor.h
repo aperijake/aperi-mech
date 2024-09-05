@@ -83,11 +83,25 @@ class MeshLabelerProcessor {
         return true;
     }
 
-    void SetActiveFieldForNodalIntegration() {
+    void CreateActivePartFromActiveField() {
         m_bulk_data->modification_begin();
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         stk::mesh::Part &active_part = meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
 
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
+                if (active_field_data[0] == 1) {
+                    stk::mesh::PartVector add_parts = {&active_part};
+                    stk::mesh::PartVector remove_parts;  // No parts to remove
+                    m_bulk_data->change_entity_parts((*bucket)[i_node], add_parts, remove_parts);
+                }
+            }
+        }
+        m_bulk_data->modification_end();
+    }
+
+    void SetActiveFieldForNodalIntegration() {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 size_t num_nodes = bucket->num_nodes(i_elem);
@@ -114,14 +128,8 @@ class MeshLabelerProcessor {
                 // Set the active value to 1 for the minimum id
                 uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
                 active_field_data[0] = 1;
-
-                // Put the minimum id node in the active part
-                stk::mesh::PartVector add_parts = {&active_part};
-                stk::mesh::PartVector remove_parts;  // No parts to remove
-                m_bulk_data->change_entity_parts(nodes[minimum_index], add_parts, remove_parts);
             }
         }
-        m_bulk_data->modification_end();
 
         m_ngp_active_field->clear_sync_state();
         m_ngp_active_field->modify_on_host();
