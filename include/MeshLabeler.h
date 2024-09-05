@@ -28,16 +28,37 @@ class MeshLabeler {
 
     ~MeshLabeler() = default;
 
-    void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
-        // TODO(jake): This is hard coded to one scenario, need to generalize
+    void LabelForThexNodalIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
         // Create the mesh labeler processor
-        MeshLabelerProcessor mesh_labeler_processor(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
-        mesh_labeler_processor.SetActiveFieldForNodalIntegration();
+        MeshLabelerProcessor mesh_labeler_processor(mesh_data, set);
+
+        // Set the active field for nodal integration
+        mesh_labeler_processor.SetActiveFieldForNodalIntegration();  // Device operation
+
+        // Create the active part from the active field, host operation
+        mesh_labeler_processor.SyncFieldsToHost();
         mesh_labeler_processor.CreateActivePartFromActiveField();
-        mesh_labeler_processor.SyncFieldsToDevice();  // Mesh modification, host operation
 
         // After setting the active field, check that the nodal integration mesh is correct
         mesh_labeler_processor.CheckNodalIntegrationOnRefinedMesh();
+    }
+
+    void LabelForElementIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
+        // Create the mesh labeler processor
+        MeshLabelerProcessor mesh_labeler_processor(mesh_data, set);
+
+        // Create the active part from the active field, host operation
+        // Active field should be set to 1 for all nodes in the element already
+        mesh_labeler_processor.SyncFieldsToHost();
+        mesh_labeler_processor.CreateActivePartFromActiveField();
+    }
+
+    void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
+        if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
+            LabelForThexNodalIntegration(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
+        } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
+            LabelForElementIntegration(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
+        }
     }
 
     std::vector<FieldData> GetFieldData() {

@@ -33,6 +33,45 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_data = m_io_mesh->GetMeshData();
     }
 
+    void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {
+        // Set the node active values
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_mesh_data;
+        mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
+        mesh_labeler_parameters.num_subcells = 1;
+        mesh_labeler_parameters.set = "block_1";
+        m_mesh_labeler->LabelPart(mesh_labeler_parameters);
+
+        // Check the active node field
+        auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+        if (m_num_procs == 1) {
+            ASSERT_EQ(active_nodes.rows(), expected_num_total_nodes);
+            ASSERT_EQ(active_nodes.cols(), 1);
+        }
+
+        uint64_t num_active_nodes = 0;
+        for (int i = 0; i < active_nodes.size(); ++i) {
+            EXPECT_TRUE(active_nodes(i) == 0 || active_nodes(i) == 1);
+            if (active_nodes(i) == 1) {
+                num_active_nodes++;
+            }
+        }
+        uint64_t num_active_nodes_global = 0;
+        MPI_Allreduce(&num_active_nodes, &num_active_nodes_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_active_nodes_global, expected_num_active_nodes);
+
+        // Check the number of node in the active part
+        uint64_t num_nodes_total = m_mesh_data->GetNumOwnedNodes({"block_1"});
+        uint64_t num_nodes_total_global = 0;
+        MPI_Allreduce(&num_nodes_total, &num_nodes_total_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_nodes_total_global, expected_num_total_nodes);
+
+        uint64_t num_nodes_in_active_part = m_mesh_data->GetNumOwnedNodes({"block_1_active"});
+        uint64_t num_nodes_in_active_part_global = 0;
+        MPI_Allreduce(&num_nodes_in_active_part, &num_nodes_in_active_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_nodes_in_active_part_global, expected_num_active_nodes);
+    }
+
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
     std::shared_ptr<aperi::MeshData> m_mesh_data;        ///< The mesh data object
 };
@@ -93,39 +132,21 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
 
 // Check that node active values can be set correctly for nodal smoothing
 TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
     ReadThexMesh();
-
-    // Set the node active values
-    aperi::MeshLabelerParameters mesh_labeler_parameters;
-    mesh_labeler_parameters.mesh_data = m_mesh_data;
-    mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
-    mesh_labeler_parameters.num_subcells = 1;
-    mesh_labeler_parameters.set = "block_1";
-    m_mesh_labeler->LabelPart(mesh_labeler_parameters);
-
-    // Check the active node field
-    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
-    if (m_num_procs == 1) {
-        ASSERT_EQ(active_nodes.rows(), 15);
-        ASSERT_EQ(active_nodes.cols(), 1);
-    }
-
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
-    uint64_t num_active_nodes = 0;
-    for (int i = 0; i < active_nodes.size(); ++i) {
-        EXPECT_TRUE(active_nodes(i) == 0 || active_nodes(i) == 1);
-        if (active_nodes(i) == 1) {
-            num_active_nodes++;
-        }
-    }
-    uint64_t num_active_nodes_global = 0;
-    MPI_Allreduce(&num_active_nodes, &num_active_nodes_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    EXPECT_EQ(num_active_nodes, 4);
-    // In LabelPart, the processor checks to make sure each element has exactly one active node, so if we have 4 active nodes they should be the correct ones
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, 15, 4);
+}
 
-    // Check the number of node in the active part
-    size_t num_nodes_total = m_mesh_data->GetNumNodes({"block_1"});
-    EXPECT_EQ(num_nodes_total, 15);
-    size_t num_nodes_in_active_part = m_mesh_data->GetNumNodes({"block_1_active"});
-    EXPECT_EQ(num_nodes_in_active_part, 4);
+// Check that node active values can be set correctly for element smoothing
+TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForElementSmoothing) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    ReadThexMesh();
+    CheckThexMeshLabels(aperi::SmoothingCellType::Element, 15, 15);
 }

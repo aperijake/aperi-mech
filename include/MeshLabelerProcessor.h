@@ -84,24 +84,27 @@ class MeshLabelerProcessor {
     }
 
     void CreateActivePartFromActiveField() {
-        m_bulk_data->modification_begin();
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        stk::mesh::Part &active_part = meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
+        // Host operation
+        stk::mesh::EntityVector nodes_to_change;
 
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                 uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
                 if (active_field_data[0] == 1) {
-                    stk::mesh::PartVector add_parts = {&active_part};
-                    stk::mesh::PartVector remove_parts;  // No parts to remove
-                    m_bulk_data->change_entity_parts((*bucket)[i_node], add_parts, remove_parts);
+                    nodes_to_change.push_back((*bucket)[i_node]);
                 }
             }
         }
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        stk::mesh::Part &active_part = meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
+        stk::mesh::PartVector add_parts = {&active_part};
+        stk::mesh::PartVector remove_parts;  // No parts to remove
+        m_bulk_data->modification_begin();
+        m_bulk_data->change_entity_parts(nodes_to_change, add_parts, remove_parts);
         m_bulk_data->modification_end();
     }
 
-    void SetActiveFieldForNodalIntegration() {
+    void SetActiveFieldForNodalIntegrationHost() {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 size_t num_nodes = bucket->num_nodes(i_elem);
@@ -135,7 +138,7 @@ class MeshLabelerProcessor {
         m_ngp_active_field->modify_on_host();
     }
 
-    void SetActiveFieldForNodalIntegrationDevice() {
+    void SetActiveFieldForNodalIntegration() {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_active_field = *m_ngp_active_field;

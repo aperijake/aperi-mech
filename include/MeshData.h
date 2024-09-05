@@ -63,9 +63,10 @@ class MeshData {
         return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
     }
 
-    size_t GetNumNodes(const std::vector<std::string> &sets) {
+    size_t GetNumOwnedNodes(const std::vector<std::string> &sets) {
         stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
-        return stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector);
+        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
+        return stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, owned_selector);
     }
 
    private:
