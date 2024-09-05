@@ -33,15 +33,11 @@ void Application::Run(const std::string& input_filename) {
     std::vector<std::string> part_names;
     part_names.reserve(parts.size());
     bool has_strain_smoothing = false;
-    bool has_nodal_smoothing = false;
     for (auto part : parts) {
         part_names.push_back(part["set"].as<std::string>());
         // Check if integration scheme is "strain_smoothing"
         if (part["formulation"]["integration_scheme"]["strain_smoothing"]) {
             has_strain_smoothing = true;
-            if (part["formulation"]["integration_scheme"]["strain_smoothing"]["nodal_smoothing_cell"]) {
-                has_nodal_smoothing = true;
-            }
         }
     }
 
@@ -68,15 +64,19 @@ void Application::Run(const std::string& input_filename) {
 
     // Create a mesh labeler
     std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
-    // Add mesh labeler fields to the field data, if needed
-    if (has_nodal_smoothing) {
-        std::vector<FieldData> mesh_labeler_field_data = mesh_labeler->GetFieldData();
-        field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
-    }
+    // Add mesh labeler fields to the field data
+    std::vector<FieldData> mesh_labeler_field_data = mesh_labeler->GetFieldData();
+    field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
 
     // Add fields to the mesh and complete initialization
     m_io_mesh->AddFields(field_data);
     m_io_mesh->CompleteInitialization();
+
+    // Label the mesh
+    for (const auto& part : parts) {
+        MeshLabelerParameters mesh_labeler_parameters(part, m_io_mesh->GetMeshData());
+        mesh_labeler->LabelPart(mesh_labeler_parameters);
+    }
 
     // Create the field results file
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), field_data);

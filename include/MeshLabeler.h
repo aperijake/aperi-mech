@@ -5,22 +5,10 @@
 
 #include "FieldData.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "MeshLabelerProcessor.h"
 
 namespace aperi {
-
-enum class SmoothingCellType {
-    Nodal,
-    Element
-};
-
-// TODO(jake): Move to own file, create constructor that takes in a part YAML node
-struct MeshLabelerParameters {
-    std::shared_ptr<MeshData> mesh_data;    // The mesh data object
-    SmoothingCellType smoothing_cell_type;  // The type of smoothing cell
-    size_t num_subcells;                    // The number of subcells
-    std::string set;                        // The set to process
-};
 
 class MeshLabeler {
    public:
@@ -34,13 +22,14 @@ class MeshLabeler {
 
         // Set the active field for nodal integration
         mesh_labeler_processor.SetActiveFieldForNodalIntegration();  // Device operation
+        mesh_labeler_processor.CommunicateAllFieldData();            // Communicate the active field data
+
+        // After setting the active field, check that the nodal integration mesh is correct
+        mesh_labeler_processor.CheckNodalIntegrationOnRefinedMesh();
 
         // Create the active part from the active field, host operation
         mesh_labeler_processor.SyncFieldsToHost();
         mesh_labeler_processor.CreateActivePartFromActiveField();
-
-        // After setting the active field, check that the nodal integration mesh is correct
-        mesh_labeler_processor.CheckNodalIntegrationOnRefinedMesh();
     }
 
     void LabelForElementIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {

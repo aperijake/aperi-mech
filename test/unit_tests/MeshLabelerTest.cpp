@@ -86,6 +86,29 @@ TEST_F(MeshLabelerTestFixture, CreateMeshLabeler) {
     ASSERT_GT(field_data.size(), 0);
 }
 
+// Check converting a YAML node to a MeshLabelerParameters object
+TEST_F(MeshLabelerTestFixture, CreateMeshLabelerParameters) {
+    // Create a YAML node
+    YAML::Node part;
+    part["set"] = "block_1";
+    part["formulation"]["integration_scheme"]["strain_smoothing"]["nodal_smoothing_cell"]["subdomains"] = 1;
+
+    // Create a mesh labeler parameters object
+    aperi::MeshLabelerParameters mesh_labeler_parameters(part, m_mesh_data);
+
+    // Check the mesh data
+    ASSERT_EQ(mesh_labeler_parameters.mesh_data, m_mesh_data);
+
+    // Check the smoothing cell type
+    ASSERT_EQ(mesh_labeler_parameters.smoothing_cell_type, aperi::SmoothingCellType::Nodal);
+
+    // Check the number of subcells
+    ASSERT_EQ(mesh_labeler_parameters.num_subcells, 1);
+
+    // Check the set
+    ASSERT_EQ(mesh_labeler_parameters.set, "block_1");
+}
+
 // Check that the mesh labeler can be created and the field data can be retrieved
 TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     ReadThexMesh();

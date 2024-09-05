@@ -76,7 +76,8 @@ class MeshLabelerProcessor {
                     }
                 }
                 if (num_active_nodes != 1) {
-                    Kokkos::abort("Nodal integration requires exactly one active node per element.");
+                    std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes.";
+                    Kokkos::abort(message.c_str());
                 }
             });
 
