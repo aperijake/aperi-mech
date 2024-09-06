@@ -167,6 +167,33 @@ class NeighborSearchProcessor {
         return true;
     }
 
+    // Check that all neighbors are active nodes. Loops on the host.
+    void CheckNeighborsAreActiveNodesHost() {
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            uint64_t *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
+            uint64_t *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_neighbor_start = i_entity * aperi::MAX_NODE_NUM_NEIGHBORS;
+                uint64_t num_neighbors = node_num_neighbors[i_entity];
+                if (num_neighbors == 0) {
+                    throw std::runtime_error("Node has no neighbors.");
+                }
+                for (size_t i = 0; i < num_neighbors; i++) {
+                    uint64_t neighbor_index = node_neighbors[i_neighbor_start + i];
+                    // Active value of the neighbor
+                    uint64_t neighbor_active = stk::mesh::field_data(*m_node_active_field, *bucket)[neighbor_index];
+                    if (neighbor_active == 0) {
+                        aperi::CoutP0() << "FAIL: Node " << m_bulk_data->identifier(bucket->operator[](i_entity)) << " has a neighbor " << neighbor_index << " that is not active." << std::endl;
+                        throw std::runtime_error("Neighbor is not active.");
+                    }
+                }
+            }
+        }
+    }
+
     void SetKernelRadius(double kernel_radius) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields

@@ -237,11 +237,21 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     EXPECT_GT(global_num_ones, 0);
     EXPECT_EQ(global_num_zeros + global_num_ones, (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1));
 
+    // Have not added neighbors yet, so should throw an exception
+    EXPECT_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost(), std::runtime_error);
+
     // Add neighbors within a ball
     double kernel_radius_scale_factor = 1.1;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
     m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
     m_search_processor->SyncFieldsToHost();
 
     // Check that the neighbors are active
-    // CheckNeighborsAreActive();
+    // EXPECT_NO_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost());
+
+    // Mess up the active field
+    seed = 21;
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+
+    // Check neighbor active status and expect an exception
+    EXPECT_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost(), std::runtime_error);
 }
