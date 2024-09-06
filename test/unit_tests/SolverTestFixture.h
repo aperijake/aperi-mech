@@ -134,8 +134,8 @@ class SolverTest : public ApplicationTest {
         return time;
     }
 
-    void ResetSolverTest() {
-        ResetApplicationTest();
+    void ResetSolverTest(bool keep_mesh = false, std::string append_to_filename = "") {
+        ResetApplicationTest(keep_mesh, append_to_filename);
         m_io_input_file.reset();
         m_io_mesh.reset();
         m_internal_force_contributions.clear();

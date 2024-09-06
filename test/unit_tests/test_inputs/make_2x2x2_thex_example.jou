@@ -1,0 +1,18 @@
+undo on
+
+# Brick
+create brick x 2 y 2 z 2
+volume 1 size 1
+mesh volume 1
+htet volume 1
+thex volume 1
+block 1 add volume 1
+sideset 1 add surface 4  
+sideset 2 add surface 6  
+sideset 3 add surface 3  
+sideset 4 add surface 5  
+sideset 5 add surface 2  
+sideset 6 add surface 1  
+set exodus netcdf4 off
+set large exodus file on
+export mesh "thex_2x2x2_brick.exo"  overwrite 

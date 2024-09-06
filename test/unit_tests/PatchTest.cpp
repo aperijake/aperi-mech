@@ -20,22 +20,34 @@
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, Tet4PatchTestsTension) {
-    RunTensionPatchTests();
+    bool tets = true;
+    bool strain_smoothing = false;
+    bool reproducing_kernel = false;
+    RunTensionPatchTests(tets, strain_smoothing, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, Tet4PatchTestsCompression) {
-    RunCompressionPatchTests();
+    bool tets = true;
+    bool strain_smoothing = false;
+    bool reproducing_kernel = false;
+    RunCompressionPatchTests(tets, strain_smoothing, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, SmoothedTet4PatchTestsTension) {
-    RunTensionPatchTests(true);
+    bool tets = true;
+    bool strain_smoothing = true;
+    bool reproducing_kernel = false;
+    RunTensionPatchTests(tets, strain_smoothing, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, SmoothedTet4PatchTestsCompression) {
-    RunCompressionPatchTests(true);
+    bool tets = true;
+    bool strain_smoothing = true;
+    bool reproducing_kernel = false;
+    RunCompressionPatchTests(tets, strain_smoothing, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
