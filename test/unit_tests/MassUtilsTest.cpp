@@ -8,6 +8,7 @@
 #include "InternalForceContribution.h"
 #include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
+#include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
 // Fixture for mass matrix tests
@@ -37,6 +38,11 @@ class MassMatrixTest : public CaptureOutputTest {
         // Create FieldData
         bool uses_strain_smoothing = uses_generalized_fields;
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing);
+
+        // Add field data from mesh labeler
+        aperi::MeshLabeler mesh_labeler;
+        std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
+        field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
 
         // Make a 1x1xnum_procs mesh
         std::string mesh_string = "1x1x" + std::to_string(m_num_procs);

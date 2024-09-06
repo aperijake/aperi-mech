@@ -244,22 +244,28 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_entity_host(const Func &func, const stk::mesh::Selector &selector) const {
-        std::array<T *, N> field_data = {};  // Array to hold field data
+        std::array<T *, N> field_data = {};         // Array to hold field data
+        std::array<size_t, N> num_components = {};  // Array to hold number of components for each field
+
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
-            const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
-            // assert each other field has same number of components
-            for (size_t i = 1; i < N; i++) {
-                assert(stk::mesh::field_scalars_per_entity(*m_fields[i], *bucket) == num_components);
+            // Get the number of components for each field
+            for (size_t i = 0; i < N; i++) {
+                num_components[i] = stk::mesh::field_scalars_per_entity(*m_fields[i], *bucket);
             }
+
             // Get the field data for the bucket
             for (size_t i = 0, e = m_fields.size(); i < e; ++i) {
                 field_data[i] = stk::mesh::field_data(*m_fields[i], *bucket);
             }
+
             // Loop over each entity in the bucket
             for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
-                size_t i_component_start = i_entity * num_components;  // Index into the field data
-                func(i_component_start, num_components, field_data);   // Call the function
+                std::array<size_t, N> i_component_start = {};  // Array to hold start index for each field
+                for (size_t i = 0; i < N; i++) {
+                    i_component_start[i] = i_entity * num_components[i];  // Index into the field data
+                }
+                func(i_component_start, num_components, field_data);  // Call the function
             }
         }
     }

@@ -47,6 +47,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
+        m_node_active_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "active", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_node_active_field, 1);
+
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_function_values_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
@@ -101,6 +104,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         // Explicitly set field pointers to nullptr
         m_node_num_neighbors_field = nullptr;
         m_node_neighbors_field = nullptr;
+        m_node_active_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
 
@@ -115,6 +119,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     UnsignedField *m_node_num_neighbors_field;
     UnsignedField *m_node_neighbors_field;
+    UnsignedField *m_node_active_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;

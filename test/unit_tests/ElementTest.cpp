@@ -11,6 +11,7 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
 class CreateElementStrainSmoothedTest : public ::testing::Test {
@@ -24,7 +25,15 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
         bool uses_generalized_fields = approximation_space_parameters->UsesGeneralizedFields();
         bool use_strain_smoothing = true;
+
+        // Get field data
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
+
+        // Add field data from mesh labeler
+        aperi::MeshLabeler mesh_labeler;
+        std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
+        field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
+
         bool tet_mesh = element_topology == aperi::ElementTopology::Tetrahedron4;
         std::string mesh_type_str = tet_mesh ? "|tets" : "";
         m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + mesh_type_str, {"block_1"});

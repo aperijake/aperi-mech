@@ -77,6 +77,10 @@ class NeighborSearchProcessor {
         m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
 
+        // Get the node active field
+        m_node_active_field = StkGetField(FieldQueryData<uint64_t>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_active_field);
+
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
@@ -584,11 +588,13 @@ class NeighborSearchProcessor {
     DoubleField *m_coordinates_field;                  // The coordinates field
     UnsignedField *m_node_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_node_neighbors_field;             // The neighbors field
+    UnsignedField *m_node_active_field;                // The active field
     DoubleField *m_kernel_radius_field;                // The kernel radius field
     DoubleField *m_node_function_values_field;         // The function values field
     NgpDoubleField *m_ngp_coordinates_field;           // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
+    NgpUnsignedField *m_ngp_node_active_field;         // The ngp active field
     NgpDoubleField *m_ngp_kernel_radius_field;         // The ngp kernel radius field
     NgpDoubleField *m_ngp_node_function_values_field;  // The ngp function values field
 };
