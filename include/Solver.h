@@ -96,6 +96,17 @@ class Solver {
      */
     std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
 
+    /**
+     * @brief Updates the field states. N -> NP1 and NP1 -> N.
+     *
+     */
+    void UpdateFieldStates();
+
+    /**
+     * @brief Updates the fields from the generalized fields.
+     */
+    void UpdateFieldsFromGeneralizedFields();
+
    protected:
     /**
      * @brief Pure virtual function for computing forces.
@@ -263,12 +274,6 @@ class ExplicitSolver : public Solver {
      * @param node_processor_update_nodal_displacements The node processor for updating the nodal displacements.
      */
     void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements);
-
-    /**
-     * @brief Updates the field states. N -> NP1 and NP1 -> N.
-     *
-     */
-    void UpdateFieldStates();
 
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;

@@ -20,6 +20,23 @@
 
 namespace aperi {
 
+void Solver::UpdateFieldStates() {
+    bool rotate_device_states = true;
+    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
+}
+
+void Solver::UpdateFieldsFromGeneralizedFields() {
+    // Make sure all source fields are up to date on the device
+    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
+    m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
+    m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
+    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
+
+    // Compute the values of the destination fields from the source fields
+    m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+    m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+}
+
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -161,22 +178,9 @@ void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, cons
     node_processor_second_update->MarkFieldModifiedOnDevice(0);
 }
 
-void ExplicitSolver::UpdateFieldStates() {
-    bool rotate_device_states = true;
-    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
 void ExplicitSolver::WriteOutput(double time) {
     if (m_uses_generalized_fields) {
-        // Make sure all source fields are up to date on the device
-        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
-        m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
-        m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
-        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
-
-        // Compute the values of the destination fields from the source fields
-        m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
-        m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+        UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
     m_node_processor_all->SyncAllFieldsDeviceToHost();

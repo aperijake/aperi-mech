@@ -16,4 +16,5 @@ target_link_libraries(performance_tests
     aperimech
     GTest::gtest_main
 )
+target_compile_definitions(performance_tests PRIVATE USE_PROTEGO_MECH)
 gtest_discover_tests(performance_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
