@@ -120,6 +120,7 @@ TEST_F(MaterialDriverTest, StressOutputTypes) {
     m_input_node["stress_output"] = "first_piola_kirchhoff";
 
     // Set the displacement gradients to be one random matrix
+    srand(143);
     Eigen::Matrix3d displacement_gradient = Eigen::Matrix3d::Random();
     YAML::Node displacement_gradients_node(YAML::NodeType::Sequence);
     YAML::Node matrix;
