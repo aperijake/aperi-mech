@@ -186,6 +186,7 @@ class NeighborSearchProcessor {
 
     // Check that all neighbors are active nodes. Loops on the host.
     // Neighbors should also be checked inline in UnpackSearchResultsIntoField. This is a double check for testing.
+    // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
     bool CheckNeighborsAreActiveNodesHost(bool print_failures = true) {
         int num_procs;
         MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -509,7 +510,8 @@ class NeighborSearchProcessor {
 
         // Check the validity of the neighbors field
         assert(CheckAllNeighborsAreWithinKernelRadius());
-        assert(CheckNeighborsAreActiveNodesHost());
+        // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
+        // assert(CheckNeighborsAreActiveNodesHost());
 
         if (populate_debug_fields) {
             PopulateDebugFields();
