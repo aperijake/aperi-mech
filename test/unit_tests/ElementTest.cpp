@@ -34,12 +34,24 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
         field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
 
+        // Read the mesh
         bool tet_mesh = element_topology == aperi::ElementTopology::Tetrahedron4;
         std::string mesh_type_str = tet_mesh ? "|tets" : "";
         m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + mesh_type_str, {"block_1"});
+
+        // Add the fields to the mesh
         m_io_mesh->AddFields(field_data);
+
+        // Complete initialization
         m_io_mesh->CompleteInitialization();
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+        // Label the mesh for element integration
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
+        mesh_labeler_parameters.set = "block_1";
+        mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+        mesh_labeler.LabelPart(mesh_labeler_parameters);
 
         // Make an element processor
         std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementGatherScatterProcessor in CreateElement. TODO(jake) change this?

@@ -46,7 +46,7 @@ class ValueFromGeneralizedFieldProcessor {
         m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: ValueFromGeneralizedFieldProcessor selector is empty." << std::endl;
         }
 
         stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();

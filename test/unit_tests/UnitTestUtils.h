@@ -308,7 +308,8 @@ void RandomSetValuesFromList(const aperi::MeshData& mesh_data, const std::vector
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& num_components, std::array<T*, 1>& field_data) {
         for (size_t i = 0; i < num_components[0]; i++) {
-            field_data[0][i_entity_start[0] + i] = values[std::rand() % values.size()];
+            T value = values[std::rand() % values.size()];
+            field_data[0][i_entity_start[0] + i] = value;
         }
     });
 

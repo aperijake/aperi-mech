@@ -51,6 +51,13 @@ class MassMatrixTest : public CaptureOutputTest {
         }
         WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_data);
 
+        // Label the mesh for element integration
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
+        mesh_labeler_parameters.set = "block_1";
+        mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+        mesh_labeler.LabelPart(mesh_labeler_parameters);
+
         if (uses_generalized_fields) {
             // Create an internal force contribution in order to run strain smoothing and populate the volume field, needed for the mass matrix computation
             aperi::InternalForceContributionParameters internal_force_contribution_parameters;

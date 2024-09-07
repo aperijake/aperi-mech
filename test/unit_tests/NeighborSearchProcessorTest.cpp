@@ -207,8 +207,11 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     m_num_elements_y = 1;
     m_num_elements_z = 4;
 
-    // Create the mesh and processors
-    CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Create the mesh and populate the fields
+    CreateMeshAndPopulateFields(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Populate bulk data and create the mesh data
+    PopulateBulkAndMeshData();
 
     // Set the active field to 0 or 1
     int seed = 42;
@@ -237,21 +240,28 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     EXPECT_GT(global_num_ones, 0);
     EXPECT_EQ(global_num_zeros + global_num_ones, (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1));
 
-    // Have not added neighbors yet, so should throw an exception
-    EXPECT_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost(), std::runtime_error);
+    // Run the mesh labeling
+    RunMeshLabeling();
+
+    // Create the search processor
+    CreateSearchProcessor();
+
+    // Have not added neighbors yet
+    bool verbose = false;
+    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
 
     // Add neighbors within a ball
-    double kernel_radius_scale_factor = 1.1;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
+    double kernel_radius_scale_factor = 2.1;
     m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
     m_search_processor->SyncFieldsToHost();
 
     // Check that the neighbors are active
-    // EXPECT_NO_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost());
+    EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodesHost());
 
     // Mess up the active field
     seed = 21;
     RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
-    // Check neighbor active status and expect an exception
-    EXPECT_THROW(m_search_processor->CheckNeighborsAreActiveNodesHost(), std::runtime_error);
+    // Check neighbor active status and expect an issue
+    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
 }
