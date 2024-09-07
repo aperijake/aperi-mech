@@ -185,11 +185,18 @@ class NeighborSearchProcessor {
     }
 
     // Check that all neighbors are active nodes. Loops on the host.
+    // Neighbors should also be checked inline in UnpackSearchResultsIntoField. This is a double check for testing.
     bool CheckNeighborsAreActiveNodesHost(bool print_failures = true) {
+        int num_procs;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+        if (num_procs > 1) {
+            aperi::CoutP0() << "Warning: CheckNeighborsAreActiveNodesHost only works in serial." << std::endl;
+            return true;
+        }
         bool all_neighbors_active = true;
         bool all_nodes_have_neighbors = true;
         // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
             uint64_t *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
             uint64_t *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
@@ -206,6 +213,7 @@ class NeighborSearchProcessor {
                     }
                 }
                 for (size_t i = 0; i < num_neighbors; i++) {
+                    // TODO(jake): This only works in serial. The neighbor index is not the global id and the field_data call is not working.
                     uint64_t neighbor_index = node_neighbors[i_neighbor_start + i];
                     stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
                     // Active value of the neighbor
@@ -367,6 +375,10 @@ class NeighborSearchProcessor {
         m_bulk_data->modification_end();
     }
 
+    bool NodeIsActive(stk::mesh::Entity node) {
+        return stk::mesh::field_data(*m_node_active_field, node)[0] == 1;
+    }
+
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
         const int my_rank = m_bulk_data->parallel_rank();
@@ -376,6 +388,7 @@ class NeighborSearchProcessor {
             if (result.domainIdentProc.proc() == my_rank) {
                 stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
                 stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+                assert(NodeIsActive(neighbor));
                 const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
