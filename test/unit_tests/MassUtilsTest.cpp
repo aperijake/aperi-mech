@@ -71,7 +71,7 @@ class MassMatrixTest : public CaptureOutputTest {
             aperi::InternalForceContributionParameters internal_force_contribution_parameters;
             internal_force_contribution_parameters.part_name = "block_1";
             internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
-            double kernel_radius_scale_factor = 3.0;
+            double kernel_radius_scale_factor = 1.5;
             internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
             internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 

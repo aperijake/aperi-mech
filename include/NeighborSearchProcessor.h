@@ -257,6 +257,7 @@ class NeighborSearchProcessor {
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+        auto ngp_active_field = *m_ngp_node_active_field;
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -278,7 +279,9 @@ class NeighborSearchProcessor {
                         for (size_t k = 0; k < 3; ++k) {
                             neighbor_coordinates(0, k) = ngp_coordinates_field(neighbor_index, k);
                         }
-                        double length = (coordinates - neighbor_coordinates).norm();
+                        // If the neighbor is not active, then expecting this is a refined, nodal integration mesh where the distance to the nearest active node would be double the edge length.
+                        double scale_factor = ngp_active_field(neighbor_index, 0) == 0.0 ? 2.0 : 1.0;
+                        double length = (coordinates - neighbor_coordinates).norm() * scale_factor;
                         kernel_radius = Kokkos::max(kernel_radius, length);
                     }
                 }
