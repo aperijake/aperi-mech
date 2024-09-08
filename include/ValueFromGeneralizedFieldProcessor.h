@@ -107,6 +107,8 @@ class ValueFromGeneralizedFieldProcessor {
         return true;  // Should throw with Kokkos::abort if partition of unity is not satisfied
     }
 
+    // Compute the value of the destination fields from the source fields and function values.
+    // This is the construction of the field from the shape functions and their coefficients.
     void compute_value_from_generalized_field() {
         // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
         assert(check_partition_of_unity());
@@ -168,6 +170,7 @@ class ValueFromGeneralizedFieldProcessor {
             });
     }
 
+    // Loop over all evaluation points and scatter the values to their neighbors (active nodes) using the function values as weights.
     void scatter_local_values(const stk::mesh::Selector &selector) {
         assert(check_partition_of_unity());
 

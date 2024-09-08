@@ -37,7 +37,7 @@ struct PrintFieldFunctor {
 };
 
 // A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
-template <stk::topology::rank_t Rank, size_t N, typename T = double>
+template <stk::topology::rank_t Rank, bool ActiveFieldsOnly, size_t N, typename T = double>
 class EntityProcessor {
    public:
     EntityProcessor(const std::array<FieldQueryData<T>, N> field_query_data_vec, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
@@ -45,20 +45,43 @@ class EntityProcessor {
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
+
+        // Set the mesh data
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        m_selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+
+        // Set the selectors
+        SetSelectors(sets);
+
+        // Get the fields
+        for (size_t i = 0; i < N; ++i) {
+            m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
+            m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<T>(*m_fields.back());
+        }
+    }
+
+    void SetSelectors(const std::vector<std::string> &sets) {
+        if (ActiveFieldsOnly) {
+            std::vector<std::string> active_sets;
+            // If sets are named the same with _active at the end, use those.
+            for (const auto &set : sets) {
+                active_sets.push_back(set + "_active");
+            }
+            // If sets are not named, get the universal active part.
+            if (active_sets.size() == 0) {
+                active_sets.push_back("universal_active_part");
+            }
+            m_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+        } else {
+            m_selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
+        }
+
         // Warn if the selector is empty.
         if (m_selector.is_empty(Rank)) {
             aperi::CoutP0() << "Warning: EntityProcessor selector is empty." << std::endl;
         }
         m_owned_selector = m_selector & m_bulk_data->mesh_meta_data().locally_owned_part();
-
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        for (size_t i = 0; i < N; ++i) {
-            m_fields.push_back(StkGetField(field_query_data_vec[i], meta_data));
-            m_ngp_fields[i] = &stk::mesh::get_updated_ngp_field<T>(*m_fields.back());
-        }
     }
 
     // Marking modified
@@ -409,11 +432,15 @@ class EntityProcessor {
 
 // Node processor
 template <size_t N, typename T = double>
-using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, N, T>;
+using NodeProcessor = EntityProcessor<stk::topology::NODE_RANK, false, N, T>;
+
+// Active ode processor
+template <size_t N, typename T = double>
+using ActiveNodeProcessor = EntityProcessor<stk::topology::NODE_RANK, true, N, T>;
 
 // Element processor
 template <size_t N, typename T = double>
-using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, N, T>;
+using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, false, N, T>;
 
 // Change the aperi::FieldDataTopologyRank to stk::topology::rank_t and use the appropriate EntityProcessor
 template <aperi::FieldDataTopologyRank Rank, size_t N, typename T = double>
