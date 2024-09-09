@@ -22,9 +22,8 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         IoMeshTestFixture::TearDown();
     }
 
-    void ReadThexMesh() {
+    void ReadThexMesh(const std::string& mesh_string = "test_inputs/thex.exo") {
         CreateIoMeshFile();
-        std::string mesh_string = "test_inputs/thex.exo";
         m_io_mesh->ReadMesh(mesh_string, {"block_1"});
         std::vector<aperi::FieldData> field_data = m_mesh_labeler->GetFieldData();
         // Add fields to the mesh and complete initialization
@@ -70,6 +69,11 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         uint64_t num_nodes_in_active_part_global = 0;
         MPI_Allreduce(&num_nodes_in_active_part, &num_nodes_in_active_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
         EXPECT_EQ(num_nodes_in_active_part_global, expected_num_active_nodes);
+
+        uint64_t num_nodes_in_universal_active_part = m_mesh_data->GetNumOwnedNodes({"universal_active_part"});
+        uint64_t num_nodes_in_universal_active_part_global = 0;
+        MPI_Allreduce(&num_nodes_in_universal_active_part, &num_nodes_in_universal_active_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_nodes_in_universal_active_part_global, expected_num_active_nodes);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
@@ -162,6 +166,17 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
     ReadThexMesh();
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
     CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, 15, 4);
+}
+
+// Check that node active values can be set correctly for nodal smoothing, on a larger mesh
+TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothingLargerMesh) {
+    // Skip this test if we have more than 20 processes. Probably can do a bit bigger mesh than 20, but this is a good test for now.
+    if (m_num_procs > 20) {
+        GTEST_SKIP() << "This test is only valid for 20 or fewer processes.";
+    }
+    ReadThexMesh("test_inputs/thex_2x2x2_brick.exo");
+    // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, 293, 27);
 }
 
 // Check that node active values can be set correctly for element smoothing
