@@ -31,7 +31,7 @@ class MeshLabelerProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set = "") : m_mesh_data(mesh_data), m_set(set) {
+    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set) : m_mesh_data(mesh_data), m_set(set) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -39,10 +39,8 @@ class MeshLabelerProcessor {
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
         // Get the selector
+        assert(!m_set.empty());
         std::vector<std::string> sets;
-        if (!m_set.empty()) {
-            sets.push_back(m_set);
-        }
         m_selector = StkGetSelector(sets, meta_data);
         assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
 
@@ -52,6 +50,10 @@ class MeshLabelerProcessor {
         // Get the active field
         m_active_field = StkGetField(FieldQueryData<uint64_t>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_active_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_active_field);
+
+        // Get the cell id field
+        m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
     }
 
     // This is to check if a proper 'thex' or refined hex mesh was used to create the nodal integration mesh.
@@ -156,6 +158,62 @@ class MeshLabelerProcessor {
         m_ngp_active_field->modify_on_host();
     }
 
+    // This should be done after the active node field has been labeled and the active part has been created.
+    void LabelCellIdsForNodalIntegration() {
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Create the active selector
+        std::vector<std::string> active_sets;
+        active_sets.push_back(m_set + "_active");
+        stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+
+        // Get the ngp fields
+        auto ngp_cell_id_field = *m_ngp_cell_id_field;
+
+        // Loop over the active nodes, get the connected elements, and set the cell id to the minimum cell id of the connected elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, active_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the connected elements
+                stk::mesh::NgpMesh::ConnectedEntities elems = ngp_mesh.get_elements(stk::topology::NODE_RANK, node_index);
+                uint64_t num_elems = elems.size();
+
+                // Get the minimum id
+                uint64_t minimum_id = ngp_mesh.identifier(elems[0]);
+                for (size_t i = 1; i < num_elems; ++i) {
+                    uint64_t id = ngp_mesh.identifier(elems[i]);
+                    if (id < minimum_id) {
+                        minimum_id = id;
+                    }
+                }
+
+                // Set the cell id for all connected elements to the minimum id
+                for (size_t i = 0; i < num_elems; ++i) {
+                    stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(elems[i]);
+                    ngp_cell_id_field(elem_index, 0) = minimum_id;
+                }
+            });
+    }
+
+    // This should be done after the active node field has been labeled and the active part has been created.
+    void LabelCellIdsForElementIntegration() {
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        auto ngp_cell_id_field = *m_ngp_cell_id_field;
+
+        // Loop over the elements and set the cell id to the element id
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Convert FastMeshIndex to Entity
+                stk::mesh::Entity elem_entity = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
+
+                // Set the cell id to the element id
+                ngp_cell_id_field(elem_index, 0) = ngp_mesh.identifier(elem_entity);
+            });
+    }
+
     void SetActiveFieldForNodalIntegration() {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -216,7 +274,9 @@ class MeshLabelerProcessor {
     stk::mesh::Selector m_owned_selector;          // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
     UnsignedField *m_active_field;                 // The active field
+    UnsignedField *m_cell_id_field;                // The cell id field
     NgpUnsignedField *m_ngp_active_field;          // The ngp active field
+    NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
 };
 
 }  // namespace aperi

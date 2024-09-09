@@ -57,6 +57,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         m_kernel_radius_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "kernel_radius", 1);
         stk::mesh::put_field_on_entire_mesh(*m_kernel_radius_field, 1);
+
+        m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
     }
 
     template <typename T>
@@ -123,6 +126,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_active_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
+        m_cell_id_field = nullptr;
 
         m_extra_fields.clear();
     }
@@ -136,6 +140,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     UnsignedField *m_node_num_neighbors_field;
     UnsignedField *m_node_neighbors_field;
     UnsignedField *m_node_active_field;
+    UnsignedField *m_cell_id_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;

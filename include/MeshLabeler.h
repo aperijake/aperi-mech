@@ -30,6 +30,9 @@ class MeshLabeler {
         // Create the active part from the active field, host operation
         mesh_labeler_processor.SyncFieldsToHost();
         mesh_labeler_processor.CreateActivePartFromActiveField();
+
+        // Label the cell ids for nodal integration
+        mesh_labeler_processor.LabelCellIdsForNodalIntegration();
     }
 
     void LabelForElementIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
@@ -40,6 +43,9 @@ class MeshLabeler {
         // Active field should be set to 1 for all nodes in the element already
         mesh_labeler_processor.SyncFieldsToHost();
         mesh_labeler_processor.CreateActivePartFromActiveField();
+
+        // Label the cell ids for element integration
+        mesh_labeler_processor.LabelCellIdsForElementIntegration();
     }
 
     void LabelForGaussianIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
@@ -50,6 +56,9 @@ class MeshLabeler {
         // Active field should be set to 1 for all nodes in the element already
         mesh_labeler_processor.SyncFieldsToHost();
         mesh_labeler_processor.CreateActivePartFromActiveField();
+
+        // Label the cell ids for element integration
+        mesh_labeler_processor.LabelCellIdsForElementIntegration();
     }
 
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {

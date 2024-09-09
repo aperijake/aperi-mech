@@ -32,15 +32,7 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_data = m_io_mesh->GetMeshData();
     }
 
-    void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {
-        // Set the node active values
-        aperi::MeshLabelerParameters mesh_labeler_parameters;
-        mesh_labeler_parameters.mesh_data = m_mesh_data;
-        mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
-        mesh_labeler_parameters.num_subcells = 1;
-        mesh_labeler_parameters.set = "block_1";
-        m_mesh_labeler->LabelPart(mesh_labeler_parameters);
-
+    void CheckThexNodeLabels(uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {
         // Check the active node field
         auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
         if (m_num_procs == 1) {
@@ -74,6 +66,44 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         uint64_t num_nodes_in_universal_active_part_global = 0;
         MPI_Allreduce(&num_nodes_in_universal_active_part, &num_nodes_in_universal_active_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
         EXPECT_EQ(num_nodes_in_universal_active_part_global, expected_num_active_nodes);
+    }
+
+    void CheckThexCellLabels(uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
+        // Check the cell id field
+        auto cell_ids = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
+
+        if (m_num_procs == 1) {
+            ASSERT_EQ(cell_ids.rows(), expected_num_cells);
+            ASSERT_EQ(cell_ids.cols(), 1);
+        }
+
+        std::set<uint64_t> unique_cell_ids;
+        for (int i = 0; i < cell_ids.size(); ++i) {
+            unique_cell_ids.insert(cell_ids(i));
+        }
+        uint64_t num_unique_cell_ids = unique_cell_ids.size();
+        uint64_t num_unique_cell_ids_global = 0;
+        MPI_Allreduce(&num_unique_cell_ids, &num_unique_cell_ids_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_unique_cell_ids_global, expected_num_unique_cell_ids);
+
+        // Check the number of cells
+        uint64_t num_cells_total = m_mesh_data->GetNumOwnedElements({"block_1"});
+        uint64_t num_cells_total_global = 0;
+        MPI_Allreduce(&num_cells_total, &num_cells_total_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_cells_total_global, expected_num_cells);
+    }
+
+    void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes, uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
+        // Set the node active values
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_mesh_data;
+        mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
+        mesh_labeler_parameters.num_subcells = 1;
+        mesh_labeler_parameters.set = "block_1";
+        m_mesh_labeler->LabelPart(mesh_labeler_parameters);
+
+        CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
+        CheckThexCellLabels(expected_num_cells, expected_num_unique_cell_ids);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
@@ -158,14 +188,18 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
 }
 
 // Check that node active values can be set correctly for nodal smoothing
-TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothing) {
+TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothing) {
     // Skip this test if we have more than 4 processes
     if (m_num_procs > 4) {
         GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
     }
     ReadThexMesh();
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
-    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, 15, 4);
+    size_t total_nodes = 15;
+    size_t active_nodes = 4;
+    size_t num_cells = 4;
+    size_t num_unique_cell_ids = 4;
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
 }
 
 // Check that node active values can be set correctly for nodal smoothing, on a larger mesh
@@ -176,7 +210,11 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothingLargerMesh) {
     }
     ReadThexMesh("test_inputs/thex_2x2x2_brick.exo");
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
-    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, 293, 27);
+    size_t total_nodes = 293;
+    size_t active_nodes = 27;
+    size_t num_cells = 2 * 2 * 2 * 6 * 4;  // Number of hexes in the thex'd mesh
+    size_t num_unique_cell_ids = 27;       // One cell id per active node
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
 }
 
 // Check that node active values can be set correctly for element smoothing
@@ -186,5 +224,9 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForElementSmoothing) {
         GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
     }
     ReadThexMesh();
-    CheckThexMeshLabels(aperi::SmoothingCellType::Element, 15, 15);
+    size_t total_nodes = 15;
+    size_t active_nodes = 15;
+    size_t num_cells = 4;
+    size_t num_unique_cell_ids = 4;
+    CheckThexMeshLabels(aperi::SmoothingCellType::Element, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
 }
