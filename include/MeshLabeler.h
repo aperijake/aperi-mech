@@ -42,11 +42,23 @@ class MeshLabeler {
         mesh_labeler_processor.CreateActivePartFromActiveField();
     }
 
+    void LabelForGaussianIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
+        // Create the mesh labeler processor
+        MeshLabelerProcessor mesh_labeler_processor(mesh_data, set);
+
+        // Create the active part from the active field, host operation
+        // Active field should be set to 1 for all nodes in the element already
+        mesh_labeler_processor.SyncFieldsToHost();
+        mesh_labeler_processor.CreateActivePartFromActiveField();
+    }
+
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
         if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
             LabelForThexNodalIntegration(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
         } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
             LabelForElementIntegration(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
+        } else {
+            LabelForGaussianIntegration(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set);
         }
     }
 
