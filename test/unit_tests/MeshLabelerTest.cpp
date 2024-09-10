@@ -10,6 +10,7 @@
 class MeshLabelerTestFixture : public IoMeshTestFixture {
    protected:
     void SetUp() override {
+        m_capture_output = false;
         // Run IoMeshTestFixture::SetUp first
         IoMeshTestFixture::SetUp();
 
@@ -81,9 +82,36 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         for (int i = 0; i < cell_ids.size(); ++i) {
             unique_cell_ids.insert(cell_ids(i));
         }
-        uint64_t num_unique_cell_ids = unique_cell_ids.size();
-        uint64_t num_unique_cell_ids_global = 0;
-        MPI_Allreduce(&num_unique_cell_ids, &num_unique_cell_ids_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        // Convert the set to a vector for easier communication
+        std::vector<uint64_t> unique_cell_ids_vector(unique_cell_ids.begin(), unique_cell_ids.end());
+
+        // Get the sizes of the unique cell ids for each processor
+        std::vector<int> unique_cell_ids_sizes(m_num_procs, 0);
+        int unique_cell_ids_size = unique_cell_ids_vector.size();
+        MPI_Allgather(&unique_cell_ids_size, 1, MPI_INT, unique_cell_ids_sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+        // Convert the sizes to byte sizes
+        std::vector<int> unique_cell_ids_byte_sizes(m_num_procs);
+        std::transform(unique_cell_ids_sizes.begin(), unique_cell_ids_sizes.end(), unique_cell_ids_byte_sizes.begin(), [](int size) {
+            return size * sizeof(uint64_t);
+        });
+
+        // Calculate the displacements
+        std::vector<int> unique_cell_ids_displacements(m_num_procs, 0);
+        std::partial_sum(unique_cell_ids_byte_sizes.begin(), unique_cell_ids_byte_sizes.end() - 1, unique_cell_ids_displacements.begin() + 1);
+
+        // Calculate the total size of the global buffer in bytes
+        int total_unique_cell_ids_byte_size = std::accumulate(unique_cell_ids_byte_sizes.begin(), unique_cell_ids_byte_sizes.end(), 0);
+
+        // Communicate the unique cell ids vector
+        std::vector<uint64_t> unique_cell_ids_global(total_unique_cell_ids_byte_size / sizeof(uint64_t));
+        MPI_Allgatherv(unique_cell_ids_vector.data(), unique_cell_ids_size * sizeof(uint64_t), MPI_BYTE, unique_cell_ids_global.data(), unique_cell_ids_byte_sizes.data(), unique_cell_ids_displacements.data(), MPI_BYTE, MPI_COMM_WORLD);
+
+        // Put the global unique cell ids into a set
+        std::set<uint64_t> unique_cell_ids_global_set(unique_cell_ids_global.begin(), unique_cell_ids_global.end());
+
+        // Check the number of unique cell ids
+        uint64_t num_unique_cell_ids_global = unique_cell_ids_global_set.size();
         EXPECT_EQ(num_unique_cell_ids_global, expected_num_unique_cell_ids);
 
         // Check the number of cells
@@ -203,7 +231,7 @@ TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothing) {
 }
 
 // Check that node active values can be set correctly for nodal smoothing, on a larger mesh
-TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothingLargerMesh) {
+TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothingLargerMesh) {
     // Skip this test if we have more than 20 processes. Probably can do a bit bigger mesh than 20, but this is a good test for now.
     if (m_num_procs > 20) {
         GTEST_SKIP() << "This test is only valid for 20 or fewer processes.";
@@ -218,7 +246,7 @@ TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForNodeSmoothingLargerMesh) {
 }
 
 // Check that node active values can be set correctly for element smoothing
-TEST_F(MeshLabelerTestFixture, SetNodeActiveValuesForElementSmoothing) {
+TEST_F(MeshLabelerTestFixture, LabelFieldsForElementSmoothing) {
     // Skip this test if we have more than 4 processes
     if (m_num_procs > 4) {
         GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";

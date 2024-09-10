@@ -1,9 +1,15 @@
 #pragma once
 
+#include <mpi.h>
+
 #include <Eigen/Dense>
 #include <Kokkos_Core.hpp>
+#include <algorithm>
 #include <array>
+#include <iterator>
+#include <map>
 #include <memory>
+#include <numeric>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
@@ -18,6 +24,7 @@
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
+#include <vector>
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
@@ -124,6 +131,39 @@ class MeshLabelerProcessor {
         m_bulk_data->modification_end();
     }
 
+    void PutAllCellElementsOnTheSameProcessorHost(const std::map<uint64_t, int> &cell_id_to_processor_map) {
+        int this_processor = m_bulk_data->parallel_rank();
+
+        // Create the active selector
+        std::vector<std::string> active_sets;
+        active_sets.push_back(m_set + "_active");
+        stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+
+        // Vector of element processor pairs to move
+        std::vector<std::pair<stk::mesh::Entity, int>> element_processor_pairs;
+
+        // Loop buckets then elements on host
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                stk::mesh::Entity element = (*bucket)[i_elem];
+
+                // Get the cell id
+                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
+
+                // Get the processor
+                int processor = cell_id_to_processor_map.at(cell_id[0]);
+
+                // If the processor is not the current processor, move the element
+                if (processor != this_processor) {
+                    element_processor_pairs.push_back(std::make_pair(element, processor));
+                }
+            }
+        }
+
+        // Move the elements
+        m_bulk_data->change_entity_owner(element_processor_pairs);
+    }
+
     void SetActiveFieldForNodalIntegrationHost() {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
@@ -158,8 +198,50 @@ class MeshLabelerProcessor {
         m_ngp_active_field->modify_on_host();
     }
 
+    std::map<uint64_t, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<uint64_t, int>> &local_cell_id_to_processor) {
+        // Communicate the cell id to processor vector
+        int local_size = local_cell_id_to_processor.size();
+
+        // Gather the sizes
+        std::vector<int> sizes(m_bulk_data->parallel_size());
+        MPI_Allgather(&local_size, 1, MPI_INT, sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+        // Convert sizes to byte sizes
+        std::vector<int> byte_sizes(sizes.size());
+        std::transform(sizes.begin(), sizes.end(), byte_sizes.begin(), [](int size) {
+            return size * sizeof(std::pair<uint64_t, int>);
+        });
+
+        // Calculate the displacements in bytes
+        std::vector<int> displacements(m_bulk_data->parallel_size(), 0);
+        std::partial_sum(byte_sizes.begin(), byte_sizes.end() - 1, displacements.begin() + 1);
+
+        // Calculate the total size of the global buffer in bytes
+        int total_byte_size = std::accumulate(byte_sizes.begin(), byte_sizes.end(), 0);
+
+        // Gather the cell id to processor map
+        std::vector<std::pair<uint64_t, int>> global_cell_id_to_processor(total_byte_size / sizeof(std::pair<uint64_t, int>));
+        MPI_Allgatherv(local_cell_id_to_processor.data(), local_size * sizeof(std::pair<uint64_t, int>), MPI_BYTE,
+                       global_cell_id_to_processor.data(), byte_sizes.data(), displacements.data(), MPI_BYTE, MPI_COMM_WORLD);
+
+        // Put into a map
+        std::map<uint64_t, int> cell_id_to_processor_map(global_cell_id_to_processor.begin(), global_cell_id_to_processor.end());
+
+        return cell_id_to_processor_map;
+    }
+
     // This should be done after the active node field has been labeled and the active part has been created.
-    void LabelCellIdsForNodalIntegration() {
+    void LabelCellIdsForNodalIntegrationHost() {
+        // To make this work in parallel:
+        // 1. Loop the owned and active nodes on host
+        //    a. Get the connected elements, and set the active node's cell id to the minimum cell id of the connected elements
+        //    b. create a cell id to processor map
+        // 2. Communicate the node's cell id to make sure all the active nodes have the correct cell id
+        // 3. Loop over the active nodes
+        //    a. get the connected elements, and set the cell id to the minimum cell id that was set for the node above
+        // 4. Communicate the cell id to processor map
+        // 5. Call function to put all the cell elements on the same processor
+
         auto ngp_mesh = m_ngp_mesh;
 
         // Create the active selector
@@ -167,32 +249,78 @@ class MeshLabelerProcessor {
         active_sets.push_back(m_set + "_active");
         stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
 
-        // Get the ngp fields
-        auto ngp_cell_id_field = *m_ngp_cell_id_field;
+        // Create the owned and active selector
+        stk::mesh::Selector owned_active_selector = m_owned_selector & active_selector;
 
-        // Loop over the active nodes, get the connected elements, and set the cell id to the minimum cell id of the connected elements
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, active_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+        // Create an cell_id to processor vector
+        std::vector<std::pair<uint64_t, int>> local_cell_id_to_processor;
+        int proc = m_bulk_data->parallel_rank();
+
+        // Loop over the owned active nodes on host, get the connected elements, and set the cell id to the minimum cell id of the connected elements
+        for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                stk::mesh::Entity node = (*bucket)[i_node];
+
+                // Get the active value
+                uint64_t *minimum_id = stk::mesh::field_data(*m_active_field, node);
+
                 // Get the connected elements
-                stk::mesh::NgpMesh::ConnectedEntities elems = ngp_mesh.get_elements(stk::topology::NODE_RANK, node_index);
+                stk::mesh::NgpMesh::ConnectedEntities elems = m_ngp_mesh.get_elements(stk::topology::NODE_RANK, m_ngp_mesh.fast_mesh_index(node));
                 uint64_t num_elems = elems.size();
 
-                // Get the minimum id
-                uint64_t minimum_id = ngp_mesh.identifier(elems[0]);
+                // Loop over the connected elements and get the minimum id
+                minimum_id[0] = m_bulk_data->identifier(elems[0]);
                 for (size_t i = 1; i < num_elems; ++i) {
-                    uint64_t id = ngp_mesh.identifier(elems[i]);
-                    if (id < minimum_id) {
-                        minimum_id = id;
+                    uint64_t elem_id = m_bulk_data->identifier(elems[i]);
+                    if (elem_id < minimum_id[0]) {
+                        minimum_id[0] = elem_id;
                     }
                 }
 
-                // Set the cell id for all connected elements to the minimum id
+                // Add the minimum id to the cell id to processor map
+                local_cell_id_to_processor.push_back(std::make_pair(minimum_id[0], proc));
+            }
+        }
+
+        // Communicate the active field, then the cell id should be correct across all processors
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field});
+
+        // Loop over the active nodes on host, get the connected elements, and set the cell id to the value that was stored in the node active field
+        for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                stk::mesh::Entity node = (*bucket)[i_node];
+
+                // Get the active value
+                uint64_t *minimum_id = stk::mesh::field_data(*m_active_field, node);
+
+                // Get the connected elements
+                stk::mesh::NgpMesh::ConnectedEntities elems = m_ngp_mesh.get_elements(stk::topology::NODE_RANK, m_ngp_mesh.fast_mesh_index(node));
+                uint64_t num_elems = elems.size();
+
+                // Loop over the connected elements and set the cell id to the minimum id
                 for (size_t i = 0; i < num_elems; ++i) {
-                    stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(elems[i]);
-                    ngp_cell_id_field(elem_index, 0) = minimum_id;
+                    uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
+                    cell_id[0] = minimum_id[0];
                 }
-            });
+            }
+        }
+
+        // Communicate the cell id to processor map
+        std::map<uint64_t, int> cell_id_to_processor_map = MakeGlobalCellIdToProcMap(local_cell_id_to_processor);
+
+        // Put all the cell elements on the same processor
+        PutAllCellElementsOnTheSameProcessorHost(cell_id_to_processor_map);
+
+        // Set the active nodes active field back to 1. Probably not necessary, but just in case.
+        for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                stk::mesh::Entity node = (*bucket)[i_node];
+
+                // Get the active value
+                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, node);
+                active_field_data[0] = 1;
+            }
+        }
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.

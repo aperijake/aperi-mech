@@ -32,7 +32,7 @@ class MeshLabeler {
         mesh_labeler_processor.CreateActivePartFromActiveField();
 
         // Label the cell ids for nodal integration
-        mesh_labeler_processor.LabelCellIdsForNodalIntegration();
+        mesh_labeler_processor.LabelCellIdsForNodalIntegrationHost();
     }
 
     void LabelForElementIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
