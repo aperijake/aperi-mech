@@ -140,6 +140,7 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
 
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::TET4_NUM_NODES>(integration_functor);
+        strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
 
         // Destroy the functors
         Kokkos::parallel_for(
@@ -181,6 +182,7 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
 
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
+        strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
 
         // Destroy the functors
         Kokkos::parallel_for(

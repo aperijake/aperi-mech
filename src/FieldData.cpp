@@ -57,6 +57,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    field_data.push_back(FieldData("cell_volume_fraction", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 
     // TODO(jake): Add ability to turn this on / off per part
     if (use_strain_smoothing) {

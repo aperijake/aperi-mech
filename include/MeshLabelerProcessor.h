@@ -241,6 +241,10 @@ class MeshLabelerProcessor {
         //    a. get the connected elements, and set the cell id to the minimum cell id that was set for the node above
         // 4. Communicate the cell id to processor map
         // 5. Call function to put all the cell elements on the same processor
+        // 6. Create a map from cell id to local offset
+        // 7. Fill the cell id to local offset map
+        // 8. Change the cell id to the local offset
+        // 9. Set the active nodes active field back to 1
 
         // Create the active selector
         std::vector<std::string> active_sets;
@@ -309,6 +313,29 @@ class MeshLabelerProcessor {
         // Put all the cell elements on the same processor
         PutAllCellElementsOnTheSameProcessorHost(cell_id_to_processor_map);
 
+        // Map from cell id to local offset
+        std::map<uint64_t, uint64_t> cell_id_to_local_offset;
+
+        // Fill the cell id to local offset map
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                stk::mesh::Entity element = (*bucket)[i_elem];
+                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
+                if (cell_id[0] == m_bulk_data->identifier(element)) {
+                    cell_id_to_local_offset[cell_id[0]] = element.local_offset();
+                }
+            }
+        }
+
+        // Change the cell id to the local offset
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                stk::mesh::Entity element = (*bucket)[i_elem];
+                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
+                cell_id[0] = cell_id_to_local_offset[cell_id[0]];
+            }
+        }
+
         // Set the active nodes active field back to 1. Probably not necessary, but just in case.
         for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
@@ -339,7 +366,7 @@ class MeshLabelerProcessor {
                 stk::mesh::Entity elem_entity = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
                 // Set the cell id to the element id
-                ngp_cell_id_field(elem_index, 0) = ngp_mesh.identifier(elem_entity);
+                ngp_cell_id_field(elem_index, 0) = elem_entity.local_offset();
             });
 
         m_ngp_cell_id_field->clear_sync_state();

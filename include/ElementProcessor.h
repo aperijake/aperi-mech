@@ -31,8 +31,6 @@ template <size_t NumFields, bool UsePrecomputedDerivatives = false>
 class ElementGatherScatterProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     /**
@@ -69,6 +67,10 @@ class ElementGatherScatterProcessor {
             // Get the element volume field
             m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
+
+            // Get the cell volume field
+            m_cell_volume_fraction = StkGetField(FieldQueryData<double>{"cell_volume_fraction", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_cell_volume_fraction = &stk::mesh::get_updated_ngp_field<double>(*m_cell_volume_fraction);
 
             // Get the function derivatives fields
             std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
@@ -138,6 +140,7 @@ class ElementGatherScatterProcessor {
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
 
         auto ngp_element_volume = *m_ngp_element_volume;
+        auto ngp_cell_volume_fraction = *m_ngp_cell_volume_fraction;
 
         Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
@@ -292,16 +295,20 @@ class ElementGatherScatterProcessor {
     std::array<DoubleField *, NumFields> m_fields_to_gather;                       // The fields to gather
     DoubleField *m_field_to_scatter;                                               // The field to scatter
     DoubleField *m_element_volume;                                                 // The element volume field
+    DoubleField *m_cell_volume_fraction;                                           // The cell volume field
     std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
     Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
     NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
+    NgpDoubleField *m_ngp_cell_volume_fraction;                                    // The ngp cell volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
 class StrainSmoothingProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
+    typedef stk::mesh::Field<uint64_t> UnsignedField;
+    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -326,6 +333,14 @@ class StrainSmoothingProcessor {
         // Get the element volume field
         m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
+
+        // Get the cell volume field
+        m_cell_volume_fraction_field = StkGetField(FieldQueryData<double>{"cell_volume_fraction", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_cell_volume_fraction_field = &stk::mesh::get_updated_ngp_field<double>(*m_cell_volume_fraction_field);
+
+        // Get the cell id field
+        m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
 
         // Get the function derivatives fields
         std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
@@ -376,6 +391,63 @@ class StrainSmoothingProcessor {
             });
     }
 
+    // Should be call after for_each_neighbor_compute_derivatives so element volume is computed
+    // - Loop over each element
+    //   - Add the element volume to the cell volume for the element at the cell id
+    // - Loop over each element again
+    //   - Grab the cell volume for the element from the element at the cell id
+    // - Loop over each element again
+    //   - Set the volume fraction by dividing the element volume by the cell volume
+    void ComputeCellVolumeFromElementVolume() {
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        auto ngp_element_volume_field = *m_ngp_element_volume_field;
+        auto ngp_cell_volume_fraction_field = *m_ngp_cell_volume_fraction_field;
+        auto ngp_cell_id_field = *m_ngp_cell_id_field;
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the cell parent element index
+                stk::mesh::Entity cell_parent_element(ngp_cell_id_field(elem_index, 0));
+                stk::mesh::FastMeshIndex cell_parent_element_index = ngp_mesh.fast_mesh_index(cell_parent_element);
+
+                // Add the element volume to the cell volume
+                Kokkos::atomic_add(&ngp_cell_volume_fraction_field(cell_parent_element_index, 0), ngp_element_volume_field(elem_index, 0));
+            });
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the cell parent element index
+                stk::mesh::Entity cell_parent_element(ngp_cell_id_field(elem_index, 0));
+                stk::mesh::FastMeshIndex cell_parent_element_index = ngp_mesh.fast_mesh_index(cell_parent_element);
+
+                // Get the cell volume
+                double cell_volume_fraction = ngp_cell_volume_fraction_field(cell_parent_element_index, 0);
+
+                // Set the cell volume
+                ngp_cell_volume_fraction_field(elem_index, 0) = cell_volume_fraction;
+            });
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the element volume
+                double element_volume = ngp_element_volume_field(elem_index, 0);
+
+                // Get the cell volume
+                double cell_volume_fraction = ngp_cell_volume_fraction_field(elem_index, 0);
+
+                // Set the volume fraction
+                ngp_cell_volume_fraction_field(elem_index, 0) = element_volume / cell_volume_fraction;
+            });
+    }
+
     double GetNumElements() {
         return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
@@ -389,9 +461,13 @@ class StrainSmoothingProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
     DoubleField *m_coordinates_field;                                              // The coordinates field
     DoubleField *m_element_volume_field;                                           // The element volume field
+    DoubleField *m_cell_volume_fraction_field;                                     // The cell volume field
+    UnsignedField *m_cell_id_field;                                                // The cell id field
     Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
     NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
+    NgpDoubleField *m_ngp_cell_volume_fraction_field;                              // The ngp cell volume field
+    NgpUnsignedField *m_ngp_cell_id_field;                                         // The ngp cell id field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
