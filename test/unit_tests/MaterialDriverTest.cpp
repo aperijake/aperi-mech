@@ -1,7 +1,9 @@
 #include <MaterialDriver.h>
 #include <gtest/gtest.h>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Core>
 #include <vector>
 
 #include "CaptureOutputTestFixture.h"
@@ -29,7 +31,7 @@ displacement_gradients:
         - [0.0, 0.0, 1.0]
 */
 
-class MaterialDriverTest : public CaptureOutputTest {
+class MaterialDriverTest : public ::testing::Test {
    protected:
     void SetUp() override {
         int num_procs;
