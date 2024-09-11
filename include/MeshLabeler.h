@@ -22,7 +22,7 @@ class MeshLabeler {
 
         // Set the active field for nodal integration
         mesh_labeler_processor.SetActiveFieldForNodalIntegration();  // Device operation
-        mesh_labeler_processor.CommunicateAllFieldData();            // Communicate the active field data
+        mesh_labeler_processor.CommunicateAllFieldData();            // Communicate the field data
 
         // After setting the active field, check that the nodal integration mesh is correct
         mesh_labeler_processor.CheckNodalIntegrationOnRefinedMesh();
@@ -33,6 +33,7 @@ class MeshLabeler {
 
         // Label the cell ids for nodal integration
         mesh_labeler_processor.LabelCellIdsForNodalIntegrationHost();
+        mesh_labeler_processor.SyncFieldsToHost();
     }
 
     void LabelForElementIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
@@ -46,6 +47,7 @@ class MeshLabeler {
 
         // Label the cell ids for element integration
         mesh_labeler_processor.LabelCellIdsForElementIntegration();
+        mesh_labeler_processor.SyncFieldsToHost();
     }
 
     void LabelForGaussianIntegration(const std::shared_ptr<MeshData>& mesh_data, const std::string& set) {
@@ -59,6 +61,7 @@ class MeshLabeler {
 
         // Label the cell ids for element integration
         mesh_labeler_processor.LabelCellIdsForElementIntegration();
+        mesh_labeler_processor.SyncFieldsToHost();
     }
 
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {

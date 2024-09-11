@@ -242,8 +242,6 @@ class MeshLabelerProcessor {
         // 4. Communicate the cell id to processor map
         // 5. Call function to put all the cell elements on the same processor
 
-        auto ngp_mesh = m_ngp_mesh;
-
         // Create the active selector
         std::vector<std::string> active_sets;
         active_sets.push_back(m_set + "_active");
@@ -265,7 +263,7 @@ class MeshLabelerProcessor {
                 uint64_t *minimum_id = stk::mesh::field_data(*m_active_field, node);
 
                 // Get the connected elements
-                stk::mesh::NgpMesh::ConnectedEntities elems = m_ngp_mesh.get_elements(stk::topology::NODE_RANK, m_ngp_mesh.fast_mesh_index(node));
+                stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
                 uint64_t num_elems = elems.size();
 
                 // Loop over the connected elements and get the minimum id
@@ -294,7 +292,7 @@ class MeshLabelerProcessor {
                 uint64_t *minimum_id = stk::mesh::field_data(*m_active_field, node);
 
                 // Get the connected elements
-                stk::mesh::NgpMesh::ConnectedEntities elems = m_ngp_mesh.get_elements(stk::topology::NODE_RANK, m_ngp_mesh.fast_mesh_index(node));
+                stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
                 uint64_t num_elems = elems.size();
 
                 // Loop over the connected elements and set the cell id to the minimum id
@@ -321,6 +319,9 @@ class MeshLabelerProcessor {
                 active_field_data[0] = 1;
             }
         }
+
+        m_ngp_cell_id_field->clear_sync_state();
+        m_ngp_cell_id_field->modify_on_host();
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.
@@ -340,6 +341,9 @@ class MeshLabelerProcessor {
                 // Set the cell id to the element id
                 ngp_cell_id_field(elem_index, 0) = ngp_mesh.identifier(elem_entity);
             });
+
+        m_ngp_cell_id_field->clear_sync_state();
+        m_ngp_cell_id_field->modify_on_device();
     }
 
     void SetActiveFieldForNodalIntegration() {
@@ -384,14 +388,16 @@ class MeshLabelerProcessor {
 
     void SyncFieldsToHost() {
         m_ngp_active_field->sync_to_host();
+        m_ngp_cell_id_field->sync_to_host();
     }
 
     void SyncFieldsToDevice() {
         m_ngp_active_field->sync_to_device();
+        m_ngp_cell_id_field->sync_to_device();
     }
 
     void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field});
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
     }
 
    private:
