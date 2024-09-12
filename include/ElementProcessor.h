@@ -414,8 +414,11 @@ class StrainSmoothingProcessor {
                 stk::mesh::Entity cell_parent_element(ngp_cell_id_field(elem_index, 0));
                 stk::mesh::FastMeshIndex cell_parent_element_index = ngp_mesh.fast_mesh_index(cell_parent_element);
 
+                // Get the element volume
+                double element_volume = ngp_element_volume_field(elem_index, 0);
+
                 // Add the element volume to the cell volume
-                Kokkos::atomic_add(&ngp_cell_volume_fraction_field(cell_parent_element_index, 0), ngp_element_volume_field(elem_index, 0));
+                Kokkos::atomic_add(&ngp_cell_volume_fraction_field(cell_parent_element_index, 0), element_volume);
             });
 
         // Loop over all the elements
