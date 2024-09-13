@@ -319,8 +319,24 @@ YAML::Node GetInputSchema() {
     gauss_quadrature_schema.AddAllOf(integration_order_node);
     YAML::Node gauss_quadrature_node = gauss_quadrature_schema.GetInputSchema();
 
+    // Subdomains node
+    aperi::InputSchema subdomains_schema("subdomains", "int", "the number of smoothing cell subdomains");
+    YAML::Node subdomains_node = subdomains_schema.GetInputSchema();
+
+    // Nodal smoothing cell node
+    aperi::InputSchema nodal_smoothing_cell_schema("nodal_smoothing_cell", "map", "a nodal smoothing cell");
+    nodal_smoothing_cell_schema.AddAllOf(subdomains_node);
+    YAML::Node nodal_smoothing_cell_node = nodal_smoothing_cell_schema.GetInputSchema();
+
+    // Element smoothing cell node
+    aperi::InputSchema element_smoothing_cell_schema("element_smoothing_cell", "map", "an element smoothing cell");
+    element_smoothing_cell_schema.AddAllOf(subdomains_node);
+    YAML::Node element_smoothing_cell_node = element_smoothing_cell_schema.GetInputSchema();
+
     // Strain smoothing node
     aperi::InputSchema strain_smoothing_schema("strain_smoothing", "map", "strain smoothing");
+    strain_smoothing_schema.AddOneOf(nodal_smoothing_cell_node);
+    strain_smoothing_schema.AddOneOf(element_smoothing_cell_node);
     YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
 
     // Integration scheme node

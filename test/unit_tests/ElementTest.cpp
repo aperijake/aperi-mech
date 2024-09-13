@@ -11,26 +11,56 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
 class CreateElementStrainSmoothedTest : public ::testing::Test {
    protected:
+    void SetUp() override {
+        m_io_mesh_parameters = std::make_shared<aperi::IoMeshParameters>();
+        m_io_mesh_parameters->compose_output = true;
+        m_io_mesh_parameters->mesh_type = "generated";
+
+        // Get number of processors
+        MPI_Comm_size(MPI_COMM_WORLD, &m_num_procs);
+        m_num_elems_z = m_num_procs;
+        m_expected_volume = m_num_elems_z;
+        m_expected_cell_volume_fraction_sum = m_num_elems_z * 6.0;  // 6 tets per hex
+
+        m_mesh_string = "1x1x" + std::to_string(m_num_elems_z) + "|tets";
+    }
+
     // Run the strain smoothed formulation
-    void CreateAndRunStrainSmoothedElement(int num_elems_z, aperi::ElementTopology element_topology, const std::shared_ptr<aperi::ApproximationSpaceParameters>& approximation_space_parameters) {
+    void CreateAndRunStrainSmoothedElement(const std::shared_ptr<aperi::ApproximationSpaceParameters>& approximation_space_parameters, const aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Element) {
         // Make a mesh
-        aperi::IoMeshParameters io_mesh_parameters;
-        io_mesh_parameters.mesh_type = "generated";
-        io_mesh_parameters.compose_output = true;
-        m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, io_mesh_parameters);
+        m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, *m_io_mesh_parameters);
         bool uses_generalized_fields = approximation_space_parameters->UsesGeneralizedFields();
         bool use_strain_smoothing = true;
+
+        // Get field data
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
-        bool tet_mesh = element_topology == aperi::ElementTopology::Tetrahedron4;
-        std::string mesh_type_str = tet_mesh ? "|tets" : "";
-        m_io_mesh->ReadMesh("1x1x" + std::to_string(num_elems_z) + mesh_type_str, {"block_1"});
+
+        // Add field data from mesh labeler
+        aperi::MeshLabeler mesh_labeler;
+        std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
+        field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
+
+        // Read the mesh
+        m_io_mesh->ReadMesh(m_mesh_string, {"block_1"});
+
+        // Add the fields to the mesh
         m_io_mesh->AddFields(field_data);
+
+        // Complete initialization
         m_io_mesh->CompleteInitialization();
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+        // Label the mesh for element integration
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
+        mesh_labeler_parameters.set = "block_1";
+        mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
+        mesh_labeler.LabelPart(mesh_labeler_parameters);
 
         // Make an element processor
         std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementGatherScatterProcessor in CreateElement. TODO(jake) change this?
@@ -43,22 +73,28 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
+        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
-        std::array<aperi::FieldQueryData<double>, 5> elem_field_query_data_gather_vec;
+        std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
         elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
         elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
         elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+        elem_field_query_data_gather_vec[5] = {"cell_volume_fraction", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        auto entity_processor = std::make_shared<aperi::ElementProcessor<6>>(elem_field_query_data_gather_vec, mesh_data, part_names);
         entity_processor->MarkAllFieldsModifiedOnDevice();
         entity_processor->SyncAllFieldsDeviceToHost();
 
         // Check the volume
         std::array<double, 1> expected_volume;
-        expected_volume[0] = num_elems_z;
+        expected_volume[0] = m_expected_volume;
         CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", expected_volume, aperi::FieldQueryState::None);
+
+        // Check the cell volume
+        std::array<double, 1> expected_cell_volume_fraction_sum;
+        expected_cell_volume_fraction_sum[0] = m_expected_cell_volume_fraction_sum;
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "cell_volume_fraction", expected_cell_volume_fraction_sum, aperi::FieldQueryState::None);
 
         // Check the partition of unity for the shape functions. Shape functions are tested more rigorously in the ShapeFunctionsFunctor tests. This is just a basic check to help identify issues should they arise.
         if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) {  // not storing shape function values for FiniteElement
@@ -71,46 +107,59 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
     }
 
+    std::shared_ptr<aperi::IoMeshParameters> m_io_mesh_parameters;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
+    std::string m_mesh_string;
+    int m_num_elems_z;
+    int m_num_procs;
+    double m_expected_volume;
+    double m_expected_cell_volume_fraction_sum;
+    aperi::ElementTopology m_element_topology = aperi::ElementTopology::Tetrahedron4;
 };
 
 // Smoothed tet4 element
 TEST_F(CreateElementStrainSmoothedTest, SmoothedTet4Storing) {
-    // Get number of processors
-    int num_procs;
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-
     // Tet4 element
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
-
-    aperi::ElementTopology element_topology = aperi::ElementTopology::Tetrahedron4;
-    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters);
 }
 
 // Smoothed reproducing kernel on tet4 element
 TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4) {
-    // Get number of processors
-    int num_procs;
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-
     // Reproducing kernel on tet4 element
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
-    aperi::ElementTopology element_topology = aperi::ElementTopology::Tetrahedron4;
-    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters);
 }
 
 // Smoothed reproducing kernel on hex8 element
 TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8) {
-    // Get number of processors
-    int num_procs;
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    // Hex8 element
+    m_element_topology = aperi::ElementTopology::Hexahedron8;
+    m_mesh_string = "1x1x" + std::to_string(m_num_elems_z);
+    m_expected_cell_volume_fraction_sum = m_num_elems_z;
 
     // Reproducing kernel on hex8 element
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
-    aperi::ElementTopology element_topology = aperi::ElementTopology::Hexahedron8;
-    CreateAndRunStrainSmoothedElement(num_procs, element_topology, approximation_space_parameters);
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+}
+
+// Smoothed reproducing kernel on nodal integration
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodal) {
+    // Hex8 element
+    m_element_topology = aperi::ElementTopology::Hexahedron8;
+    m_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
+    m_io_mesh_parameters->mesh_type = "exodusII";
+    aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    m_expected_volume = 8;
+    m_expected_cell_volume_fraction_sum = 27;  // Sum to 1 for each active node
+
+    // Reproducing kernel on hex8 element
+    double kernel_radius_scale_factor = 1.01;
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters, smoothing_cell_type);
 }

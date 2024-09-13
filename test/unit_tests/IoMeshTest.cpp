@@ -9,6 +9,7 @@
 
 // Test that the IoMesh class can read and write mesh files correctly
 TEST_F(IoMeshTestFixture, ReadWrite) {
+    CreateIoMeshGenerated();
     // Make a 1x1xnum_procs mesh
     std::string mesh_string = "1x1x" + std::to_string(m_num_procs);
     WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string);
@@ -24,6 +25,7 @@ TEST_F(IoMeshTestFixture, ReadWrite) {
 
 // Test that the IoMesh reading a mesh with bad parts throws an error
 TEST_F(IoMeshTestFixture, ReadBadParts) {
+    CreateIoMeshGenerated();
     // Make a 1x1xnum_procs mesh
     std::string mesh_string = "1x1x" + std::to_string(m_num_procs);
     WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string);

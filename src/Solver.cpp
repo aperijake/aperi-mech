@@ -20,6 +20,24 @@
 
 namespace aperi {
 
+void Solver::UpdateFieldStates() {
+    bool rotate_device_states = true;
+    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
+}
+
+void Solver::UpdateFieldsFromGeneralizedFields() {
+    // Make sure all source fields are up to date on the device
+    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
+    m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
+    m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
+    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
+
+    // Compute the values of the destination fields from the source fields
+    m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+    m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    m_output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+}
+
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -95,7 +113,7 @@ struct ComputeAccelerationFunctor {
     }
 };
 
-void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration) {
+void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration) {
     // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_component(compute_acceleration_functor);
@@ -112,7 +130,7 @@ struct ComputeFirstPartialUpdateFunctor {
     double m_half_time_increment;
 };
 
-void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update) {
+void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update) {
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
     node_processor_first_update->for_each_component(compute_first_partial_update_functor);
@@ -129,7 +147,7 @@ struct UpdateDisplacementsFunctor {
     double m_time_increment;
 };
 
-void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements) {
+void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_component(update_displacements_functor);
@@ -154,29 +172,16 @@ struct ComputeSecondPartialUpdateFunctor {
     double m_half_time_increment;
 };
 
-void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update) {
+void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update) {
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
     node_processor_second_update->for_each_component(compute_second_partial_update_functor);
     node_processor_second_update->MarkFieldModifiedOnDevice(0);
 }
 
-void ExplicitSolver::UpdateFieldStates() {
-    bool rotate_device_states = true;
-    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
 void ExplicitSolver::WriteOutput(double time) {
     if (m_uses_generalized_fields) {
-        // Make sure all source fields are up to date on the device
-        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
-        m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
-        m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
-        m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
-
-        // Compute the values of the destination fields from the source fields
-        m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
-        m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+        UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
     m_node_processor_all->SyncAllFieldsDeviceToHost();
@@ -216,10 +221,10 @@ double ExplicitSolver::Solve() {
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
-    std::shared_ptr<NodeProcessor<3>> node_processor_first_update = CreateNodeProcessorFirstUpdate();
-    std::shared_ptr<NodeProcessor<3>> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
-    std::shared_ptr<NodeProcessor<3>> node_processor_acceleration = CreateNodeProcessorAcceleration();
-    std::shared_ptr<NodeProcessor<2>> node_processor_second_update = CreateNodeProcessorSecondUpdate();
+    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_first_update = CreateNodeProcessorFirstUpdate();
+    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
+    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_acceleration = CreateNodeProcessorAcceleration();
+    std::shared_ptr<ActiveNodeProcessor<2>> node_processor_second_update = CreateNodeProcessorSecondUpdate();
 
     // Set the initial time, t = 0
     double time = 0.0;

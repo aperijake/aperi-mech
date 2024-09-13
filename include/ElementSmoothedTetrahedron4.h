@@ -58,6 +58,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         search_processor.SyncFieldsToHost();  // Just needed for output
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_integration_functor);
+        strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
     }
 
     // Create and destroy functors. Must be public to run on device.

@@ -1,7 +1,9 @@
 #include <MaterialDriver.h>
 #include <gtest/gtest.h>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Core>
 #include <vector>
 
 #include "CaptureOutputTestFixture.h"
@@ -29,9 +31,16 @@ displacement_gradients:
         - [0.0, 0.0, 1.0]
 */
 
-class MaterialDriverTest : public CaptureOutputTest {
+class MaterialDriverTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        int num_procs;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+        if (num_procs > 1) {
+            GTEST_SKIP() << "Skipping test because the number of processes is greater than 1.";
+        }
+
         double bulk_modulus = 2.2e9;  // Pa
         double mu = 1.5e6;            // Pa
         double youngs_modulus = 9.0 * mu * bulk_modulus / (3.0 * bulk_modulus + mu);
@@ -113,6 +122,7 @@ TEST_F(MaterialDriverTest, StressOutputTypes) {
     m_input_node["stress_output"] = "first_piola_kirchhoff";
 
     // Set the displacement gradients to be one random matrix
+    srand(143);
     Eigen::Matrix3d displacement_gradient = Eigen::Matrix3d::Random();
     YAML::Node displacement_gradients_node(YAML::NodeType::Sequence);
     YAML::Node matrix;

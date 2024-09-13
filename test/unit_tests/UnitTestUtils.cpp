@@ -290,10 +290,10 @@ void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value, do
     std::srand(17);
 
     // Get the sum of the field values
-    entity_processor.for_each_owned_entity_host([&](size_t i_entity_start, size_t num_components, std::array<double*, 1>& coords) {
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& num_components, std::array<double*, 1>& coords) {
         Eigen::Vector3d shift = Eigen::Vector3d::Random() * (max_value - min_value) + Eigen::Vector3d::Constant(min_value);
-        for (size_t i = 0; i < num_components; ++i) {
-            coords[0][i + i_entity_start] += shift(i);
+        for (size_t i = 0; i < num_components[0]; ++i) {
+            coords[0][i + i_entity_start[0]] += shift(i);
         }
     });
     entity_processor.CommunicateAllFieldData();
