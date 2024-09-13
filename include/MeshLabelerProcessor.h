@@ -63,38 +63,129 @@ class MeshLabelerProcessor {
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
     }
 
-    // This is to check if a proper 'thex' or refined hex mesh was used to create the nodal integration mesh.
-    bool CheckNodalIntegrationOnRefinedMesh() {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_active_field = *m_ngp_active_field;
+    void LabelForThexNodalIntegration() {
+        // Set the active field for nodal integration
+        SetActiveFieldForNodalIntegrationHost();
 
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+        // Communicate the active field so that it is up to date across all processors
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field});
+
+        // After setting the active field, check that the nodal integration mesh is correct
+        CheckNodalIntegrationOnRefinedMeshHost();
+
+        // Create the active part from the active field, host operation
+        CreateActivePartFromActiveFieldHost();
+
+        // Label the cell ids for nodal integration
+        LabelCellIdsForNodalIntegrationHost();
+
+        // All operations are done on the host, so sync the fields to the device
+        SyncFieldsToDevice();
+    }
+
+    void LabelForElementIntegration() {
+        // Create the active part from the active field, host operation
+        // Active field should be set to 1 for all nodes in the element already
+        CreateActivePartFromActiveFieldHost();
+
+        // Label the cell ids for element integration
+        LabelCellIdsForElementIntegration();
+
+        // Sync the fields to the host
+        SyncFieldsToHost();
+    }
+
+    void LabelForGaussianIntegration() {
+        // Create the active part from the active field, host operation
+        // Active field should be set to 1 for all nodes in the element already
+        CreateActivePartFromActiveFieldHost();
+
+        // Label the cell ids for element integration
+        LabelCellIdsForElementIntegration();
+
+        // Sync the fields to the host
+        SyncFieldsToHost();
+    }
+
+    void SyncFieldsToHost() {
+        m_ngp_active_field->sync_to_host();
+        m_ngp_cell_id_field->sync_to_host();
+    }
+
+    void SyncFieldsToDevice() {
+        m_ngp_active_field->sync_to_device();
+        m_ngp_cell_id_field->sync_to_device();
+    }
+
+    void CommunicateAllFieldData() const {
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
+    }
+
+    // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
+    void SetActiveFieldForNodalIntegrationHost() {
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                size_t num_nodes = bucket->num_nodes(i_elem);
+                // Throw an exception if the number of nodes is not 8
+                if (num_nodes != 8) {
+                    throw std::runtime_error("Nodal integration will only work correctly when being built from hexahedral elements. Use 'thex' to divide a tetrahedral mesh into hexahedral elements.");
+                }
+                const stk::mesh::Entity *nodes = bucket->begin_nodes(i_elem);
+
+                // Get the minimum id
+                uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
+                size_t minimum_index = 0;
+                for (size_t i = 1; i < num_nodes; ++i) {
+                    uint64_t id = m_bulk_data->identifier(nodes[i]);
+                    if (id < minimum_id) {
+                        minimum_id = id;
+                        minimum_index = i;
+                    }
+                    // Set active value to 0
+                    uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                    active_field_data[0] = 0;
+                }
+
+                // Set the active value to 1 for the minimum id
+                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
+                active_field_data[0] = 1;
+            }
+        }
+
+        // Modified the active field, so clear the sync state and mark as modified
+        m_ngp_active_field->clear_sync_state();
+        m_ngp_active_field->modify_on_host();
+    }
+
+    // This is to check if a proper 'thex' or refined hex mesh was used to create the nodal integration mesh.
+    bool CheckNodalIntegrationOnRefinedMeshHost() {
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                stk::mesh::Entity element = (*bucket)[i_elem];
+
                 // Get the element nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                uint64_t num_nodes = nodes.size();
+                stk::mesh::Entity const *nodes = m_bulk_data->begin_nodes(element);
+                uint64_t num_nodes = m_bulk_data->num_nodes(element);
 
                 // Throw an exception if an element has something other than 1 active node
                 uint64_t num_active_nodes = 0;
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
-                    if (ngp_active_field(node_index, 0) == 1) {
+                    uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                    if (active_field_data[0] == 1) {
                         num_active_nodes++;
                     }
                 }
                 if (num_active_nodes != 1) {
                     std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes.";
-                    Kokkos::abort(message.c_str());
+                    throw std::runtime_error(message);
                 }
-            });
-
+            }
+        }
         return true;
     }
 
-    void CreateActivePartFromActiveField() {
-        // Host operation
+    void CreateActivePartFromActiveFieldHost() {
+        // Host operation and mesh modification
         stk::mesh::EntityVector nodes_to_change;
 
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
@@ -162,40 +253,6 @@ class MeshLabelerProcessor {
 
         // Move the elements
         m_bulk_data->change_entity_owner(element_processor_pairs);
-    }
-
-    void SetActiveFieldForNodalIntegrationHost() {
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                size_t num_nodes = bucket->num_nodes(i_elem);
-                // Throw an exception if the number of nodes is not 8
-                if (num_nodes != 8) {
-                    throw std::runtime_error("Nodal integration will only work correctly when being built from hexahedral elements. Use 'thex' to divide a tetrahedral mesh into hexahedral elements.");
-                }
-                const stk::mesh::Entity *nodes = bucket->begin_nodes(i_elem);
-
-                // Get the minimum id
-                uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
-                size_t minimum_index = 0;
-                for (size_t i = 1; i < num_nodes; ++i) {
-                    uint64_t id = m_bulk_data->identifier(nodes[i]);
-                    if (id < minimum_id) {
-                        minimum_id = id;
-                        minimum_index = i;
-                    }
-                    // Set active value to 0
-                    uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
-                    active_field_data[0] = 0;
-                }
-
-                // Set the active value to 1 for the minimum id
-                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
-                active_field_data[0] = 1;
-            }
-        }
-
-        m_ngp_active_field->clear_sync_state();
-        m_ngp_active_field->modify_on_host();
     }
 
     std::map<uint64_t, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<uint64_t, int>> &local_cell_id_to_processor) {
@@ -347,8 +404,13 @@ class MeshLabelerProcessor {
             }
         }
 
+        // Modified the cell id field, so clear the sync state and mark as modified
         m_ngp_cell_id_field->clear_sync_state();
         m_ngp_cell_id_field->modify_on_host();
+
+        // Modified the active field, so clear the sync state and mark as modified
+        m_ngp_active_field->clear_sync_state();
+        m_ngp_active_field->modify_on_host();
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.
@@ -365,66 +427,19 @@ class MeshLabelerProcessor {
                 // Convert FastMeshIndex to Entity
                 stk::mesh::Entity elem_entity = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
+                // Get the local offset
+                uint64_t elem_local_offset = elem_entity.local_offset();
+
                 // Set the cell id to the element id
-                ngp_cell_id_field(elem_index, 0) = elem_entity.local_offset();
+                uint64_t *cell_id = &ngp_cell_id_field(elem_index, 0);
+
+                // Set the cell id to the element id
+                cell_id[0] = elem_local_offset;
             });
 
+        // Modified the cell id field, so clear the sync state and mark as modified
         m_ngp_cell_id_field->clear_sync_state();
         m_ngp_cell_id_field->modify_on_device();
-    }
-
-    void SetActiveFieldForNodalIntegration() {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_active_field = *m_ngp_active_field;
-
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                uint64_t num_nodes = nodes.size();
-
-                // Throw an exception if the number of nodes is not 8
-                if (num_nodes != 8) {
-                    Kokkos::abort("Nodal integration will only work correctly when being built from hexahedral elements. Use 'thex' to divide a tetrahedral mesh into hexahedral elements.");
-                }
-
-                // Get the minimum id
-                uint64_t minimum_id = ngp_mesh.identifier(nodes[0]);
-                size_t minimum_index = 0;
-                for (size_t i = 1; i < nodes.size(); ++i) {
-                    uint64_t id = ngp_mesh.identifier(nodes[i]);
-                    if (id < minimum_id) {
-                        minimum_id = id;
-                        minimum_index = i;
-                    }
-                    // Set active value to 0
-                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
-                    ngp_active_field(node_index, 0) = 0;
-                }
-
-                // Set the active value to 1 for the minimum id
-                stk::mesh::FastMeshIndex min_node_index = ngp_mesh.fast_mesh_index(nodes[minimum_index]);
-                ngp_active_field(min_node_index, 0) = 1;
-            });
-
-        m_ngp_active_field->clear_sync_state();
-        m_ngp_active_field->modify_on_device();
-    }
-
-    void SyncFieldsToHost() {
-        m_ngp_active_field->sync_to_host();
-        m_ngp_cell_id_field->sync_to_host();
-    }
-
-    void SyncFieldsToDevice() {
-        m_ngp_active_field->sync_to_device();
-        m_ngp_cell_id_field->sync_to_device();
-    }
-
-    void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
     }
 
    private:
