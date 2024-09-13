@@ -26,9 +26,9 @@ class ApplicationTest : public CaptureOutputTest {
         SetUpApplicationTest();
     }
 
-    void ResetApplicationTest(std::string append_to_filename = "") {
+    void ResetApplicationTest(bool keep_mesh = false, std::string append_to_filename = "") {
         // Reset the test
-        TearDownApplicationTest();
+        TearDownApplicationTest(keep_mesh);
         SetUpApplicationTest(append_to_filename);
     }
 
@@ -72,12 +72,14 @@ class ApplicationTest : public CaptureOutputTest {
         aperi::IoInputFile::Write(m_filename, m_yaml_data);
     }
 
-    void TearDownApplicationTest() {
+    void TearDownApplicationTest(bool keep_mesh = false) {
         // Delete the temporary input file
         CleanUp(m_filename);
 
         // Delete the temporary mesh file
-        CleanUp(m_mesh_filename);
+        if (!keep_mesh) {
+            CleanUp(m_mesh_filename);
+        }
 
         // Delete the temporary results file
         CleanUp(m_results_filename);

@@ -196,3 +196,81 @@ TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     std::vector<std::pair<uint64_t, size_t>> expected_num_neighbors_data = {{7, 4}, {8, 4}, {10, 6}, {11, 2}, {12, 4}};
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 }
+
+TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+    m_num_elements_x = 1;
+    m_num_elements_y = 1;
+    m_num_elements_z = 4;
+
+    // Create the mesh and populate the fields
+    CreateMeshAndPopulateFields(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Populate bulk data and create the mesh data
+    PopulateBulkAndMeshData();
+
+    // Set the active field to 0 or 1
+    int seed = 42;
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+
+    // Check that the active field has 1s and 0s
+    auto active_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    size_t num_zeros = 0;
+    size_t num_ones = 0;
+    for (int i = 0; i < active_values.rows(); i++) {
+        if (active_values(i, 0) == 0) {
+            num_zeros++;
+        } else if (active_values(i, 0) == 1) {
+            num_ones++;
+        } else {
+            FAIL() << "Active field value is not 0 or 1";
+        }
+    }
+
+    size_t global_num_zeros = 0;
+    size_t global_num_ones = 0;
+    MPI_Allreduce(&num_zeros, &global_num_zeros, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&num_ones, &global_num_ones, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    EXPECT_GT(global_num_zeros, 0);
+    EXPECT_GT(global_num_ones, 0);
+    EXPECT_EQ(global_num_zeros + global_num_ones, (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1));
+
+    // Run the mesh labeling
+    RunMeshLabeling();
+
+    // Create the search processor
+    CreateSearchProcessor();
+
+    // Have not added neighbors yet
+    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
+    bool verbose = false;
+    if (num_procs == 1) {
+        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
+    }
+
+    // Add neighbors within a ball
+    double kernel_radius_scale_factor = 2.1;
+    // This also has an assert that checks the neighbors are active so should test in debug and for num_procs >= 1
+    m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
+    m_search_processor->SyncFieldsToHost();
+
+    // Check that the neighbors are active.
+    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
+    if (num_procs == 1) {
+        EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodesHost());
+    }
+
+    // Mess up the active field
+    seed = 21;
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+
+    // Check neighbor active status and expect an issue, CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
+    if (num_procs == 1) {
+        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
+    }
+}

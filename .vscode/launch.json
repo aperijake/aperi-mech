@@ -76,6 +76,16 @@
       "preLaunchTask": "make_debug"
     },
     {
+      "name": "Debug Test Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/Debug/unit_tests",
+      "args": [],
+      //"args": ["--gtest_filter=Benchmar*"],
+      "cwd": "${workspaceFolder}/protego-mech/build/Debug",
+      "preLaunchTask": "make_debug_protego"
+    },
+    {
       "name": "Debug Test GPU",
       "type": "lldb",
       "request": "launch",

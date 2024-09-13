@@ -96,6 +96,17 @@ class Solver {
      */
     std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
 
+    /**
+     * @brief Updates the field states. N -> NP1 and NP1 -> N.
+     *
+     */
+    void UpdateFieldStates();
+
+    /**
+     * @brief Updates the fields from the generalized fields.
+     */
+    void UpdateFieldsFromGeneralizedFields();
+
    protected:
     /**
      * @brief Pure virtual function for computing forces.
@@ -140,7 +151,7 @@ class ExplicitSolver : public Solver {
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
-        m_node_processor_all = CreateNodeProcessorAll();
+        m_node_processor_all = CreateNodeProcessorAll();  // TODO(jake): I am not sure if this is needed anymore
         if (m_uses_generalized_fields) {
             m_node_processor_force_local = CreateNodeProcessorForceLocal();
         }
@@ -149,7 +160,7 @@ class ExplicitSolver : public Solver {
     ~ExplicitSolver() {}
 
     // Create node processor for all fields to make syncing easier
-    std::shared_ptr<NodeProcessor<8>> CreateNodeProcessorAll() {
+    std::shared_ptr<ActiveNodeProcessor<8>> CreateNodeProcessorAll() {
         std::array<FieldQueryData<double>, 8> field_query_data_vec;
         field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
         field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
@@ -159,14 +170,14 @@ class ExplicitSolver : public Solver {
         field_query_data_vec[5] = {"acceleration_coefficients", FieldQueryState::N};
         field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[7] = {"mass", FieldQueryState::None};
-        return std::make_shared<NodeProcessor<8>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<8>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for force
-    std::shared_ptr<NodeProcessor<1>> CreateNodeProcessorForce() {
+    std::shared_ptr<ActiveNodeProcessor<1>> CreateNodeProcessorForce() {
         std::array<FieldQueryData<double>, 1> field_query_data_vec;
         field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
-        return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for local force
@@ -177,42 +188,42 @@ class ExplicitSolver : public Solver {
     }
 
     // Create a node processor for the first partial update
-    std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorFirstUpdate() {
+    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorFirstUpdate() {
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"velocity_coefficients", FieldQueryState::N};
         field_query_data_vec[2] = {"acceleration_coefficients", FieldQueryState::N};
-        return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for updating displacements
-    std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorUpdateDisplacements() {
+    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorUpdateDisplacements() {
         // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"displacement_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
         field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
-        return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the second partial update
-    std::shared_ptr<NodeProcessor<2>> CreateNodeProcessorSecondUpdate() {
+    std::shared_ptr<ActiveNodeProcessor<2>> CreateNodeProcessorSecondUpdate() {
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         std::array<FieldQueryData<double>, 2> field_query_data_vec;
         field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"acceleration_coefficients", FieldQueryState::NP1};
-        return std::make_shared<NodeProcessor<2>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<2>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for the acceleration
-    std::shared_ptr<NodeProcessor<3>> CreateNodeProcessorAcceleration() {
+    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorAcceleration() {
         // Compute the acceleration: a^{n+1} = f^{n+1}/m
         std::array<FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"acceleration_coefficients", FieldQueryState::NP1};
         field_query_data_vec[1] = {"force_coefficients", FieldQueryState::None};
         field_query_data_vec[2] = {"mass", FieldQueryState::None};
-        return std::make_shared<NodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
+        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
     }
 
     /**
@@ -238,7 +249,7 @@ class ExplicitSolver : public Solver {
      *
      * @param node_processor_acceleration The node processor for the acceleration.
      */
-    static void ComputeAcceleration(const std::shared_ptr<NodeProcessor<3>> &node_processor_acceleration);
+    static void ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration);
 
     /**
      * @brief Computes the first partial update for the solver.
@@ -246,7 +257,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_first_update The node processor for the first update.
      */
-    static void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_first_update);
+    static void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update);
 
     /**
      * @brief Computes the second partial update for the solver.
@@ -254,7 +265,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_second_update The node processor for the second update.
      */
-    static void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<NodeProcessor<2>> &node_processor_second_update);
+    static void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update);
 
     /**
      * @brief Updates the displacements.
@@ -262,17 +273,11 @@ class ExplicitSolver : public Solver {
      * @param time_increment The time increment.
      * @param node_processor_update_nodal_displacements The node processor for updating the nodal displacements.
      */
-    void UpdateDisplacements(double time_increment, const std::shared_ptr<NodeProcessor<3>> &node_processor_update_displacements);
+    void UpdateDisplacements(double time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements);
 
-    /**
-     * @brief Updates the field states. N -> NP1 and NP1 -> N.
-     *
-     */
-    void UpdateFieldStates();
-
-    std::shared_ptr<NodeProcessor<1>> m_node_processor_force;
+    std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
-    std::shared_ptr<NodeProcessor<8>> m_node_processor_all;
+    std::shared_ptr<ActiveNodeProcessor<8>> m_node_processor_all;
 
     /**
      * @brief Writes the output.

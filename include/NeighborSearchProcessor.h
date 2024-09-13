@@ -52,7 +52,7 @@ class NeighborSearchProcessor {
     using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
 
    public:
-    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -60,14 +60,31 @@ class NeighborSearchProcessor {
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+
+        // Create the selector for the sets
         m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
         }
 
+        // Create the selector for the owned entities
         stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
         m_owned_selector = m_selector & full_owned_selector;
+
+        // Append "_active" to each set name and create a selector for the active entities
+        std::vector<std::string> active_sets;
+        for (const std::string &set : sets) {
+            active_sets.push_back(set + "_active");
+        }
+        m_active_selector = StkGetSelector(active_sets, meta_data);
+        // Warn if the active selector is empty.
+        if (m_active_selector.is_empty(stk::topology::NODE_RANK)) {
+            aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
+        }
+
+        // Create the selector for the owned and active entities
+        m_owned_and_active_selector = m_owned_selector & m_active_selector;
 
         // Get the node number of neighbors field
         m_node_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -76,6 +93,10 @@ class NeighborSearchProcessor {
         // Get the node neighbors field
         m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
+
+        // Get the node active field
+        m_node_active_field = StkGetField(FieldQueryData<uint64_t>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_active_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -163,6 +184,53 @@ class NeighborSearchProcessor {
         return true;
     }
 
+    // Check that all neighbors are active nodes. Loops on the host.
+    // Neighbors should also be checked inline in UnpackSearchResultsIntoField. This is a double check for testing.
+    // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
+    bool CheckNeighborsAreActiveNodesHost(bool print_failures = true) {
+        int num_procs;
+        MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+        if (num_procs > 1) {
+            aperi::CoutP0() << "Warning: CheckNeighborsAreActiveNodesHost only works in serial." << std::endl;
+            return true;
+        }
+        bool all_neighbors_active = true;
+        bool all_nodes_have_neighbors = true;
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
+            // Get the field data for the bucket
+            uint64_t *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
+            uint64_t *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
+            const size_t len_neighbors = stk::mesh::field_scalars_per_entity(*m_node_neighbors_field, *bucket);
+            assert(1 == stk::mesh::field_scalars_per_entity(*m_node_num_neighbors_field, *bucket));
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                size_t i_neighbor_start = i_entity * len_neighbors;
+                uint64_t num_neighbors = node_num_neighbors[i_entity];
+                if (num_neighbors == 0) {
+                    all_nodes_have_neighbors = false;
+                    if (print_failures) {
+                        aperi::CoutP0() << "FAIL: Node " << m_bulk_data->identifier(bucket->operator[](i_entity)) << " has no neighbors." << std::endl;
+                    }
+                }
+                for (size_t i = 0; i < num_neighbors; i++) {
+                    // TODO(jake): This only works in serial. The neighbor index is not the global id and the field_data call is not working.
+                    uint64_t neighbor_index = node_neighbors[i_neighbor_start + i];
+                    stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
+                    // Active value of the neighbor
+                    uint64_t neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
+                    if (neighbor_active == 0) {
+                        all_neighbors_active = false;
+                        if (print_failures) {
+                            aperi::CoutP0() << "FAIL: Node " << m_bulk_data->identifier(bucket->operator[](i_entity)) << " has a neighbor " << neighbor_index << " that is not active." << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+        return all_neighbors_active && all_nodes_have_neighbors;
+    }
+
     void SetKernelRadius(double kernel_radius) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -189,6 +257,7 @@ class NeighborSearchProcessor {
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+        auto ngp_active_field = *m_ngp_node_active_field;
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
@@ -210,7 +279,9 @@ class NeighborSearchProcessor {
                         for (size_t k = 0; k < 3; ++k) {
                             neighbor_coordinates(0, k) = ngp_coordinates_field(neighbor_index, k);
                         }
-                        double length = (coordinates - neighbor_coordinates).norm();
+                        // If the neighbor is not active, then expecting this is a refined, nodal integration mesh where the distance to the nearest active node would be double the edge length.
+                        double scale_factor = ngp_active_field(neighbor_index, 0) == 0.0 ? 2.0 : 1.0;
+                        double length = (coordinates - neighbor_coordinates).norm() * scale_factor;
                         kernel_radius = Kokkos::max(kernel_radius, length);
                     }
                 }
@@ -265,7 +336,7 @@ class NeighborSearchProcessor {
     // Sphere range. Will be used to find the nodes within a ball defined by the sphere.
     // The identifiers will be the global node ids.
     RangeViewType CreateNodeSpheres() {
-        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector);
+        const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_and_active_selector);
         RangeViewType node_spheres("node_spheres", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -273,7 +344,7 @@ class NeighborSearchProcessor {
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector);
+        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_and_active_selector);
         const int my_rank = m_bulk_data->parallel_rank();
 
         Kokkos::parallel_for(
@@ -308,6 +379,10 @@ class NeighborSearchProcessor {
         m_bulk_data->modification_end();
     }
 
+    bool NodeIsActive(stk::mesh::Entity node) {
+        return stk::mesh::field_data(*m_node_active_field, node)[0] == 1;
+    }
+
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
         const int my_rank = m_bulk_data->parallel_rank();
@@ -317,6 +392,7 @@ class NeighborSearchProcessor {
             if (result.domainIdentProc.proc() == my_rank) {
                 stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
                 stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+                assert(NodeIsActive(neighbor));
                 const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
@@ -435,7 +511,10 @@ class NeighborSearchProcessor {
 
         UnpackSearchResultsIntoField(host_search_results);
 
+        // Check the validity of the neighbors field
         assert(CheckAllNeighborsAreWithinKernelRadius());
+        // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
+        // assert(CheckNeighborsAreActiveNodesHost());
 
         if (populate_debug_fields) {
             PopulateDebugFields();
@@ -579,16 +658,20 @@ class NeighborSearchProcessor {
     std::vector<std::string> m_sets;                   // The sets to process.
     stk::mesh::BulkData *m_bulk_data;                  // The bulk data object.
     stk::mesh::Selector m_selector;                    // The selector
+    stk::mesh::Selector m_active_selector;             // The active selector
     stk::mesh::Selector m_owned_selector;              // The local selector
+    stk::mesh::Selector m_owned_and_active_selector;   // The local and active selector
     stk::mesh::NgpMesh m_ngp_mesh;                     // The ngp mesh object.
     DoubleField *m_coordinates_field;                  // The coordinates field
     UnsignedField *m_node_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_node_neighbors_field;             // The neighbors field
+    UnsignedField *m_node_active_field;                // The active field
     DoubleField *m_kernel_radius_field;                // The kernel radius field
     DoubleField *m_node_function_values_field;         // The function values field
     NgpDoubleField *m_ngp_coordinates_field;           // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
+    NgpUnsignedField *m_ngp_node_active_field;         // The ngp active field
     NgpDoubleField *m_ngp_kernel_radius_field;         // The ngp kernel radius field
     NgpDoubleField *m_ngp_node_function_values_field;  // The ngp function values field
 };

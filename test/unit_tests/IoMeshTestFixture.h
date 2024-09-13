@@ -15,10 +15,6 @@ class IoMeshTestFixture : public CaptureOutputTest {
         CaptureOutputTest::SetUp();
         // Create an IoMesh object with default parameters
         m_comm = MPI_COMM_WORLD;
-        aperi::IoMeshParameters io_mesh_parameters;
-        io_mesh_parameters.mesh_type = "generated";
-        io_mesh_parameters.compose_output = true;
-        m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
 
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
         std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
@@ -26,6 +22,19 @@ class IoMeshTestFixture : public CaptureOutputTest {
 
         // Get number of mpi processes
         MPI_Comm_size(m_comm, &m_num_procs);
+    }
+
+    void CreateIoMeshGenerated() {
+        aperi::IoMeshParameters io_mesh_parameters;
+        io_mesh_parameters.mesh_type = "generated";
+        io_mesh_parameters.compose_output = true;
+        m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
+    }
+
+    void CreateIoMeshFile() {
+        aperi::IoMeshParameters io_mesh_parameters;
+        io_mesh_parameters.compose_output = true;
+        m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
     }
 
     void TearDown() override {

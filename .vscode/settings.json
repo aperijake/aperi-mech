@@ -95,7 +95,9 @@
     "stop_token": "cpp",
     "typeindex": "cpp",
     "forward_list": "cpp",
-    "print": "cpp"
+    "print": "cpp",
+    "queue": "cpp",
+    "stack": "cpp"
 },
   "cSpell.words": [
     "cgns",

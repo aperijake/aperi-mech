@@ -10,6 +10,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
+#include "MeshLabeler.h"
 #include "Preprocessor.h"
 #include "Scheduler.h"
 #include "Solver.h"
@@ -25,11 +26,6 @@ void Application::Run(const std::string& input_filename) {
     // Create an IO input file object and read the input file
     m_io_input_file = CreateIoInputFile(input_filename);
 
-    // Create an IO mesh object
-    IoMeshParameters io_mesh_parameters;  // Default parameters
-    io_mesh_parameters.compose_output = true;
-    m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
-
     // Get parts
     std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
 
@@ -44,6 +40,11 @@ void Application::Run(const std::string& input_filename) {
             has_strain_smoothing = true;
         }
     }
+
+    // Create an IO mesh object
+    IoMeshParameters io_mesh_parameters;  // Default parameters
+    io_mesh_parameters.compose_output = true;
+    m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
 
     // Read the mesh
     m_io_mesh->ReadMesh(m_io_input_file->GetMeshFile(procedure_id), part_names);
@@ -61,9 +62,21 @@ void Application::Run(const std::string& input_filename) {
     // Get field data
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
 
+    // Create a mesh labeler
+    std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
+    // Add mesh labeler fields to the field data
+    std::vector<FieldData> mesh_labeler_field_data = mesh_labeler->GetFieldData();
+    field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
+
     // Add fields to the mesh and complete initialization
     m_io_mesh->AddFields(field_data);
     m_io_mesh->CompleteInitialization();
+
+    // Label the mesh
+    for (const auto& part : parts) {
+        MeshLabelerParameters mesh_labeler_parameters(part, m_io_mesh->GetMeshData());
+        mesh_labeler->LabelPart(mesh_labeler_parameters);
+    }
 
     // Create the field results file
     m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), field_data);

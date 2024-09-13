@@ -32,6 +32,7 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank) {
 std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, bool add_debug_fields) {
     std::vector<FieldData> field_data;
 
+    // TODO(jake): Fields that are "*_coefficients" only need to be on the active part. Can rework this to only define them on the active part.
     // Node data
     if (uses_generalized_fields) {
         // Generalized fields, output as "_coefficients"
@@ -56,6 +57,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    field_data.push_back(FieldData("cell_volume_fraction", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 
     // TODO(jake): Add ability to turn this on / off per part
     if (use_strain_smoothing) {

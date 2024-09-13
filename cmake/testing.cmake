@@ -7,6 +7,10 @@ file(GLOB TEST_SOURCES "test/unit_tests/*.cpp")
 if(USE_PROTEGO_MECH)
     file(GLOB PROTEGO_MECH_TEST_SOURCES "protego-mech/test/unit_tests/*.cpp")
     list(APPEND TEST_SOURCES ${PROTEGO_MECH_TEST_SOURCES})
+    # Remove some tests that wont work with protego-mech. TODO(jake): Some of these tests can be fixed to work with protego-mech
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/ValueFromGeneralizedFieldProcessorTest.cpp")
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/FunctionValueStorageProcessorTest.cpp")
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/CompadreApproximationFunctionTest.cpp")
 endif()
 
 # Add an executable for the unit tests
@@ -22,6 +26,9 @@ target_link_libraries(unit_tests
     aperimech
     GTest::gtest_main
 )
+if(USE_PROTEGO_MECH)
+    target_compile_definitions(unit_tests PRIVATE USE_PROTEGO_MECH)
+endif()
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
 #--------------------------------------------------
@@ -30,6 +37,15 @@ add_custom_target(run_unit_tests
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_unit_tests.sh
     DEPENDS unit_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+#--------------------------------------------------
+
+#--------------------------------------------------
+# Create a symbolic link to the test/unit_tests/test_inputs directory in the build directory so that unit_tests can find it
+add_custom_target(create_inputs_symlink ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+    ${CMAKE_SOURCE_DIR}/test/unit_tests/test_inputs ${CMAKE_CURRENT_BINARY_DIR}/test_inputs
+    COMMENT "Creating symlink to test_inputs directory"
 )
 #--------------------------------------------------
 

@@ -17,6 +17,7 @@
 #include "Constants.h"
 #include "FieldData.h"
 #include "MeshData.h"
+#include "MeshLabeler.h"
 #include "NeighborSearchProcessor.h"
 
 class NeighborSearchProcessorTestFixture : public ::testing::Test {
@@ -47,11 +48,18 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
+        m_node_active_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "active", 1);
+        uint64_t initial_values = 1;
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_field, 1, &initial_values);
+
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_function_values_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
         m_kernel_radius_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "kernel_radius", 1);
         stk::mesh::put_field_on_entire_mesh(*m_kernel_radius_field, 1);
+
+        m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
     }
 
     template <typename T>
@@ -64,15 +72,27 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         }
     }
 
-    void PopulateBulkDataAndCreateProcessor() {
+    void PopulateBulkAndMeshData() {
         // Populate the bulk data
         m_mesh_reader->populate_bulk_data();
 
         // Create the mesh data
         m_mesh_data = std::make_shared<aperi::MeshData>(m_bulk_data.get());
+    }
 
+    void RunMeshLabeling() {
+        std::shared_ptr<aperi::MeshLabeler> mesh_labeler = aperi::CreateMeshLabeler();
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        mesh_labeler_parameters.mesh_data = m_mesh_data;
+        mesh_labeler_parameters.set = "block_1";
+        mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+        mesh_labeler->LabelPart(mesh_labeler_parameters);
+    }
+
+    void CreateSearchProcessor() {
         // Create the NeighborSearchProcessor
-        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data);
+        std::vector<std::string> sets = {"block_1"};
+        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, sets);
     }
 
     template <typename T>
@@ -80,7 +100,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         auto start = std::chrono::high_resolution_clock::now();
         CreateMeshAndPopulateFields(num_elements_x, num_elements_y, num_elements_z, extra_mesh_spec);
         PopulateExtraFields(extra_fields);
-        PopulateBulkDataAndCreateProcessor();
+        PopulateBulkAndMeshData();
+        RunMeshLabeling();
+        CreateSearchProcessor();
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         return elapsed_seconds.count();
@@ -101,8 +123,10 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         // Explicitly set field pointers to nullptr
         m_node_num_neighbors_field = nullptr;
         m_node_neighbors_field = nullptr;
+        m_node_active_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
+        m_cell_id_field = nullptr;
 
         m_extra_fields.clear();
     }
@@ -115,6 +139,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     UnsignedField *m_node_num_neighbors_field;
     UnsignedField *m_node_neighbors_field;
+    UnsignedField *m_node_active_field;
+    UnsignedField *m_cell_id_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;
