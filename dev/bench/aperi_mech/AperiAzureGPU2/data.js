@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724968813855,
+  "lastUpdate": 1726268658741,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -1157,6 +1157,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "fem_gpu_np_1_peak_memory",
             "value": 1814.47265625,
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c8e27a1596cf14255ed5dbd5d43d11a923f36301",
+          "message": "Merge pull request #34 from aperijake/nodal_integration\n\nprepare for nodal integration",
+          "timestamp": "2024-09-13T21:39:21Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/c8e27a1596cf14255ed5dbd5d43d11a923f36301"
+        },
+        "date": 1726268658164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "fem_cpu_np_4_peak_memory",
+            "value": 1631.2109375,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_run_time",
+            "value": 81.53969620700082,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_run_time",
+            "value": 297.56937290300266,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_peak_memory",
+            "value": 1329.15625,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 44.59481637900171,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 1878.55078125,
             "unit": "MB"
           }
         ]
