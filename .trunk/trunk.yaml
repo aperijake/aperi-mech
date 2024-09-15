@@ -28,13 +28,13 @@ lint:
     #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.55.0
+    - trivy@0.55.1
     - yamllint@1.35.1
-    - checkov@3.2.246
+    - checkov@3.2.253
     - git-diff-check
     - markdownlint@0.41.0
     - prettier@3.3.3
-    - trufflehog@3.81.10
+    - trufflehog@3.82.1
   disabled:
     - include-what-you-use
   ignore:
