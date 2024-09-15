@@ -8,27 +8,27 @@
 namespace aperi {
 
 struct FlattenedRaggedArray {
-
     explicit FlattenedRaggedArray(size_t num_items) {
         Resize(num_items);
     }
 
     void Resize(size_t num_items) {
-        start = Kokkos::View<uint64_t*>("start", num_items);
-        length = Kokkos::View<uint64_t*>("length", num_items);
+        start = Kokkos::View<uint64_t *>("start", num_items);
+        length = Kokkos::View<uint64_t *>("length", num_items);
     }
 
-    void SetStartsFromLengths() {
-        Kokkos::parallel_scan("SetStartsFromLengths", length.size(), KOKKOS_LAMBDA(const int i, uint64_t& update, const bool final) {
-            update += length(i);
-            if (final) {
-                start(i) = update - length(i);
-            }
-        });
+    void SetStartsFromLengths() const {
+        Kokkos::parallel_scan(
+            "SetStartsFromLengths", length.size(), KOKKOS_LAMBDA(const int i, uint64_t &update, const bool final) {
+                update += length(i);
+                if (final) {
+                    start(i) = update - length(i);
+                }
+            });
     }
 
-    Kokkos::View<uint64_t*> start;
-    Kokkos::View<uint64_t*> length;
+    Kokkos::View<uint64_t *> start;
+    Kokkos::View<uint64_t *> length;
 };
 
 class SmoothedCellData {
@@ -38,13 +38,14 @@ class SmoothedCellData {
         // Resize views
         ResizeViews(estimated_total_num_nodes);
         // Fill the new elements with the maximum uint64_t value
-        Kokkos::parallel_for("FillNewLocalOffsets", Kokkos::RangePolicy<>(0, estimated_total_num_nodes), KOKKOS_LAMBDA(const size_t i) {
-            m_node_local_offsets(i) = std::numeric_limits<uint64_t>::max();
-        });
+        Kokkos::parallel_for(
+            "FillNewLocalOffsets", Kokkos::RangePolicy<>(0, estimated_total_num_nodes), KOKKOS_LAMBDA(const size_t i) {
+                m_node_local_offsets(i) = std::numeric_limits<uint64_t>::max();
+            });
     }
 
     // Function to add cell num_nodes. This should be called first after creating the SmoothedCellData object and can be called in a loop.
-    void AddCellNumNodes(size_t cell_id, size_t num_nodes) {
+    void AddCellNumNodes(size_t cell_id, size_t num_nodes) const {
         // Add the length to the indices
         m_indices.length(cell_id) = num_nodes;
     }
@@ -107,30 +108,30 @@ class SmoothedCellData {
     }
 
     // Get host view with copy of function derivatives
-    Kokkos::View<double*>::HostMirror GetFunctionDerivativesHost() {
+    Kokkos::View<double *>::HostMirror GetFunctionDerivativesHost() {
         // Create a host view
-        Kokkos::View<double*>::HostMirror function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
+        Kokkos::View<double *>::HostMirror function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
         // Copy the function derivatives to the host
         Kokkos::deep_copy(function_derivatives_host, m_function_derivatives);
         return function_derivatives_host;
     }
 
     // Get host view with copy of node local offsets
-    Kokkos::View<uint64_t*>::HostMirror GetNodeLocalOffsetsHost() {
+    Kokkos::View<uint64_t *>::HostMirror GetNodeLocalOffsetsHost() {
         // Create a host view
-        Kokkos::View<uint64_t*>::HostMirror node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        Kokkos::View<uint64_t *>::HostMirror node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
         // Copy the node local offsets to the host
         Kokkos::deep_copy(node_local_offsets_host, m_node_local_offsets);
         return node_local_offsets_host;
     }
 
     // Get the total number of nodes
-    size_t TotalNumNodes() {
+    size_t TotalNumNodes() const {
         return m_total_num_nodes;
     }
 
     // Get the total number of components
-    size_t TotalNumComponents() {
+    size_t TotalNumComponents() const {
         return m_total_components;
     }
 
@@ -140,9 +141,10 @@ class SmoothedCellData {
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
         Kokkos::resize(m_node_local_offsets, new_total_num_nodes);
         // Fill the new elements with the maximum uint64_t value
-        Kokkos::parallel_for("FillNewLocalOffsets", Kokkos::RangePolicy<>(m_reserved_nodes, new_total_num_nodes), KOKKOS_LAMBDA(const size_t i) {
-            m_node_local_offsets(i) = std::numeric_limits<uint64_t>::max();
-        });
+        Kokkos::parallel_for(
+            "FillNewLocalOffsets", Kokkos::RangePolicy<>(m_reserved_nodes, new_total_num_nodes), KOKKOS_LAMBDA(const size_t i) {
+                m_node_local_offsets(i) = std::numeric_limits<uint64_t>::max();
+            });
         m_reserved_nodes = new_total_num_nodes;
     }
 
@@ -150,8 +152,8 @@ class SmoothedCellData {
     size_t m_num_cells;
     size_t m_reserved_nodes;
     FlattenedRaggedArray m_indices;
-    Kokkos::View<double*> m_function_derivatives;
-    Kokkos::View<uint64_t*> m_node_local_offsets;
+    Kokkos::View<double *> m_function_derivatives;
+    Kokkos::View<uint64_t *> m_node_local_offsets;
     size_t m_total_num_nodes = 0;
     size_t m_total_components = 0;
     static constexpr size_t k_num_dims = 3;
@@ -167,7 +169,7 @@ TEST(FlattenedRaggedArray, Create) {
     fra.length(3) = 4;
     fra.length(4) = 5;
     fra.SetStartsFromLengths();
-    Kokkos::View<uint64_t*> expected_start("expected_start", 5);
+    Kokkos::View<uint64_t *> expected_start("expected_start", 5);
     expected_start(0) = 0;
     expected_start(1) = 1;
     expected_start(2) = 3;
@@ -183,7 +185,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
     void SetUp() override {
     }
 
-    void BuildAndTestSmoothedCellData() {
+    void BuildAndTestSmoothedCellData() const {
         // Create the SmoothedCellData object
         aperi::SmoothedCellData scd(m_num_cells, m_reserved_num_nodes);
 
@@ -245,9 +247,9 @@ class SmoothedCellDataFixture : public ::testing::Test {
         Eigen::Matrix<uint64_t, 3, 1> elem_node_local_offsets;
         elem_node_local_offsets << 0, 1, 2;
         Eigen::Matrix<double, 3, 3> derivatives;
-        derivatives <<  -1.0, -2.0, -3.0,
-                        -4.0, -5.0, -6.0,
-                        -7.0, -8.0, -9.0;
+        derivatives << -1.0, -2.0, -3.0,
+            -4.0, -5.0, -6.0,
+            -7.0, -8.0, -9.0;
         scd.AddCellElement<3>(2, elem_node_local_offsets, derivatives);
 
         // Get the total number of nodes and total number of components
@@ -288,7 +290,7 @@ TEST_F(SmoothedCellDataFixture, BuildAndTestSmoothedCellData) {
     BuildAndTestSmoothedCellData();
 }
 
-TEST_F(SmoothedCellDataFixture, BuildAndTestSmoothedCellDataWithResizing) { 
+TEST_F(SmoothedCellDataFixture, BuildAndTestSmoothedCellDataWithResizing) {
     m_reserved_num_nodes = 1;
     BuildAndTestSmoothedCellData();
 }
