@@ -2,13 +2,15 @@
 
 #include <Eigen/Dense>
 #include <Kokkos_Core.hpp>
+#include <cstdint>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 namespace aperi {
 
 struct FlattenedRaggedArray {
-    explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in), ragged_array_size(0) {
+    explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in) {
         start = Kokkos::View<uint64_t *>("start", num_items);
         length = Kokkos::View<uint64_t *>("length", num_items);
         ragged_array_size_view = Kokkos::View<uint64_t *>("ragged_array_size", 1);
@@ -48,7 +50,7 @@ struct FlattenedRaggedArray {
     }
 
     // Get host view with copy of start. Expecting this isn't used in performance critical code. If this changes we should store the host view as a member variable.
-    Kokkos::View<uint64_t *>::HostMirror GetStartHost() {
+    Kokkos::View<uint64_t *>::HostMirror GetStartHost() const {
         // Create a host view
         Kokkos::View<uint64_t *>::HostMirror start_host = Kokkos::create_mirror_view(start);
         // Copy the start to the host
@@ -57,7 +59,7 @@ struct FlattenedRaggedArray {
     }
 
     // Get host view with copy of length. Expecting this isn't used in performance critical code. If this changes we should store the host view as a member variable.
-    Kokkos::View<uint64_t *>::HostMirror GetLengthHost() {
+    Kokkos::View<uint64_t *>::HostMirror GetLengthHost() const {
         // Create a host view
         Kokkos::View<uint64_t *>::HostMirror length_host = Kokkos::create_mirror_view(length);
         // Copy the length to the host
@@ -66,7 +68,7 @@ struct FlattenedRaggedArray {
     }
 
     size_t num_items;                                 // Number of items with value in the ragged array
-    uint64_t ragged_array_size;                       // Total number of elements in the ragged array
+    uint64_t ragged_array_size{0};                    // Total number of elements in the ragged array
     Kokkos::View<uint64_t *> start;                   // Start indices for each item in the ragged array
     Kokkos::View<uint64_t *> length;                  // Length of each item in the ragged array
     Kokkos::View<uint64_t *> num_items_view;          // Number of items in the ragged array, on the device
@@ -76,7 +78,7 @@ struct FlattenedRaggedArray {
 class SmoothedCellData {
    public:
     SmoothedCellData(size_t num_cells, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_indices(num_cells), m_function_derivatives("function_derivatives", 0), m_node_local_offsets("node_local_offsets", 0) {
+        : m_reserved_nodes(estimated_total_num_nodes), m_indices(num_cells), m_function_derivatives("function_derivatives", 0), m_node_local_offsets("node_local_offsets", 0) {
         // Resize views
         ResizeViews(estimated_total_num_nodes);
         // Fill the new elements with the maximum uint64_t value
@@ -87,7 +89,7 @@ class SmoothedCellData {
     struct AddCellNumNodesFunctor {
         Kokkos::View<uint64_t *> length;
 
-        AddCellNumNodesFunctor(Kokkos::View<uint64_t *> length) : length(length) {}
+        explicit AddCellNumNodesFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const size_t &cell_id, const size_t &num_nodes) const {
@@ -97,7 +99,7 @@ class SmoothedCellData {
     };
 
     // Return the AddCellNumNodesFunctor using the member variable m_indices.length. Call this in a kokkos parallel for loop.
-    AddCellNumNodesFunctor GetAddCellNumNodesFunctor() {
+    AddCellNumNodesFunctor GetAddCellNumNodesFunctor() const {
         return AddCellNumNodesFunctor(m_indices.length);
     }
 
@@ -122,7 +124,7 @@ class SmoothedCellData {
         Kokkos::View<uint64_t *> node_local_offsets_view;
 
         AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<double *> function_derivatives_view_in, Kokkos::View<uint64_t *> node_local_offsets_view_in)
-            : start_view(start_view_in), length_view(length_view_in), function_derivatives_view(function_derivatives_view_in), node_local_offsets_view(node_local_offsets_view_in) {}
+            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), function_derivatives_view(std::move(function_derivatives_view_in)), node_local_offsets_view(std::move(node_local_offsets_view_in)) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const size_t &cell_id, const Eigen::Matrix<uint64_t, NumNodes, 1> &elem_node_local_offsets, const Eigen::Matrix<double, NumNodes, 3> &derivatives) const {
@@ -213,7 +215,7 @@ class SmoothedCellData {
     }
 
     // Function to initialize the local offsets to the maximum uint64_t value
-    void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
+    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
         // No need to do anything if shrinking
         if (start >= stop) {
             return;
@@ -225,7 +227,6 @@ class SmoothedCellData {
     }
 
    private:
-    size_t m_num_cells;                             // Number of cells
     size_t m_reserved_nodes;                        // Estimated total number of nodes
     FlattenedRaggedArray m_indices;                 // Indices for the cells
     Kokkos::View<double *> m_function_derivatives;  // Function derivatives
@@ -237,7 +238,7 @@ class SmoothedCellData {
 
 }  // namespace aperi
 
-void PopulateLength(Kokkos::View<uint64_t *> length) {
+void PopulateLength(const Kokkos::View<uint64_t *> &length) {
     Kokkos::parallel_for(
         "PopulateLength", length.size(), KOKKOS_LAMBDA(const size_t i) {
             length(i) = i + 1;
