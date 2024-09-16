@@ -213,7 +213,7 @@ class SmoothedCellData {
     }
 
     // Function to initialize the local offsets to the maximum uint64_t value
-    void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *>& node_local_offsets) {
+    void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
         // No need to do anything if shrinking
         if (start >= stop) {
             return;
@@ -238,9 +238,10 @@ class SmoothedCellData {
 }  // namespace aperi
 
 void PopulateLength(Kokkos::View<uint64_t *> length) {
-    Kokkos::parallel_for("PopulateLength", length.size(), KOKKOS_LAMBDA(const size_t i) {
-        length(i) = i + 1;
-    });
+    Kokkos::parallel_for(
+        "PopulateLength", length.size(), KOKKOS_LAMBDA(const size_t i) {
+            length(i) = i + 1;
+        });
 }
 
 TEST(FlattenedRaggedArray, Create) {
@@ -278,25 +279,26 @@ class SmoothedCellDataFixture : public ::testing::Test {
         // Create the SmoothedCellData object
         aperi::SmoothedCellData scd(m_num_cells, m_reserved_num_nodes);
 
-        auto& scd_ref = scd;
         // Add cell num nodes in a kokkos parallel for loop
         auto add_cell_num_nodes_functor = scd.GetAddCellNumNodesFunctor();
-        Kokkos::parallel_for("AddCellNumNodes", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-            add_cell_num_nodes_functor(i, i + 1);
-        });
+        Kokkos::parallel_for(
+            "AddCellNumNodes", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                add_cell_num_nodes_functor(i, i + 1);
+            });
         scd.CompleteAddingCellIndices();
 
         // Add cell elements in a kokkos parallel for loop
         auto add_cell_element_functor = scd.GetAddCellElementFunctor<1>();
-        Kokkos::parallel_for("AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-            for (size_t j = 0; j < i + 1; ++j) {
-                Eigen::Matrix<uint64_t, 1, 1> elem_node_local_offsets;
-                elem_node_local_offsets << j;
-                Eigen::Matrix<double, 1, 3> derivatives;
-                derivatives << 3 * j + 1, 3 * j + 2, 3 * j + 3;
-                add_cell_element_functor(i, elem_node_local_offsets, derivatives);
-            }
-        });
+        Kokkos::parallel_for(
+            "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                for (size_t j = 0; j < i + 1; ++j) {
+                    Eigen::Matrix<uint64_t, 1, 1> elem_node_local_offsets;
+                    elem_node_local_offsets << j;
+                    Eigen::Matrix<double, 1, 3> derivatives;
+                    derivatives << 3 * j + 1, 3 * j + 2, 3 * j + 3;
+                    add_cell_element_functor(i, elem_node_local_offsets, derivatives);
+                }
+            });
         scd.Finalize();
 
         // Get the total number of nodes and total number of components
@@ -312,7 +314,6 @@ class SmoothedCellDataFixture : public ::testing::Test {
 
         // Expected: 0, 0, 1, 0, 1, 2
         std::vector<uint64_t> expected_node_local_offsets = {0, 0, 1, 0, 1, 2};
-        //std::vector<uint64_t> expected_node_local_osets = {0, 1, 0, 2, 0, 0};
 
         // Check the node local offsets.
         for (size_t i = 0; i < total_num_nodes; ++i) {
@@ -338,18 +339,19 @@ class SmoothedCellDataFixture : public ::testing::Test {
 
         // Add more elements to the last cell in the  SmoothedCellData object to cancel out the derivative values
         auto second_add_cell_element_functor = scd.GetAddCellElementFunctor<3>();
-        Kokkos::parallel_for("AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-            if (i != 2) {
-                return;
-            }
-            Eigen::Matrix<uint64_t, 3, 1> elem_node_local_offsets;
-            elem_node_local_offsets << 0, 1, 2;
-            Eigen::Matrix<double, 3, 3> derivatives;
-            derivatives << -1.0, -2.0, -3.0,
-                -4.0, -5.0, -6.0,
-                -7.0, -8.0, -9.0;
-            second_add_cell_element_functor(i, elem_node_local_offsets, derivatives);
-        });
+        Kokkos::parallel_for(
+            "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                if (i != 2) {
+                    return;
+                }
+                Eigen::Matrix<uint64_t, 3, 1> elem_node_local_offsets;
+                elem_node_local_offsets << 0, 1, 2;
+                Eigen::Matrix<double, 3, 3> derivatives;
+                derivatives << -1.0, -2.0, -3.0,
+                    -4.0, -5.0, -6.0,
+                    -7.0, -8.0, -9.0;
+                second_add_cell_element_functor(i, elem_node_local_offsets, derivatives);
+            });
 
         // Get the total number of nodes and total number of components
         total_num_nodes = scd.TotalNumNodes();
