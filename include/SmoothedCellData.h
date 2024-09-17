@@ -13,6 +13,7 @@ struct FlattenedRaggedArray {
     explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in) {
         start = Kokkos::View<uint64_t *>("start", num_items);
         length = Kokkos::View<uint64_t *>("length", num_items);
+        Kokkos::deep_copy(length, 0);
         ragged_array_size_view = Kokkos::View<uint64_t *>("ragged_array_size", 1);
         num_items_view = Kokkos::View<uint64_t *>("num_items", 1);
 
@@ -77,42 +78,74 @@ struct FlattenedRaggedArray {
 
 class SmoothedCellData {
    public:
-    SmoothedCellData(size_t num_cells, size_t estimated_total_num_nodes)
-        : m_reserved_nodes(estimated_total_num_nodes), m_indices(num_cells), m_function_derivatives("function_derivatives", 0), m_node_local_offsets("node_local_offsets", 0) {
+    SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
+        : m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", 0), m_function_derivatives("function_derivatives", 0) {
         // Resize views
-        ResizeViews(estimated_total_num_nodes);
+        ResizeNodeViews(estimated_total_num_nodes);
         // Fill the new elements with the maximum uint64_t value
-        InitializeLocalOffsets(0, estimated_total_num_nodes, m_node_local_offsets);
+        Kokkos::deep_copy(m_node_local_offsets, UINT64_MAX);
+        Kokkos::deep_copy(m_element_local_offsets, UINT64_MAX);
     }
 
-    // Functor to add the number of nodes for each cell, use the getter GetAddCellNumNodesFunctor and call in a kokkos parallel for loop
-    struct AddCellNumNodesFunctor {
+    // Function to resize views
+    void ResizeNodeViews(size_t new_total_num_nodes) {
+        Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
+        Kokkos::resize(m_node_local_offsets, new_total_num_nodes);
+        // Fill the new elements with the maximum uint64_t value
+        InitializeLocalOffsets(m_reserved_nodes, new_total_num_nodes, m_node_local_offsets);
+        m_reserved_nodes = new_total_num_nodes;
+    }
+
+    // Function to initialize the local offsets to the maximum uint64_t value
+    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
+        // No need to do anything if shrinking
+        if (start >= stop) {
+            return;
+        }
+        Kokkos::parallel_for(
+            "FillNewLocalOffsets", Kokkos::RangePolicy<>(start, stop), KOKKOS_LAMBDA(const size_t i) {
+                node_local_offsets(i) = UINT64_MAX;
+            });
+    }
+
+    // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
+    struct AddCellNumItemsFunctor {
         Kokkos::View<uint64_t *> length;
 
-        explicit AddCellNumNodesFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
+        explicit AddCellNumItemsFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &cell_id, const size_t &num_nodes) const {
-            // Add the length to the indices
-            length(cell_id) = num_nodes;
+        void operator()(const size_t &cell_id, const size_t &num_items) const {
+            // Add the num_times to the existing length
+            Kokkos::atomic_add(&length(cell_id), num_items);
         }
     };
 
-    // Return the AddCellNumNodesFunctor using the member variable m_indices.length. Call this in a kokkos parallel for loop.
-    AddCellNumNodesFunctor GetAddCellNumNodesFunctor() const {
-        return AddCellNumNodesFunctor(m_indices.length);
+    // Return the AddCellNumNodesFunctor using the member variable m_node_indices.length. Call this in a kokkos parallel for loop.
+    AddCellNumItemsFunctor GetAddCellNumNodesFunctor() const {
+        return AddCellNumItemsFunctor(m_node_indices.length);
+    }
+
+    // Return the AddCellNumElementsFunctor using the member variable m_element_indices.length. Call this in a kokkos parallel for loop.
+    AddCellNumItemsFunctor GetAddCellNumElementsFunctor() const {
+        return AddCellNumItemsFunctor(m_element_indices.length);
+    }
+
+    // Populate the element indices start. Should be called after AddCellNumElementsFunctor has been called for all cells and should not be called in a loop.
+    void CompleteAddingCellElementIndices() {
+        m_element_indices.SetStartsFromLengths();
     }
 
     // Populate the indices start. Should be called after AddCellNumNodesFunctor has been called for all cells and should not be called in a loop.
-    void CompleteAddingCellIndices() {
-        m_indices.SetStartsFromLengths();
+    void CompleteAddingCellNodeIndices() {
+        m_node_indices.SetStartsFromLengths();
 
         // Get the total number of nodes and number of components
-        m_total_num_nodes = m_indices.RaggedArraySize();
+        m_total_num_nodes = m_node_indices.RaggedArraySize();
         m_total_components = m_total_num_nodes * k_num_dims;
 
         // Resize the views
-        ResizeViews(m_total_num_nodes);
+        ResizeNodeViews(m_total_num_nodes);
     }
 
     // Functor to add an element to a cell, use the getter GetAddCellElementFunctor and call in a kokkos parallel for loop
@@ -166,15 +199,10 @@ class SmoothedCellData {
         }
     };
 
-    // Return the AddCellElementFunctor using the member variables m_indices.start, m_indices.length, m_function_derivatives, and m_node_local_offsets. Call this in a kokkos parallel for loop.
+    // Return the AddCellElementFunctor using the member variables m_node_indices.start, m_node_indices.length, m_function_derivatives, and m_node_local_offsets. Call this in a kokkos parallel for loop.
     template <size_t NumNodes>
     AddCellElementFunctor<NumNodes> GetAddCellElementFunctor() {
-        return AddCellElementFunctor<NumNodes>(m_indices.start, m_indices.length, m_function_derivatives, m_node_local_offsets);
-    }
-
-    // Function to finalize and resize views. Should be called last and not in a loop.
-    void Finalize() {
-        ResizeViews(m_total_num_nodes);
+        return AddCellElementFunctor<NumNodes>(m_node_indices.start, m_node_indices.length, m_function_derivatives, m_node_local_offsets);
     }
 
     // Get host view with copy of function derivatives
@@ -205,35 +233,16 @@ class SmoothedCellData {
         return m_total_components;
     }
 
-    // Function to resize views
-    void ResizeViews(size_t new_total_num_nodes) {
-        Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_local_offsets, new_total_num_nodes);
-        // Fill the new elements with the maximum uint64_t value
-        InitializeLocalOffsets(m_reserved_nodes, new_total_num_nodes, m_node_local_offsets);
-        m_reserved_nodes = new_total_num_nodes;
-    }
-
-    // Function to initialize the local offsets to the maximum uint64_t value
-    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
-        // No need to do anything if shrinking
-        if (start >= stop) {
-            return;
-        }
-        Kokkos::parallel_for(
-            "FillNewLocalOffsets", Kokkos::RangePolicy<>(start, stop), KOKKOS_LAMBDA(const size_t i) {
-                node_local_offsets(i) = UINT64_MAX;
-            });
-    }
-
    private:
-    size_t m_reserved_nodes;                        // Estimated total number of nodes
-    FlattenedRaggedArray m_indices;                 // Indices for the cells
-    Kokkos::View<double *> m_function_derivatives;  // Function derivatives
-    Kokkos::View<uint64_t *> m_node_local_offsets;  // Node local offsets
-    size_t m_total_num_nodes = 0;                   // Total number of nodes
-    size_t m_total_components = 0;                  // Total number of components (total number of nodes * number of dimensions)
-    static constexpr size_t k_num_dims = 3;         // Number of dimensions
+    size_t m_reserved_nodes;                           // Estimated total number of nodes
+    FlattenedRaggedArray m_node_indices;               // Indices for the cells
+    FlattenedRaggedArray m_element_indices;            // Indices for the elements
+    Kokkos::View<uint64_t *> m_element_local_offsets;  // Element local offsets
+    Kokkos::View<uint64_t *> m_node_local_offsets;     // Node local offsets
+    Kokkos::View<double *> m_function_derivatives;     // Function derivatives
+    size_t m_total_num_nodes = 0;                      // Total number of nodes
+    size_t m_total_components = 0;                     // Total number of components (total number of nodes * number of dimensions)
+    static constexpr size_t k_num_dims = 3;            // Number of dimensions
 };
 
 }  // namespace aperi

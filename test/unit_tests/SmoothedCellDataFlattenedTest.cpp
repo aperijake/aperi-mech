@@ -48,7 +48,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
    public:
     void BuildAndTestSmoothedCellData() const {
         // Create the SmoothedCellData object
-        aperi::SmoothedCellData scd(m_num_cells, m_reserved_num_nodes);
+        aperi::SmoothedCellData scd(m_num_cells, m_num_elements, m_reserved_num_nodes);
 
         // Add cell num nodes in a kokkos parallel for loop
         auto add_cell_num_nodes_functor = scd.GetAddCellNumNodesFunctor();
@@ -56,7 +56,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             "AddCellNumNodes", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
                 add_cell_num_nodes_functor(i, i + 1);
             });
-        scd.CompleteAddingCellIndices();
+        scd.CompleteAddingCellNodeIndices();
 
         // Add cell elements in a kokkos parallel for loop
         auto add_cell_element_functor = scd.GetAddCellElementFunctor<1>();
@@ -70,7 +70,6 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_cell_element_functor(i, elem_node_local_offsets, derivatives);
                 }
             });
-        scd.Finalize();
 
         // Get the total number of nodes and total number of components
         size_t total_num_nodes = scd.TotalNumNodes();
@@ -155,6 +154,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
     }
 
     size_t m_num_cells = 3;
+    size_t m_num_elements = 4;
     size_t m_reserved_num_nodes = 6;
 };
 

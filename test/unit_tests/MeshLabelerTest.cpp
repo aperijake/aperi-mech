@@ -69,9 +69,9 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         EXPECT_EQ(num_nodes_in_universal_active_part_global, expected_num_active_nodes);
     }
 
-    void CheckThexCellLabels(uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
+    void CheckThexCellLabels(uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids, const std::string& field_name, bool check_min_max) {
         // Check the cell id field
-        auto cell_ids = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
+        auto cell_ids = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, field_name, aperi::FieldQueryState::None);
 
         if (m_num_procs == 1) {
             ASSERT_EQ(cell_ids.rows(), expected_num_cells);
@@ -94,6 +94,15 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         uint64_t num_cells_total_global = 0;
         MPI_Allreduce(&num_cells_total, &num_cells_total_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
         EXPECT_EQ(num_cells_total_global, expected_num_cells);
+
+        // Check the minimum and maximum cell ids
+        if (check_min_max) {
+            uint64_t min_cell_id = *std::min_element(cell_ids.begin(), cell_ids.end());
+            uint64_t max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
+            // Local min and max cell ids so no need to communicate
+            EXPECT_EQ(min_cell_id, 0);
+            EXPECT_EQ(max_cell_id, unique_cell_ids.size() - 1);
+        }
     }
 
     void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes, uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
@@ -106,7 +115,8 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_labeler->LabelPart(mesh_labeler_parameters);
 
         CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
-        CheckThexCellLabels(expected_num_cells, expected_num_unique_cell_ids);
+        CheckThexCellLabels(expected_num_cells, expected_num_unique_cell_ids, "cell_id", false);
+        CheckThexCellLabels(expected_num_cells, expected_num_unique_cell_ids, "smoothed_cell_id", true);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object

@@ -12,6 +12,7 @@
 #include "FieldData.h"
 #include "IoMesh.h"
 #include "MeshLabeler.h"
+#include "SmoothedCellData.h"
 #include "UnitTestUtils.h"
 
 class CreateElementStrainSmoothedTest : public ::testing::Test {
@@ -73,7 +74,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        std::shared_ptr<aperi::ElementBase> element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
 
         std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
@@ -107,6 +108,12 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
     }
 
+    void CheckSmoothedCellData() {
+        // Check the smoothed cell data is not null
+        auto smoothed_cell_data = m_element->GetSmoothedCellData();
+        EXPECT_NE(smoothed_cell_data, nullptr);
+    }
+
     std::shared_ptr<aperi::IoMeshParameters> m_io_mesh_parameters;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
     std::string m_mesh_string;
@@ -115,6 +122,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
     double m_expected_volume;
     double m_expected_cell_volume_fraction_sum;
     aperi::ElementTopology m_element_topology = aperi::ElementTopology::Tetrahedron4;
+    std::shared_ptr<aperi::ElementBase> m_element;
 };
 
 // Smoothed tet4 element
@@ -122,6 +130,7 @@ TEST_F(CreateElementStrainSmoothedTest, SmoothedTet4Storing) {
     // Tet4 element
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
     CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+    CheckSmoothedCellData();
 }
 
 // Smoothed reproducing kernel on tet4 element
@@ -131,6 +140,7 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+    CheckSmoothedCellData();
 }
 
 // Smoothed reproducing kernel on hex8 element
@@ -145,6 +155,7 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+    CheckSmoothedCellData();
 }
 
 // Smoothed reproducing kernel on nodal integration
@@ -162,4 +173,5 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodal) {
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
     CreateAndRunStrainSmoothedElement(approximation_space_parameters, smoothing_cell_type);
+    CheckSmoothedCellData();
 }

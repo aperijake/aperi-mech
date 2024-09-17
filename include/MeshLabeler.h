@@ -38,6 +38,9 @@ class MeshLabeler {
         field_data.push_back(FieldData("cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));     // The cell id
         field_data.push_back(FieldData("subcell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));  // The subcell id
 
+        // Cell data for mapping to the local smoothed cell data structures
+        field_data.push_back(FieldData("smoothed_cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));  // The smoothed cell id
+
         return field_data;
     }
 

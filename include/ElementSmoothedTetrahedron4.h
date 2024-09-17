@@ -59,6 +59,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(m_integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -91,6 +92,15 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
     /**
+     * @brief Gets the SmoothedCellData object.
+     *
+     * @return A shared pointer to the SmoothedCellData object.
+     */
+    virtual std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const {
+        return m_smoothed_cell_data;
+    }
+
+    /**
      * @brief Computes the internal force of all elements.
      *
      */
@@ -112,6 +122,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
+    std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
 };
 
 }  // namespace aperi

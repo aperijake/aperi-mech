@@ -18,6 +18,7 @@
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
+#include "SmoothedCellData.h"
 
 namespace aperi {
 
@@ -451,8 +452,76 @@ class StrainSmoothingProcessor {
             });
     }
 
-    double GetNumElements() {
-        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell) {
+        // Create the active selector
+        std::vector<std::string> active_sets;
+        // If sets are named the same with _active at the end, use those.
+        for (const auto &set : m_sets) {
+            active_sets.push_back(set + "_active");
+        }
+        // If sets are not named, get the universal active part.
+        if (active_sets.size() == 0) {
+            active_sets.push_back("universal_active_part");
+        }
+        auto selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+
+        // Get the number of cells
+        size_t num_cells = GetNumElements(selector);
+
+        // Get the number of elements
+        size_t num_elements = GetNumElements();
+
+        // Estimate the total number of nodes in the cells
+        size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
+
+        // Create the smoothed cell data object
+        std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
+
+        /*
+        - Set the smoothed cell data cell ids. Do in mesh labeler processor.
+          x Create a stk element field: "smoothed_cell_id"
+          x Create a set of cell_ids
+          x Loop over each element on host
+            x Get the cell_id and add it to the set
+          x Loop over each element on host
+            x Look up the smoothed_cell_id (index) in the cell_ids set and set the smoothed_cell_id field value
+          - Copy the smoothed_cell_id field to the device
+          - Add test to mesh labeler processor tests
+        - Add num cell elements to smoothed cell data. Do here.
+          - Loop over each element
+            - Get the smoothed_cell_id from the stk field
+            - Add one to the number of elements for the smoothed_cell_id
+          - Test in smoothed cell data tests
+        - Set the cell element local offsets for the smoothed cell data. Do here, using functions in SmoothedCellData
+            - Loop over each element
+              - Get the smoothed cell id from the field
+              - Add the element to the smoothed cell data
+                - Use Kokkos::atomic_compare_exchange to add the element to the smoothed cell data. Find the first slot = UINT64_MAX
+            - Test in SmoothedCellData tests
+        - Set the smoothed cell node ids from the smoothed cell elements. Call here, do in SmoothedCellData.
+            - Get a host view of node index lengths and starts
+            - Get a host view of node local offsets and derivatives
+            - Loop over each cell on host
+              - Get cell element local offsets. Implement subview getter in SmoothedCellData.
+              - Create a set of node entities
+              - Set the length to the length of the set
+              - Set the start to the start + length of the previous cell, if not the first cell
+              - Set the node local offsets for the cell
+              - Atomic add to the derivatives
+            - Copy host views to device
+            - Test in SmoothedCellData tests
+        */
+
+        return smoothed_cell_data;
+    }
+
+    double GetNumElements(const stk::mesh::Selector &selector) const {
+        return stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    }
+
+    // Overloaded version that uses m_selector
+    double GetNumElements() const {
+        return GetNumElements(m_selector);
     }
 
    private:

@@ -102,12 +102,22 @@ class ElementReproducingKernel : public ElementBase {
         m_element_processor->for_each_element_gather_scatter_nodal_data<NumCellNodes>(compute_force_functor);
     }
 
+    /**
+     * @brief Gets the SmoothedCellData object.
+     *
+     * @return A shared pointer to the SmoothedCellData object.
+     */
+    virtual std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const {
+        return m_smoothed_cell_data;
+    }
+
    protected:
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
+    std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
 };
 
 /**
@@ -141,6 +151,7 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::TET4_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES);
 
         // Destroy the functors
         Kokkos::parallel_for(
@@ -183,6 +194,7 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(HEX8_NUM_NODES);
 
         // Destroy the functors
         Kokkos::parallel_for(
