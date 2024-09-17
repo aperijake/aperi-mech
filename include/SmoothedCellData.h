@@ -97,14 +97,14 @@ class SmoothedCellData {
     }
 
     // Function to initialize the local offsets to the maximum uint64_t value
-    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &node_local_offsets) {
+    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &local_offsets) {
         // No need to do anything if shrinking
         if (start >= stop) {
             return;
         }
         Kokkos::parallel_for(
             "FillNewLocalOffsets", Kokkos::RangePolicy<>(start, stop), KOKKOS_LAMBDA(const size_t i) {
-                node_local_offsets(i) = UINT64_MAX;
+                local_offsets(i) = UINT64_MAX;
             });
     }
 
@@ -152,14 +152,51 @@ class SmoothedCellData {
     }
 
     // Functor to add an element to a cell, use the getter GetAddCellElementFunctor and call in a kokkos parallel for loop
-    template <size_t NumNodes>
     struct AddCellElementFunctor {
+        Kokkos::View<uint64_t *> start_view;
+        Kokkos::View<uint64_t *> length_view;
+        Kokkos::View<uint64_t *> element_local_offsets_view;
+
+        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<uint64_t *> element_local_offsets_view_in)
+            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_local_offsets_view(std::move(element_local_offsets_view_in)) {}
+
+        KOKKOS_INLINE_FUNCTION
+        void operator()(const size_t &cell_id, const size_t &element_local_offset) const {
+            // Get the start and length for the cell
+            uint64_t start = start_view(cell_id);
+            uint64_t length = length_view(cell_id);
+            uint64_t end = start + length - 1;
+
+            // Find the first slot that is the maximum uint64_t value
+            bool found = false;
+            for (size_t i = start; i <= end + 1; i++) {
+                uint64_t expected = UINT64_MAX;
+                if (Kokkos::atomic_compare_exchange(&element_local_offsets_view(i), expected, element_local_offset) == expected) {
+                    found = true;
+                    break;
+                }
+            }
+            // Throw with kokkos if not found
+            if (!found) {
+                Kokkos::abort("Could not find an empty slot to add the element to the cell.");
+            }
+        }
+    };
+
+    // Return the AddCellElementFunctor using the member variables m_element_indices.start, m_element_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
+    AddCellElementFunctor GetAddCellElementFunctor() {
+        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets);
+    }
+
+    // Functor to add an element to a cell, use the getter GetAddCellElementFunctorOrig and call in a kokkos parallel for loop
+    template <size_t NumNodes>
+    struct AddCellElementFunctorOrig {
         Kokkos::View<uint64_t *> start_view;
         Kokkos::View<uint64_t *> length_view;
         Kokkos::View<double *> function_derivatives_view;
         Kokkos::View<uint64_t *> node_local_offsets_view;
 
-        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<double *> function_derivatives_view_in, Kokkos::View<uint64_t *> node_local_offsets_view_in)
+        AddCellElementFunctorOrig(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<double *> function_derivatives_view_in, Kokkos::View<uint64_t *> node_local_offsets_view_in)
             : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), function_derivatives_view(std::move(function_derivatives_view_in)), node_local_offsets_view(std::move(node_local_offsets_view_in)) {}
 
         KOKKOS_INLINE_FUNCTION
@@ -202,10 +239,10 @@ class SmoothedCellData {
         }
     };
 
-    // Return the AddCellElementFunctor using the member variables m_node_indices.start, m_node_indices.length, m_function_derivatives, and m_node_local_offsets. Call this in a kokkos parallel for loop.
+    // Return the AddCellElementFunctorOrig using the member variables m_node_indices.start, m_node_indices.length, m_function_derivatives, and m_node_local_offsets. Call this in a kokkos parallel for loop.
     template <size_t NumNodes>
-    AddCellElementFunctor<NumNodes> GetAddCellElementFunctor() {
-        return AddCellElementFunctor<NumNodes>(m_node_indices.start, m_node_indices.length, m_function_derivatives, m_node_local_offsets);
+    AddCellElementFunctorOrig<NumNodes> GetAddCellElementFunctorOrig() {
+        return AddCellElementFunctorOrig<NumNodes>(m_node_indices.start, m_node_indices.length, m_function_derivatives, m_node_local_offsets);
     }
 
     // Get host view with copy of function derivatives
@@ -224,6 +261,15 @@ class SmoothedCellData {
         // Copy the node local offsets to the host
         Kokkos::deep_copy(node_local_offsets_host, m_node_local_offsets);
         return node_local_offsets_host;
+    }
+
+    // Get host view with copy of element local offsets
+    Kokkos::View<uint64_t *>::HostMirror GetElementLocalOffsetsHost() {
+        // Create a host view
+        Kokkos::View<uint64_t *>::HostMirror element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
+        // Copy the element local offsets to the host
+        Kokkos::deep_copy(element_local_offsets_host, m_element_local_offsets);
+        return element_local_offsets_host;
     }
 
     // Get the total number of nodes

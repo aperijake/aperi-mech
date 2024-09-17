@@ -50,6 +50,13 @@ class SmoothedCellDataFixture : public ::testing::Test {
         // Create the SmoothedCellData object
         aperi::SmoothedCellData scd(m_num_cells, m_num_elements, m_reserved_num_nodes);
 
+        // Get the node local offsets before adding nodes. Should be all UINT64_MAX
+        auto node_indices_host_pre = scd.GetNodeLocalOffsetsHost();
+
+        for (size_t i = 0; i < m_reserved_num_nodes; ++i) {
+            EXPECT_EQ(node_indices_host_pre(i), UINT64_MAX) << "i: " << i;
+        }
+
         // Add cell num nodes in a kokkos parallel for loop
         auto add_cell_num_nodes_functor = scd.GetAddCellNumNodesFunctor();
         Kokkos::parallel_for(
@@ -66,8 +73,25 @@ class SmoothedCellDataFixture : public ::testing::Test {
             });
         scd.CompleteAddingCellElementIndices();
 
+        auto element_local_offsets_host_pre = scd.GetElementLocalOffsetsHost();
+
+        // Check the element local offsets before adding elements. Should be all UINT64_MAX
+        for (size_t i = 0; i < m_num_elements; ++i) {
+            EXPECT_EQ(element_local_offsets_host_pre(i), UINT64_MAX) << "i: " << i;
+        }
+
         // Add cell elements in a kokkos parallel for loop
-        auto add_cell_element_functor = scd.GetAddCellElementFunctor<1>();
+        auto add_cell_element_functor = scd.GetAddCellElementFunctor();
+        Kokkos::parallel_for(
+            "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                for (size_t j = 0; j < i + 1; ++j) {
+                    size_t elem_local_offsets = j;
+                    add_cell_element_functor(i, elem_local_offsets);
+                }
+            });
+
+        // Add cell elements in a kokkos parallel for loop
+        auto add_cell_element_functor_orig = scd.GetAddCellElementFunctorOrig<1>();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
                 for (size_t j = 0; j < i + 1; ++j) {
@@ -75,7 +99,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     elem_node_local_offsets << j;
                     Eigen::Matrix<double, 1, 3> derivatives;
                     derivatives << 3 * j + 1, 3 * j + 2, 3 * j + 3;
-                    add_cell_element_functor(i, elem_node_local_offsets, derivatives);
+                    add_cell_element_functor_orig(i, elem_node_local_offsets, derivatives);
                 }
             });
 
@@ -100,6 +124,17 @@ class SmoothedCellDataFixture : public ::testing::Test {
             EXPECT_EQ(node_local_offsets_host(i), expected_node_local_offsets[i]) << "i: " << i;
         }
 
+        // Copy the element local offsets to host
+        auto element_local_offsets_host = scd.GetElementLocalOffsetsHost();
+
+        // Expected: 0, 0, 1, 0, 1, 2
+        std::vector<uint64_t> expected_element_local_offsets = {0, 0, 1, 0, 1, 2};
+
+        // Check the element local offsets.
+        for (size_t i = 0; i < total_num_elements; ++i) {
+            EXPECT_EQ(element_local_offsets_host(i), expected_element_local_offsets[i]) << "i: " << i;
+        }
+
         // Copy the function derivatives to host
         auto function_derivatives_host = scd.GetFunctionDerivativesHost();
 
@@ -118,7 +153,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
         }
 
         // Add more elements to the last cell in the  SmoothedCellData object to cancel out the derivative values
-        auto second_add_cell_element_functor = scd.GetAddCellElementFunctor<3>();
+        auto second_add_cell_element_functor = scd.GetAddCellElementFunctorOrig<3>();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
                 if (i != 2) {
@@ -164,7 +199,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
     }
 
     size_t m_num_cells = 3;
-    size_t m_num_elements = 4;
+    size_t m_num_elements = 6;
     size_t m_reserved_num_nodes = 6;
 };
 

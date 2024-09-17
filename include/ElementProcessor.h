@@ -481,14 +481,15 @@ class StrainSmoothingProcessor {
         // Create the smoothed cell data object
         std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
 
-        // Get the functor to add the number of elements to the smoothed cell data
-        auto add_cell_num_elements_functor = smoothed_cell_data->GetAddCellNumElementsFunctor();
-
         // Get the ngp mesh
         auto ngp_mesh = m_ngp_mesh;
 
         // Get the ngp fields
         auto ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+
+        // #### Set length and start for the elements in the smoothed cell data ####
+        // Get the functor to add the number of elements to the smoothed cell data
+        auto add_cell_num_elements_functor = smoothed_cell_data->GetAddCellNumElementsFunctor();
 
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
@@ -499,6 +500,25 @@ class StrainSmoothingProcessor {
 
                 // Add the number of elements to the smoothed cell data
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
+            });
+        smoothed_cell_data->CompleteAddingCellElementIndices();
+
+        // #### Set the cell element local offsets for the smoothed cell data ####
+        // Get the functor to add the element to the smoothed cell data
+        auto add_cell_element_functor = smoothed_cell_data->GetAddCellElementFunctor();
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the smoothed_cell_id
+                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+
+                stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
+                uint64_t element_local_offset = element.local_offset();
+
+                // Add the number of elements to the smoothed cell data
+                add_cell_element_functor(smoothed_cell_id, element_local_offset);
             });
 
         /*
@@ -516,12 +536,12 @@ class StrainSmoothingProcessor {
             x Get the smoothed_cell_id from the stk field
             x Add one to the number of elements for the smoothed_cell_id
           x Test in smoothed cell data tests
-        - Set the cell element local offsets for the smoothed cell data. Do here, using functions in SmoothedCellData
-            - Loop over each element
-              - Get the smoothed cell id from the field
-              - Add the element to the smoothed cell data
-                - Use Kokkos::atomic_compare_exchange to add the element to the smoothed cell data. Find the first slot = UINT64_MAX
-            - Test in SmoothedCellData tests
+        x Set the cell element local offsets for the smoothed cell data. Do here, using functions in SmoothedCellData
+            x Loop over each element
+              x Get the smoothed cell id from the field
+              x Add the element to the smoothed cell data
+                x Use Kokkos::atomic_compare_exchange to add the element to the smoothed cell data. Find the first slot = UINT64_MAX
+            x Test in SmoothedCellData tests
         - Set the smoothed cell node ids from the smoothed cell elements. Call here, do in SmoothedCellData.
             - Get a host view of node index lengths and starts
             - Get a host view of node local offsets and derivatives
