@@ -58,6 +58,14 @@ class SmoothedCellDataFixture : public ::testing::Test {
             });
         scd.CompleteAddingCellNodeIndices();
 
+        // Add cell num elements in a kokkos parallel for loop
+        auto add_cell_num_elements_functor = scd.GetAddCellNumElementsFunctor();
+        Kokkos::parallel_for(
+            "AddCellNumElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                add_cell_num_elements_functor(i, i + 1);
+            });
+        scd.CompleteAddingCellElementIndices();
+
         // Add cell elements in a kokkos parallel for loop
         auto add_cell_element_functor = scd.GetAddCellElementFunctor<1>();
         Kokkos::parallel_for(
@@ -71,12 +79,14 @@ class SmoothedCellDataFixture : public ::testing::Test {
                 }
             });
 
-        // Get the total number of nodes and total number of components
+        // Get the total number of nodes, element and components
         size_t total_num_nodes = scd.TotalNumNodes();
+        size_t total_num_elements = scd.TotalNumElements();
         size_t total_num_components = scd.TotalNumComponents();
 
         // Check the number of nodes and components
         EXPECT_EQ(total_num_nodes, 6);
+        EXPECT_EQ(total_num_elements, 6);
         EXPECT_EQ(total_num_components, 18);
 
         // Copy the node local offsets to host

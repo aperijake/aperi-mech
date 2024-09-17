@@ -83,6 +83,9 @@ class MeshLabelerProcessor {
         // Label the cell ids for nodal integration
         LabelCellIdsForNodalIntegrationHost();
 
+        // Create the cells part from the cell id field, host operation
+        CreateCellsPartFromCellIdFieldHost();
+
         // All operations are done on the host, so sync the fields to the device
         SyncFieldsToDevice();
     }
@@ -95,14 +98,11 @@ class MeshLabelerProcessor {
         // Label the cell ids for element integration, host operation
         LabelCellIdsForElementIntegrationHost();
 
+        // Create the cells part from the cell id field, host operation
+        CreateCellsPartFromCellIdFieldHost();
+
         // Sync the fields to the device
         SyncFieldsToDevice();
-
-        // // Label the cell ids for element integration
-        // LabelCellIdsForElementIntegration();
-
-        // // Sync the fields to the host
-        // SyncFieldsToHost();
     }
 
     void LabelForGaussianIntegration() {
@@ -113,14 +113,11 @@ class MeshLabelerProcessor {
         // Label the cell ids for element integration, host operation
         LabelCellIdsForElementIntegrationHost();
 
+        // Create the cells part from the cell id field, host operation
+        CreateCellsPartFromCellIdFieldHost();
+
         // Sync the fields to the device
         SyncFieldsToDevice();
-
-        // // Label the cell ids for element integration
-        // LabelCellIdsForElementIntegration();
-
-        // // Sync the fields to the host
-        // SyncFieldsToHost();
     }
 
     void SyncFieldsToHost() {
@@ -235,6 +232,51 @@ class MeshLabelerProcessor {
 
         // Change entity parts
         m_bulk_data->change_entity_parts(nodes_to_change, add_parts, remove_parts);
+
+        // End modification
+        m_bulk_data->modification_end();
+    }
+
+    void CreateCellsPartFromCellIdFieldHost() {
+        // Host operation and mesh modification
+        stk::mesh::EntityVector elems_to_change;
+
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                // Get the cell id, which is the local offset to the cell id parent
+                uint64_t *cell_id_field_data = stk::mesh::field_data(*m_cell_id_field, (*bucket)[i_elem]);
+
+                // Get the local offset of this element
+                stk::mesh::Entity element = (*bucket)[i_elem];
+                uint64_t local_offset = element.local_offset();
+
+                // If the cell id is the same as the local offset, add the element to the list
+                if (cell_id_field_data[0] == local_offset) {
+                    elems_to_change.push_back(element);
+                }
+            }
+        }
+        // Get the MetaData from the bulk data
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+
+        // Begin modification
+        m_bulk_data->modification_begin();
+
+        // Get or declare the universal cells part
+        stk::mesh::Part *universal_cells_part = meta_data->get_part("universal_cells_part");
+        if (universal_cells_part == nullptr) {
+            universal_cells_part = &meta_data->declare_part("universal_cells_part", stk::topology::ELEMENT_RANK);
+        }
+
+        // Declare the cells part for the current set
+        stk::mesh::Part &cells_part = meta_data->declare_part(m_set + "_cells", stk::topology::ELEMENT_RANK);
+
+        // Prepare the parts to add and remove
+        stk::mesh::PartVector add_parts = {&cells_part, universal_cells_part};
+        stk::mesh::PartVector remove_parts;  // No parts to remove
+
+        // Change entity parts
+        m_bulk_data->change_entity_parts(elems_to_change, add_parts, remove_parts);
 
         // End modification
         m_bulk_data->modification_end();
@@ -447,35 +489,6 @@ class MeshLabelerProcessor {
         // Modified the active field, so clear the sync state and mark as modified
         m_ngp_active_field->clear_sync_state();
         m_ngp_active_field->modify_on_host();
-    }
-
-    // This should be done after the active node field has been labeled and the active part has been created.
-    void LabelCellIdsForElementIntegration() {
-        auto ngp_mesh = m_ngp_mesh;
-
-        // Get the ngp fields
-        auto ngp_cell_id_field = *m_ngp_cell_id_field;
-
-        // Loop over the elements and set the cell id to the element id
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Convert FastMeshIndex to Entity
-                stk::mesh::Entity elem_entity = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-
-                // Get the local offset
-                uint64_t elem_local_offset = elem_entity.local_offset();
-
-                // Set the cell id to the element id
-                uint64_t *cell_id = &ngp_cell_id_field(elem_index, 0);
-
-                // Set the cell id to the element id
-                cell_id[0] = elem_local_offset;
-            });
-
-        // Modified the cell id field, so clear the sync state and mark as modified
-        m_ngp_cell_id_field->clear_sync_state();
-        m_ngp_cell_id_field->modify_on_device();
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.

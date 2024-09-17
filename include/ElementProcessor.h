@@ -343,6 +343,10 @@ class StrainSmoothingProcessor {
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
 
+        // Get the smoothed cell id field
+        m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
+
         // Get the function derivatives fields
         std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
@@ -453,17 +457,17 @@ class StrainSmoothingProcessor {
     }
 
     std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell) {
-        // Create the active selector
-        std::vector<std::string> active_sets;
-        // If sets are named the same with _active at the end, use those.
+        // Create the cells selector
+        std::vector<std::string> cells_sets;
+        // If sets are named the same with _cells at the end, use those.
         for (const auto &set : m_sets) {
-            active_sets.push_back(set + "_active");
+            cells_sets.push_back(set + "_cells");
         }
-        // If sets are not named, get the universal active part.
-        if (active_sets.size() == 0) {
-            active_sets.push_back("universal_active_part");
+        // If sets are not named, get the universal cells part.
+        if (cells_sets.size() == 0) {
+            cells_sets.push_back("universal_cells_part");
         }
-        auto selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+        auto selector = StkGetSelector(cells_sets, &m_bulk_data->mesh_meta_data());
 
         // Get the number of cells
         size_t num_cells = GetNumElements(selector);
@@ -477,21 +481,41 @@ class StrainSmoothingProcessor {
         // Create the smoothed cell data object
         std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
 
+        // Get the functor to add the number of elements to the smoothed cell data
+        auto add_cell_num_elements_functor = smoothed_cell_data->GetAddCellNumElementsFunctor();
+
+        // Get the ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        auto ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the smoothed_cell_id
+                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+
+                // Add the number of elements to the smoothed cell data
+                add_cell_num_elements_functor(smoothed_cell_id, 1);
+            });
+
         /*
-        - Set the smoothed cell data cell ids. Do in mesh labeler processor.
+        x Set the smoothed cell data cell ids. Do in mesh labeler processor.
           x Create a stk element field: "smoothed_cell_id"
           x Create a set of cell_ids
           x Loop over each element on host
             x Get the cell_id and add it to the set
           x Loop over each element on host
             x Look up the smoothed_cell_id (index) in the cell_ids set and set the smoothed_cell_id field value
-          - Copy the smoothed_cell_id field to the device
-          - Add test to mesh labeler processor tests
-        - Add num cell elements to smoothed cell data. Do here.
-          - Loop over each element
-            - Get the smoothed_cell_id from the stk field
-            - Add one to the number of elements for the smoothed_cell_id
-          - Test in smoothed cell data tests
+          x Copy the smoothed_cell_id field to the device
+          x Add test to mesh labeler processor tests
+        x Add num cell elements to smoothed cell data. Do here.
+          x Loop over each element
+            x Get the smoothed_cell_id from the stk field
+            x Add one to the number of elements for the smoothed_cell_id
+          x Test in smoothed cell data tests
         - Set the cell element local offsets for the smoothed cell data. Do here, using functions in SmoothedCellData
             - Loop over each element
               - Get the smoothed cell id from the field
@@ -535,11 +559,13 @@ class StrainSmoothingProcessor {
     DoubleField *m_element_volume_field;                                           // The element volume field
     DoubleField *m_cell_volume_fraction_field;                                     // The cell volume field
     UnsignedField *m_cell_id_field;                                                // The cell id field
+    UnsignedField *m_smoothed_cell_id_field;                                       // The smoothed cell id field
     Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
     NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
     NgpDoubleField *m_ngp_cell_volume_fraction_field;                              // The ngp cell volume field
     NgpUnsignedField *m_ngp_cell_id_field;                                         // The ngp cell id field
+    NgpUnsignedField *m_ngp_smoothed_cell_id_field;                                // The ngp smoothed cell id field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 

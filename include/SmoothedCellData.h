@@ -134,6 +134,9 @@ class SmoothedCellData {
     // Populate the element indices start. Should be called after AddCellNumElementsFunctor has been called for all cells and should not be called in a loop.
     void CompleteAddingCellElementIndices() {
         m_element_indices.SetStartsFromLengths();
+
+        // Get the total number of elements
+        m_total_num_elements = m_element_indices.RaggedArraySize();
     }
 
     // Populate the indices start. Should be called after AddCellNumNodesFunctor has been called for all cells and should not be called in a loop.
@@ -228,6 +231,11 @@ class SmoothedCellData {
         return m_total_num_nodes;
     }
 
+    // Get the total number of elements
+    size_t TotalNumElements() const {
+        return m_total_num_elements;
+    }
+
     // Get the total number of components
     size_t TotalNumComponents() const {
         return m_total_components;
@@ -241,6 +249,7 @@ class SmoothedCellData {
     Kokkos::View<uint64_t *> m_node_local_offsets;     // Node local offsets
     Kokkos::View<double *> m_function_derivatives;     // Function derivatives
     size_t m_total_num_nodes = 0;                      // Total number of nodes
+    size_t m_total_num_elements = 0;                   // Total number of elements
     size_t m_total_components = 0;                     // Total number of components (total number of nodes * number of dimensions)
     static constexpr size_t k_num_dims = 3;            // Number of dimensions
 };
