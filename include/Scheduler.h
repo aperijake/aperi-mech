@@ -21,7 +21,7 @@ class Scheduler {
     /**
      * @brief Destructor.
      */
-    ~Scheduler() = default;
+    virtual ~Scheduler() = default;
 
     /**
      * @brief Get the end time.
@@ -64,6 +64,11 @@ class TimeIncrementScheduler : public Scheduler {
      * @param time_increment The time increment for each
      */
     TimeIncrementScheduler(double time_start, double time_end, double time_increment) : Scheduler(time_start, time_end), m_time_increment(time_increment){};
+
+    /**
+     * @brief Destructor.
+     */
+    virtual ~TimeIncrementScheduler() = default;
 
     /**
      * @brief Check if it is time for the next event.

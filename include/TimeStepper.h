@@ -25,7 +25,7 @@ class TimeStepper {
     /**
      * @brief Destructor.
      */
-    ~TimeStepper() = default;
+    virtual ~TimeStepper() = default;
 
     /**
      * @brief Get the end time of the simulation.
@@ -62,6 +62,8 @@ class DirectTimeStepper : public TimeStepper {
      * @param time_end The end time for the time stepper.
      */
     DirectTimeStepper(double time_increment, double time_end) : TimeStepper(time_end), m_time_increment(time_increment){};
+
+    virtual ~DirectTimeStepper() = default;
 
     /**
      * @brief Calculates the time increment for the given time.

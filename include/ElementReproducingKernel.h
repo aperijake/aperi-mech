@@ -44,7 +44,7 @@ class ElementReproducingKernel : public ElementBase {
     /**
      * @brief Destroys a ElementReproducingKernel object.
      */
-    ~ElementReproducingKernel() {}
+    virtual ~ElementReproducingKernel() {}
 
     virtual void ComputeSmoothedQuadrature() = 0;
 
@@ -107,7 +107,7 @@ class ElementReproducingKernel : public ElementBase {
      *
      * @return A shared pointer to the SmoothedCellData object.
      */
-    virtual std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const {
+    std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const override {
         return m_smoothed_cell_data;
     }
 

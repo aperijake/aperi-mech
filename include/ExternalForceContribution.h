@@ -32,6 +32,8 @@ class ExternalForceContribution : public ForceContribution {
      */
     ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : m_mesh_data(mesh_data), m_components_and_values(components_and_values) {}
 
+    virtual ~ExternalForceContribution() = default;
+
     /**
      * @brief Computes the force exerted by the external source.
      *
@@ -62,6 +64,8 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
         // Throw error because this is not implemented yet
         throw std::runtime_error("Error: Traction not implemented yet");
     }
+
+    virtual ~ExternalForceContributionTraction() = default;
 
     /**
      * @brief Computes the traction force.
@@ -97,6 +101,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
         field_query_data[1] = {"mass", FieldQueryState::None};
         m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data, m_mesh_data);
     }
+
+    virtual ~ExternalForceContributionGravity() = default;
 
     /**
      * @brief Computes the force due to gravity on the mesh.

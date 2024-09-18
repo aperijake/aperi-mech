@@ -30,6 +30,11 @@ class InternalForceContribution : public ForceContribution {
     InternalForceContribution(InternalForceContributionParameters parameters) : m_internal_force_contribution_parameters(std::move(parameters)) {}
 
     /**
+     * @brief Destroys an InternalForceContribution object.
+     */
+    virtual ~InternalForceContribution() {}
+
+    /**
      * @brief Computes the internal forces.
      *
      * This function overrides the ComputeForce function from the base class.

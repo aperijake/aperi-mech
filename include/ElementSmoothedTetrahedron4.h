@@ -39,7 +39,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Destroys a ElementSmoothedTetrahedron4 object.
      */
-    ~ElementSmoothedTetrahedron4() {
+    virtual ~ElementSmoothedTetrahedron4() {
         DestroyFunctors();
     }
 
@@ -96,7 +96,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      *
      * @return A shared pointer to the SmoothedCellData object.
      */
-    virtual std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const {
+    std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const override {
         return m_smoothed_cell_data;
     }
 

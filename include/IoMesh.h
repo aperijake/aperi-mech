@@ -11,8 +11,6 @@
 namespace aperi {
 
 struct IoMeshParameters {
-    bool add_edges = false;                 // create all internal edges in the mesh
-    bool add_faces = false;                 // create all internal faces in the mesh
     bool upward_connectivity = true;        // create upward connectivity/adjacency in the mesh
     bool aura_option = true;                // create aura ghosting around each MPI rank
     std::string parallel_io = "pnetcdf";    // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
@@ -50,8 +48,6 @@ class IoMesh {
    private:
     void SetIoProperties() const;
 
-    bool m_add_edges;                  // create all internal edges in the mesh
-    bool m_add_faces;                  // create all internal faces in the mesh
     bool m_upward_connectivity;        // create upward connectivity/adjacency in the mesh
     bool m_aura_option;                // create aura ghosting around each MPI rank
     std::string m_parallel_io;         // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
@@ -65,8 +61,6 @@ class IoMesh {
     int m_initial_bucket_capacity;
     int m_maximum_bucket_capacity;
 
-    size_t m_current_avg_baseline = 0;
-    std::vector<double> m_baseline_buffer;
     std::shared_ptr<stk::io::StkMeshIoBroker> mp_io_broker;
     std::shared_ptr<aperi::MeshData> mp_mesh_data;
     int m_input_index = -1;
