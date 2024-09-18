@@ -467,10 +467,10 @@ class StrainSmoothingProcessor {
         if (cells_sets.size() == 0) {
             cells_sets.push_back("universal_cells_part");
         }
-        auto selector = StkGetSelector(cells_sets, &m_bulk_data->mesh_meta_data());
+        auto cell_selector = StkGetSelector(cells_sets, &m_bulk_data->mesh_meta_data());
 
         // Get the number of cells
-        size_t num_cells = GetNumElements(selector);
+        size_t num_cells = GetNumElements(cell_selector);
 
         // Get the number of elements
         size_t num_elements = GetNumElements();
@@ -501,7 +501,7 @@ class StrainSmoothingProcessor {
                 // Add the number of elements to the smoothed cell data
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
             });
-        smoothed_cell_data->CompleteAddingCellElementIndices();
+        smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
 
         // #### Set the cell element local offsets for the smoothed cell data ####
         // Get the functor to add the element to the smoothed cell data
@@ -520,6 +520,95 @@ class StrainSmoothingProcessor {
                 // Add the number of elements to the smoothed cell data
                 add_cell_element_functor(smoothed_cell_id, element_local_offset);
             });
+
+        // #### Set the smoothed cell node ids from the smoothed cell elements ####
+
+        // Get host views of the node index lengths and starts
+        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
+        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
+        node_starts(0) = 0;
+
+        // Get host views of the node derivatives
+        auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+
+        // Get host views of the node local offsets
+        auto node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+
+        // Loop over all the cells
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+
+            // Create a set of node entities
+            std::set<stk::mesh::Entity> node_entities;
+
+            // Loop over all the cell element local offsets
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                // stk::mesh::Entity element = m_bulk_data->get_entity(stk::topology::ELEMENT_RANK, element_local_offset);
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
+                    node_entities.insert(element_nodes[k]);
+                }
+            }
+
+            // Set the length to the length of the set
+            node_lengths(i) = node_entities.size();
+
+            // Set the start to the start + length of the previous cell, if not the first cell
+            if (i > 0) {
+                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
+            }
+
+            // Resize the node views if necessary
+            size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
+            size_t current_node_local_offsets_size = node_local_offsets.extent(0);
+            if (node_local_offsets_size > current_node_local_offsets_size) {
+                std::cout << "Resizing node local offsets from " << current_node_local_offsets_size << " to " << current_node_local_offsets_size * 2 << std::endl;
+                // break;
+
+                // Double the size of the node local offsets
+                smoothed_cell_data->ResizeNodeViewsOnHost(current_node_local_offsets_size * 2);
+
+                // Get the new host views of the node local offsets
+                node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+                node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+            }
+
+            // Loop over the node entities, create a map of local offsets to node indices
+            std::map<size_t, size_t> node_local_offsets_to_index;
+            size_t node_index = node_starts(i);
+            for (auto &&node : node_entities) {
+                uint64_t node_local_offset = node.local_offset();
+                node_local_offsets(node_index) = node_local_offset;
+                node_local_offsets_to_index[node_local_offset] = node_index;
+                ++node_index;
+            }
+
+            // Loop over all the cell elements
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
+                std::vector<double *> element_function_derivatives_data(3);
+                for (size_t l = 0; l < 3; ++l) {
+                    element_function_derivatives_data[l] = stk::mesh::field_data(*m_element_function_derivatives_fields[l], element);
+                }
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
+                    uint64_t node_local_offset = element_nodes[k].local_offset();
+                    size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
+                    // Atomic add to the derivatives and set the node local offsets for the cell
+                    for (size_t l = 0; l < 3; ++l) {
+                        Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k]);
+                    }
+                }
+            }
+        }
+        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost();
+        smoothed_cell_data->CompleteAddingFunctionDerivativesOnHost();
 
         /*
         x Set the smoothed cell data cell ids. Do in mesh labeler processor.
@@ -543,16 +632,16 @@ class StrainSmoothingProcessor {
                 x Use Kokkos::atomic_compare_exchange to add the element to the smoothed cell data. Find the first slot = UINT64_MAX
             x Test in SmoothedCellData tests
         - Set the smoothed cell node ids from the smoothed cell elements. Call here, do in SmoothedCellData.
-            - Get a host view of node index lengths and starts
-            - Get a host view of node local offsets and derivatives
-            - Loop over each cell on host
-              - Get cell element local offsets. Implement subview getter in SmoothedCellData.
-              - Create a set of node entities
-              - Set the length to the length of the set
-              - Set the start to the start + length of the previous cell, if not the first cell
-              - Set the node local offsets for the cell
-              - Atomic add to the derivatives
-            - Copy host views to device
+            x Get a host view of node index lengths and starts
+            x Get a host view of node local offsets and derivatives
+            x Loop over each cell on host
+              x Get cell element local offsets. Implement subview getter in SmoothedCellData.
+              x Create a set of node entities
+              x Set the length to the length of the set
+              x Set the start to the start + length of the previous cell, if not the first cell
+              x Set the node local offsets for the cell
+              x Atomic add to the derivatives
+            x Copy host views to device
             - Test in SmoothedCellData tests
         */
 
