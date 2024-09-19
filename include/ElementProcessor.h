@@ -457,6 +457,11 @@ class StrainSmoothingProcessor {
     }
 
     std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell) {
+        /* This needs a few things to be completed first:
+           - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
+           - The node function derivatives need to be computed.
+        */
+
         // Create the cells selector
         std::vector<std::string> cells_sets;
         // If sets are named the same with _cells at the end, use those.
@@ -569,11 +574,14 @@ class StrainSmoothingProcessor {
             size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
             size_t current_node_local_offsets_size = node_local_offsets.extent(0);
             if (node_local_offsets_size > current_node_local_offsets_size) {
-                std::cout << "Resizing node local offsets from " << current_node_local_offsets_size << " to " << current_node_local_offsets_size * 2 << std::endl;
-                // break;
+                // Calculate the percent done
+                double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
+
+                // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
+                auto expected_size = static_cast<size_t>(static_cast<double>(node_local_offsets_size) * 1.5 * (1.0 + percent_done));
 
                 // Double the size of the node local offsets
-                smoothed_cell_data->ResizeNodeViewsOnHost(current_node_local_offsets_size * 2);
+                smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
 
                 // Get the new host views of the node local offsets
                 node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
@@ -610,44 +618,9 @@ class StrainSmoothingProcessor {
                 }
             }
         }
-        bool set_start_from_lengths = false; // The start array is already set above. This can be done as we are on host and looping through sequentially.
+        bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
         smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
         smoothed_cell_data->CopyCellNodeViewsToDevice();
-
-        /*
-        x Set the smoothed cell data cell ids. Do in mesh labeler processor.
-          x Create a stk element field: "smoothed_cell_id"
-          x Create a set of cell_ids
-          x Loop over each element on host
-            x Get the cell_id and add it to the set
-          x Loop over each element on host
-            x Look up the smoothed_cell_id (index) in the cell_ids set and set the smoothed_cell_id field value
-          x Copy the smoothed_cell_id field to the device
-          x Add test to mesh labeler processor tests
-        x Add num cell elements to smoothed cell data. Do here.
-          x Loop over each element
-            x Get the smoothed_cell_id from the stk field
-            x Add one to the number of elements for the smoothed_cell_id
-          x Test in smoothed cell data tests
-        x Set the cell element local offsets for the smoothed cell data. Do here, using functions in SmoothedCellData
-            x Loop over each element
-              x Get the smoothed cell id from the field
-              x Add the element to the smoothed cell data
-                x Use Kokkos::atomic_compare_exchange to add the element to the smoothed cell data. Find the first slot = UINT64_MAX
-            x Test in SmoothedCellData tests
-        - Set the smoothed cell node ids from the smoothed cell elements. Call here, do in SmoothedCellData.
-            x Get a host view of node index lengths and starts
-            x Get a host view of node local offsets and derivatives
-            x Loop over each cell on host
-              x Get cell element local offsets. Implement subview getter in SmoothedCellData.
-              x Create a set of node entities
-              x Set the length to the length of the set
-              x Set the start to the start + length of the previous cell, if not the first cell
-              x Set the node local offsets for the cell
-              x Atomic add to the derivatives
-            x Copy host views to device
-            - Test in SmoothedCellData tests
-        */
 
         return smoothed_cell_data;
     }

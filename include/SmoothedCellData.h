@@ -86,9 +86,7 @@ struct FlattenedRaggedArray {
 class SmoothedCellData {
    public:
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", 0), m_function_derivatives("function_derivatives", 0) {
-        // Resize views
-        ResizeNodeViews(estimated_total_num_nodes);
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims) {
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_local_offsets, UINT64_MAX);
         Kokkos::deep_copy(m_element_local_offsets, UINT64_MAX);
@@ -291,63 +289,6 @@ class SmoothedCellData {
     // Return the AddCellElementFunctor using the member variables m_element_indices.start, m_element_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
     AddCellElementFunctor GetAddCellElementFunctor() {
         return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets);
-    }
-
-    // Functor to add an element to a cell, use the getter GetAddCellElementFunctorOrig and call in a kokkos parallel for loop
-    template <size_t NumNodes>
-    struct AddCellElementFunctorOrig {
-        Kokkos::View<uint64_t *> start_view;
-        Kokkos::View<uint64_t *> length_view;
-        Kokkos::View<double *> function_derivatives_view;
-        Kokkos::View<uint64_t *> node_local_offsets_view;
-
-        AddCellElementFunctorOrig(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<double *> function_derivatives_view_in, Kokkos::View<uint64_t *> node_local_offsets_view_in)
-            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), function_derivatives_view(std::move(function_derivatives_view_in)), node_local_offsets_view(std::move(node_local_offsets_view_in)) {}
-
-        KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &cell_id, const Eigen::Matrix<uint64_t, NumNodes, 1> &elem_node_local_offsets, const Eigen::Matrix<double, NumNodes, 3> &derivatives) const {
-            // Get the start and length for the cell
-            uint64_t start = start_view(cell_id);
-            uint64_t length = length_view(cell_id);
-            uint64_t end = start + length - 1;
-
-            // Get the current number of nodes by finding the first element in the array that is the maximum uint64_t value
-            size_t current_cell_num_nodes = 0;
-            for (size_t j = start; j < end + 1; j++) {
-                if (node_local_offsets_view(j) == UINT64_MAX) {
-                    current_cell_num_nodes = j - start;
-                    break;
-                }
-            }
-
-            // See if the elem_node_local_offsets is already in the array, if not add it
-            // TODO(jake): This is not efficient and should be improved
-            for (size_t i = 0; i < NumNodes; i++) {
-                bool found = false;
-                size_t node_i = current_cell_num_nodes + start;
-                for (size_t j = start; j < end + 1; j++) {
-                    if (node_local_offsets_view(j) == elem_node_local_offsets(i)) {
-                        found = true;
-                        node_i = j;
-                        break;
-                    }
-                }
-                node_local_offsets_view(node_i) = elem_node_local_offsets(i);
-                for (size_t j = 0; j < k_num_dims; j++) {
-                    // Atomically add the derivatives to the function_derivatives
-                    Kokkos::atomic_add(&function_derivatives_view(node_i * k_num_dims + j), derivatives(i, j));
-                }
-                if (!found) {
-                    current_cell_num_nodes++;
-                }
-            }
-        }
-    };
-
-    // Return the AddCellElementFunctorOrig using the member variables m_node_indices.start, m_node_indices.length, m_function_derivatives, and m_node_local_offsets. Call this in a kokkos parallel for loop.
-    template <size_t NumNodes>
-    AddCellElementFunctorOrig<NumNodes> GetAddCellElementFunctorOrig() {
-        return AddCellElementFunctorOrig<NumNodes>(m_node_indices.start, m_node_indices.length, m_function_derivatives, m_node_local_offsets);
     }
 
     // Get host view with copy of function derivatives
