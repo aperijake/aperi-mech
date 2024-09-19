@@ -63,7 +63,6 @@ class SmoothedCellDataFixture : public ::testing::Test {
             "AddCellNumNodes", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
                 add_cell_num_nodes_functor(i, i + 1);
             });
-        scd.CompleteAddingCellNodeIndicesOnDevice();
 
         // Add cell num elements in a kokkos parallel for loop
         auto add_cell_num_elements_functor = scd.GetAddCellNumElementsFunctor();
@@ -71,7 +70,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             "AddCellNumElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
                 add_cell_num_elements_functor(i, i + 1);
             });
-        scd.CompleteAddingCellElementIndicesOnDevice();
+        scd.CompleteSettingSizesOnDevice();
 
         auto element_local_offsets_host_pre = scd.GetElementLocalOffsetsHost();
 
@@ -102,7 +101,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_cell_element_functor_orig(i, elem_node_local_offsets, derivatives);
                 }
             });
-        scd.CompleteAddingFunctionDerivativesOnDevice();
+        scd.CopyCellViewsToHost();
 
         // Get the total number of nodes, element and components
         size_t total_num_nodes = scd.TotalNumNodes();
@@ -168,6 +167,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     -7.0, -8.0, -9.0;
                 second_add_cell_element_functor(i, elem_node_local_offsets, derivatives);
             });
+        scd.CopyCellViewsToHost();
 
         // Get the total number of nodes and total number of components
         total_num_nodes = scd.TotalNumNodes();

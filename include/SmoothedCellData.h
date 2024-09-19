@@ -57,7 +57,7 @@ struct FlattenedRaggedArray {
         Kokkos::deep_copy(length, length_host);
 
         // Set the ragged array size to the last start + length
-        ragged_array_size = start(num_items - 1) + length(num_items - 1);
+        ragged_array_size = start_host(num_items - 1) + length_host(num_items - 1);
     }
 
     // Get the size of the ragged array
@@ -183,10 +183,6 @@ class SmoothedCellData {
 
         // Get the total number of elements
         m_total_num_elements = m_element_indices.RaggedArraySize();
-
-        // Copy the element local offsets to the host
-        m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
-        Kokkos::deep_copy(m_element_local_offsets_host, m_element_local_offsets);
     }
 
     void CompleteAddingCellElementIndicesOnHost(bool set_starts_from_lengths = true) {
@@ -194,9 +190,6 @@ class SmoothedCellData {
 
         // Get the total number of elements
         m_total_num_elements = m_element_indices.RaggedArraySize();
-
-        // Copy the element local offsets to the device
-        Kokkos::deep_copy(m_element_local_offsets, m_element_local_offsets_host);
     }
 
     // Should be called after AddCellNumNodesFunctor has been called for all cells and should not be called in a loop.
@@ -209,10 +202,6 @@ class SmoothedCellData {
 
         // Resize the views
         ResizeNodeViews(m_total_num_nodes);
-
-        // Copy the node local offsets to the host
-        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
-        Kokkos::deep_copy(m_node_local_offsets_host, m_node_local_offsets);
     }
 
     void CompleteAddingCellNodeIndicesOnHost(bool set_starts_from_lengths = true) {
@@ -223,19 +212,48 @@ class SmoothedCellData {
         m_total_components = m_total_num_nodes * k_num_dims;
 
         // Resize the views
-        ResizeNodeViews(m_total_num_nodes);
+        ResizeNodeViewsOnHost(m_total_num_nodes);
+    }
 
-        // Copy the node local offsets to the device
+    void CompleteSettingSizesOnDevice(bool set_starts_from_lengths = true) {
+        CompleteAddingCellElementIndicesOnDevice(set_starts_from_lengths);
+        CompleteAddingCellNodeIndicesOnDevice(set_starts_from_lengths);
+    }
+
+    void CompleteSettingSizesOnHost(bool set_starts_from_lengths = true) {
+        CompleteAddingCellElementIndicesOnHost(set_starts_from_lengths);
+        CompleteAddingCellNodeIndicesOnHost(set_starts_from_lengths);
+    }
+
+    void CopyCellElementViewsToHost() {
+        m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
+        Kokkos::deep_copy(m_element_local_offsets_host, m_element_local_offsets);
+    }
+
+    void CopyCellNodeViewsToHost() {
+        m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
+        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
+        Kokkos::deep_copy(m_node_local_offsets_host, m_node_local_offsets);
+    }
+
+    void CopyCellViewsToHost() {
+        CopyCellElementViewsToHost();
+        CopyCellNodeViewsToHost();
+    }
+
+    void CopyCellElementViewsToDevice() {
+        Kokkos::deep_copy(m_element_local_offsets, m_element_local_offsets_host);
+    }
+
+    void CopyCellNodeViewsToDevice() {
+        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
         Kokkos::deep_copy(m_node_local_offsets, m_node_local_offsets_host);
     }
 
-    void CompleteAddingFunctionDerivativesOnDevice() {
-        m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-    }
-
-    void CompleteAddingFunctionDerivativesOnHost() {
-        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
+    void CopyCellViewsToDevice() {
+        CopyCellElementViewsToDevice();
+        CopyCellNodeViewsToDevice();
     }
 
     // Functor to add an element to a cell, use the getter GetAddCellElementFunctor and call in a kokkos parallel for loop
@@ -348,7 +366,7 @@ class SmoothedCellData {
     }
 
     // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
-    Kokkos::View<uint64_t *> GetCellElementLocalOffsetsHost(size_t cell_id) {
+    Kokkos::View<uint64_t *>::HostMirror GetCellElementLocalOffsetsHost(size_t cell_id) {
         size_t start = m_element_indices.start_host(cell_id);
         size_t length = m_element_indices.length_host(cell_id);
         size_t end = start + length;

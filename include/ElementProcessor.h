@@ -501,6 +501,9 @@ class StrainSmoothingProcessor {
                 // Add the number of elements to the smoothed cell data
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
             });
+        // Number of cell elements ('length') is now set.
+        // This popluates the 'start' array from the 'length' array and collects other sizes.
+        // Also copies the 'length' and 'start' arrays to host.
         smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
 
         // #### Set the cell element local offsets for the smoothed cell data ####
@@ -520,9 +523,10 @@ class StrainSmoothingProcessor {
                 // Add the number of elements to the smoothed cell data
                 add_cell_element_functor(smoothed_cell_id, element_local_offset);
             });
+        // Cell element local offsets (STK offsets) are now set. Copy to host.
+        smoothed_cell_data->CopyCellElementViewsToHost();
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
-
         // Get host views of the node index lengths and starts
         auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
         auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
@@ -545,7 +549,6 @@ class StrainSmoothingProcessor {
             // Loop over all the cell element local offsets
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
                 auto element_local_offset = cell_element_local_offsets[j];
-                // stk::mesh::Entity element = m_bulk_data->get_entity(stk::topology::ELEMENT_RANK, element_local_offset);
                 stk::mesh::Entity element(element_local_offset);
                 stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
                 // Loop over all the nodes in the element
@@ -607,8 +610,9 @@ class StrainSmoothingProcessor {
                 }
             }
         }
-        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost();
-        smoothed_cell_data->CompleteAddingFunctionDerivativesOnHost();
+        bool set_start_from_lengths = false; // The start array is already set above. This can be done as we are on host and looping through sequentially.
+        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        smoothed_cell_data->CopyCellNodeViewsToDevice();
 
         /*
         x Set the smoothed cell data cell ids. Do in mesh labeler processor.
