@@ -79,7 +79,6 @@ class Material {
      * @return The stress of the material.
      */
     struct StressFunctor {
-        virtual ~StressFunctor() = default;
         KOKKOS_FUNCTION
         virtual Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const = 0;
     };
