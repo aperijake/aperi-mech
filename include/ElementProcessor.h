@@ -220,6 +220,72 @@ class ElementGatherScatterProcessor {
         }
     }
 
+    template <typename StressFunctor>
+    void for_each_cell_gather_scatter_nodal_data(const SmoothedCellData &scd, StressFunctor &stress_functor) {
+        // Get the number of cells
+        size_t num_cells = scd.NumCells();
+
+        // Get th ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
+        for (size_t i = 0; i < NumFields; ++i) {
+            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
+        }
+        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
+
+        // kokkos loop over all the cells
+        Kokkos::parallel_for(
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Set up the field data to gather
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
+
+                auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
+
+                size_t num_nodes = node_local_offsets.extent(0);
+
+                // Compute the field gradients
+                for (size_t f = 0; f < NumFields; ++f) {
+                    field_data_to_gather_gradient[f].fill(0.0);
+                    for (size_t k = 0; k < num_nodes; ++k) {
+                        stk::mesh::Entity node(node_local_offsets[k]);
+                        stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                        double *this_node_derivatives = &node_function_derivatives[k * 3];
+                        for (size_t i = 0; i < 3; ++i) {
+                            double field_data_ki = ngp_fields_to_gather[f](node_index, i);
+                            for (size_t j = 0; j < 3; ++j) {
+                                field_data_to_gather_gradient[f](i, j) += field_data_ki * this_node_derivatives[j];
+                            }
+                        }
+                    }
+                }
+
+                // Compute the stress and internal force of the element.
+                double volume = scd.GetCellVolume(cell_id);
+                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient) * -volume;
+
+                // Scatter the force to the nodes
+                for (size_t k = 0; k < num_nodes; ++k) {
+                    stk::mesh::Entity node(node_local_offsets[k]);
+                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                    double *function_derivatives = &node_function_derivatives[k * 3];
+                    // Create a eigen vector for the force
+                    Eigen::Matrix<double, 3, 1> force;
+                    for (size_t i = 0; i < 3; ++i) {
+                        force(i) = 0.0;
+                        for (size_t j = 0; j < 3; ++j) {
+                            force(i) += function_derivatives[j] * pk1_stress_neg_volume(i, j);  // Transpose the stress
+                        }
+                    }
+                    for (size_t j = 0; j < 3; ++j) {
+                        Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
+                    }
+                }
+            });
+    }
+
     // Loop over each element and apply the function on host data
     template <size_t NumNodes, typename Func>
     void for_each_element_host_gather_scatter_nodal_data(const Func &func) {
@@ -456,6 +522,26 @@ class StrainSmoothingProcessor {
             });
     }
 
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+        // Loop over all the cells
+        bool passed = true;
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the function derivatives
+            auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivativesHost(i);
+            std::array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
+            for (size_t j = 0, je = cell_function_derivatives.size(); j < je; ++j) {
+                cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
+            }
+            for (size_t j = 0; j < 3; ++j) {
+                if (std::abs(cell_function_derivatives_sum[j]) > 1.0e-12) {
+                    aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
+                    passed = false;
+                }
+            }
+        }
+        return passed;
+    }
+
     std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell) {
         /* This needs a few things to be completed first:
            - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
@@ -491,6 +577,7 @@ class StrainSmoothingProcessor {
 
         // Get the ngp fields
         auto ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+        auto ngp_element_volume_field = *m_ngp_element_volume_field;
 
         // #### Set length and start for the elements in the smoothed cell data ####
         // Get the functor to add the number of elements to the smoothed cell data
@@ -507,7 +594,7 @@ class StrainSmoothingProcessor {
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
             });
         // Number of cell elements ('length') is now set.
-        // This popluates the 'start' array from the 'length' array and collects other sizes.
+        // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
         smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
 
@@ -524,9 +611,10 @@ class StrainSmoothingProcessor {
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
                 uint64_t element_local_offset = element.local_offset();
+                double element_volume = ngp_element_volume_field(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(smoothed_cell_id, element_local_offset);
+                add_cell_element_functor(smoothed_cell_id, element_local_offset, element_volume);
             });
         // Cell element local offsets (STK offsets) are now set. Copy to host.
         smoothed_cell_data->CopyCellElementViewsToHost();
@@ -598,11 +686,16 @@ class StrainSmoothingProcessor {
                 ++node_index;
             }
 
+            // Cell volume
+            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+
             // Loop over all the cell elements
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
                 auto element_local_offset = cell_element_local_offsets[j];
                 stk::mesh::Entity element(element_local_offset);
                 stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
+                double element_volume = stk::mesh::field_data(*m_element_volume_field, element)[0];
+                double cell_volume_fraction = element_volume / cell_volume;
                 std::vector<double *> element_function_derivatives_data(3);
                 for (size_t l = 0; l < 3; ++l) {
                     element_function_derivatives_data[l] = stk::mesh::field_data(*m_element_function_derivatives_fields[l], element);
@@ -613,7 +706,7 @@ class StrainSmoothingProcessor {
                     size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
                     // Atomic add to the derivatives and set the node local offsets for the cell
                     for (size_t l = 0; l < 3; ++l) {
-                        Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k]);
+                        Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k] * cell_volume_fraction);
                     }
                 }
             }
@@ -621,6 +714,8 @@ class StrainSmoothingProcessor {
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
         smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
         smoothed_cell_data->CopyCellNodeViewsToDevice();
+
+        assert(CheckPartitionOfNullity(smoothed_cell_data));
 
         return smoothed_cell_data;
     }

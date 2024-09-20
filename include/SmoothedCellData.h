@@ -86,15 +86,17 @@ struct FlattenedRaggedArray {
 class SmoothedCellData {
    public:
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_total_num_elements(0) {
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_local_offsets, UINT64_MAX);
         Kokkos::deep_copy(m_element_local_offsets, UINT64_MAX);
+        Kokkos::deep_copy(m_cell_volume, 0.0);
 
         // Create host views
         m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
         m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
+        m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
 
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_local_offsets_host, UINT64_MAX);
@@ -225,7 +227,9 @@ class SmoothedCellData {
 
     void CopyCellElementViewsToHost() {
         m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
+        m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         Kokkos::deep_copy(m_element_local_offsets_host, m_element_local_offsets);
+        Kokkos::deep_copy(m_cell_volume_host, m_cell_volume);
     }
 
     void CopyCellNodeViewsToHost() {
@@ -242,6 +246,7 @@ class SmoothedCellData {
 
     void CopyCellElementViewsToDevice() {
         Kokkos::deep_copy(m_element_local_offsets, m_element_local_offsets_host);
+        Kokkos::deep_copy(m_cell_volume, m_cell_volume_host);
     }
 
     void CopyCellNodeViewsToDevice() {
@@ -259,12 +264,13 @@ class SmoothedCellData {
         Kokkos::View<uint64_t *> start_view;
         Kokkos::View<uint64_t *> length_view;
         Kokkos::View<uint64_t *> element_local_offsets_view;
+        Kokkos::View<double *> cell_volume;
 
-        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<uint64_t *> element_local_offsets_view_in)
-            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_local_offsets_view(std::move(element_local_offsets_view_in)) {}
+        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<uint64_t *> element_local_offsets_view_in, Kokkos::View<double *> cell_volume_in)
+            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_local_offsets_view(std::move(element_local_offsets_view_in)), cell_volume(std::move(cell_volume_in)) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &cell_id, const size_t &element_local_offset) const {
+        void operator()(const size_t &cell_id, const size_t &element_local_offset, const double &element_volume) const {
             // Get the start and length for the cell
             uint64_t start = start_view(cell_id);
             uint64_t length = length_view(cell_id);
@@ -283,12 +289,15 @@ class SmoothedCellData {
             if (!found) {
                 Kokkos::abort("Could not find an empty slot to add the element to the cell.");
             }
+
+            // Add the volume to the cell
+            cell_volume(cell_id) += element_volume;
         }
     };
 
     // Return the AddCellElementFunctor using the member variables m_element_indices.start, m_element_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
     AddCellElementFunctor GetAddCellElementFunctor() {
-        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets);
+        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets, m_cell_volume);
     }
 
     // Get host view with copy of function derivatives
@@ -306,12 +315,54 @@ class SmoothedCellData {
         return m_element_local_offsets_host;
     }
 
+    // Get host view with copy of cell volume
+    Kokkos::View<double *>::HostMirror GetCellVolumeHost() {
+        return m_cell_volume_host;
+    }
+
+    // Get the cell volume for a cell
+    KOKKOS_INLINE_FUNCTION
+    double GetCellVolume(size_t cell_id) const {
+        return m_cell_volume(cell_id);
+    }
+
+    // Get the cell volume for a cell
+    double GetCellVolumeHost(size_t cell_id) {
+        return m_cell_volume_host(cell_id);
+    }
+
     // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
     Kokkos::View<uint64_t *>::HostMirror GetCellElementLocalOffsetsHost(size_t cell_id) {
         size_t start = m_element_indices.start_host(cell_id);
         size_t length = m_element_indices.length_host(cell_id);
         size_t end = start + length;
         return Kokkos::subview(m_element_local_offsets_host, std::make_pair(start, end));
+    }
+
+    // Get the local offsets for the nodes in a cell. Return a kokkos subview of the node local offsets.
+    KOKKOS_INLINE_FUNCTION
+    Kokkos::View<uint64_t *> GetCellNodeLocalOffsets(size_t cell_id) const {
+        size_t start = m_node_indices.start(cell_id);
+        size_t length = m_node_indices.length(cell_id);
+        size_t end = start + length;
+        return Kokkos::subview(m_node_local_offsets, std::make_pair(start, end));
+    }
+
+    // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
+    KOKKOS_INLINE_FUNCTION
+    Kokkos::View<double *> GetCellFunctionDerivatives(size_t cell_id) const {
+        size_t start = m_node_indices.start(cell_id) * k_num_dims;
+        size_t length = m_node_indices.length(cell_id) * k_num_dims;
+        size_t end = start + length;
+        return Kokkos::subview(m_function_derivatives, std::make_pair(start, end));
+    }
+
+    // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
+    Kokkos::View<double *>::HostMirror GetCellFunctionDerivativesHost(size_t cell_id) {
+        size_t start = m_node_indices.start_host(cell_id) * k_num_dims;
+        size_t length = m_node_indices.length_host(cell_id) * k_num_dims;
+        size_t end = start + length;
+        return Kokkos::subview(m_function_derivatives_host, std::make_pair(start, end));
     }
 
     // Get the total number of nodes
@@ -355,6 +406,8 @@ class SmoothedCellData {
     Kokkos::View<uint64_t *>::HostMirror m_element_local_offsets_host;  // Host view with copy of element local offsets
     Kokkos::View<uint64_t *>::HostMirror m_node_local_offsets_host;     // Host view with copy of node local offsets
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
+    Kokkos::View<double *> m_cell_volume;                               // Cell volume
+    Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume
     size_t m_total_num_nodes = 0;                                       // Total number of nodes
     size_t m_total_num_elements = 0;                                    // Total number of elements
     size_t m_total_components = 0;                                      // Total number of components (total number of nodes * number of dimensions)

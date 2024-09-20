@@ -150,16 +150,24 @@ class SmoothedCellDataFixture : public ::testing::Test {
             EXPECT_EQ(element_local_offsets_host_pre(i), UINT64_MAX) << "i: " << i;
         }
 
+        double element_volume = 0.5;  // Volume of half of a unit cube
+
         // Add cell elements in a kokkos parallel for loop
         auto add_cell_element_functor = scd.GetAddCellElementFunctor();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                add_cell_element_functor(i, i);
+                add_cell_element_functor(i, i, element_volume);
                 if (i == 2) {
-                    add_cell_element_functor(i, i + 1);
+                    add_cell_element_functor(i, i + 1, element_volume);
                 }
             });
         scd.CopyCellViewsToHost();
+
+        // Check the cell volumes
+        auto cell_volume_host = scd.GetCellVolumeHost();
+        EXPECT_EQ(cell_volume_host(0), 0.5);
+        EXPECT_EQ(cell_volume_host(1), 0.5);
+        EXPECT_EQ(cell_volume_host(2), 1.0);
 
         // Get host views of the node index lengths and starts
         auto node_lengths = scd.GetNodeIndices().GetLengthHost();

@@ -95,11 +95,11 @@ class ElementReproducingKernel : public ElementBase {
         assert(this->m_material != nullptr);
         assert(m_element_processor != nullptr);
 
-        // Create the compute force functor
-        ComputeInternalForceFromSmoothingCellFunctor<NumCellNodes, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
+        // Create the compute stress functor
+        ComputeStressOnSmoothingCellFunctor<Material::StressFunctor> compute_stress_functor(*this->m_material->GetStressFunctor());
 
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<NumCellNodes>(compute_force_functor);
+        m_element_processor->for_each_cell_gather_scatter_nodal_data(*m_smoothed_cell_data, compute_stress_functor);
     }
 
     /**
