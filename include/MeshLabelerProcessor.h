@@ -493,8 +493,9 @@ class MeshLabelerProcessor {
 
     // This should be done after the active node field has been labeled and the active part has been created.
     void LabelCellIdsForElementIntegrationHost() {
-        // Create a set of cell ids
-        std::set<uint64_t> cell_ids;
+        // Create a map of cell ids to their indices
+        std::unordered_map<uint64_t, uint64_t> cell_id_to_index;
+        uint64_t index = 0;
 
         // Loop over the elements and set the cell id to the element id
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
@@ -502,7 +503,11 @@ class MeshLabelerProcessor {
                 stk::mesh::Entity element = (*bucket)[i_elem];
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
                 cell_id[0] = element.local_offset();
-                cell_ids.insert(cell_id[0]);
+
+                // Insert the cell id into the map if it doesn't already exist
+                if (cell_id_to_index.find(cell_id[0]) == cell_id_to_index.end()) {
+                    cell_id_to_index[cell_id[0]] = index++;
+                }
             }
         }
 
@@ -513,10 +518,8 @@ class MeshLabelerProcessor {
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
                 uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, element);
 
-                // Find the index of the cell id in the set
-                auto it = cell_ids.find(cell_id[0]);
-                // Set the smoothed cell id to the index
-                smoothed_cell_id[0] = std::distance(cell_ids.begin(), it);
+                // Use the map to find the index of the cell id
+                smoothed_cell_id[0] = cell_id_to_index[cell_id[0]];
             }
         }
 

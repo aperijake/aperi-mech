@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/Release/aperi-mech",
       "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
       "preLaunchTask": "make"
     },
     {
@@ -74,6 +74,15 @@
       //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/build/Debug",
       "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Debug Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_debug_protego"
     },
     {
       "name": "Debug Test Protego",
