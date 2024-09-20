@@ -1,6 +1,7 @@
 #include "Solver.h"
 
 #include <chrono>
+#include <iomanip>
 #include <numeric>
 
 #include "BoundaryCondition.h"
@@ -71,19 +72,27 @@ void ExplicitSolver::ComputeForce() {
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
 
     // Compute kinematic field values from the generalized fields
+    auto start_kinematics_from_generalized_field = std::chrono::high_resolution_clock::now();
     if (m_uses_generalized_fields) {
         m_kinematics_from_generalized_field_processor->compute_value_from_generalized_field();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_node_processor_force_local->FillField(0.0, 0);
         m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
     }
+    auto end_kinematics_from_generalized_field = std::chrono::high_resolution_clock::now();
+    auto duration_kinematics_from_generalized_field = std::chrono::duration_cast<std::chrono::microseconds>(end_kinematics_from_generalized_field - start_kinematics_from_generalized_field);
 
     // Compute internal force contributions
+    // timer for internal force contributions
+    auto start_internal_force_contributions = std::chrono::high_resolution_clock::now();
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce();
     }
+    auto end_internal_force_contributions = std::chrono::high_resolution_clock::now();
+    auto duration_internal_force_contributions = std::chrono::duration_cast<std::chrono::microseconds>(end_internal_force_contributions - start_internal_force_contributions);
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
+    auto start_scatter_local_forces = std::chrono::high_resolution_clock::now();
     if (m_uses_generalized_fields) {
         if (m_num_processors > 1) {
             m_node_processor_force_local->SyncFieldDeviceToHost(0);
@@ -92,6 +101,15 @@ void ExplicitSolver::ComputeForce() {
         m_force_field_processor->ScatterOwnedLocalValues();
         // No need to sync back to device as the local force field is not used until the next time step
     }
+    auto end_scatter_local_forces = std::chrono::high_resolution_clock::now();
+    auto duration_scatter_local_forces = std::chrono::duration_cast<std::chrono::microseconds>(end_scatter_local_forces - start_scatter_local_forces);
+    auto total_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_scatter_local_forces - start_kinematics_from_generalized_field);
+    double percent_kinematics_from_generalized_field = 100. * duration_kinematics_from_generalized_field.count() / total_duration.count();
+    double percent_internal_force_contributions = 100. * duration_internal_force_contributions.count() / total_duration.count();
+    double percent_scatter_local_forces = 100. * duration_scatter_local_forces.count() / total_duration.count();
+    aperi::CoutP0() << "Compute Fields: " << duration_kinematics_from_generalized_field.count() << " microseconds. Percent: " << percent_kinematics_from_generalized_field << std::endl;
+    aperi::CoutP0() << "Compute Force:  " << duration_internal_force_contributions.count() << " microseconds. Percent: " << percent_internal_force_contributions << std::endl;
+    aperi::CoutP0() << "Scatter Force:  " << duration_scatter_local_forces.count() << " microseconds. Percent: " << percent_scatter_local_forces << std::endl;
 
     // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
@@ -214,6 +232,9 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
 }
 
 double ExplicitSolver::Solve() {
+    // Start a timer for benchmarking
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     // Compute mass matrix
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
@@ -262,6 +283,23 @@ double ExplicitSolver::Solve() {
         WriteOutput(time);
     }
 
+    // Time for solver pre-processing
+    auto end_pre_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> this_pre_time = end_pre_time - start_time;
+    double pre_time = this_pre_time.count();
+
+    // Accumulate times
+    double total_step_time = 0.0;
+    double update_field_states_time = 0.0;
+    double compute_first_partial_update_time = 0.0;
+    double enforce_velocity_boundary_conditions_time = 0.0;
+    double update_displacements_time = 0.0;
+    double compute_force_time = 0.0;
+    double compute_acceleration_time = 0.0;
+    double apply_acceleration_boundary_conditions_time = 0.0;
+    double compute_second_partial_update_time = 0.0;
+    double write_output_time = 0.0;
+
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
         if (log_scheduler.AtNextEvent(total_runtime)) {
@@ -273,6 +311,9 @@ double ExplicitSolver::Solve() {
 
         // Move state n+1 to state n
         UpdateFieldStates();
+        auto end_update_field_states_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_update_field_states_time = end_update_field_states_time - start_time;
+        update_field_states_time += this_update_field_states_time.count();
 
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
@@ -280,28 +321,49 @@ double ExplicitSolver::Solve() {
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        auto end_compute_first_partial_update_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_compute_first_partial_update_time = end_compute_first_partial_update_time - end_update_field_states_time;
+        compute_first_partial_update_time += this_compute_first_partial_update_time.count();
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyVelocity(time_midstep);
         }
+        auto end_enforce_velocity_boundary_conditions_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_enforce_velocity_boundary_conditions_time = end_enforce_velocity_boundary_conditions_time - end_compute_first_partial_update_time;
+        enforce_velocity_boundary_conditions_time += this_enforce_velocity_boundary_conditions_time.count();
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         UpdateDisplacements(time_increment, node_processor_update_displacements);
+        auto end_update_displacements_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_update_displacements_time = end_update_displacements_time - end_enforce_velocity_boundary_conditions_time;
+        update_displacements_time += this_update_displacements_time.count();
 
         // Compute the force, f^{n+1}
         ComputeForce();
+        auto end_compute_force_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_compute_force_time = end_compute_force_time - end_update_displacements_time;
+        compute_force_time += this_compute_force_time.count();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);
+        auto end_compute_acceleration_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_compute_acceleration_time = end_compute_acceleration_time - end_compute_force_time;
+        compute_acceleration_time += this_compute_acceleration_time.count();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyAcceleration(time_next);
         }
+        auto end_apply_acceleration_boundary_conditions_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_apply_acceleration_boundary_conditions_time = end_apply_acceleration_boundary_conditions_time - end_compute_acceleration_time;
+        apply_acceleration_boundary_conditions_time += this_apply_acceleration_boundary_conditions_time.count();
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
+        auto end_compute_second_partial_update_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_compute_second_partial_update_time = end_compute_second_partial_update_time - end_apply_acceleration_boundary_conditions_time;
+        compute_second_partial_update_time += this_compute_second_partial_update_time.count();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
@@ -326,9 +388,93 @@ double ExplicitSolver::Solve() {
             LogEvent(n, time, average_runtime, "Write Field Output");
             WriteOutput(time);
         }
+        auto end_write_output_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_write_output_time = end_write_output_time - end_compute_second_partial_update_time;
+        write_output_time += this_write_output_time.count();
+
+        auto end_step_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> this_step_time = end_step_time - start_time;
+        total_step_time += this_step_time.count();
     }
     LogEvent(n, time, average_runtime, "End of Simulation");
     LogFooter();
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> runtime = end_time - start_time;
+
+    // Calculate the percentage of time spent in each event
+    double total_time = total_runtime;
+    double pre_time_percentage = pre_time / total_time * 100;
+    double update_field_states_percentage = update_field_states_time / total_time * 100;
+    double compute_first_partial_update_percentage = compute_first_partial_update_time / total_time * 100;
+    double enforce_velocity_boundary_conditions_percentage = enforce_velocity_boundary_conditions_time / total_time * 100;
+    double update_displacements_percentage = update_displacements_time / total_time * 100;
+    double compute_force_percentage = compute_force_time / total_time * 100;
+    double compute_acceleration_percentage = compute_acceleration_time / total_time * 100;
+    double apply_acceleration_boundary_conditions_percentage = apply_acceleration_boundary_conditions_time / total_time * 100;
+    double compute_second_partial_update_percentage = compute_second_partial_update_time / total_time * 100;
+    double write_output_percentage = write_output_time / total_time * 100;
+
+    // Print the percentage of time spent in each event, formatted to 2 decimal places and tabulated
+    // aperi::CoutP0() << "###########################################" << std::endl;
+    // aperi::CoutP0() << "Total Runtime: " << runtime << " seconds" << std::endl;
+    // aperi::CoutP0() << "Pre-Processing Time: " << pre_time << " seconds (" << std::fixed << std::setprecision(2) << pre_time_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Update Field States Time: " << update_field_states_time << " seconds (" << std::fixed << std::setprecision(2) << update_field_states_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Compute First Partial Update Time: " << compute_first_partial_update_time << " seconds (" << std::fixed << std::setprecision(2) << compute_first_partial_update_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Enforce Velocity Boundary Conditions Time: " << enforce_velocity_boundary_conditions_time << " seconds (" << std::fixed << std::setprecision(2) << enforce_velocity_boundary_conditions_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Update Displacements Time: " << update_displacements_time << " seconds (" << std::fixed << std::setprecision(2) << update_displacements_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Compute Force Time: " << compute_force_time << " seconds (" << std::fixed << std::setprecision(2) << compute_force_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Compute Acceleration Time: " << compute_acceleration_time << " seconds (" << std::fixed << std::setprecision(2) << compute_acceleration_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Apply Acceleration Boundary Conditions Time: " << apply_acceleration_boundary_conditions_time << " seconds (" << std::fixed << std::setprecision(2) << apply_acceleration_boundary_conditions_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Compute Second Partial Update Time: " << compute_second_partial_update_time << " seconds (" << std::fixed << std::setprecision(2) << compute_second_partial_update_percentage << "%)" << std::endl;
+    // aperi::CoutP0() << "Write Output Time: " << write_output_time << " seconds (" << std::fixed << std::setprecision(2) << write_output_percentage << "%)" << std::endl;
+
+    const int label_width = 40;
+    const int value_width = 10;
+    const int percentage_width = 6;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Total Runtime:"
+                    << std::right << std::setw(value_width) << runtime.count() << " seconds" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Pre-Processing Time:"
+                    << std::right << std::setw(value_width) << pre_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << pre_time_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Update Field States Time:"
+                    << std::right << std::setw(value_width) << update_field_states_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << update_field_states_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Compute First Partial Update Time:"
+                    << std::right << std::setw(value_width) << compute_first_partial_update_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << compute_first_partial_update_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Enforce Velocity Boundary Conditions Time:"
+                    << std::right << std::setw(value_width) << enforce_velocity_boundary_conditions_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << enforce_velocity_boundary_conditions_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Update Displacements Time:"
+                    << std::right << std::setw(value_width) << update_displacements_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << update_displacements_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Compute Force Time:"
+                    << std::right << std::setw(value_width) << compute_force_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << compute_force_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Compute Acceleration Time:"
+                    << std::right << std::setw(value_width) << compute_acceleration_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << compute_acceleration_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Apply Acceleration Boundary Conditions Time:"
+                    << std::right << std::setw(value_width) << apply_acceleration_boundary_conditions_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << apply_acceleration_boundary_conditions_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Compute Second Partial Update Time:"
+                    << std::right << std::setw(value_width) << compute_second_partial_update_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << compute_second_partial_update_percentage << "%)" << std::endl;
+
+    aperi::CoutP0() << std::left << std::setw(label_width) << "Write Output Time:"
+                    << std::right << std::setw(value_width) << write_output_time << " seconds ("
+                    << std::fixed << std::setprecision(2) << std::setw(percentage_width) << write_output_percentage << "%)" << std::endl;
+    aperi::CoutP0() << "###########################################" << std::endl;
 
     return average_runtime;
 }
