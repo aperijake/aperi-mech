@@ -636,8 +636,8 @@ class StrainSmoothingProcessor {
             // Get the cell element local offsets
             auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
-            // Create a set of node entities
-            std::set<stk::mesh::Entity> node_entities;
+            // Create a map of node entities to their indices
+            std::unordered_map<uint64_t, size_t> node_entities;
 
             // Loop over all the cell element local offsets
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
@@ -646,11 +646,14 @@ class StrainSmoothingProcessor {
                 stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
-                    node_entities.insert(element_nodes[k]);
+                    uint64_t node_local_offset = element_nodes[k].local_offset();
+                    if (node_entities.find(node_local_offset) == node_entities.end()) {
+                        node_entities[node_local_offset] = node_entities.size();
+                    }
                 }
             }
 
-            // Set the length to the length of the set
+            // Set the length to the size of the map
             node_lengths(i) = node_entities.size();
 
             // Set the start to the start + length of the previous cell, if not the first cell
@@ -677,10 +680,10 @@ class StrainSmoothingProcessor {
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
-            std::map<size_t, size_t> node_local_offsets_to_index;
+            std::unordered_map<uint64_t, size_t> node_local_offsets_to_index;
             size_t node_index = node_starts(i);
-            for (auto &&node : node_entities) {
-                uint64_t node_local_offset = node.local_offset();
+            for (const auto &node_pair : node_entities) {
+                uint64_t node_local_offset = node_pair.first;
                 node_local_offsets(node_index) = node_local_offset;
                 node_local_offsets_to_index[node_local_offset] = node_index;
                 ++node_index;

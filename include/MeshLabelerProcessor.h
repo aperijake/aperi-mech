@@ -444,16 +444,21 @@ class MeshLabelerProcessor {
             }
         }
 
-        // Create a set of cell ids for setting a the "smoothed_cell_id" field
-        std::set<uint64_t> cell_ids;
+        // Create a map of cell ids to their indices
+        std::unordered_map<uint64_t, uint64_t> cell_id_to_index;
+        uint64_t index = 0;
 
-        // Change the cell id to the local offset
+        // Change the cell id to the local offset and populate the map
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
                 cell_id[0] = cell_id_to_local_offset[cell_id[0]];
-                cell_ids.insert(cell_id[0]);
+
+                // Insert the cell_id into the map if it doesn't already exist
+                if (cell_id_to_index.find(cell_id[0]) == cell_id_to_index.end()) {
+                    cell_id_to_index[cell_id[0]] = index++;
+                }
             }
         }
 
@@ -464,10 +469,8 @@ class MeshLabelerProcessor {
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
                 uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, element);
 
-                // Find the index of the cell id in the set
-                auto it = cell_ids.find(cell_id[0]);
-                // Set the smoothed cell id to the index
-                smoothed_cell_id[0] = std::distance(cell_ids.begin(), it);
+                // Set the smoothed cell id to the index from the map
+                smoothed_cell_id[0] = cell_id_to_index[cell_id[0]];
             }
         }
 
