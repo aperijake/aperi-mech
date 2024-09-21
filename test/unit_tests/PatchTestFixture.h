@@ -434,7 +434,7 @@ class PatchTest : public SolverTest {
     std::string m_displacement_field_name = "displacement_coefficients";
     std::string m_velocity_field_name = "velocity_coefficients";
     std::string m_acceleration_field_name = "acceleration_coefficients";
-    Eigen::Vector3d m_center_of_mass;
+    Eigen::Vector3d m_center_of_mass = Eigen::Vector3d::Zero();
     // std::array<double, 3> m_rigid_body_translation; // TODO(jake): Implement rigid body translation
     // std::array<std::array<double, 3>, 3> m_rigid_body_rotation; // TODO(jake): Implement rigid body rotation
     Eigen::Matrix3d m_displacement_gradient = Eigen::Matrix3d::Zero();
