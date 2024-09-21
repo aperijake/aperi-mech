@@ -168,6 +168,10 @@ TEST_F(MeshLabelerTestFixture, CreateMeshLabelerParameters) {
 
 // Check that the mesh labeler can be created and the field data can be retrieved
 TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
     ReadThexMesh();
 
     // Check the active node field
