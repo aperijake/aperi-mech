@@ -160,7 +160,7 @@
     ]
   },
   "gtest-adapter.debugConfig": [
-    "Debug Test"
+    "Debug Test GPU Protego"
 ],
   "gtest-adapter.supportLocation": true
 }

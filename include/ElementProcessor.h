@@ -246,17 +246,26 @@ class ElementGatherScatterProcessor {
 
                 size_t num_nodes = node_local_offsets.extent(0);
 
-                // Compute the field gradients
+                // Compute the field gradients. TODO(jake): probably want to flip the order of the loops. Construct derivative operator matrix and multiply by field data.
                 for (size_t f = 0; f < NumFields; ++f) {
                     field_data_to_gather_gradient[f].fill(0.0);
                     for (size_t k = 0; k < num_nodes; ++k) {
                         stk::mesh::Entity node(node_local_offsets[k]);
                         stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                        double *this_node_derivatives = &node_function_derivatives[k * 3];
+                        size_t derivative_offset = k * 3;
+
+                        // Create function_derivatives as a row vector
+                        Eigen::Matrix<double, 1, 3> function_derivatives;
+                        for (size_t j = 0; j < 3; ++j) {
+                            function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                        }
+
+                        // Perform the matrix multiplication for field_data_to_gather_gradient
                         for (size_t i = 0; i < 3; ++i) {
                             double field_data_ki = ngp_fields_to_gather[f](node_index, i);
+                            Eigen::Matrix<double, 1, 3> field_data_ki_matrix = field_data_ki * function_derivatives;
                             for (size_t j = 0; j < 3; ++j) {
-                                field_data_to_gather_gradient[f](i, j) += field_data_ki * this_node_derivatives[j];
+                                field_data_to_gather_gradient[f](i, j) += field_data_ki_matrix(j);
                             }
                         }
                     }
@@ -270,15 +279,16 @@ class ElementGatherScatterProcessor {
                 for (size_t k = 0; k < num_nodes; ++k) {
                     stk::mesh::Entity node(node_local_offsets[k]);
                     stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    double *function_derivatives = &node_function_derivatives[k * 3];
-                    // Create a eigen vector for the force
-                    Eigen::Matrix<double, 3, 1> force;
-                    for (size_t i = 0; i < 3; ++i) {
-                        force(i) = 0.0;
-                        for (size_t j = 0; j < 3; ++j) {
-                            force(i) += function_derivatives[j] * pk1_stress_neg_volume(i, j);  // Transpose the stress
-                        }
+                    Eigen::Matrix<double, 1, 3> function_derivatives;
+                    size_t derivative_offset = k * 3;
+
+                    // Create function_derivatives as a row vector
+                    for (size_t j = 0; j < 3; ++j) {
+                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
                     }
+
+                    // Create a eigen vector for the force
+                    Eigen::Matrix<double, 3, 1> force = function_derivatives * pk1_stress_neg_volume;
                     for (size_t j = 0; j < 3; ++j) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
                     }
@@ -460,6 +470,13 @@ class StrainSmoothingProcessor {
                     }
                 }
             });
+        // Mark modified fields
+        m_ngp_element_volume_field->clear_sync_state();
+        m_ngp_element_volume_field->modify_on_device();
+        for (size_t i = 0; i < 3; ++i) {
+            m_ngp_element_function_derivatives_fields[i]->clear_sync_state();
+            m_ngp_element_function_derivatives_fields[i]->modify_on_device();
+        }
     }
 
     // Should be call after for_each_neighbor_compute_derivatives so element volume is computed
@@ -574,6 +591,12 @@ class StrainSmoothingProcessor {
 
         // Get the ngp mesh
         auto ngp_mesh = m_ngp_mesh;
+
+        // Sync the fields
+        m_ngp_element_volume_field->sync_to_host();
+        for (size_t i = 0; i < 3; ++i) {
+            m_ngp_element_function_derivatives_fields[i]->sync_to_host();
+        }
 
         // Get the ngp fields
         auto ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;

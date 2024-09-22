@@ -336,7 +336,7 @@ class SmoothedCellData {
         size_t start = m_element_indices.start_host(cell_id);
         size_t length = m_element_indices.length_host(cell_id);
         size_t end = start + length;
-        return Kokkos::subview(m_element_local_offsets_host, std::make_pair(start, end));
+        return Kokkos::subview(m_element_local_offsets_host, Kokkos::make_pair(start, end));
     }
 
     // Get the local offsets for the nodes in a cell. Return a kokkos subview of the node local offsets.
@@ -345,7 +345,7 @@ class SmoothedCellData {
         size_t start = m_node_indices.start(cell_id);
         size_t length = m_node_indices.length(cell_id);
         size_t end = start + length;
-        return Kokkos::subview(m_node_local_offsets, std::make_pair(start, end));
+        return Kokkos::subview(m_node_local_offsets, Kokkos::make_pair(start, end));
     }
 
     // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
@@ -354,7 +354,7 @@ class SmoothedCellData {
         size_t start = m_node_indices.start(cell_id) * k_num_dims;
         size_t length = m_node_indices.length(cell_id) * k_num_dims;
         size_t end = start + length;
-        return Kokkos::subview(m_function_derivatives, std::make_pair(start, end));
+        return Kokkos::subview(m_function_derivatives, Kokkos::make_pair(start, end));
     }
 
     // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
@@ -362,7 +362,7 @@ class SmoothedCellData {
         size_t start = m_node_indices.start_host(cell_id) * k_num_dims;
         size_t length = m_node_indices.length_host(cell_id) * k_num_dims;
         size_t end = start + length;
-        return Kokkos::subview(m_function_derivatives_host, std::make_pair(start, end));
+        return Kokkos::subview(m_function_derivatives_host, Kokkos::make_pair(start, end));
     }
 
     // Get the total number of nodes
