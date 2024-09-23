@@ -279,7 +279,7 @@ class ElementGatherScatterProcessor {
                 for (size_t k = 0; k < num_nodes; ++k) {
                     stk::mesh::Entity node(node_local_offsets[k]);
                     stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    Eigen::Matrix<double, 1, 3> function_derivatives;
+                    Eigen::Matrix<double, 3, 1> function_derivatives;
                     size_t derivative_offset = k * 3;
 
                     // Create function_derivatives as a row vector
@@ -288,7 +288,7 @@ class ElementGatherScatterProcessor {
                     }
 
                     // Create a eigen vector for the force
-                    Eigen::Matrix<double, 3, 1> force = function_derivatives * pk1_stress_neg_volume;
+                    Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives;
                     for (size_t j = 0; j < 3; ++j) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
                     }
