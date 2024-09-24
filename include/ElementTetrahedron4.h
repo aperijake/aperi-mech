@@ -40,7 +40,7 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Destroys a ElementTetrahedron4 object.
      */
-    ~ElementTetrahedron4() {
+    virtual ~ElementTetrahedron4() {
         DestroyFunctors();
     }
 

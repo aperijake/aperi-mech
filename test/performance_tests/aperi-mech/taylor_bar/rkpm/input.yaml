@@ -7,7 +7,9 @@ procedures:
               set: block_1
               formulation:
                 integration_scheme:
-                  strain_smoothing: ~
+                  strain_smoothing:
+                    element_smoothing_cell:
+                      subdomains: 1
                 approximation_space:
                   reproducing_kernel:
                     kernel_radius_scale_factor: 1.1

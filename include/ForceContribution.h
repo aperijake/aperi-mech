@@ -10,7 +10,7 @@ namespace aperi {
 class ForceContribution {
    public:
     ForceContribution() = default;
-    ~ForceContribution() = default;
+    virtual ~ForceContribution() = default;
     virtual void Preprocess(){};
     virtual void ComputeForce() = 0;
 };

@@ -19,6 +19,8 @@ class ApproximationSpaceParameters {
    public:
     ApproximationSpaceParameters() = default;
 
+    virtual ~ApproximationSpaceParameters() = default;
+
     virtual double GetKernelRadiusScaleFactor() const {
         throw std::runtime_error("Kernel radius scale factor not supported for this approximation space");
     }
@@ -51,6 +53,7 @@ class ApproximationSpaceFiniteElementParameters : public ApproximationSpaceParam
         approximation_space = "finite_element";
         approximation_space_type = ApproximationSpaceType::FiniteElement;
     }
+    virtual ~ApproximationSpaceFiniteElementParameters() = default;
 };
 
 class ApproximationSpaceReproducingKernelParameters : public ApproximationSpaceParameters {
@@ -71,6 +74,9 @@ class ApproximationSpaceReproducingKernelParameters : public ApproximationSpaceP
         approximation_space_type = ApproximationSpaceType::ReproducingKernel;
         kernel_radius_scale_factor = reproduction_kernel_node["kernel_radius_scale_factor"].as<double>();
     }
+
+    virtual ~ApproximationSpaceReproducingKernelParameters() = default;
+
     double GetKernelRadiusScaleFactor() const override {
         return kernel_radius_scale_factor;
     }
@@ -92,6 +98,8 @@ inline std::shared_ptr<ApproximationSpaceParameters> CreateApproximationSpace(co
 class IntegrationSchemeParameters {
    public:
     IntegrationSchemeParameters() = default;
+
+    virtual ~IntegrationSchemeParameters() = default;
 
     virtual int GetIntegrationOrder() const {
         throw std::runtime_error("Integration order not supported for this integration scheme");
@@ -123,6 +131,8 @@ class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParam
         integration_order = gauss_quadrature_node["integration_order"].as<int>();
     }
 
+    virtual ~IntegrationSchemeGaussQuadratureParameters() = default;
+
     int GetIntegrationOrder() const override {
         return integration_order;
     }
@@ -141,6 +151,7 @@ class IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParam
         integration_scheme = "strain_smoothing";
         integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
     }
+    virtual ~IntegrationSchemeStrainSmoothingParameters() = default;
 };
 
 inline std::shared_ptr<IntegrationSchemeParameters> CreateIntegrationScheme(const YAML::Node& integration_scheme_node) {
@@ -174,6 +185,9 @@ struct InternalForceContributionParameters {
             integration_scheme_parameters = std::make_shared<IntegrationSchemeGaussQuadratureParameters>();
         }
     }
+
+    virtual ~InternalForceContributionParameters() = default;
+
     std::shared_ptr<Material> material = nullptr;
     std::shared_ptr<aperi::MeshData> mesh_data = nullptr;
     std::string part_name = "";

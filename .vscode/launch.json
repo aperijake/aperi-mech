@@ -7,8 +7,17 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/Release/aperi-mech",
       "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
       "preLaunchTask": "make"
+    },
+    {
+      "name": "Release GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Release_gpu/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_gpu"
     },
     {
       "name": "Release Test",
@@ -16,7 +25,6 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/Release/unit_tests",
       "args": [],
-      //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/build/Release",
       "preLaunchTask": "make"
     },
@@ -66,14 +74,40 @@
       "preLaunchTask": "make_debug"
     },
     {
+      "name": "Debug GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_debug_gpu"
+    },
+    {
+      "name": "Debug GPU (full)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_full_debug_gpu"
+    },
+    {
       "name": "Debug Test",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/build/Debug/unit_tests",
       "args": [],
-      //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/build/Debug",
       "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Debug Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_debug_protego"
     },
     {
       "name": "Debug Test Protego",
@@ -81,7 +115,6 @@
       "request": "launch",
       "program": "${workspaceFolder}/protego-mech/build/Debug/unit_tests",
       "args": [],
-      //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/protego-mech/build/Debug",
       "preLaunchTask": "make_debug_protego"
     },
@@ -91,9 +124,26 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/Debug_gpu/unit_tests",
       "args": [],
-      //"args": ["--gtest_filter=Benchmar*"],
       "cwd": "${workspaceFolder}/build/Debug_gpu",
       "preLaunchTask": "make_debug_gpu"
+    },
+    {
+      "name": "Debug Test GPU Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/Debug_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/protego-mech/build/Debug_gpu",
+      "preLaunchTask": "make_debug_protego_gpu"
+    },
+    {
+      "name": "Debug Test GPU (full)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/build/Debug_gpu",
+      "preLaunchTask": "make_full_debug_gpu"
     },
     {
       "name": "MPI Debug Test",

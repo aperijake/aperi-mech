@@ -6,6 +6,8 @@
 
 namespace aperi {
 
+class SmoothedCellData;
+
 /**
  * @brief Represents an element in a mesh.
  *
@@ -46,6 +48,15 @@ class ElementBase {
      */
     void SetMaterial(std::shared_ptr<Material> material) {
         m_material = material;
+    }
+
+    /**
+     * @brief Gets the SmoothedCellData object.
+     *
+     * @return A shared pointer to the SmoothedCellData object.
+     */
+    virtual std::shared_ptr<SmoothedCellData> GetSmoothedCellData() const {
+        return nullptr;
     }
 
    protected:

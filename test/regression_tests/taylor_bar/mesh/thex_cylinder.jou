@@ -1,0 +1,8 @@
+undo on
+import mesh geometry "cylinder0p02.exo" feature_angle 135 merge
+thex volume all
+delete nodeset 1
+nodeset 1 add surface 1
+set exodus netcdf4 off
+set large exodus file on
+export mesh "cylinder0p02_thex.exo" overwrite

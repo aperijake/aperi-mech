@@ -26,9 +26,7 @@
 namespace aperi {
 
 IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
-    : m_add_edges(io_mesh_parameters.add_edges),
-      m_add_faces(io_mesh_parameters.add_faces),
-      m_upward_connectivity(io_mesh_parameters.upward_connectivity),
+    : m_upward_connectivity(io_mesh_parameters.upward_connectivity),
       m_aura_option(io_mesh_parameters.aura_option),
       m_parallel_io(io_mesh_parameters.parallel_io),
       m_decomp_method(io_mesh_parameters.decomp_method),
@@ -159,14 +157,6 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     }
 
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
-
-    // if (m_add_edges) {
-    //     stk::mesh::create_edges(mp_io_broker->bulk_data());
-    // }
-
-    // if (m_add_faces) {
-    //     stk::mesh::create_faces(mp_io_broker->bulk_data());
-    // }
 }
 
 void IoMesh::AddFields(const std::vector<aperi::FieldData> &field_data) {

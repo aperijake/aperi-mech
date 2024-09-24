@@ -67,6 +67,32 @@
       }
     },
     {
+      "label": "make_debug_protego_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu -p && cd protego-mech/build/Debug_gpu && make -j 4"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "make_full_debug_gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-debug && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
       "label": "make_relwithdebinfo",
       "type": "shell",
       "command": "bash",

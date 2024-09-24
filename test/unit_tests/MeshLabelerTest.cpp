@@ -69,12 +69,12 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         EXPECT_EQ(num_nodes_in_universal_active_part_global, expected_num_active_nodes);
     }
 
-    void CheckThexCellLabels(uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
+    void CheckThexCellLabels(uint64_t expected_num_elements, uint64_t expected_num_unique_cell_ids, const std::string& field_name, bool check_min_max) {
         // Check the cell id field
-        auto cell_ids = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
+        auto cell_ids = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, field_name, aperi::FieldQueryState::None);
 
         if (m_num_procs == 1) {
-            ASSERT_EQ(cell_ids.rows(), expected_num_cells);
+            ASSERT_EQ(cell_ids.rows(), expected_num_elements);
             ASSERT_EQ(cell_ids.cols(), 1);
         }
 
@@ -93,10 +93,29 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         uint64_t num_cells_total = m_mesh_data->GetNumOwnedElements({"block_1"});
         uint64_t num_cells_total_global = 0;
         MPI_Allreduce(&num_cells_total, &num_cells_total_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-        EXPECT_EQ(num_cells_total_global, expected_num_cells);
+        EXPECT_EQ(num_cells_total_global, expected_num_elements);
+
+        uint64_t num_elems_in_cells_part = m_mesh_data->GetNumOwnedElements({"block_1_cells"});
+        uint64_t num_elems_in_cells_part_global = 0;
+        MPI_Allreduce(&num_elems_in_cells_part, &num_elems_in_cells_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_elems_in_cells_part_global, expected_num_unique_cell_ids);
+
+        uint64_t num_elems_in_universal_cells_part = m_mesh_data->GetNumOwnedElements({"universal_cells_part"});
+        uint64_t num_elems_in_universal_cells_part_global = 0;
+        MPI_Allreduce(&num_elems_in_universal_cells_part, &num_elems_in_universal_cells_part_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+        EXPECT_EQ(num_elems_in_universal_cells_part_global, expected_num_unique_cell_ids);
+
+        // Check the minimum and maximum cell ids
+        if (check_min_max) {
+            uint64_t min_cell_id = *std::min_element(cell_ids.begin(), cell_ids.end());
+            uint64_t max_cell_id = *std::max_element(cell_ids.begin(), cell_ids.end());
+            // Local min and max cell ids so no need to communicate
+            EXPECT_EQ(min_cell_id, 0);
+            EXPECT_EQ(max_cell_id, unique_cell_ids.size() - 1);
+        }
     }
 
-    void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes, uint64_t expected_num_cells, uint64_t expected_num_unique_cell_ids) {
+    void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes, uint64_t expected_num_elements, uint64_t expected_num_unique_cell_ids) {
         // Set the node active values
         aperi::MeshLabelerParameters mesh_labeler_parameters;
         mesh_labeler_parameters.mesh_data = m_mesh_data;
@@ -106,7 +125,8 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_labeler->LabelPart(mesh_labeler_parameters);
 
         CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
-        CheckThexCellLabels(expected_num_cells, expected_num_unique_cell_ids);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", false);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "smoothed_cell_id", true);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
@@ -148,6 +168,10 @@ TEST_F(MeshLabelerTestFixture, CreateMeshLabelerParameters) {
 
 // Check that the mesh labeler can be created and the field data can be retrieved
 TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
     ReadThexMesh();
 
     // Check the active node field
@@ -200,9 +224,9 @@ TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothing) {
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
     size_t total_nodes = 15;
     size_t active_nodes = 4;
-    size_t num_cells = 4;
+    size_t num_elements = 4;
     size_t num_unique_cell_ids = 4;
-    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_elements, num_unique_cell_ids);
 }
 
 // Check that node active values can be set correctly for nodal smoothing, on a larger mesh
@@ -215,9 +239,9 @@ TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothingLargerMesh) {
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
     size_t total_nodes = 293;
     size_t active_nodes = 27;
-    size_t num_cells = 2 * 2 * 2 * 6 * 4;  // Number of hexes in the thex'd mesh
-    size_t num_unique_cell_ids = 27;       // One cell id per active node
-    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
+    size_t num_elements = 2 * 2 * 2 * 6 * 4;  // Number of hexes in the thex'd mesh
+    size_t num_unique_cell_ids = 27;          // One cell id per active node
+    CheckThexMeshLabels(aperi::SmoothingCellType::Nodal, total_nodes, active_nodes, num_elements, num_unique_cell_ids);
 }
 
 // Check that node active values can be set correctly for element smoothing
@@ -229,7 +253,7 @@ TEST_F(MeshLabelerTestFixture, LabelFieldsForElementSmoothing) {
     ReadThexMesh();
     size_t total_nodes = 15;
     size_t active_nodes = 15;
-    size_t num_cells = 4;
+    size_t num_elements = 4;
     size_t num_unique_cell_ids = 4;
-    CheckThexMeshLabels(aperi::SmoothingCellType::Element, total_nodes, active_nodes, num_cells, num_unique_cell_ids);
+    CheckThexMeshLabels(aperi::SmoothingCellType::Element, total_nodes, active_nodes, num_elements, num_unique_cell_ids);
 }

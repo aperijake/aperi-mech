@@ -21,33 +21,33 @@
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, Tet4PatchTestsTension) {
     bool tets = true;
-    bool strain_smoothing = false;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
-    RunTensionPatchTests(tets, strain_smoothing, reproducing_kernel);
+    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, Tet4PatchTestsCompression) {
     bool tets = true;
-    bool strain_smoothing = false;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
-    RunCompressionPatchTests(tets, strain_smoothing, reproducing_kernel);
+    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, SmoothedTet4PatchTestsTension) {
     bool tets = true;
-    bool strain_smoothing = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING;
     bool reproducing_kernel = false;
-    RunTensionPatchTests(tets, strain_smoothing, reproducing_kernel);
+    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, SmoothedTet4PatchTestsCompression) {
     bool tets = true;
-    bool strain_smoothing = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING;
     bool reproducing_kernel = false;
-    RunCompressionPatchTests(tets, strain_smoothing, reproducing_kernel);
+    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.

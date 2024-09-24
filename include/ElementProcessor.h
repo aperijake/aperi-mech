@@ -18,6 +18,7 @@
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
+#include "SmoothedCellData.h"
 
 namespace aperi {
 
@@ -219,6 +220,82 @@ class ElementGatherScatterProcessor {
         }
     }
 
+    template <typename StressFunctor>
+    void for_each_cell_gather_scatter_nodal_data(const SmoothedCellData &scd, StressFunctor &stress_functor) {
+        // Get the number of cells
+        size_t num_cells = scd.NumCells();
+
+        // Get th ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
+        for (size_t i = 0; i < NumFields; ++i) {
+            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
+        }
+        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
+
+        // kokkos loop over all the cells
+        Kokkos::parallel_for(
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Set up the field data to gather
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
+
+                auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
+
+                size_t num_nodes = node_local_offsets.extent(0);
+
+                // Compute the field gradients. TODO(jake): probably want to flip the order of the loops. Construct derivative operator matrix and multiply by field data.
+                for (size_t f = 0; f < NumFields; ++f) {
+                    field_data_to_gather_gradient[f].fill(0.0);
+                    for (size_t k = 0; k < num_nodes; ++k) {
+                        stk::mesh::Entity node(node_local_offsets[k]);
+                        stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                        size_t derivative_offset = k * 3;
+
+                        // Create function_derivatives as a row vector
+                        Eigen::Matrix<double, 1, 3> function_derivatives;
+                        for (size_t j = 0; j < 3; ++j) {
+                            function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                        }
+
+                        // Perform the matrix multiplication for field_data_to_gather_gradient
+                        for (size_t i = 0; i < 3; ++i) {
+                            double field_data_ki = ngp_fields_to_gather[f](node_index, i);
+                            Eigen::Matrix<double, 1, 3> field_data_ki_matrix = field_data_ki * function_derivatives;
+                            for (size_t j = 0; j < 3; ++j) {
+                                field_data_to_gather_gradient[f](i, j) += field_data_ki_matrix(j);
+                            }
+                        }
+                    }
+                }
+
+                // Compute the stress and internal force of the element.
+                double volume = scd.GetCellVolume(cell_id);
+                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient) * -volume;
+
+                // Scatter the force to the nodes
+                for (size_t k = 0; k < num_nodes; ++k) {
+                    stk::mesh::Entity node(node_local_offsets[k]);
+                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                    Eigen::Matrix<double, 3, 1> function_derivatives;
+                    size_t derivative_offset = k * 3;
+
+                    // Create function_derivatives as a row vector
+                    for (size_t j = 0; j < 3; ++j) {
+                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                    }
+
+                    // Create a eigen vector for the force
+                    Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives;
+                    for (size_t j = 0; j < 3; ++j) {
+                        Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
+                    }
+                }
+            });
+    }
+
     // Loop over each element and apply the function on host data
     template <size_t NumNodes, typename Func>
     void for_each_element_host_gather_scatter_nodal_data(const Func &func) {
@@ -342,6 +419,10 @@ class StrainSmoothingProcessor {
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
 
+        // Get the smoothed cell id field
+        m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
+
         // Get the function derivatives fields
         std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
         for (size_t i = 0; i < 3; ++i) {
@@ -389,6 +470,13 @@ class StrainSmoothingProcessor {
                     }
                 }
             });
+        // Mark modified fields
+        m_ngp_element_volume_field->clear_sync_state();
+        m_ngp_element_volume_field->modify_on_device();
+        for (size_t i = 0; i < 3; ++i) {
+            m_ngp_element_function_derivatives_fields[i]->clear_sync_state();
+            m_ngp_element_function_derivatives_fields[i]->modify_on_device();
+        }
     }
 
     // Should be call after for_each_neighbor_compute_derivatives so element volume is computed
@@ -451,8 +539,220 @@ class StrainSmoothingProcessor {
             });
     }
 
-    double GetNumElements() {
-        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+        // Loop over all the cells
+        bool passed = true;
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the function derivatives
+            auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivativesHost(i);
+            std::array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
+            for (size_t j = 0, je = cell_function_derivatives.size(); j < je; ++j) {
+                cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
+            }
+            for (size_t j = 0; j < 3; ++j) {
+                if (std::abs(cell_function_derivatives_sum[j]) > 1.0e-12) {
+                    aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
+                    passed = false;
+                }
+            }
+        }
+        return passed;
+    }
+
+    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell) {
+        /* This needs a few things to be completed first:
+           - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
+           - The node function derivatives need to be computed.
+        */
+
+        // Create the cells selector
+        std::vector<std::string> cells_sets;
+        // If sets are named the same with _cells at the end, use those.
+        for (const auto &set : m_sets) {
+            cells_sets.push_back(set + "_cells");
+        }
+        // If sets are not named, get the universal cells part.
+        if (cells_sets.size() == 0) {
+            cells_sets.push_back("universal_cells_part");
+        }
+        auto cell_selector = StkGetSelector(cells_sets, &m_bulk_data->mesh_meta_data());
+
+        // Get the number of cells
+        size_t num_cells = GetNumElements(cell_selector);
+
+        // Get the number of elements
+        size_t num_elements = GetNumElements();
+
+        // Estimate the total number of nodes in the cells
+        size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
+
+        // Create the smoothed cell data object
+        std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
+
+        // Get the ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Sync the fields
+        m_ngp_element_volume_field->sync_to_host();
+        for (size_t i = 0; i < 3; ++i) {
+            m_ngp_element_function_derivatives_fields[i]->sync_to_host();
+        }
+
+        // Get the ngp fields
+        auto ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+        auto ngp_element_volume_field = *m_ngp_element_volume_field;
+
+        // #### Set length and start for the elements in the smoothed cell data ####
+        // Get the functor to add the number of elements to the smoothed cell data
+        auto add_cell_num_elements_functor = smoothed_cell_data->GetAddCellNumElementsFunctor();
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the smoothed_cell_id
+                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+
+                // Add the number of elements to the smoothed cell data
+                add_cell_num_elements_functor(smoothed_cell_id, 1);
+            });
+        // Number of cell elements ('length') is now set.
+        // This populates the 'start' array from the 'length' array and collects other sizes.
+        // Also copies the 'length' and 'start' arrays to host.
+        smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
+
+        // #### Set the cell element local offsets for the smoothed cell data ####
+        // Get the functor to add the element to the smoothed cell data
+        auto add_cell_element_functor = smoothed_cell_data->GetAddCellElementFunctor();
+
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the smoothed_cell_id
+                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+
+                stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
+                uint64_t element_local_offset = element.local_offset();
+                double element_volume = ngp_element_volume_field(elem_index, 0);
+
+                // Add the number of elements to the smoothed cell data
+                add_cell_element_functor(smoothed_cell_id, element_local_offset, element_volume);
+            });
+        // Cell element local offsets (STK offsets) are now set. Copy to host.
+        smoothed_cell_data->CopyCellElementViewsToHost();
+
+        // #### Set the smoothed cell node ids from the smoothed cell elements ####
+        // Get host views of the node index lengths and starts
+        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
+        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
+        node_starts(0) = 0;
+
+        // Get host views of the node derivatives
+        auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+
+        // Get host views of the node local offsets
+        auto node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+
+        // Loop over all the cells
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+
+            // Create a map of node entities to their indices
+            std::unordered_map<uint64_t, size_t> node_entities;
+
+            // Loop over all the cell element local offsets
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
+                    uint64_t node_local_offset = element_nodes[k].local_offset();
+                    if (node_entities.find(node_local_offset) == node_entities.end()) {
+                        node_entities[node_local_offset] = node_entities.size();
+                    }
+                }
+            }
+
+            // Set the length to the size of the map
+            node_lengths(i) = node_entities.size();
+
+            // Set the start to the start + length of the previous cell, if not the first cell
+            if (i > 0) {
+                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
+            }
+
+            // Resize the node views if necessary
+            size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
+            size_t current_node_local_offsets_size = node_local_offsets.extent(0);
+            if (node_local_offsets_size > current_node_local_offsets_size) {
+                // Calculate the percent done
+                double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
+
+                // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
+                auto expected_size = static_cast<size_t>(static_cast<double>(node_local_offsets_size) * 1.5 * (1.0 + percent_done));
+
+                // Double the size of the node local offsets
+                smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
+
+                // Get the new host views of the node local offsets
+                node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+                node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+            }
+
+            // Loop over the node entities, create a map of local offsets to node indices
+            std::unordered_map<uint64_t, size_t> node_local_offsets_to_index;
+            size_t node_index = node_starts(i);
+            for (const auto &node_pair : node_entities) {
+                uint64_t node_local_offset = node_pair.first;
+                node_local_offsets(node_index) = node_local_offset;
+                node_local_offsets_to_index[node_local_offset] = node_index;
+                ++node_index;
+            }
+
+            // Cell volume
+            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+
+            // Loop over all the cell elements
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
+                double element_volume = stk::mesh::field_data(*m_element_volume_field, element)[0];
+                double cell_volume_fraction = element_volume / cell_volume;
+                std::vector<double *> element_function_derivatives_data(3);
+                for (size_t l = 0; l < 3; ++l) {
+                    element_function_derivatives_data[l] = stk::mesh::field_data(*m_element_function_derivatives_fields[l], element);
+                }
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
+                    uint64_t node_local_offset = element_nodes[k].local_offset();
+                    size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
+                    // Atomic add to the derivatives and set the node local offsets for the cell
+                    for (size_t l = 0; l < 3; ++l) {
+                        Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k] * cell_volume_fraction);
+                    }
+                }
+            }
+        }
+        bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
+        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        smoothed_cell_data->CopyCellNodeViewsToDevice();
+
+        assert(CheckPartitionOfNullity(smoothed_cell_data));
+
+        return smoothed_cell_data;
+    }
+
+    double GetNumElements(const stk::mesh::Selector &selector) const {
+        return stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
+    }
+
+    // Overloaded version that uses m_selector
+    double GetNumElements() const {
+        return GetNumElements(m_selector);
     }
 
    private:
@@ -466,11 +766,13 @@ class StrainSmoothingProcessor {
     DoubleField *m_element_volume_field;                                           // The element volume field
     DoubleField *m_cell_volume_fraction_field;                                     // The cell volume field
     UnsignedField *m_cell_id_field;                                                // The cell id field
+    UnsignedField *m_smoothed_cell_id_field;                                       // The smoothed cell id field
     Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
     NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
     NgpDoubleField *m_ngp_cell_volume_fraction_field;                              // The ngp cell volume field
     NgpUnsignedField *m_ngp_cell_id_field;                                         // The ngp cell id field
+    NgpUnsignedField *m_ngp_smoothed_cell_id_field;                                // The ngp smoothed cell id field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 

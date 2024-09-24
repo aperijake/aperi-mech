@@ -66,4 +66,19 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };
 
+template <typename StressFunctor>
+struct ComputeStressOnSmoothingCellFunctor {
+    ComputeStressOnSmoothingCellFunctor(StressFunctor &stress_functor)
+        : m_stress_functor(stress_functor) {}
+
+    KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 2> &gathered_node_data_gradient) const {
+        const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
+        // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
+
+        // Compute the stress
+        return m_stress_functor(displacement_gradient);
+    }
+    StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
+};
+
 }  // namespace aperi
