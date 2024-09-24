@@ -290,8 +290,8 @@ class SmoothedCellData {
                 Kokkos::abort("Could not find an empty slot to add the element to the cell.");
             }
 
-            // Add the volume to the cell
-            cell_volume(cell_id) += element_volume;
+            // Atomically add the element volume to the cell volume
+            Kokkos::atomic_add(&cell_volume(cell_id), element_volume);
         }
     };
 
@@ -393,6 +393,91 @@ class SmoothedCellData {
     // Get a reference to the element indices
     FlattenedRaggedArray &GetElementIndices() {
         return m_element_indices;
+    }
+
+    // Debug print on host
+    void DebugPrint() {
+        // Set the precision
+        std::cout << std::fixed << std::setprecision(12);
+
+        // Print the number of cells
+        std::cout << "Number of Cells: " << m_num_cells << std::endl;
+
+        // Print the total number of nodes, elements, and components
+        std::cout << "Total Number of Nodes: " << m_total_num_nodes << std::endl;
+        std::cout << "Total Number of Elements: " << m_total_num_elements << std::endl;
+        std::cout << "Total Number of Components: " << m_total_components << std::endl;
+
+        // Print the node indices
+        std::cout << "Node Indices" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            size_t start = m_node_indices.start_host(i);
+            size_t length = m_node_indices.length_host(i);
+            std::cout << "Cell " << i << ": start = " << start << ", length = " << length << std::endl;
+            size_t end = start + length;
+            for (size_t j = start; j < end; ++j) {
+                std::cout << m_node_local_offsets_host(j) << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        // Print the element indices
+        std::cout << "Element Indices" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            size_t start = m_element_indices.start_host(i);
+            size_t length = m_element_indices.length_host(i);
+            std::cout << "Cell " << i << ": start = " << start << ", length = " << length << std::endl;
+            size_t end = start + length;
+            for (size_t j = start; j < end; ++j) {
+                std::cout << m_element_local_offsets_host(j) << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        // Print the cell volume
+        std::cout << "Cell Volume" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            std::cout << "Cell " << i << ": " << m_cell_volume_host(i) << std::endl;
+        }
+
+        // Print the function derivatives
+        std::cout << "Function Derivatives" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            size_t start = m_node_indices.start_host(i) * k_num_dims;
+            size_t length = m_node_indices.length_host(i) * k_num_dims;
+            size_t end = start + length;
+            std::cout << "Cell " << i << ": ";
+            for (size_t j = start; j < end; j += 3) {
+                std::cout << "  Node " << j / 3 << ": ";
+                std::cout << m_function_derivatives_host(j) << " " << m_function_derivatives_host(j + 1) << " " << m_function_derivatives_host(j + 2) << std::endl;
+            }
+        }
+
+        // Print the element local offsets
+        std::cout << "Element Local Offsets" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            size_t start = m_element_indices.start_host(i);
+            size_t length = m_element_indices.length_host(i);
+            size_t end = start + length;
+            std::cout << "Cell " << i << ": ";
+            for (size_t j = start; j < end; ++j) {
+                std::cout << m_element_local_offsets_host(j) << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        // Print the node local offsets
+        std::cout << "Node Local Offsets" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            size_t start = m_node_indices.start_host(i);
+            size_t length = m_node_indices.length_host(i);
+            size_t end = start + length;
+            std::cout << "Cell " << i << ": ";
+            for (size_t j = start; j < end; ++j) {
+                std::cout << m_node_local_offsets_host(j) << " ";
+            }
+            std::cout << std::endl;
+        }
     }
 
    private:
