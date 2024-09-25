@@ -40,7 +40,8 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
-                return std::make_shared<ElementReproducingKernelTet4>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
+                bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
+                return std::make_shared<ElementReproducingKernelTet4>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }
@@ -53,7 +54,8 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
-                return std::make_shared<ElementReproducingKernelHex8>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor);
+                bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
+                return std::make_shared<ElementReproducingKernelHex8>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }

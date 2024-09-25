@@ -34,7 +34,7 @@ class ElementReproducingKernel : public ElementBase {
     /**
      * @brief Constructs a ElementReproducingKernel object.
      */
-    ElementReproducingKernel(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementBase(NumCellNodes, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data), m_kernel_radius_scale_factor(kernel_radius_scale_factor) {
+    ElementReproducingKernel(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0, bool use_one_pass_method = true) : ElementBase(NumCellNodes, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data), m_kernel_radius_scale_factor(kernel_radius_scale_factor), m_use_one_pass_method(use_one_pass_method) {
         // Find and store the element neighbors
         CreateElementProcessor();
         FindNeighbors();
@@ -119,7 +119,7 @@ class ElementReproducingKernel : public ElementBase {
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
-    bool m_use_one_pass_method = true;
+    bool m_use_one_pass_method;
 };
 
 /**
@@ -134,7 +134,7 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
     /**
      * @brief Constructs a ElementReproducingKernelTet4 object.
      */
-    ElementReproducingKernelTet4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor) {
+    ElementReproducingKernelTet4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0, bool use_one_pass_method = true) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method) {
         ComputeSmoothedQuadrature();
     }
 
@@ -177,7 +177,7 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
     /**
      * @brief Constructs a ElementReproducingKernelHex8 object.
      */
-    ElementReproducingKernelHex8(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor) {
+    ElementReproducingKernelHex8(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0, bool use_one_pass_method = true) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(field_query_data_gather, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method) {
         ComputeSmoothedQuadrature();
     }
 

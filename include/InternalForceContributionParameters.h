@@ -5,6 +5,7 @@
 #include <string>
 
 #include "IoInputFile.h"
+#include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
 
@@ -134,6 +135,10 @@ class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParam
         integration_scheme = "gauss_quadrature";
         integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
         integration_order = gauss_quadrature_node["integration_order"].as<int>();
+        if (gauss_quadrature_node["force_one_pass_method"] || gauss_quadrature_node["force_two_pass_method"]) {
+            // Print a warning that these do not apply to Gauss Quadrature
+            aperi::CoutP0() << "Warning: 'force_one_pass_method' and 'force_two_pass_method' do not apply to Gauss Quadrature" << std::endl;
+        }
     }
 
     virtual ~IntegrationSchemeGaussQuadratureParameters() = default;
@@ -148,15 +153,39 @@ class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParam
 
 class IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParameters {
    public:
-    IntegrationSchemeStrainSmoothingParameters() {
+    IntegrationSchemeStrainSmoothingParameters(bool use_one_pass_method_in = true) {
         integration_scheme = "strain_smoothing";
         integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
-        uses_one_pass_method = true;
+        uses_one_pass_method = use_one_pass_method_in;
     }
     IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) {
         integration_scheme = "strain_smoothing";
         integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
-        uses_one_pass_method = true;
+        uses_one_pass_method = true;  // Default to one pass method, default for nodal smoothing
+
+        // If the strain smoothing node has a "element_smoothing_cell" key, then it is a two pass method
+        if (strain_smoothing_node["element_smoothing_cell"]) {
+            uses_one_pass_method = false;
+        }
+
+        // If the strain smoothing node has a "force_one_pass_method" or "force_two_pass_method" key, then force the method
+        bool force_one_pass = false;
+        bool force_two_pass = false;
+        if (strain_smoothing_node["force_one_pass_method"]) {
+            force_one_pass = strain_smoothing_node["force_one_pass_method"].as<bool>();
+            if (force_one_pass) {
+                uses_one_pass_method = true;
+            }
+        }
+        if (strain_smoothing_node["force_two_pass_method"]) {
+            force_two_pass = strain_smoothing_node["force_two_pass_method"].as<bool>();
+            if (force_two_pass) {
+                uses_one_pass_method = false;
+            }
+        }
+        if (force_one_pass && force_two_pass) {
+            throw std::runtime_error("Cannot force both one pass and two pass methods");
+        }
     }
     virtual ~IntegrationSchemeStrainSmoothingParameters() = default;
 };

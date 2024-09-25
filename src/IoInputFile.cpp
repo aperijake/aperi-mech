@@ -72,6 +72,11 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
             if (!scalar_pair.second) {
                 ++found_count;
             }
+        } else if (type == "bool") {
+            std::pair<bool, int> scalar_pair = GetScalarValue<bool>(input_node, name, verbose, optional);
+            if (!scalar_pair.second) {
+                ++found_count;
+            }
         } else if (type == "float_vector") {
             std::pair<std::vector<double>, int> scalar_pair = GetValueSequence<double>(input_node, name, verbose, optional);
             if (!scalar_pair.second) {
@@ -88,7 +93,7 @@ std::pair<std::map<std::string, YAML::Node>, int> GetInputNodes(const YAML::Node
                 ++found_count;
             }
         } else {
-            throw std::runtime_error("Schema Error: 'one_or_more_of' subitems must be of type 'node', 'float', 'float_vector', 'string', or 'double_list'. Line: " + std::to_string(__LINE__));
+            throw std::runtime_error("Schema Error: 'one_or_more_of' subitems must be of type 'int', 'bool', 'node', 'float', 'float_vector', 'string', or 'double_list'. Line: " + std::to_string(__LINE__));
         }
     }
     return std::make_pair(found_names_and_nodes, found_count);
