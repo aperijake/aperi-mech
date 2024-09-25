@@ -20,7 +20,9 @@
 
 enum PatchTestIntegrationScheme { GAUSS_QUADRATURE,
                                   ELEMENT_STRAIN_SMOOTHING,
-                                  NODAL_STRAIN_SMOOTHING };
+                                  NODAL_STRAIN_SMOOTHING,
+                                  ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS,
+                                  NODAL_STRAIN_SMOOTHING_FORCE_TWO_PASS };
 
 // Fixture for patch tests
 class PatchTest : public SolverTest {
@@ -93,8 +95,16 @@ class PatchTest : public SolverTest {
             YAML::Node strain_smoothing_node;
             if (integration_scheme == PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING) {
                 strain_smoothing_node["element_smoothing_cell"] = element_smoothing_cell_node;
-            } else {
+            } else if (integration_scheme == PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS) {
+                strain_smoothing_node["element_smoothing_cell"] = element_smoothing_cell_node;
+                strain_smoothing_node["force_one_pass_method"] = true;
+            } else if (integration_scheme == PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING) {
                 strain_smoothing_node["nodal_smoothing_cell"] = element_smoothing_cell_node;
+            } else if (integration_scheme == PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING_FORCE_TWO_PASS) {
+                strain_smoothing_node["nodal_smoothing_cell"] = element_smoothing_cell_node;
+                strain_smoothing_node["force_two_pass_method"] = true;
+            } else {
+                throw std::runtime_error("Invalid integration scheme");
             }
             m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"]["integration_scheme"]["strain_smoothing"] = strain_smoothing_node;
             // Remove the gauss_quadrature node
