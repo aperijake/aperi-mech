@@ -43,9 +43,6 @@ NODAL VARIABLES relative 1.e-6 floor 0.0
 	force_coefficients_x          # min:               0 @ t1,n1	max:       240280.72 @ t2,n82
 	force_coefficients_y          # min:               0 @ t1,n1	max:        281087.6 @ t2,n84
 	force_coefficients_z          # min:               0 @ t1,n1	max:       301224.61 @ t2,n63
-	force_local_x                 # min:               0 @ t1,n1	max:       339807.63 @ t2,n82
-	force_local_y                 # min:               0 @ t1,n1	max:       421056.18 @ t2,n84
-	force_local_z                 # min:               0 @ t1,n1	max:       948619.27 @ t2,n80
 	kernel_radius                 # min:     0.020585933 @ t1,n6	max:     0.043996934 @ t1,n41
 	mass_x                        # min:    0.0016845281 @ t1,n6	max:     0.032028645 @ t1,n84
 	mass_y                        # min:    0.0016845281 @ t1,n6	max:     0.032028645 @ t1,n84
