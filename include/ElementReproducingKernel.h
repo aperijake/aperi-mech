@@ -50,7 +50,8 @@ class ElementReproducingKernel : public ElementBase {
 
     void CreateElementProcessor() {
         // Create the element processor
-        const FieldQueryData<double> field_query_data_scatter = {"force_local", FieldQueryState::None};
+        std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
+        const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
         m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
@@ -118,6 +119,7 @@ class ElementReproducingKernel : public ElementBase {
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
+    bool m_use_one_pass_method = true;
 };
 
 /**
@@ -151,7 +153,7 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::TET4_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES);
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, m_use_one_pass_method);
 
         // Destroy the functors
         Kokkos::parallel_for(
@@ -194,7 +196,7 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(HEX8_NUM_NODES);
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(HEX8_NUM_NODES, m_use_one_pass_method);
 
         // Destroy the functors
         Kokkos::parallel_for(

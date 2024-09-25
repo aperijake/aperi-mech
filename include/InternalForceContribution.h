@@ -73,6 +73,21 @@ class InternalForceContribution : public ForceContribution {
         return m_internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields();
     }
 
+    /**
+     * @brief Gets whether the element uses one pass method.
+     *
+     * @return True if the element uses one pass method, false otherwise.
+     */
+    bool UsesOnePassMethod() const {
+        return m_internal_force_contribution_parameters.integration_scheme_parameters->UsesOnePassMethod();
+    }
+
+    /**
+     * @brief Preprocesses the internal force contribution.
+     *
+     * This function overrides the Preprocess function from the base class.
+     * It preprocesses the internal force contribution.
+     */
     void Preprocess() override;
 
    protected:

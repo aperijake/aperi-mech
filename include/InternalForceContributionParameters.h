@@ -113,9 +113,14 @@ class IntegrationSchemeParameters {
         return integration_scheme;
     }
 
+    bool UsesOnePassMethod() const {
+        return uses_one_pass_method;
+    }
+
    protected:
     std::string integration_scheme = "gauss_quadrature";
     IntegrationSchemeType integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
+    bool uses_one_pass_method = true;
 };
 
 class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParameters {
@@ -146,10 +151,12 @@ class IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParam
     IntegrationSchemeStrainSmoothingParameters() {
         integration_scheme = "strain_smoothing";
         integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
+        uses_one_pass_method = true;
     }
     IntegrationSchemeStrainSmoothingParameters(const YAML::Node& strain_smoothing_node) {
         integration_scheme = "strain_smoothing";
         integration_scheme_type = IntegrationSchemeType::StrainSmoothing;
+        uses_one_pass_method = true;
     }
     virtual ~IntegrationSchemeStrainSmoothingParameters() = default;
 };

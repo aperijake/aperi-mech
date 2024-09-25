@@ -71,7 +71,7 @@ void ExplicitSolver::ComputeForce() {
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
 
     // Compute kinematic field values from the generalized fields
-    if (m_uses_generalized_fields) {
+    if (m_uses_generalized_fields && (m_uses_one_pass_method == false)) {
         m_kinematics_from_generalized_field_processor->compute_value_from_generalized_field();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_node_processor_force_local->FillField(0.0, 0);
@@ -84,7 +84,7 @@ void ExplicitSolver::ComputeForce() {
     }
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
-    if (m_uses_generalized_fields) {
+    if (m_uses_generalized_fields && (m_uses_one_pass_method == false)) {
         if (m_num_processors > 1) {
             m_node_processor_force_local->SyncFieldDeviceToHost(0);
             m_node_processor_force_local->ParallelSumFieldData(0);

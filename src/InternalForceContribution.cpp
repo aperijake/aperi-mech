@@ -17,7 +17,7 @@ void InternalForceContribution::Preprocess() {
     std::vector<FieldQueryData<double>> field_query_data_gather;
     if (m_internal_force_contribution_parameters.integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {  // TODO(jake): this doesn't have to have coordinates
         field_query_data_gather.resize(2);
-        if (UsesGeneralizedFields()) {
+        if (UsesGeneralizedFields() && (UsesOnePassMethod() == false)) {
             // If using generalized fields, use the gathered fields
             field_query_data_gather[0] = FieldQueryData<double>{"displacement", FieldQueryState::None};
             field_query_data_gather[1] = FieldQueryData<double>{"velocity", FieldQueryState::None};
@@ -35,7 +35,7 @@ void InternalForceContribution::Preprocess() {
     // Get the number of nodes per element
     aperi::ElementTopology element_topology = m_internal_force_contribution_parameters.mesh_data->GetElementTopology(m_internal_force_contribution_parameters.part_name);
 
-    // Create the element.
+    // Create the element. TODO(jake): Can pass one_pass flag into CreateElement
     m_element = CreateElement(element_topology, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, field_query_data_gather, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
 }
 
