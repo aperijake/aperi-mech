@@ -591,15 +591,6 @@ class StrainSmoothingProcessor {
         // Create the smoothed cell data object
         std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
 
-        // Get the ngp mesh
-        auto ngp_mesh = m_ngp_mesh;
-
-        // Sync the fields
-        m_ngp_element_volume_field->sync_to_host();
-        for (size_t i = 0; i < 3; ++i) {
-            m_ngp_element_function_derivatives_fields[i]->sync_to_host();
-        }
-
         // Needed for the one pass method
         stk::mesh::Field<uint64_t> *neighbors_field = nullptr;
         stk::mesh::Field<uint64_t> *num_neighbors_field = nullptr;
@@ -610,6 +601,21 @@ class StrainSmoothingProcessor {
             neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
             num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
             function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+            auto ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*neighbors_field);
+            auto ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*num_neighbors_field);
+            auto ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*function_values_field);
+            ngp_neighbors_field->sync_to_host();
+            ngp_num_neighbors_field->sync_to_host();
+            ngp_function_values_field->sync_to_host();
+        }
+
+        // Get the ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Sync the fields
+        m_ngp_element_volume_field->sync_to_host();
+        for (size_t i = 0; i < 3; ++i) {
+            m_ngp_element_function_derivatives_fields[i]->sync_to_host();
         }
 
         // Get the ngp fields
