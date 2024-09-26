@@ -29,37 +29,46 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 #################### System Packages from apt ####################
 # Install necessary packages
+# trunk-ignore(hadolint/DL3008)
+# trunk-ignore(checkov/CKV2_DOCKER_1)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential=12.9ubuntu3 \
-    ca-certificates=20230311ubuntu0.22.04.1 \
-    coreutils=8.32-4.1ubuntu1.2 \
-    curl=7.81.0-1ubuntu1.16 \
-    environment-modules=5.0.1-1 \
-    file=1:5.41-3ubuntu0.1 \
-    gfortran=4:11.2.0-1ubuntu1 \
-    git=1:2.34.1-1ubuntu1.11 \
-    git-lfs=3.0.2-1ubuntu0.2 \
-    gpg=2.2.27-3ubuntu2.1 \
-    lcov=1.15-1 \
-    libcurl4-openssl-dev=7.81.0-1ubuntu1.16 \
-    libgl1=1.4.0-1 \
-    libglu1-mesa=9.0.2-1 \
-    libssl-dev=3.0.2-0ubuntu1.17 \
-    lsb-release=11.1.0ubuntu4 \
-    openssl=3.0.2-0ubuntu1.17 \
-    python3=3.10.6-1~22.04 \
-    python3-distutils=3.10.8-1~22.04 \
-    python3-venv=3.10.6-1~22.04 \
-    python3-pip=22.0.2+dfsg-1ubuntu0.4 \
-    unzip=6.0-26ubuntu3.2 \
-    vim=2:8.2.3995-1ubuntu2.17 \
-    xorg=1:7.7+23ubuntu2 \
-    zip=3.0-12build2 \
+    build-essential \
+    ca-certificates \
+    coreutils \
+    curl \
+    environment-modules \
+    file \
+    gfortran \
+    git \
+    git-lfs \
+    gpg \
+    lcov \
+    libcurl4-openssl-dev \
+    libgl1 \
+    libglu1-mesa \
+    libssl-dev \
+    lsb-release \
+    openssl \
+    python3 \
+    python3-distutils \
+    python3-venv \
+    python3-pip \
+    sudo \
+    unzip \
+    vim \
+    xorg \
+    zip \
     && rm -rf /var/lib/apt/lists/*
 
 #################### User Setup ####################
 # Create a non-root user
 RUN useradd -m aperi-mech_docker
+
+# Switch back to root user
+USER root
+
+# Configure passwordless sudo for the user
+RUN echo "aperi-mech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Change to the new user
 USER aperi-mech_docker

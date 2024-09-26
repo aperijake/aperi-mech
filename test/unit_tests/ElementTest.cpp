@@ -71,7 +71,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         const std::vector<std::string> part_names = {"block_1"};
 
         // Strain smoothing parameters
-        auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
+        auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>(m_use_one_pass_method);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
         m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
@@ -121,6 +121,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
     int m_num_procs;
     double m_expected_volume;
     double m_expected_cell_volume_fraction_sum;
+    bool m_use_one_pass_method = true;
     aperi::ElementTopology m_element_topology = aperi::ElementTopology::Tetrahedron4;
     std::shared_ptr<aperi::ElementBase> m_element;
 };
@@ -134,7 +135,7 @@ TEST_F(CreateElementStrainSmoothedTest, SmoothedTet4Storing) {
 }
 
 // Smoothed reproducing kernel on tet4 element
-TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4) {
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4OnePass) {
     // Reproducing kernel on tet4 element
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
@@ -143,8 +144,19 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4) {
     CheckSmoothedCellData();
 }
 
+// Smoothed reproducing kernel on tet4 element
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnTet4TwoPass) {
+    // Reproducing kernel on tet4 element
+    double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+
+    m_use_one_pass_method = false;
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+    CheckSmoothedCellData();
+}
+
 // Smoothed reproducing kernel on hex8 element
-TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8) {
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8OnePass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
     m_mesh_string = "1x1x" + std::to_string(m_num_elems_z);
@@ -158,8 +170,24 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8) {
     CheckSmoothedCellData();
 }
 
+// Smoothed reproducing kernel on hex8 element
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8TwoPass) {
+    // Hex8 element
+    m_element_topology = aperi::ElementTopology::Hexahedron8;
+    m_mesh_string = "1x1x" + std::to_string(m_num_elems_z);
+    m_expected_cell_volume_fraction_sum = m_num_elems_z;
+
+    // Reproducing kernel on hex8 element
+    double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+
+    m_use_one_pass_method = false;
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters);
+    CheckSmoothedCellData();
+}
+
 // Smoothed reproducing kernel on nodal integration
-TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodal) {
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalOnePass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
     m_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
@@ -172,6 +200,25 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodal) {
     double kernel_radius_scale_factor = 1.01;
     auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
 
+    CreateAndRunStrainSmoothedElement(approximation_space_parameters, smoothing_cell_type);
+    CheckSmoothedCellData();
+}
+
+// Smoothed reproducing kernel on nodal integration
+TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalTwoPass) {
+    // Hex8 element
+    m_element_topology = aperi::ElementTopology::Hexahedron8;
+    m_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
+    m_io_mesh_parameters->mesh_type = "exodusII";
+    aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    m_expected_volume = 8;
+    m_expected_cell_volume_fraction_sum = 27;  // Sum to 1 for each active node
+
+    // Reproducing kernel on hex8 element
+    double kernel_radius_scale_factor = 1.01;
+    auto approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+
+    m_use_one_pass_method = false;
     CreateAndRunStrainSmoothedElement(approximation_space_parameters, smoothing_cell_type);
     CheckSmoothedCellData();
 }

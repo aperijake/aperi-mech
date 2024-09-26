@@ -39,10 +39,13 @@ class Solver {
         mp_mesh_data = m_io_mesh->GetMeshData();
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
         m_uses_generalized_fields = false;
+        m_uses_one_pass_method = false;
         for (const auto &force_contribution : m_internal_force_contributions) {
             if (force_contribution->UsesGeneralizedFields()) {
                 m_uses_generalized_fields = true;
-                break;
+            }
+            if (force_contribution->UsesOnePassMethod()) {
+                m_uses_one_pass_method = true;
             }
         }
         if (m_uses_generalized_fields) {
@@ -58,22 +61,24 @@ class Solver {
             dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
             m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
 
-            // Create a value from generalized field processor for fields that need to be computed for internal force contributions
-            std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_kinematics;
-            src_field_query_data_kinematics[0] = {"displacement_coefficients", FieldQueryState::NP1};
-            // Will need to add velocity here at some point, but not needed for now
+            if (m_uses_one_pass_method == false) {
+                // Create a value from generalized field processor for fields that need to be computed for internal force contributions
+                std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_kinematics;
+                src_field_query_data_kinematics[0] = {"displacement_coefficients", FieldQueryState::NP1};
+                // Will need to add velocity here at some point, but not needed for now
 
-            std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_kinematics;
-            dest_field_query_data_kinematics[0] = {"displacement", FieldQueryState::None};
-            m_kinematics_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
+                std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_kinematics;
+                dest_field_query_data_kinematics[0] = {"displacement", FieldQueryState::None};
+                m_kinematics_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
 
-            // Create a value from generalized field processor for the force field
-            std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_force;
-            src_field_query_data_force[0] = {"force_local", FieldQueryState::None};
+                // Create a value from generalized field processor for the force field
+                std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_force;
+                src_field_query_data_force[0] = {"force_local", FieldQueryState::None};
 
-            std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
-            dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
-            m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
+                std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
+                dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
+                m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
+            }
         }
     }
 
@@ -124,6 +129,7 @@ class Solver {
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
+    bool m_uses_one_pass_method;                                                                                    ///< Whether the solver uses the one-pass method.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.

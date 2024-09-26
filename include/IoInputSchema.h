@@ -323,6 +323,14 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema subdomains_schema("subdomains", "int", "the number of smoothing cell subdomains");
     YAML::Node subdomains_node = subdomains_schema.GetInputSchema();
 
+    // Force one pass method node
+    aperi::InputSchema force_one_pass_method_schema("force_one_pass_method", "bool", "force the one pass method");
+    YAML::Node force_one_pass_method_node = force_one_pass_method_schema.GetInputSchema();
+
+    // Force two pass method node
+    aperi::InputSchema force_two_pass_method_schema("force_two_pass_method", "bool", "force the two pass method");
+    YAML::Node force_two_pass_method_node = force_two_pass_method_schema.GetInputSchema();
+
     // Nodal smoothing cell node
     aperi::InputSchema nodal_smoothing_cell_schema("nodal_smoothing_cell", "map", "a nodal smoothing cell");
     nodal_smoothing_cell_schema.AddAllOf(subdomains_node);
@@ -337,6 +345,8 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema strain_smoothing_schema("strain_smoothing", "map", "strain smoothing");
     strain_smoothing_schema.AddOneOf(nodal_smoothing_cell_node);
     strain_smoothing_schema.AddOneOf(element_smoothing_cell_node);
+    strain_smoothing_schema.AddOptional(force_one_pass_method_node);
+    strain_smoothing_schema.AddOptional(force_two_pass_method_node);
     YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
 
     // Integration scheme node
