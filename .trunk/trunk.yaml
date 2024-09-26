@@ -15,26 +15,26 @@ runtimes:
     - python@3.10.8
 lint:
   enabled:
-    - actionlint@1.7.1
+    - actionlint@1.7.2
     - hadolint@2.12.0
     - taplo@0.9.3
-    - bandit@1.7.9
+    - bandit@1.7.10
     - black@24.8.0
     - isort@5.13.2
-    - ruff@0.6.5
+    - ruff@0.6.7
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
     #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.55.1
+    - trivy@0.55.2
     - yamllint@1.35.1
-    - checkov@3.2.254
+    - checkov@3.2.255
     - git-diff-check
-    - markdownlint@0.41.0
+    - markdownlint@0.42.0
     - prettier@3.3.3
-    - trufflehog@3.82.2
+    - trufflehog@3.82.4
   disabled:
     - include-what-you-use
   ignore:
