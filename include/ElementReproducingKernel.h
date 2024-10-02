@@ -52,7 +52,7 @@ class ElementReproducingKernel : public ElementBase {
         // Create the element processor
         std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
         const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<2, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<ElementGatherScatterProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
     void FindNeighbors() {
@@ -117,7 +117,7 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, true>> m_element_processor;
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<1, true>> m_element_processor;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     bool m_use_one_pass_method;
 };

@@ -55,7 +55,7 @@ class ElementTetrahedron4 : public ElementBase {
             return;
         }
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<3, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -124,7 +124,7 @@ class ElementTetrahedron4 : public ElementBase {
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<3, false>> m_element_processor;
+    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, false>> m_element_processor;
 };
 
 }  // namespace aperi

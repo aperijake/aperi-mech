@@ -222,9 +222,6 @@ class ElementGatherScatterProcessor {
 
     template <typename StressFunctor>
     void for_each_cell_gather_scatter_nodal_data(const SmoothedCellData &scd, StressFunctor &stress_functor) {
-        // Get the number of cells
-        size_t num_cells = scd.NumCells();
-
         // Get th ngp mesh
         auto ngp_mesh = m_ngp_mesh;
 
@@ -235,38 +232,41 @@ class ElementGatherScatterProcessor {
         }
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
 
-        // kokkos loop over all the cells
+        // Get the number of cells
+        const size_t num_cells = scd.NumCells();
+
+        // Loop over all the cells
         Kokkos::parallel_for(
             "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
                 // Set up the field data to gather
                 Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
-
-                auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
-                auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
-
-                size_t num_nodes = node_local_offsets.extent(0);
-
-                // Compute the field gradients. TODO(jake): probably want to flip the order of the loops. Construct derivative operator matrix and multiply by field data.
                 for (size_t f = 0; f < NumFields; ++f) {
-                    field_data_to_gather_gradient[f].fill(0.0);
-                    for (size_t k = 0; k < num_nodes; ++k) {
-                        stk::mesh::Entity node(node_local_offsets[k]);
-                        stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                        size_t derivative_offset = k * 3;
+                    field_data_to_gather_gradient[f].setZero();
+                }
 
-                        // Create function_derivatives as a row vector
-                        Eigen::Matrix<double, 1, 3> function_derivatives;
-                        for (size_t j = 0; j < 3; ++j) {
-                            function_derivatives(j) = node_function_derivatives(derivative_offset + j);
-                        }
+                const auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
 
+                const size_t num_nodes = node_local_offsets.extent(0);
+
+                // Pre-allocation for the function derivatives
+                Eigen::Matrix<double, 1, 3> function_derivatives;
+
+                // Compute the field gradients
+                for (size_t k = 0; k < num_nodes; ++k) {
+                    // Populate the function derivatives
+                    const size_t derivative_offset = k * 3;
+                    for (size_t j = 0; j < 3; ++j) {
+                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                    }
+
+                    // Add the field gradient
+                    const stk::mesh::Entity node(node_local_offsets[k]);
+                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                    for (size_t f = 0; f < NumFields; ++f) {
                         // Perform the matrix multiplication for field_data_to_gather_gradient
                         for (size_t i = 0; i < 3; ++i) {
-                            double field_data_ki = ngp_fields_to_gather[f](node_index, i);
-                            Eigen::Matrix<double, 1, 3> field_data_ki_matrix = field_data_ki * function_derivatives;
-                            for (size_t j = 0; j < 3; ++j) {
-                                field_data_to_gather_gradient[f](i, j) += field_data_ki_matrix(j);
-                            }
+                            field_data_to_gather_gradient[f].row(i) += ngp_fields_to_gather[f](node_index, i) * function_derivatives;
                         }
                     }
                 }
@@ -277,18 +277,18 @@ class ElementGatherScatterProcessor {
 
                 // Scatter the force to the nodes
                 for (size_t k = 0; k < num_nodes; ++k) {
-                    stk::mesh::Entity node(node_local_offsets[k]);
-                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    Eigen::Matrix<double, 3, 1> function_derivatives;
-                    size_t derivative_offset = k * 3;
-
-                    // Create function_derivatives as a row vector
+                    // Populate the function derivatives
+                    const size_t derivative_offset = k * 3;
                     for (size_t j = 0; j < 3; ++j) {
                         function_derivatives(j) = node_function_derivatives(derivative_offset + j);
                     }
 
-                    // Create a eigen vector for the force
-                    Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives;
+                    // Calculate the force
+                    const Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives.transpose();
+
+                    // Add the force to the node
+                    const stk::mesh::Entity node(node_local_offsets[k]);
+                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
                     for (size_t j = 0; j < 3; ++j) {
                         Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
                     }
