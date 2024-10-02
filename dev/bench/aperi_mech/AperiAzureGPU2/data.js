@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727321562524,
+  "lastUpdate": 1727898330077,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -1373,6 +1373,88 @@ window.BENCHMARK_DATA = {
           {
             "name": "fem_gpu_np_1_peak_memory",
             "value": 2259.2109375,
+            "unit": "MB"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c063bfdbd4cc45fb1d93c7710a988cd3c06d9be3",
+          "message": "Merge pull request #37 from aperijake/nodal_integration\n\nsome optimizing of internal force calc",
+          "timestamp": "2024-10-02T18:10:40Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/c063bfdbd4cc45fb1d93c7710a988cd3c06d9be3"
+        },
+        "date": 1727898329563,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rkpm_cpu_np_1_run_time",
+            "value": 156.68142440600002,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_4_run_time",
+            "value": 71.12693676100002,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_1_peak_memory",
+            "value": 3218.984375,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_cpu_np_4_peak_memory",
+            "value": 3734.8984375,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_gpu_np_1_run_time",
+            "value": 88.69855564600002,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_gpu_np_1_peak_memory",
+            "value": 4053.87109375,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_peak_memory",
+            "value": 1661.8671875,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_run_time",
+            "value": 57.41721192900013,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_run_time",
+            "value": 188.01382304900005,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_peak_memory",
+            "value": 1321.0078125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 50.151286277999986,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 2264.01171875,
             "unit": "MB"
           }
         ]
