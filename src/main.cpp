@@ -66,6 +66,9 @@ int main(int argc, char* argv[]) {
     // Print header and number of processes
     PrintHeader();
     aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
+    aperi::CoutP0() << "Date: " << __DATE__ << std::endl;
+    aperi::CoutP0() << "Time: " << __TIME__ << std::endl
+                    << std::endl;
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
@@ -81,6 +84,10 @@ int main(int argc, char* argv[]) {
     RunApplication(input_filename, p_comm);
 
     aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
+    aperi::CoutP0() << "Date: " << __DATE__ << std::endl;
+    aperi::CoutP0() << "Time: " << __TIME__ << std::endl
+                    << std::endl;
+    aperi::CoutP0() << "############################################" << std::endl;
 
     // Finalize Kokkos and MPI
     Kokkos::finalize();

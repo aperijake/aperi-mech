@@ -214,10 +214,18 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
 }
 
 double ExplicitSolver::Solve() {
+    // Print the number of nodes
+    size_t num_nodes = mp_mesh_data->GetNumNodes();
+    aperi::CoutP0() << "   - Number of nodes: " << num_nodes << std::endl;
+
     // Compute mass matrix
+    aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
+    auto start_mass_matrix = std::chrono::high_resolution_clock::now();
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
     }
+    auto end_mass_matrix = std::chrono::high_resolution_clock::now();
+    aperi::CoutP0() << "     Finished Computing Mass Matrix. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mass_matrix - start_mass_matrix).count() << " ms" << std::endl;
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
@@ -245,11 +253,9 @@ double ExplicitSolver::Solve() {
     double total_runtime = 0.0;
     double average_runtime = 0.0;
 
-    // Print the number of nodes
-    size_t num_nodes = mp_mesh_data->GetNumNodes();
-    aperi::CoutP0() << "Number of Nodes: " << num_nodes << std::endl;
-
     // Print the table header before the loop
+    aperi::CoutP0() << std::endl
+                    << "Marching through time steps:" << std::endl;
     LogHeader();
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file

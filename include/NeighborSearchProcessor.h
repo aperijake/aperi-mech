@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <Kokkos_Core.hpp>
 #include <array>
+#include <chrono>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -470,6 +471,7 @@ class NeighborSearchProcessor {
     }
 
     void DoBallSearch(bool populate_debug_fields = false) {
+        auto start_search_time = std::chrono::high_resolution_clock::now();
         DomainViewType node_points = CreateNodePoints();
         RangeViewType node_spheres = CreateNodeSpheres();
 
@@ -480,36 +482,21 @@ class NeighborSearchProcessor {
         const bool results_parallel_symmetry = true;
 
         stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
+        auto end_search_time = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "     - Time to search: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_search_time - start_search_time).count() << " ms" << std::endl;
+        auto start_copy_and_ghost_time = std::chrono::high_resolution_clock::now();
 
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
         Kokkos::deep_copy(host_search_results, search_results);
 
-        // Print sizes
-        aperi::CoutP0() << "Neighborhood Search Information:" << std::endl;
-        aperi::Cout() << "\n  Search Point-Sphere Pair Results Size: " << host_search_results.size()
-                      << "\n  Evaluation Points Size: " << node_points.size()
-                      << "\n  Neighbor Spheres Size: " << node_spheres.size() << std::endl;
-
-        // Print for debugging
-        // aperi::CoutP0() << "Search points:" << std::endl;
-        // for (size_t i = 0; i < node_points.size(); ++i) {
-        //     auto point = node_points(i);
-        //     aperi::CoutP0() << "point: " << point.box << std::endl;
-        // }
-        // aperi::CoutP0() << "Search spheres:" << std::endl;
-        // for (size_t i = 0; i < node_spheres.size(); ++i) {
-        //     auto sphere = node_spheres(i);
-        //     aperi::CoutP0() << "sphere: " << sphere.box.center() << " radius: " << sphere.box.radius() << std::endl;
-        // }
-        // aperi::CoutP0() << "Search results:" << std::endl;
-        // for (size_t i = 0; i < host_search_results.size(); ++i) {
-        //     auto result = host_search_results(i);
-        //     aperi::CoutP0() << "domain: " << result.domainIdentProc.id() << " range: " << result.rangeIdentProc.id() << std::endl;
-        // }
-
         GhostNodeNeighbors(host_search_results);
+        auto end_copy_and_ghost_time = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "     - Time to copy and ghost: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_copy_and_ghost_time - start_copy_and_ghost_time).count() << " ms" << std::endl;
+        auto start_unpack_time = std::chrono::high_resolution_clock::now();
 
         UnpackSearchResultsIntoField(host_search_results);
+        auto end_unpack_time = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "     - Time to unpack: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_unpack_time - start_unpack_time).count() << " ms" << std::endl;
 
         // Check the validity of the neighbors field
         assert(CheckAllNeighborsAreWithinKernelRadius());
@@ -519,39 +506,15 @@ class NeighborSearchProcessor {
         if (populate_debug_fields) {
             PopulateDebugFields();
         }
-
-        // FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_selector);
-
-        // int rank;
-        // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        // int num_procs;
-        // MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-
-        // auto ngp_mesh = m_ngp_mesh;
-        // for (int i = 0; i < num_procs; ++i){
-        //     if (rank == i){
-        //         // Print local offset
-        //         std::cout << "NSP Rank: " << rank << std::endl;
-        //         stk::mesh::for_each_entity_run(
-        //             ngp_mesh, stk::topology::NODE_RANK, m_selector,
-        //             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-        //                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
-        //                 std::cout << "local_offset: " << node.local_offset() << std::endl;
-        //                 std::cout << "node_id: " << ngp_mesh.identifier(node) << std::endl;
-        //             });
-
-        //         // Print node_indices
-        //         for (size_t i = 0; i < node_indices.size(); ++i) {
-        //             std::cout << "node_indices: " << node_indices(i).bucket_id << "-" << node_indices(i).bucket_ord << std::endl;
-        //         }
-        //     }
-        //     MPI_Barrier(MPI_COMM_WORLD);
-        // }
     }
 
     void add_nodes_neighbors_within_variable_ball(double scale_factor, bool populate_debug_fields = false) {
+        aperi::CoutP0() << "   - Finding Neighbors." << std::endl;
+        auto start_time = std::chrono::high_resolution_clock::now();
         ComputeKernelRadius(scale_factor);
         DoBallSearch(populate_debug_fields);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "   - Time to find neighbors: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() << " ms" << std::endl;
     }
 
     void add_nodes_neighbors_within_constant_ball(double ball_radius, bool populate_debug_fields = false) {
@@ -608,13 +571,12 @@ class NeighborSearchProcessor {
         // Node
         std::map<std::string, double> node_stats = GetNumNeighborStats();
 
-        aperi::CoutP0() << "Node Stats: " << std::endl;
-        aperi::CoutP0() << "    Total Num Nodes: " << node_stats["num_entities"] << std::endl;
-        aperi::CoutP0() << "  Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
-        aperi::CoutP0() << "  Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
-        aperi::CoutP0() << "  Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
-        aperi::CoutP0() << "  Reserved Memory Utilization: " << node_stats["reserved_memory_utilization"] << "%" << std::endl
-                        << std::endl;  // Add a new line for readability
+        aperi::CoutP0() << "   - Neighbor Stats: " << std::endl;
+        aperi::CoutP0() << "     - Total Num Nodes: " << node_stats["num_entities"] << std::endl;
+        aperi::CoutP0() << "     - Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "     - Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "     - Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
+        aperi::CoutP0() << "     - Reserved Memory Utilization: " << node_stats["reserved_memory_utilization"] << "%" << std::endl;
     }
 
     void SyncFieldsToHost() {

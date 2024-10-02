@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <chrono>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -65,6 +66,8 @@ class ElementReproducingKernel : public ElementBase {
     }
 
     void ComputeAndStoreFunctionValues() {
+        aperi::CoutP0() << "   - Computing and storing function values" << std::endl;
+        auto start_function_values = std::chrono::high_resolution_clock::now();
         // Functor for computing shape function values at nodes
         size_t compute_node_functions_functor_size = sizeof(ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>);
         auto compute_node_functions_functor = (ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *)Kokkos::kokkos_malloc(compute_node_functions_functor_size);
@@ -86,6 +89,8 @@ class ElementReproducingKernel : public ElementBase {
             });
 
         Kokkos::kokkos_free(compute_node_functions_functor);
+        auto end_function_values = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "     Finished Computing and Storing Function Values. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_function_values - start_function_values).count() << " ms" << std::endl;
     }
 
     /**

@@ -154,7 +154,7 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
     // Parallel sum
     double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
     assert(CheckMassSumsAreEqual(mass_sum_global, node_processor.GetFieldSumHost(1) / 3.0));
-    aperi::CoutP0() << "Total Mass for Part " << part_name << ": " << mass_sum_global << std::endl;
+    aperi::CoutP0() << "      " << part_name << ", Mass: " << mass_sum_global << std::endl;
     return mass_sum_global;
 }
 
