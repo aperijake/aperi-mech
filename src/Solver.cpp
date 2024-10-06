@@ -252,6 +252,8 @@ double ExplicitSolver::Solve() {
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
     double average_runtime = 0.0;
+    double total_update_field_states_runtime = 0.0;
+    double average_update_field_states_runtime = 0.0;
 
     // Print the table header before the loop
     aperi::CoutP0() << std::endl
@@ -279,6 +281,10 @@ double ExplicitSolver::Solve() {
 
         // Move state n+1 to state n
         UpdateFieldStates();
+        auto end_update_field_states = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> update_field_states_runtime = end_update_field_states - start_time;
+        total_update_field_states_runtime += update_field_states_runtime.count();
+        average_update_field_states_runtime = total_update_field_states_runtime / n;
 
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
@@ -335,6 +341,7 @@ double ExplicitSolver::Solve() {
     }
     LogEvent(n, time, average_runtime, "End of Simulation");
     LogFooter();
+    aperi::CoutP0() << "   - Average Update Field States Runtime: " << average_update_field_states_runtime << " seconds" << std::endl;
 
     return average_runtime;
 }
