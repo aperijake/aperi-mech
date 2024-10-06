@@ -20,7 +20,7 @@ struct IoMeshParameters {
     int compression_level = 0;              // compression level [1..9] to use
     bool compression_shuffle = false;       // use shuffle filter prior to compressing data: true|false
     bool lower_case_variable_names = true;  // convert variable names to lowercase and replace spaces in names with underscore
-    int integer_size = 4;                   // use 4 or 8-byte integers for input and output
+    int integer_size = 8;                   // use 4 or 8-byte integers for input and output
     int initial_bucket_capacity = 0;
     int maximum_bucket_capacity = 0;
 };
