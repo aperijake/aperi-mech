@@ -107,8 +107,9 @@ class SolverPerformanceTest : public SolverTest {
             size_t num_elem_z_next = num_elem_z.back() * refinement_factors[2];
 
             // If the number of elements is too large (greater than 36 million), stop the refinement
-            if ((num_elem_x_next) * (num_elem_y_next) * (num_elem_z_next) > 36e6) {
-                aperi::CoutP0() << "Number of elements is too large. Stopping the refinement. Number of elements: " << (num_elem_x_next) * (num_elem_y_next) * (num_elem_z_next) << std::endl;
+            size_t num_elem_next = (num_elem_x_next) * (num_elem_y_next) * (num_elem_z_next) * 6;
+            if (num_elem_next > 36e6) {
+                aperi::CoutP0() << "Number of elements is too large. Stopping the refinement. Number of elements: " << num_elem_next << std::endl;
                 num_refinements = i;
                 break;
             }
@@ -238,11 +239,11 @@ class SolverPerformanceTest : public SolverTest {
         double runtime = 20.0;
 
         // Number of refinements and refinement factor
-        size_t num_refinements = 10;
+        size_t num_refinements = using_gpu ? 13 : 10;
         std::vector<size_t> refinement_factors = {2, 1, 1};
 
         // Initial mesh size
-        size_t initial_num_elem_x = std::pow(2, m_num_procs - 1);
+        size_t initial_num_elem_x = 1;
         size_t initial_num_elem_y = 32;
         size_t initial_num_elem_z = 256;
 
