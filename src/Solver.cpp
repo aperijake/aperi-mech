@@ -270,6 +270,16 @@ double ExplicitSolver::Solve() {
         WriteOutput(time);
     }
 
+    double sum_update_field_states = 0.0;
+    double sum_compute_first_partial_update = 0.0;
+    double sum_apply_velocity_boundary_conditions = 0.0;
+    double sum_update_displacements = 0.0;
+    double sum_compute_force = 0.0;
+    double sum_compute_acceleration = 0.0;
+    double sum_apply_acceleration_boundary_conditions = 0.0;
+    double sum_compute_second_partial_update = 0.0;
+
+
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
         if (log_scheduler.AtNextEvent(total_runtime)) {
@@ -285,6 +295,8 @@ double ExplicitSolver::Solve() {
         std::chrono::duration<double> update_field_states_runtime = end_update_field_states - start_time;
         total_update_field_states_runtime += update_field_states_runtime.count();
         average_update_field_states_runtime = total_update_field_states_runtime / n;
+        sum_update_field_states += update_field_states_runtime.count();
+        auto start_compute_first_partial_update = std::chrono::high_resolution_clock::now();
 
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
@@ -292,28 +304,55 @@ double ExplicitSolver::Solve() {
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        auto end_compute_first_partial_update = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_compute_first_partial_update = end_compute_first_partial_update - start_compute_first_partial_update;
+        sum_compute_first_partial_update += elapsed_compute_first_partial_update.count();
+        auto start_apply_velocity_boundary_conditions = std::chrono::high_resolution_clock::now();
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyVelocity(time_midstep);
         }
+        auto end_apply_velocity_boundary_conditions = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_apply_velocity_boundary_conditions = end_apply_velocity_boundary_conditions - start_apply_velocity_boundary_conditions;
+        sum_apply_velocity_boundary_conditions += elapsed_apply_velocity_boundary_conditions.count();
+        auto start_update_displacements = std::chrono::high_resolution_clock::now();
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         UpdateDisplacements(time_increment, node_processor_update_displacements);
+        auto end_update_displacements = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_update_displacements = end_update_displacements - start_update_displacements;
+        sum_update_displacements += elapsed_update_displacements.count();
+        auto start_compute_force = std::chrono::high_resolution_clock::now();
 
         // Compute the force, f^{n+1}
         ComputeForce();
+        auto end_compute_force = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_compute_force = end_compute_force - start_compute_force;
+        sum_compute_force += elapsed_compute_force.count();
+        auto start_compute_acceleration = std::chrono::high_resolution_clock::now();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);
+        auto end_compute_acceleration = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_compute_acceleration = end_compute_acceleration - start_compute_acceleration;
+        sum_compute_acceleration += elapsed_compute_acceleration.count();
+        auto start_apply_acceleration_boundary_conditions = std::chrono::high_resolution_clock::now();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyAcceleration(time_next);
         }
+        auto end_apply_acceleration_boundary_conditions = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_apply_acceleration_boundary_conditions = end_apply_acceleration_boundary_conditions - start_apply_acceleration_boundary_conditions;
+        sum_apply_acceleration_boundary_conditions += elapsed_apply_acceleration_boundary_conditions.count();
+        auto start_compute_second_partial_update = std::chrono::high_resolution_clock::now();
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
+        auto end_compute_second_partial_update = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_compute_second_partial_update = end_compute_second_partial_update - start_compute_second_partial_update;
+        sum_compute_second_partial_update += elapsed_compute_second_partial_update.count();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
@@ -342,6 +381,25 @@ double ExplicitSolver::Solve() {
     LogEvent(n, time, average_runtime, "End of Simulation");
     LogFooter();
     aperi::CoutP0() << "   - Average Update Field States Runtime: " << average_update_field_states_runtime << " seconds" << std::endl;
+    double total_sums = sum_update_field_states + sum_compute_first_partial_update + sum_apply_velocity_boundary_conditions + sum_update_displacements + sum_compute_force + sum_compute_acceleration + sum_apply_acceleration_boundary_conditions + sum_compute_second_partial_update;
+    double fraction_update_field_states = sum_update_field_states / total_sums;
+    double fraction_compute_first_partial_update = sum_compute_first_partial_update / total_sums;
+    double fraction_apply_velocity_boundary_conditions = sum_apply_velocity_boundary_conditions / total_sums;
+    double fraction_update_displacements = sum_update_displacements / total_sums;
+    double fraction_compute_force = sum_compute_force / total_sums;
+    double fraction_compute_acceleration = sum_compute_acceleration / total_sums;
+    double fraction_apply_acceleration_boundary_conditions = sum_apply_acceleration_boundary_conditions / total_sums;
+    double fraction_compute_second_partial_update = sum_compute_second_partial_update / total_sums;
+
+    aperi::CoutP0() << "Fraction update field states:                    " << fraction_update_field_states << std::endl;
+    aperi::CoutP0() << "Fraction compute first partial update:           " << fraction_compute_first_partial_update << std::endl;
+    aperi::CoutP0() << "Fraction apply velocity boundary conditions:     " << fraction_apply_velocity_boundary_conditions << std::endl;
+    aperi::CoutP0() << "Fraction update displacements:                   " << fraction_update_displacements << std::endl;
+    aperi::CoutP0() << "Fraction compute force:                          " << fraction_compute_force << std::endl;
+    aperi::CoutP0() << "Fraction compute acceleration:                   " << fraction_compute_acceleration << std::endl;
+    aperi::CoutP0() << "Fraction apply acceleration boundary conditions: " << fraction_apply_acceleration_boundary_conditions << std::endl;
+    aperi::CoutP0() << "Fraction compute second partial update:          " << fraction_compute_second_partial_update << std::endl;
+
 
     return average_runtime;
 }

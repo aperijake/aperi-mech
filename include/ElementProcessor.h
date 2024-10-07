@@ -223,6 +223,8 @@ class ElementGatherScatterProcessor {
 
     template <typename StressFunctor>
     void for_each_cell_gather_scatter_nodal_data(const SmoothedCellData &scd, StressFunctor &stress_functor) {
+        scd.ApplyDisplacementGradientOperator();
+        auto start_for_each_cell = std::chrono::high_resolution_clock::now();
         // Get th ngp mesh
         auto ngp_mesh = m_ngp_mesh;
 
@@ -236,6 +238,88 @@ class ElementGatherScatterProcessor {
         // Get the number of cells
         const size_t num_cells = scd.NumCells();
 
+        auto start_gradient = std::chrono::high_resolution_clock::now();
+        // Loop over all the cells
+        Kokkos::parallel_for(
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Set up the field data to gather
+                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
+                for (size_t f = 0; f < NumFields; ++f) {
+                    field_data_to_gather_gradient[f].setZero();
+                }
+
+                const auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
+
+                const size_t num_nodes = node_local_offsets.extent(0);
+
+                // Pre-allocation for the function derivatives
+                Eigen::Matrix<double, 1, 3> function_derivatives;
+
+                // Compute the field gradients
+                for (size_t k = 0; k < num_nodes; ++k) {
+                    // Populate the function derivatives
+                    const size_t derivative_offset = k * 3;
+                    for (size_t j = 0; j < 3; ++j) {
+                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                    }
+
+                    // Add the field gradient
+                    const stk::mesh::Entity node(node_local_offsets[k]);
+                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                    for (size_t f = 0; f < NumFields; ++f) {
+                        // Perform the matrix multiplication for field_data_to_gather_gradient
+                        for (size_t i = 0; i < 3; ++i) {
+                            field_data_to_gather_gradient[f].row(i) += ngp_fields_to_gather[f](node_index, i) * function_derivatives;
+                        }
+                    }
+                }
+
+                // Compute the stress and internal force of the element.
+                double volume = scd.GetCellVolume(cell_id);
+                volatile const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient) * -volume;
+
+            });
+        auto end_gradient = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_gradient = end_gradient - start_gradient;
+
+        auto start_scatter = std::chrono::high_resolution_clock::now();
+        // Loop over all the cells
+        Kokkos::parallel_for(
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = Eigen::Matrix<double, 3, 3>::Zero();
+
+                const auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
+
+                const size_t num_nodes = node_local_offsets.extent(0);
+
+                // Pre-allocation for the function derivatives
+                Eigen::Matrix<double, 1, 3> function_derivatives;
+
+                // Scatter the force to the nodes
+                for (size_t k = 0; k < num_nodes; ++k) {
+                    // Populate the function derivatives
+                    const size_t derivative_offset = k * 3;
+                    for (size_t j = 0; j < 3; ++j) {
+                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
+                    }
+
+                    // Calculate the force
+                    const Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives.transpose();
+
+                    // Add the force to the node
+                    const stk::mesh::Entity node(node_local_offsets[k]);
+                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
+                    for (size_t j = 0; j < 3; ++j) {
+                        Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), force(j));
+                    }
+                }
+            });
+        auto end_scatter = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_scatter = end_scatter - start_scatter;
+
+        auto start_actual = std::chrono::high_resolution_clock::now();
         // Loop over all the cells
         Kokkos::parallel_for(
             "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
@@ -295,6 +379,13 @@ class ElementGatherScatterProcessor {
                     }
                 }
             });
+        auto end_for_each_cell = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_for_each_cell = end_for_each_cell - start_for_each_cell;
+        std::chrono::duration<double> elapsed_actual = end_for_each_cell - start_actual;
+        double total_time = elapsed_gradient.count() + elapsed_scatter.count();
+        double fraction_gradient = elapsed_gradient.count() / total_time;
+        double fraction_scatter = elapsed_scatter.count() / total_time;
+        aperi::CoutP0() << "Total for_each_cell time: " << elapsed_for_each_cell.count() << "s. Profile total time: " << total_time << " s. Actual time: " << elapsed_actual.count() << ", fraction gradient and stress: " << fraction_gradient << ", fraction scatter: " << fraction_scatter << std::endl;
     }
 
     // Loop over each element and apply the function on host data
@@ -809,6 +900,8 @@ class StrainSmoothingProcessor {
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
         smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
         smoothed_cell_data->CopyCellNodeViewsToDevice();
+
+        smoothed_cell_data->CreateCrsMatrix();
 
         assert(CheckPartitionOfNullity(smoothed_cell_data));
 

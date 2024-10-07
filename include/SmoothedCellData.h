@@ -1,13 +1,25 @@
 #pragma once
 
+#include <chrono>
 #include <Eigen/Dense>
 #include <Kokkos_Core.hpp>
+#include <KokkosSparse_CrsMatrix.hpp>
+#include <KokkosSparse_spmv.hpp>
 #include <cstdint>
 #include <numeric>
 #include <utility>
 #include <vector>
 
+#include "LogUtils.h"
+
 namespace aperi {
+
+// Define the types for the sparse matrix
+using Ordinal = int64_t;
+using ExecSpace = Kokkos::DefaultExecutionSpace;
+using MemorySpace = typename ExecSpace::memory_space;
+using SizeType = int64_t;
+using CrsMatrix = KokkosSparse::CrsMatrix<double, Ordinal, ExecSpace, void, SizeType>;
 
 struct FlattenedRaggedArray {
     explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in) {
@@ -480,6 +492,125 @@ class SmoothedCellData {
         }
     }
 
+    // Function to create a sparse matrix
+    void CreateCrsMatrix(){
+        // This is to calculate the displacement gradient.
+        // This matrix will hold the function derivatives for each node in each cell and will multiply by the displacement field to get the displacement gradient.
+        // The displacement field is a vector field with 3 components for each node.
+        // The displacement gradient is a matrix field with 9 components for each node.
+        // The matrix will be a sparse matrix with 3 * num_nodes columns and 9 * num_nodes rows.
+        /*
+        Displacement gradient matrix in 3x3 form:
+        [du1/dX1 du1/dX2 du1/dX3]
+        [du2/dX1 du2/dX2 du2/dX3]
+        [du3/dX1 du3/dX2 du3/dX3]
+
+        Dispalcement gradient matrix in 9x1 form:
+        [du1/dX1 du1/dX2 du1/dX3 du2/dX1 du2/dX2 du2/dX3 du3/dX1 du3/dX2 du3/dX3].T
+        Example for 1 node with 1 neighbor: (9 x 3) * (3 x 1) = (9 x 1)
+
+        [d/dX1 0    0   ]  [u1]  = [du1/dX1]
+        [d/dX2 0    0   ]  [u2]    [du1/dX2]
+        [d/dX3 0    0   ]  [u3]    [du1/dX3]
+        [0    d/dX1 0   ]          [du2/dX1]
+        [0    d/dX2 0   ]          [du2/dX2]
+        [0    d/dX3 0   ]          [du2/dX3]
+        [0    0    d/dX1]          [du3/dX1]
+        [0    0    d/dX2]          [du3/dX2]
+        [0    0    d/dX3]          [du3/dX3]
+        */
+
+        // Get the number of nodes, equal to the number of cells for nodal integration
+        size_t num_nodes = m_num_cells;
+        size_t num_field_gradient_components = k_num_dims * k_num_dims;
+        int64_t num_rows = num_nodes * num_field_gradient_components;
+        int64_t num_cols = num_nodes * k_num_dims;
+
+        // The number of non-zeros is the number of m_total_num_nodes * num_field_gradient_components
+        int64_t num_non_zeros = m_total_num_nodes * num_field_gradient_components;
+
+        // Create the row map
+        Kokkos::View<Ordinal *> row_map("row_map", num_rows + 1);
+        Kokkos::View<Ordinal *>::HostMirror row_map_host = Kokkos::create_mirror_view(row_map);
+
+        // Create the column indices
+        Kokkos::View<Ordinal *> column_indices("column_indices", num_non_zeros);
+        Kokkos::View<Ordinal *>::HostMirror column_indices_host = Kokkos::create_mirror_view(column_indices);
+
+        // Create the values
+        Kokkos::View<double *> values("values", num_non_zeros);
+        Kokkos::View<double *>::HostMirror values_host = Kokkos::create_mirror_view(values);
+
+        // Fill the row map, equal to to the length in m_node_indices
+        row_map_host(0) = 0;
+        for (size_t i = 1; i < num_nodes; ++i) {
+            size_t length = m_node_indices.length_host(i - 1);
+            size_t start_index = i * k_num_dims * k_num_dims;
+            for (size_t j = 0; j < num_field_gradient_components; ++j) {
+                row_map_host(start_index + j) = row_map_host(start_index + j - 1) + length;
+            }
+        }
+        row_map_host(num_rows) = num_non_zeros;
+        Kokkos::deep_copy(row_map, row_map_host);
+
+        // Fill the column indices and values
+        // Column index will be the neighbor node index * k_num_dims + the component index
+        // Value will be the derivative of the function
+        size_t index = 0;
+        for (size_t i = 0; i < num_nodes; ++i) {
+            size_t start = m_node_indices.start_host(i);
+            size_t length = m_node_indices.length_host(i);
+            size_t row_start_index = i * k_num_dims * k_num_dims;
+            for (size_t j = 0; j < length; ++j) {
+                size_t node_index = m_node_local_offsets_host(start + j);
+                for (size_t k = 0; k < k_num_dims; ++k) {
+                    int64_t column = node_index * k_num_dims + k;
+                    size_t row_index = row_start_index + k * k_num_dims;
+                    for (size_t l = 0; l < k_num_dims; ++l) {
+                        column_indices_host(index) = column;
+                        values_host(index) = m_function_derivatives_host(node_index * k_num_dims + l);
+                        ++index;
+                    }
+                }
+            }
+        }
+        Kokkos::deep_copy(column_indices, column_indices_host);
+        Kokkos::deep_copy(values, values_host);
+
+        // Create the matrix
+        m_gradient_operator = CrsMatrix("gradient_operator", num_rows, num_cols, num_non_zeros, values, row_map, column_indices);
+
+        // Create a dummy displacement field of ones and length m_num_cells * k_num_dims
+        Kokkos::resize(m_dummy_displacement_field, m_num_cells * k_num_dims);
+        m_dummy_displacement_field_host = Kokkos::create_mirror_view(m_dummy_displacement_field);
+        for (size_t i = 0; i < m_num_cells * k_num_dims; ++i) {
+            m_dummy_displacement_field_host(i) = 1.0;
+        }
+        Kokkos::deep_copy(m_dummy_displacement_field, m_dummy_displacement_field_host);
+
+        // Create the displacement gradient
+        Kokkos::resize(m_displacement_gradient, m_num_cells * num_field_gradient_components);
+        m_displacement_gradient_host = Kokkos::create_mirror_view(m_displacement_gradient);
+
+    }
+
+    void ApplyDisplacementGradientOperator() const {
+        // Apply the displacement gradient operator
+        auto timer_start = std::chrono::high_resolution_clock::now();
+        KokkosSparse::spmv("N", 1.0, m_gradient_operator, m_dummy_displacement_field, 0.0, m_displacement_gradient);
+        auto timer_end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = timer_end - timer_start;
+        aperi::CoutP0() << "Time to apply displacement gradient operator: " << elapsed_seconds.count() << " s" << std::endl;
+
+        // Since the displacement is ones, this should be a check on the partition of nullity. Check that the displacement gradient is all zeros.
+        Kokkos::deep_copy(m_displacement_gradient_host, m_displacement_gradient);
+        for (size_t i = 0; i < m_num_cells * k_num_dims * k_num_dims; ++i) {
+            if (std::abs(m_displacement_gradient_host(i)) > 1.0e-12) {
+                aperi::CoutP0() << "Displacement gradient is not zero: " << m_displacement_gradient_host(i) << std::endl;
+            }
+        }
+    }
+
    private:
     size_t m_num_cells;                                                 // Number of cells
     size_t m_reserved_nodes;                                            // Estimated total number of nodes
@@ -493,6 +624,11 @@ class SmoothedCellData {
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
     Kokkos::View<double *> m_cell_volume;                               // Cell volume
     Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume
+    CrsMatrix m_gradient_operator;                                      // Displacement gradient operator
+    Kokkos::View<double *> m_dummy_displacement_field;                  // Dummy displacement field
+    Kokkos::View<double *>::HostMirror m_dummy_displacement_field_host; // Host view with copy of dummy displacement field
+    Kokkos::View<double *> m_displacement_gradient;                     // Displacement gradient
+    Kokkos::View<double *>::HostMirror m_displacement_gradient_host;    // Host view with copy of displacement gradient
     size_t m_total_num_nodes = 0;                                       // Total number of nodes
     size_t m_total_num_elements = 0;                                    // Total number of elements
     size_t m_total_components = 0;                                      // Total number of components (total number of nodes * number of dimensions)
