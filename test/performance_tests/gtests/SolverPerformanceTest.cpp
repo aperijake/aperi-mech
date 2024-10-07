@@ -229,7 +229,7 @@ class SolverPerformanceTest : public SolverTest {
         StopCapturingOutput();
 #ifndef NDEBUG
         // Skip this test in debug mode
-        aperture::CoutP0() << "Skipping scaling test in debug mode. If this is needed then the timing estimates should be adjusted." << std::endl;
+        aperi::CoutP0() << "Skipping scaling test in debug mode. If this is needed then the timing estimates should be adjusted." << std::endl;
         return;
 #endif
 
