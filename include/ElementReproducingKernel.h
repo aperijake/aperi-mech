@@ -1,11 +1,13 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <chrono>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "Constants.h"
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
 #include "ElementProcessor.h"
@@ -64,28 +66,30 @@ class ElementReproducingKernel : public ElementBase {
         search_processor.PrintNumNeighborsStats();
     }
 
-    void ComputeAndStoreFunctionValues() {
-        // Functor for computing shape function values at nodes
-        size_t compute_node_functions_functor_size = sizeof(ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>);
-        auto compute_node_functions_functor = (ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *)Kokkos::kokkos_malloc(compute_node_functions_functor_size);
-        assert(compute_node_functions_functor != nullptr);
+    // TODO(jake): Get rid of this wrapper class. It is only here because of some strange compiling issues that lead to a segfault.
+    // Using a wrapper class seems to fix the issue.
+    // Using ShapeFunctionsFunctorReproducingKernel directly in the compute_and_store_function_values function causes a segfault on the GPU in Release mode,
+    // but works fine in Debug mode or on the CPU. Spent a lot of time trying to figure out why, but couldn't find the issue.
+    template <size_t MaxNumNeighbors>
+    struct FunctionFunctorWrapper {
+        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
+            return compute_node_functions_functor.Values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
+        }
+        aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
+    };
 
-        // Initialize the functor
-        Kokkos::parallel_for(
-            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS> *)compute_node_functions_functor) ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>();
-            });
+    void ComputeAndStoreFunctionValues() {
+        aperi::CoutP0() << "   - Computing and storing function values" << std::endl;
+        auto start_function_values = std::chrono::high_resolution_clock::now();
+
+        // Create an instance of the functor
+        FunctionFunctorWrapper <MAX_NODE_NUM_NEIGHBORS> compute_node_functions_functor;
 
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_mesh_data, m_part_names);
-        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(*compute_node_functions_functor);
+        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor);
 
-        // Destroy the functor
-        Kokkos::parallel_for(
-            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                compute_node_functions_functor->~ShapeFunctionsFunctorReproducingKernel<MAX_NODE_NUM_NEIGHBORS>();
-            });
-
-        Kokkos::kokkos_free(compute_node_functions_functor);
+        auto end_function_values = std::chrono::high_resolution_clock::now();
+        aperi::CoutP0() << "     Finished Computing and Storing Function Values. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_function_values - start_function_values).count() << " ms" << std::endl;
     }
 
     /**

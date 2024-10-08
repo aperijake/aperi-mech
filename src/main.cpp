@@ -1,8 +1,10 @@
 #include <mpi.h>
 
 #include <Kokkos_Core.hpp>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
-// #include <mfem.hpp>
 
 #include "Application.h"
 #include "LogUtils.h"
@@ -65,7 +67,12 @@ int main(int argc, char* argv[]) {
 
     // Print header and number of processes
     PrintHeader();
+    auto start_time = std::chrono::system_clock::now();
+    std::time_t start_time_t = std::chrono::system_clock::to_time_t(start_time);
+    std::tm start_tm = *std::localtime(&start_time_t);
+
     aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
+    aperi::CoutP0() << "Started at: " << std::put_time(&start_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
 
     // Check if input filename is provided as a command-line argument
     if (argc < 2) {
@@ -80,7 +87,16 @@ int main(int argc, char* argv[]) {
     // Run the application
     RunApplication(input_filename, p_comm);
 
+    // Print footer
+    auto end_time = std::chrono::system_clock::now();
+    std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
+    std::tm end_tm = *std::localtime(&end_time_t);
+    std::chrono::duration<double> total_time = end_time - start_time;
+
     aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
+    aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
+    aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
+    aperi::CoutP0() << "############################################" << std::endl;
 
     // Finalize Kokkos and MPI
     Kokkos::finalize();

@@ -51,11 +51,11 @@ void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std
         const auto field = initial_condition.begin()->first.as<std::string>() + "_coefficients";
 
         // Loop over sets from initial condition
-        aperi::CoutP0() << "Adding initial condition for sets:" << std::endl;
+        aperi::CoutP0() << "   - Adding initial condition for sets:" << std::endl;
         std::vector<std::string> sets;
         if (initial_condition_node["sets"]) {
             sets = initial_condition_node["sets"].as<std::vector<std::string>>();
-            aperi::CoutP0() << "  " << sets.back() << std::endl;
+            aperi::CoutP0() << "      " << sets.back() << std::endl;
         }
 
         // Set the initial field values

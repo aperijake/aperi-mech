@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <array>
+#include <chrono>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -565,7 +566,8 @@ class StrainSmoothingProcessor {
            - The node function derivatives need to be computed.
         */
 
-        aperi::CoutP0() << "Building smoothed cell data." << std::endl;
+        aperi::CoutP0() << "   - Building Smoothed Cell Data." << std::endl;
+        auto start_time = std::chrono::high_resolution_clock::now();
 
         // Create the cells selector
         std::vector<std::string> cells_sets;
@@ -799,16 +801,20 @@ class StrainSmoothingProcessor {
             }
         }
         average_num_nodes /= static_cast<double>(num_cells);
-        aperi::CoutP0() << "Average number of points defining a cell: " << average_num_nodes << std::endl;
+        aperi::CoutP0() << "     - Average number of points defining a cell: " << average_num_nodes << std::endl;
         if (one_pass_method) {
             average_num_neighbors /= static_cast<double>(num_cells);
-            aperi::CoutP0() << "Average number of neighbors for a cell: " << average_num_neighbors << std::endl;
+            aperi::CoutP0() << "     - Average number of neighbors for a cell: " << average_num_neighbors << std::endl;
         }
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
         smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
         smoothed_cell_data->CopyCellNodeViewsToDevice();
 
         assert(CheckPartitionOfNullity(smoothed_cell_data));
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        aperi::CoutP0() << "     Finished building Smoothed Cell Data. Time: " << duration.count() << " ms." << std::endl;
 
         return smoothed_cell_data;
     }
