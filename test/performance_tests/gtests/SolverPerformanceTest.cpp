@@ -66,6 +66,7 @@ class SolverPerformanceTest : public SolverTest {
     void SetUp() override {
         // Run SolverTest::SetUp first
         SolverTest::SetUp();
+        MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
     }
 
     void TearDown() override {
@@ -143,13 +144,7 @@ class SolverPerformanceTest : public SolverTest {
         }
 
         // Create a json file with the benchmark results
-        std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
-        std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-        std::string full_test_name = test_suite_name + "_" + test_name;
-
-        std::string run_specs = "_" + mode + "_procs_" + std::to_string(m_num_procs) + (using_gpu ? "_gpu" : "_cpu");
-        std::ofstream json_file(json_prefix + "_gtest_" + full_test_name + run_specs + ".json");
-        json_file << "[" << std::endl;
+        std::string json_string = "[\n";
 
         for (size_t i = 0; i < num_refinements; ++i) {
             // Create the next refinement
@@ -163,28 +158,37 @@ class SolverPerformanceTest : public SolverTest {
             // Print the results
             aperi::CoutP0() << "  Runtime (s) / increment:      " << std::scientific << average_increment_runtime << std::endl;
 
-            // Output the results to a json file
-            if (i != 0) {
-                json_file << "  },";  // close the previous benchmark
-            }
-            json_file << "  {" << std::endl;
             // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
             std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
-            json_file << R"(    "name": ")" << name << R"(",)" << std::endl;
             // Unit of the benchmark
             std::string unit = "milliseconds";
-            json_file << R"(    "unit": ")" << unit << R"(",)" << std::endl;
             // Value of the benchmark
             double value = average_increment_runtime * 1000.0;
-            json_file << R"(    "value": )" << value << std::endl;
+
+            // Output the results to a json file
+            if (i != 0) {
+                json_string += "  },";
+            }
+            json_string += "  {\n";
+            json_string += R"(    "name": ")" + name + R"(",)" + "\n";
+            json_string += R"(    "unit": ")" + unit + R"(",)" + "\n";
+            json_string += R"(    "value": )" + std::to_string(value) + "\n";
 
             // Setup for the next refinement
             ResetSolverTest();
         }
 
-        json_file << "  }" << std::endl;  // close the last benchmark
-        json_file << "]" << std::endl;    // close the json file
-        json_file.close();
+        json_string += "  }\n]";
+        if (m_rank == 0) {
+            std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
+            std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+            std::string full_test_name = test_suite_name + "_" + test_name;
+            std::string run_specs = "_" + mode + "_procs_" + std::to_string(m_num_procs) + (using_gpu ? "_gpu" : "_cpu");
+
+            std::ofstream json_file(json_prefix + "_gtest_" + full_test_name + run_specs + ".json");
+            json_file << json_string;
+            json_file.close();
+        }
     }
 
     void RunStandardPerformanceTest(bool reproducing_kernel = false) {
@@ -263,6 +267,8 @@ class SolverPerformanceTest : public SolverTest {
 
         RunTaylorImpactTest(reproducing_kernel, runtime, num_refinements, refinement_factors, initial_num_elem_x, initial_num_elem_y, initial_num_elem_z, using_gpu, mode, gold_runtimes, "scaling");
     }
+
+    int m_rank;
 };
 
 // Test a large, square cross section, taylor impact test, FEM
