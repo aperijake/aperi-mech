@@ -160,7 +160,7 @@ class SolverPerformanceTest : public SolverTest {
 
             // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
             std::string name = "Taylor Impact";
-            name += (reproducing_kernel ? ", Reproducing Kernel:" : ":") + std::to_string(m_num_procs) + " processors, ";
+            name += (reproducing_kernel ? ", Reproducing Kernel: " : ": ") + std::to_string(m_num_procs) + " processors, ";
             name += (using_gpu ? "gpu, " : "cpu, ") + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]);
             name += " elements, runtime per increment";
             // Unit of the benchmark
