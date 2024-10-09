@@ -3075,32 +3075,32 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.546828,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 11.989976,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 98.53434,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact:1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.165573,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact:1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 9.164006,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact:1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, cpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 73.437248,
             "unit": "milliseconds"
           },
@@ -3205,32 +3205,32 @@ window.BENCHMARK_DATA = {
             "unit": "seconds"
           },
           {
-            "name": "Taylor Impact:1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 0.959768,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact:1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 1.007082,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact:1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.587261,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, gpu, 7 x 7 x 21 elements, runtime per increment",
             "value": 1.121517,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, gpu, 14 x 14 x 42 elements, runtime per increment",
             "value": 1.295037,
             "unit": "milliseconds"
           },
           {
-            "name": "Taylor Impact, Reproducing Kernel:1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
+            "name": "Taylor Impact, Reproducing Kernel: 1 processors, gpu, 28 x 28 x 84 elements, runtime per increment",
             "value": 2.555695,
             "unit": "milliseconds"
           }
