@@ -12,7 +12,7 @@ namespace aperi {
 
 struct IoMeshParameters {
     bool upward_connectivity = true;        // create upward connectivity/adjacency in the mesh
-    bool aura_option = true;                // create aura ghosting around each MPI rank
+    bool aura_option = false;               // create aura ghosting around each MPI rank
     std::string parallel_io = "pnetcdf";    // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
     std::string decomp_method = "rcb";      // decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
     std::string mesh_type = "exodusII";     // mesh type. One of: exodusii, generated

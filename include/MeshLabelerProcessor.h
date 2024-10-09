@@ -149,6 +149,8 @@ class MeshLabelerProcessor {
 
                 // Get the minimum id
                 uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
+                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[0]);
+                active_field_data[0] = 0;  // Set active value to 0 for the first node
                 size_t minimum_index = 0;
                 for (size_t i = 1; i < num_nodes; ++i) {
                     uint64_t id = m_bulk_data->identifier(nodes[i]);
@@ -157,12 +159,12 @@ class MeshLabelerProcessor {
                         minimum_index = i;
                     }
                     // Set active value to 0
-                    uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                    active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
                     active_field_data[0] = 0;
                 }
 
                 // Set the active value to 1 for the minimum id
-                uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
+                active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
                 active_field_data[0] = 1;
             }
         }
@@ -191,7 +193,12 @@ class MeshLabelerProcessor {
                     }
                 }
                 if (num_active_nodes != 1) {
-                    std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes.";
+                    size_t element_id = m_bulk_data->identifier(element);
+                    std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes in element " + std::to_string(element_id) + ". Nodes: \n";
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                        message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
+                    }
                     throw std::runtime_error(message);
                 }
             }
