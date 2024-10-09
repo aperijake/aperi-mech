@@ -8,6 +8,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
+#include <stk_mesh/base/FieldParallel.hpp>
 #include <stk_mesh/base/ForEachEntity.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
@@ -291,6 +292,11 @@ class NeighborSearchProcessor {
         ngp_kernel_radius_field.clear_sync_state();
         ngp_kernel_radius_field.modify_on_device();
         ngp_kernel_radius_field.sync_to_host();
+
+        // Get the parallel max kernel radius
+        stk::mesh::parallel_max(*m_bulk_data, {m_kernel_radius_field});
+        ngp_kernel_radius_field.modify_on_host();
+        ngp_kernel_radius_field.sync_to_device();
     }
 
     // Create local entities on host and copy to device

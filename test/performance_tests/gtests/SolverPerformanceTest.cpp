@@ -108,7 +108,7 @@ class SolverPerformanceTest : public SolverTest {
             size_t num_elem_z_next = num_elem_z.back() * refinement_factors[2];
 
             // If the number of elements is too large (greater than 36 million), stop the refinement
-            size_t num_elem_next = (num_elem_x_next) * (num_elem_y_next) * (num_elem_z_next) * 6;
+            size_t num_elem_next = (num_elem_x_next) * (num_elem_y_next) * (num_elem_z_next)*6;
             if (num_elem_next > 36e6) {
                 aperi::CoutP0() << "Number of elements is too large. Stopping the refinement. Number of elements: " << num_elem_next << std::endl;
                 num_refinements = i;
@@ -159,7 +159,10 @@ class SolverPerformanceTest : public SolverTest {
             aperi::CoutP0() << "  Runtime (s) / increment:      " << std::scientific << average_increment_runtime << std::endl;
 
             // Name of the benchmark: Taylor Impact: m_num_procs processors, cpu/gpu, num_elem_x x num_elem_y x num_elem_z elements, runtime per increment"
-            std::string name = "Taylor Impact: " + std::to_string(m_num_procs) + " processors, " + (using_gpu ? "gpu" : "cpu") + ", " + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]) + " elements, runtime per increment";
+            std::string name = "Taylor Impact";
+            name += (reproducing_kernel ? ", Reproducing Kernel:" : ":") + std::to_string(m_num_procs) + " processors, ";
+            name += (using_gpu ? "gpu, " : "cpu, ") + std::to_string(num_elem_x[i]) + " x " + std::to_string(num_elem_y[i]) + " x " + std::to_string(num_elem_z[i]);
+            name += " elements, runtime per increment";
             // Unit of the benchmark
             std::string unit = "milliseconds";
             // Value of the benchmark
