@@ -97,7 +97,9 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
+}
 
+void ExplicitSolver::CommunicateForce() {
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         m_node_processor_force->SyncFieldDeviceToHost(0);
@@ -152,7 +154,9 @@ void ExplicitSolver::UpdateDisplacements(double time_increment, const std::share
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_component(update_displacements_functor);
     node_processor_update_displacements->MarkFieldModifiedOnDevice(0);
+}
 
+void ExplicitSolver::CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         node_processor_update_displacements->SyncFieldDeviceToHost(0);
@@ -215,8 +219,7 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
 
 double ExplicitSolver::Solve() {
     // Print the number of nodes
-    size_t num_nodes = mp_mesh_data->GetNumNodes();
-    aperi::CoutP0() << "   - Number of nodes: " << num_nodes << std::endl;
+    mp_mesh_data->PrintNodeCounts();
 
     // Compute mass matrix
     aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
@@ -242,6 +245,7 @@ double ExplicitSolver::Solve() {
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
     ComputeForce();
+    CommunicateForce();
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     ComputeAcceleration(node_processor_acceleration);
@@ -252,8 +256,18 @@ double ExplicitSolver::Solve() {
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
     double average_runtime = 0.0;
+
     double total_update_field_states_runtime = 0.0;
     double average_update_field_states_runtime = 0.0;
+
+    double total_apply_boundary_conditions_runtime = 0.0;
+
+    double total_time_integration_nodal_updates_runtime = 0.0;
+
+    double total_compute_force_runtime = 0.0;
+
+    double total_communicate_displacements_runtime = 0.0;
+    double total_communicate_force_runtime = 0.0;
 
     // Print the table header before the loop
     aperi::CoutP0() << std::endl
@@ -279,6 +293,11 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Compute the time increment, time midstep, and time next
+        double half_time_increment = 0.5 * time_increment;
+        double time_midstep = time + half_time_increment;
+        double time_next = time + time_increment;
+
         // Move state n+1 to state n
         UpdateFieldStates();
         auto end_update_field_states = std::chrono::high_resolution_clock::now();
@@ -286,34 +305,72 @@ double ExplicitSolver::Solve() {
         total_update_field_states_runtime += update_field_states_runtime.count();
         average_update_field_states_runtime = total_update_field_states_runtime / n;
 
-        double half_time_increment = 0.5 * time_increment;
-        double time_midstep = time + half_time_increment;
-        double time_next = time + time_increment;
-
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
+        auto start_compute_first_partial_update = std::chrono::high_resolution_clock::now();
         ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
+        auto end_compute_first_partial_update = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> compute_first_partial_update_runtime = end_compute_first_partial_update - start_compute_first_partial_update;
+        total_time_integration_nodal_updates_runtime += compute_first_partial_update_runtime.count();
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
+        auto start_apply_velocity_boundary_conditions = std::chrono::high_resolution_clock::now();
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyVelocity(time_midstep);
         }
+        auto end_apply_velocity_boundary_conditions = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> apply_velocity_boundary_conditions_runtime = end_apply_velocity_boundary_conditions - start_apply_velocity_boundary_conditions;
+        total_apply_boundary_conditions_runtime += apply_velocity_boundary_conditions_runtime.count();
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+        auto start_update_displacements = std::chrono::high_resolution_clock::now();
         UpdateDisplacements(time_increment, node_processor_update_displacements);
+        auto end_update_displacements = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> update_displacements_runtime = end_update_displacements - start_update_displacements;
+        total_time_integration_nodal_updates_runtime += update_displacements_runtime.count();
+        auto start_communicate_displacements = std::chrono::high_resolution_clock::now();
+
+        // Communicate displacements
+        CommunicateDisplacements(node_processor_update_displacements);
+        auto end_communicate_displacements = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> communicate_displacements_runtime = end_communicate_displacements - start_communicate_displacements;
+        total_communicate_displacements_runtime += communicate_displacements_runtime.count();
 
         // Compute the force, f^{n+1}
+        auto start_compute_force = std::chrono::high_resolution_clock::now();
         ComputeForce();
+        auto end_compute_force = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> compute_force_runtime = end_compute_force - start_compute_force;
+        total_compute_force_runtime += compute_force_runtime.count();
+
+        // Communicate the force field data
+        auto start_communicate_force = std::chrono::high_resolution_clock::now();
+        CommunicateForce();
+        auto end_communicate_force = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> communicate_force_runtime = end_communicate_force - start_communicate_force;
+        total_communicate_force_runtime += communicate_force_runtime.count();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
+        auto start_compute_acceleration = std::chrono::high_resolution_clock::now();
         ComputeAcceleration(node_processor_acceleration);
+        auto end_compute_acceleration = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> compute_acceleration_runtime = end_compute_acceleration - start_compute_acceleration;
+        total_time_integration_nodal_updates_runtime += compute_acceleration_runtime.count();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
+        auto start_apply_acceleration_boundary_conditions = std::chrono::high_resolution_clock::now();
         for (const auto &boundary_condition : m_boundary_conditions) {
             boundary_condition->ApplyAcceleration(time_next);
         }
+        auto end_apply_acceleration_boundary_conditions = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> apply_acceleration_boundary_conditions_runtime = end_apply_acceleration_boundary_conditions - start_apply_acceleration_boundary_conditions;
+        total_apply_boundary_conditions_runtime += apply_acceleration_boundary_conditions_runtime.count();
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
+        auto start_compute_second_partial_update = std::chrono::high_resolution_clock::now();
         ComputeSecondPartialUpdate(half_time_increment, node_processor_second_update);
+        auto end_compute_second_partial_update = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> compute_second_partial_update_runtime = end_compute_second_partial_update - start_compute_second_partial_update;
+        total_time_integration_nodal_updates_runtime += compute_second_partial_update_runtime.count();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
@@ -342,6 +399,16 @@ double ExplicitSolver::Solve() {
     LogEvent(n, time, average_runtime, "End of Simulation");
     LogFooter();
     aperi::CoutP0() << "   - Average Update Field States Runtime: " << average_update_field_states_runtime << " seconds" << std::endl;
+
+    // Print the performance summary, percent of time spent in each step
+    double total_time = total_update_field_states_runtime + total_time_integration_nodal_updates_runtime + total_apply_boundary_conditions_runtime + total_compute_force_runtime + total_communicate_displacements_runtime + total_communicate_force_runtime;
+    aperi::CoutP0() << "   - Total Time: " << total_time << " seconds" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Update Field States: " << total_update_field_states_runtime / total_time * 100 << "%" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Apply Boundary Conditions: " << total_apply_boundary_conditions_runtime / total_time * 100 << "%" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Compute Force: " << total_compute_force_runtime / total_time * 100 << "%" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Time Integration Nodal Updates: " << total_time_integration_nodal_updates_runtime / total_time * 100 << "%" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Communicate Displacements: " << total_communicate_displacements_runtime / total_time * 100 << "%" << std::endl;
+    aperi::CoutP0() << "     " << std::setw(40) << "Communicate Force: " << total_communicate_force_runtime / total_time * 100 << "%" << std::endl;
 
     return average_runtime;
 }

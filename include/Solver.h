@@ -120,6 +120,13 @@ class Solver {
      */
     virtual void ComputeForce() = 0;
 
+    /**
+     * @brief Pure virtual function for communicating forces.
+     *
+     * This function must be implemented by derived classes to communicate the forces between processors.
+     */
+    virtual void CommunicateForce() = 0;
+
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                  ///< The vector of internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                  ///< The vector of external force contributions.
@@ -249,6 +256,14 @@ class ExplicitSolver : public Solver {
     void ComputeForce() override;
 
     /**
+     * @brief Communicates the force.
+     *
+     * This function is responsible for communicating the force.
+     * It overrides the base class function.
+     */
+    void CommunicateForce() override;
+
+    /**
      * @brief Computes the acceleration.
      *
      * This function is responsible for calculating the acceleration.
@@ -280,6 +295,13 @@ class ExplicitSolver : public Solver {
      * @param node_processor_update_nodal_displacements The node processor for updating the nodal displacements.
      */
     void UpdateDisplacements(double time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements);
+
+    /**
+     * @brief Communicates the displacements.
+     *
+     * @param node_processor_update_displacements The node processor for updating the nodal displacements.
+     */
+    void CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements);
 
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
