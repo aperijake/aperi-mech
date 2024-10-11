@@ -20,7 +20,8 @@
 
 namespace aperi {
 
-void Solver::UpdateFieldStates() {
+void ExplicitSolver::UpdateFieldStates() {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::UpdateFieldStates);
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
@@ -66,6 +67,7 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce() {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ComputeForce);
     // Set the force field to zero
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
@@ -97,7 +99,10 @@ void ExplicitSolver::ComputeForce() {
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce();
     }
+}
 
+void ExplicitSolver::CommunicateForce() {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::CommunicateForce);
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         m_node_processor_force->SyncFieldDeviceToHost(0);
@@ -114,6 +119,7 @@ struct ComputeAccelerationFunctor {
 };
 
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration) {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
     // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_component(compute_acceleration_functor);
@@ -131,6 +137,7 @@ struct ComputeFirstPartialUpdateFunctor {
 };
 
 void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update) {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
     node_processor_first_update->for_each_component(compute_first_partial_update_functor);
@@ -148,11 +155,15 @@ struct UpdateDisplacementsFunctor {
 };
 
 void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_component(update_displacements_functor);
     node_processor_update_displacements->MarkFieldModifiedOnDevice(0);
+}
 
+void ExplicitSolver::CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::CommunicateDisplacements);
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         node_processor_update_displacements->SyncFieldDeviceToHost(0);
@@ -173,6 +184,7 @@ struct ComputeSecondPartialUpdateFunctor {
 };
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update) {
+    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
     node_processor_second_update->for_each_component(compute_second_partial_update_functor);
@@ -215,8 +227,7 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
 
 double ExplicitSolver::Solve() {
     // Print the number of nodes
-    size_t num_nodes = mp_mesh_data->GetNumNodes();
-    aperi::CoutP0() << "   - Number of nodes: " << num_nodes << std::endl;
+    mp_mesh_data->PrintNodeCounts();
 
     // Compute mass matrix
     aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
@@ -242,6 +253,7 @@ double ExplicitSolver::Solve() {
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
     ComputeForce();
+    CommunicateForce();
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     ComputeAcceleration(node_processor_acceleration);
@@ -252,8 +264,6 @@ double ExplicitSolver::Solve() {
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
     double average_runtime = 0.0;
-    double total_update_field_states_runtime = 0.0;
-    double average_update_field_states_runtime = 0.0;
 
     // Print the table header before the loop
     aperi::CoutP0() << std::endl
@@ -279,37 +289,46 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        // Move state n+1 to state n
-        UpdateFieldStates();
-        auto end_update_field_states = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> update_field_states_runtime = end_update_field_states - start_time;
-        total_update_field_states_runtime += update_field_states_runtime.count();
-        average_update_field_states_runtime = total_update_field_states_runtime / n;
-
+        // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
         double time_next = time + time_increment;
+
+        // Move state n+1 to state n
+        UpdateFieldStates();
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         ComputeFirstPartialUpdate(half_time_increment, node_processor_first_update);
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
-        for (const auto &boundary_condition : m_boundary_conditions) {
-            boundary_condition->ApplyVelocity(time_midstep);
+        {
+            auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ApplyBoundaryConditions);
+            for (const auto &boundary_condition : m_boundary_conditions) {
+                boundary_condition->ApplyVelocity(time_midstep);
+            }
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         UpdateDisplacements(time_increment, node_processor_update_displacements);
 
+        // Communicate displacements
+        CommunicateDisplacements(node_processor_update_displacements);
+
         // Compute the force, f^{n+1}
         ComputeForce();
+
+        // Communicate the force field data
+        CommunicateForce();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
-        for (const auto &boundary_condition : m_boundary_conditions) {
-            boundary_condition->ApplyAcceleration(time_next);
+        {
+            auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ApplyBoundaryConditions);
+            for (const auto &boundary_condition : m_boundary_conditions) {
+                boundary_condition->ApplyAcceleration(time_next);
+            }
         }
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
@@ -341,7 +360,9 @@ double ExplicitSolver::Solve() {
     }
     LogEvent(n, time, average_runtime, "End of Simulation");
     LogFooter();
-    aperi::CoutP0() << "   - Average Update Field States Runtime: " << average_update_field_states_runtime << " seconds" << std::endl;
+
+    // Print the performance summary, percent of time spent in each step
+    m_timer_manager.PrintTimers();
 
     return average_runtime;
 }
