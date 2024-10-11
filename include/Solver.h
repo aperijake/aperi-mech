@@ -7,6 +7,7 @@
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MeshData.h"
+#include "Timer.h"
 #include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
@@ -105,7 +106,7 @@ class Solver {
      * @brief Updates the field states. N -> NP1 and NP1 -> N.
      *
      */
-    void UpdateFieldStates();
+    virtual void UpdateFieldStates() = 0;
 
     /**
      * @brief Updates the fields from the generalized fields.
@@ -142,6 +143,18 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
 };
 
+enum class ExplicitSolverTimerType {
+    UpdateFieldStates,
+    ApplyBoundaryConditions,
+    ComputeForce,
+    TimeIntegrationNodalUpdates,
+    CommunicateDisplacements,
+    CommunicateForce,
+    COUNT
+};
+
+inline std::vector<std::string> explicit_solver_timer_names = {"UpdateFieldStates", "ApplyBoundaryConditions", "ComputeForce", "TimeIntegrationNodalUpdates", "CommunicateDisplacements", "CommunicateForce"};
+
 /**
  * @class ExplicitSolver
  * @brief Represents an explicit solver for a mechanical system.
@@ -161,7 +174,7 @@ class ExplicitSolver : public Solver {
      * @param output_scheduler The output scheduler used to control the output of the simulation.
      */
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
-        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
+        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler), m_timer_manager("Explicit Solver", explicit_solver_timer_names) {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         m_node_processor_all = CreateNodeProcessorAll();  // TODO(jake): I am not sure if this is needed anymore
@@ -248,6 +261,12 @@ class ExplicitSolver : public Solver {
 
    protected:
     /**
+     * @brief Updates the field states. N -> NP1 and NP1 -> N.
+     *
+     */
+    void UpdateFieldStates() override;
+
+    /**
      * @brief Computes the force.
      *
      * This function is responsible for calculating the force.
@@ -270,7 +289,7 @@ class ExplicitSolver : public Solver {
      *
      * @param node_processor_acceleration The node processor for the acceleration.
      */
-    static void ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration);
+    void ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration);
 
     /**
      * @brief Computes the first partial update for the solver.
@@ -278,7 +297,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_first_update The node processor for the first update.
      */
-    static void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update);
+    void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update);
 
     /**
      * @brief Computes the second partial update for the solver.
@@ -286,7 +305,7 @@ class ExplicitSolver : public Solver {
      * @param half_time_step The half time step size.
      * @param node_processor_second_update The node processor for the second update.
      */
-    static void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update);
+    void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update);
 
     /**
      * @brief Updates the displacements.
@@ -306,6 +325,7 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::shared_ptr<ActiveNodeProcessor<8>> m_node_processor_all;
+    aperi::TimerManager<ExplicitSolverTimerType> m_timer_manager;
 
     /**
      * @brief Writes the output.
