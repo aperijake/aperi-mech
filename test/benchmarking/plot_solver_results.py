@@ -84,7 +84,7 @@ def read_json_file(file_path):
     return df
 
 
-def plot_weak_scaling(df):
+def plot_weak_scaling(df, group_name):
     """
     Plot the weak scaling data.
     """
@@ -121,11 +121,11 @@ def plot_weak_scaling(df):
     plt.title("Weak Scaling")
     plt.legend(title="Elements/Proc, First Value (s)")
     plt.grid()
-    plt.savefig("WeakScaling.png")
+    plt.savefig(group_name + "_WeakScaling.png")
     plt.close()
 
 
-def plot_strong_scaling(df):
+def plot_strong_scaling(df, group_name):
     """
     Plot the strong scaling data.
     """
@@ -164,11 +164,11 @@ def plot_strong_scaling(df):
     plt.title("Strong Scaling")
     plt.legend(title="Number of Elements", loc="lower left")
     plt.grid()
-    plt.savefig("StrongScaling.png")
+    plt.savefig(group_name + "_StrongScaling.png")
     plt.close()
 
 
-def plot_elements_vs_time(df):
+def plot_elements_vs_time(df, group_name):
     """
     Plot the runtime per increment vs. number of elements.
     """
@@ -197,7 +197,7 @@ def plot_elements_vs_time(df):
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.savefig("ElementsVsRuntime.png")
+    plt.savefig(group_name + "_ElementsVsRuntime.png")
     plt.close()
 
     # Check if there is a GPU in the data
@@ -223,7 +223,37 @@ def plot_elements_vs_time(df):
     plt.title("GPU Advantage for Runtime per Increment")
     plt.legend()
     plt.grid()
-    plt.savefig("AdvantageOfUsingGPUSolver.png")
+    plt.savefig(group_name + "_GPUAdvantage.png")
+
+
+def plot_set(group_name, files):
+    print("Reading the following files:")
+    for file in files:
+        print(file)
+
+    # Open and read the JSON file for each file and add the data to a DataFrame
+    df = pd.DataFrame()
+    for file in files:
+        # Join the data from the JSON file to the DataFrame
+        print(f"Reading {file}")
+        df = pd.concat([df, read_json_file(file)], ignore_index=True)
+
+    # Sort the DataFrame by the processor type, number of processors, and number of elements
+    df = df.sort_values(
+        ["processor_type", "processors", "elements"], ascending=[False, True, True]
+    )
+
+    # Print the DataFrame
+    print(df)
+
+    # Plot the weak scaling
+    plot_weak_scaling(df, group_name)
+
+    # Plot the strong scaling
+    plot_strong_scaling(df, group_name)
+
+    # Plot the number of elements vs. time
+    plot_elements_vs_time(df, group_name)
 
 
 def get_args():
@@ -256,30 +286,24 @@ if __name__ == "__main__":
             "No files found in the directory. Looking for files that start with 'scaling_gtest_SolverPerformance'."
         )
 
-    print("Reading the following files:")
+    # Split the files into groups based on the benchmark name. The benchmark name is the string after "scaling_gtest_SolverPerformance_" and before "_release_procs_"
+    benchmark_groups = {}
     for file in files:
-        print(file)
+        file_base = os.path.basename(file)
+        benchmark_name = file_base.split(
+            "scaling_gtest_SolverPerformanceTest_DISABLED_Benchmark"
+        )[1].split("Scaling_release_procs_")[0]
+        if benchmark_name not in benchmark_groups:
+            benchmark_groups[benchmark_name] = []
+        benchmark_groups[benchmark_name].append(file)
 
-    # Open and read the JSON file for each file and add the data to a DataFrame
-    df = pd.DataFrame()
-    for file in files:
-        # Join the data from the JSON file to the DataFrame
-        print(f"Reading {file}")
-        df = pd.concat([df, read_json_file(file)], ignore_index=True)
+    # Print the benchmark groups
+    print("Benchmark Groups:")
+    for benchmark_name, files in benchmark_groups.items():
+        print(f"{benchmark_name}:")
+        for file in files:
+            print(file)
 
-    # Sort the DataFrame by the processor type, number of processors, and number of elements
-    df = df.sort_values(
-        ["processor_type", "processors", "elements"], ascending=[False, True, True]
-    )
-
-    # Print the DataFrame
-    print(df)
-
-    # Plot the weak scaling
-    plot_weak_scaling(df)
-
-    # Plot the strong scaling
-    plot_strong_scaling(df)
-
-    # Plot the number of elements vs. time
-    plot_elements_vs_time(df)
+    # Plot the data for each group
+    for benchmark_name, files in benchmark_groups.items():
+        plot_set(benchmark_name, files)
