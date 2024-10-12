@@ -1,2 +1,4 @@
 *.png
 *.exo
+*.log
+*/run_*
