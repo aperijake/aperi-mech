@@ -13,7 +13,7 @@ nodeset 1 add surface 2
 set exodus netcdf4 off
 set large exodus file on
 export mesh "cylinder0p0006125.exo" overwrite
-refine volume 1  numsplit 1 bias 1.0 depth 1 
-delete nodeset 1
-nodeset 1 add surface 2
-export mesh "cylinder0p0006125_nodal.exo" overwrite
+# refine volume 1  numsplit 1 bias 1.0 depth 1 
+# delete nodeset 1
+# nodeset 1 add surface 2
+# export mesh "cylinder0p0006125_nodal.exo" overwrite
