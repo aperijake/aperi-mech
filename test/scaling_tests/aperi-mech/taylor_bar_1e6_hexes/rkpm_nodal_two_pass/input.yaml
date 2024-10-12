@@ -1,7 +1,7 @@
 procedures:
   - explicit_dynamics_procedure:
       geometry:
-        mesh: ../mesh/cylinder0p0025_nodal.exo
+        mesh: ../mesh/cylinder0p00125_nodal.exo
         parts:
           - part:
               set: block_1
