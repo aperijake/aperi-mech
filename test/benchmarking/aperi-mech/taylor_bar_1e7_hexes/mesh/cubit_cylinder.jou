@@ -1,0 +1,19 @@
+undo on
+create cylinder height 0.2346 radius 0.0391
+block 1 volume 1
+surface 2 3  size 0.0006125
+surface 2 3 scheme circle 
+mesh surface 2 3
+volume all size 0.0006125
+volume 1  redistribute nodes off 
+volume 1  scheme Sweep  source surface 3    target surface 2  sweep transform least squares 
+volume 1  autosmooth target on  fixed imprints off  smart smooth off 
+mesh volume 1 
+nodeset 1 add surface 2
+set exodus netcdf4 off
+set large exodus file on
+export mesh "cylinder0p0006125.exo" overwrite
+refine volume 1  numsplit 1 bias 1.0 depth 1 
+delete nodeset 1
+nodeset 1 add surface 2
+export mesh "cylinder0p0006125_nodal.exo" overwrite
