@@ -1,5 +1,7 @@
 import argparse
 import os
+
+# trunk-ignore(bandit/B404)
 import subprocess
 
 
@@ -17,6 +19,7 @@ def run_performance_tests(num_procs, exec_path, filter, output):
         print(command)
 
         # Run the performance tests using subprocess
+        # trunk-ignore(bandit/B602)
         result = subprocess.run(command, shell=True, env=os.environ)
         if result.returncode != 0:
             print(f"Command failed with return code {result.returncode}")

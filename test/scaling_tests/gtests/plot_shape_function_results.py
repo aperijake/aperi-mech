@@ -152,7 +152,7 @@ def plot_elements_vs_time(df):
     plt.close()
 
     # Calculate the advantage of using the GPU, value cpu / value gpu
-    for idx, (name, group) in enumerate(grouped_compadre):
+    for _idx, (name, group) in enumerate(grouped_compadre):
         if name[1] == "cpu":
             cpu_group = group
         else:
@@ -171,7 +171,7 @@ def plot_elements_vs_time(df):
         linestyle="-",
     )
 
-    for idx, (name, group) in enumerate(grouped_reproducing_kernel):
+    for _idx, (name, group) in enumerate(grouped_reproducing_kernel):
         if name[1] == "cpu":
             cpu_group = group
         else:
