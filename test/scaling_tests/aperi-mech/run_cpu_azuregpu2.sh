@@ -35,7 +35,7 @@ run_and_cleanup taylor_bar_5e6_tets/fem
 run_and_cleanup taylor_bar_5e6_tets/rkpm
 # run_and_cleanup taylor_bar_5e6_tets/rkpm_nodal # Fails due to memory
 
-run_and_cleanup taylor_bar_1e7_hexes/rkpm
+# run_and_cleanup taylor_bar_1e7_hexes/rkpm # Fails due to memory
 
 run_and_cleanup taylor_bar_4e7_tets/fem
-run_and_cleanup taylor_bar_4e7_tets/rkpm
+# run_and_cleanup taylor_bar_4e7_tets/rkpm # Fails due to memory
