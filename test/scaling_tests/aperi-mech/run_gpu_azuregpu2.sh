@@ -1,15 +1,13 @@
 #!/bin/bash
 
-# Function to clean up the output files
-
 run_and_cleanup() {
 	current_dir=$(pwd)
 	echo "Running in folder $1"
-	echo "Running: ./batch_run.sh -n 1 -e ~/aperi-mech/protego-mech/build/ -p 32,16,8,4,2,1 $1"
-	./batch_run.sh -n 1 -e ~/aperi-mech/protego-mech/build/ -p 32,16,8,4,2,1 $1
+	echo "Running: ./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 $1"
+	./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 $1
 	cd $1 || exit
-	mkdir azuregpu3_results
-	mv run_* azuregpu3_results
+	mkdir azuregpu2_results_gpu
+	mv run_* azuregpu2_results_gpu
 	rm results.exo
 	cd $current_dir
 }
