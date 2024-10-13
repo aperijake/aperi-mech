@@ -97,7 +97,7 @@ def find_solver_block(i, lines):
         if match:
             step = match.group(1)
             time = float(match.group(2))
-            fraction = float(match.group(3)) * 100.0
+            fraction = float(match.group(3)) / 100.0
             solver_data.append((step, fraction, time))
 
     return solver_data
@@ -281,6 +281,10 @@ def plot_timing_data(df, output_dir):
     plt.gca().xaxis.set_minor_locator(
         FixedLocator([])
     )  # Disable minor ticks on the x-axis
+
+    # Make sure the x-axis goes from at least 0.5 to 1.5
+    if len(num_procs) == 1:
+        plt.xlim(0.5, 1.5)
     plt.xlabel("Number of Processes")
     plt.ylabel("Time (s)")
     plt.legend()
@@ -298,12 +302,21 @@ def plot_timing_data(df, output_dir):
     plt.gca().xaxis.set_minor_locator(
         FixedLocator([])
     )  # Disable minor ticks on the x-axis
+
+    # Make sure the x-axis goes from at least 0.5 to 2.0
+    if len(num_procs) == 1:
+        plt.xlim(0.5, 2.0)
+
     plt.xlabel("Number of Processes")
     plt.ylabel("Fraction of Time")
     plt.legend()
     plt.grid()
     plt.savefig(output_dir + os.path.sep + "timing_data_fraction.png")
     plt.close()
+
+    # If there is only 1 process then skip the remaining plots
+    if len(num_procs) == 1:
+        return
 
     # Plot the scaling of the time spent in each step relative to the 1 cpu time
     for step in df["step"].unique():
@@ -353,6 +366,12 @@ def plot_timing_data_per_proc(df, output_dir):
     # X-axis is the number of cells per processor: df["cell_count_per_proc"]
     # Do only for the "Total Time" step
     # Also write a file with the scaling data
+
+    # Only do this if there is more than 1 process
+    num_procs = df["num_procs"].unique()
+    if len(num_procs) == 1:
+        return
+
     total_time_data = df[df["step"] == "Total Time"]
     time_1_cpu = total_time_data[total_time_data["num_procs"] == 1]["time"].values[0]
 
@@ -386,6 +405,11 @@ def plot_timing_data_per_proc(df, output_dir):
 
 def print_scaling(df):
     # Print the scaling of the time spent in each step
+
+    # Only do this if there is more than 1 process
+    if len(df["num_procs"].unique()) == 1:
+        return
+
     for step in df["step"].unique():
         step_data = df[df["step"] == step]
         time_1_cpu = step_data[step_data["num_procs"] == 1]["time"].values[0]

@@ -6,12 +6,12 @@ run_and_cleanup() {
 	current_dir=$(pwd)
 	echo "Running in folder $1"
 	echo "Running: ./batch_run.sh -n 1 -e ~/aperi-mech/protego-mech/build/ -p 32,16,8,4,2,1 $1"
-	./batch_run.sh -n 1 -e ~/aperi-mech/protego-mech/build/ -p 32,16,8,4,2,1 $1
-	cd $1 || exit
+	./batch_run.sh -n 1 -e ~/aperi-mech/protego-mech/build/ -p 32,16,8,4,2,1 "$1"
+	cd "$1" || exit
 	mkdir azuregpu3_results
 	mv run_* azuregpu3_results
 	rm results.exo
-	cd $current_dir
+	cd "${current_dir}" || exit
 }
 
 run_and_cleanup taylor_bar_1e4_hexes/rkpm
