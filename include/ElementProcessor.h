@@ -807,7 +807,7 @@ class StrainSmoothingProcessor {
             aperi::CoutP0() << "     - Average number of neighbors for a cell: " << average_num_neighbors << std::endl;
         }
 
-        // ---- Diagnositc output
+        // ---- Diagnostic output
         // Collect the cell counts on each rank
         size_t num_ranks = m_bulk_data->parallel_size();
         std::vector<size_t> num_cells_per_rank(num_ranks);
@@ -839,7 +839,7 @@ class StrainSmoothingProcessor {
         ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
         ss << "***************************************************\n";
         aperi::CoutP0() << ss.str();
-        // ---- End diagnositc output
+        // ---- End diagnostic output
 
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
         smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);

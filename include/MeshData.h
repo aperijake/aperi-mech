@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <numeric>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Comm.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -176,6 +177,47 @@ class MeshData {
             ss << "***************************************************\n";
             aperi::CoutP0() << ss.str();
         }
+    }
+
+    void PrintElementCounts(bool print_each_processor = false) const {
+        // Get the universal part
+        stk::mesh::Selector selector = StkGetSelector({}, &m_bulk_data->mesh_meta_data());
+        // Get the owned part
+        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
+
+        // Get the number of elements
+        size_t num_cells = stk::mesh::count_entities(*m_bulk_data, stk::topology::ELEMENT_RANK, owned_selector);
+
+        size_t num_ranks = m_bulk_data->parallel_size();
+        std::vector<size_t> num_cells_per_rank(num_ranks);
+        num_cells_per_rank[m_bulk_data->parallel_rank()] = num_cells;
+        MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, num_cells_per_rank.data(), 1, MPI_UNSIGNED_LONG, m_bulk_data->parallel());
+
+        // Get the total number of cells
+        size_t total_num_cells = std::accumulate(num_cells_per_rank.begin(), num_cells_per_rank.end(), 0);
+
+        // Get the average number of cells
+        double avg_num_cells = static_cast<double>(total_num_cells) / static_cast<double>(num_ranks);
+
+        // Get the min and max number of cells
+        size_t min_num_cells = *std::min_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
+        size_t max_num_cells = *std::max_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
+
+        // Calculate the percent unbalance = (max - avg) / avg
+        double percent_unbalance = (static_cast<double>(max_num_cells) - avg_num_cells) / avg_num_cells * 100.0;
+
+        // Print the cell counts
+        std::stringstream ss;
+        int width = 12;
+        ss << "*** Cell Counts ************************************\n";
+        ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+           << "\n";
+        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance%"
+           << "\n";
+        ss << "----------------------------------------------------\n";
+        ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
+        ss << "***************************************************\n";
+        aperi::CoutP0() << ss.str();
     }
 
     size_t GetNumElement() const {
