@@ -257,7 +257,7 @@ def read_timing_data(log_file):
     return timing_data
 
 
-def plot_timing_data(df, output_dir):
+def plot_weak_timing_data(df, output_dir):
     # Create a plot of the timing data
     # Plot the scaling of the time spent in each step vs. the number of processes
     for step in df["step"].unique():
@@ -359,7 +359,7 @@ def plot_timing_data(df, output_dir):
     plt.close()
 
 
-def plot_timing_data_per_proc(df, output_dir):
+def plot_weak_timing_data_per_proc(df, output_dir):
     # Create a plot of the timing data per processor
     # Want a line for each number of processes
     # Y-axis is the relative time processing per processor: df["time"] * df["num_procs"] / time_1_cpu
@@ -403,7 +403,54 @@ def plot_timing_data_per_proc(df, output_dir):
         f.write(output)
 
 
-def print_scaling(df):
+def plot_strong_timing_data(cpu_df, gpu_df, output_dir):
+    # Create a plot of the timing data
+    # X-axis is the number of elements
+    # Y-axis is the time
+    # Do only for the "Total Time" step
+    # Have a line for each number of processes
+
+    # Get the data for the "Total Time" step
+    cpu_total_time_data = cpu_df[cpu_df["step"] == "Total Time"]
+
+    # Loop over the number of processes
+    for num_procs in cpu_total_time_data["num_procs"].unique():
+        # Get the data for this number of processes
+        cpu_num_procs_data = cpu_total_time_data[
+            cpu_total_time_data["num_procs"] == num_procs
+        ]
+
+        # Plot the data
+        plt.loglog(
+            cpu_num_procs_data["cell_count"],
+            cpu_num_procs_data["time"],
+            label=f"CPU {num_procs} processes",
+            marker="o",
+        )
+
+    # If there is GPU data, plot that as well
+    if not gpu_df.empty:
+        gpu_total_time_data = gpu_df[gpu_df["step"] == "Total Time"]
+        for num_procs in gpu_total_time_data["num_procs"].unique():
+            gpu_num_procs_data = gpu_total_time_data[
+                gpu_total_time_data["num_procs"] == num_procs
+            ]
+            plt.loglog(
+                gpu_num_procs_data["cell_count"],
+                gpu_num_procs_data["time"],
+                label=f"GPU {num_procs} processes",
+                marker="o",
+            )
+
+    plt.xlabel("Number of Elements")
+    plt.ylabel("Time (s)")
+    plt.legend()
+    plt.grid()
+    plt.savefig(output_dir + os.path.sep + "timing_data_strong.png")
+    plt.close()
+
+
+def print_weak_scaling(df):
     # Print the scaling of the time spent in each step
 
     # Only do this if there is more than 1 process
@@ -424,26 +471,12 @@ def print_scaling(df):
         print()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Plot timing data from a set of log files"
-    )
-    parser.add_argument("--output", help="Output directory for the plots", default=".")
-    parser.add_argument(
-        "folders",
-        nargs="+",
-        help="Folders containing log files. Each folder should contain a set of log files with the same number of processes.",
-    )
-    args = parser.parse_args()
-
-    df = pd.DataFrame()
-
+def get_log_files(in_folders):
     # Expand wildcards in the folder names
     folders = []
-    for folder in args.folders:
+    for folder in in_folders:
         folders.extend(glob.glob(folder))
     folders.sort()
-    print("Folders:", folders)
 
     # Grab the files in the first folder
     folder = folders[0]
@@ -462,6 +495,16 @@ if __name__ == "__main__":
         new_log_files = [os.path.basename(log_file) for log_file in new_log_files]
         if log_files != new_log_files:
             raise ValueError("Log files in different folders do not match")
+
+    return log_files
+
+
+def read_weak_files(folders):
+    # Get the log files
+    log_files = get_log_files(folders)
+
+    # Create an empty DataFrame
+    df = pd.DataFrame()
 
     num_folders = len(folders)
     for log_file in log_files:
@@ -498,11 +541,123 @@ if __name__ == "__main__":
         # Add this file's data to the overall DataFrame
         df = pd.concat([df, file_df], ignore_index=True)
 
+    return df
+
+
+def read_strong_files(folders):
+    # Get the log files
+    log_files = get_log_files(folders)
+
+    # Create an empty DataFrame
+    df = pd.DataFrame()
+
+    for log_file in log_files:
+        for folder in folders:
+            timing_data = read_timing_data(os.path.join(folder, log_file))
+            # Create a DataFrame with the timing data
+            df_for_file = pd.DataFrame(
+                timing_data,
+                columns=[
+                    "num_procs",
+                    "cell_count",
+                    "node_count",
+                    "step",
+                    "fraction",
+                    "time",
+                ],
+            )
+
+            # Add the cell_count_per_proc and node_count_per_proc columns
+            df_for_file["cell_count_per_proc"] = (
+                df_for_file["cell_count"] / df_for_file["num_procs"]
+            )
+            df_for_file["node_count_per_proc"] = (
+                df_for_file["node_count"] / df_for_file["num_procs"]
+            )
+
+            # Add this file's data to the overall DataFrame
+            df = pd.concat([df, df_for_file], ignore_index=True)
+
+    return df
+
+
+def process_weak(args):
+    print("Processing weak scaling data")
+
+    # Read the log files
+    df = read_weak_files(args.folders)
+
     # Get full path to the output directory
     output_dir = os.path.abspath(args.output)
     os.makedirs(output_dir, exist_ok=True)
 
     # print(df)
-    plot_timing_data(df, args.output)
-    plot_timing_data_per_proc(df, args.output)
-    print_scaling(df)
+    plot_weak_timing_data(df, args.output)
+    plot_weak_timing_data_per_proc(df, args.output)
+    print_weak_scaling(df)
+
+
+def process_strong(args):
+    print("Processing strong scaling data")
+
+    # Read the CPU log files
+    cpu_df = read_strong_files(args.cpu)
+
+    # Read the GPU log files
+    gpu_df = pd.DataFrame()
+    if args.gpu:
+        gpu_df = read_strong_files(args.gpu)
+
+    # Get full path to the output directory
+    output_dir = os.path.abspath(args.output)
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(cpu_df)
+    print(gpu_df)
+    plot_strong_timing_data(cpu_df, gpu_df, args.output)
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        description="Plot timing data from a set of log files"
+    )
+    subparsers = parser.add_subparsers(
+        dest="command", help="Subcommands: weak or strong"
+    )
+
+    # Subparser for the 'weak' command
+    parser_weak = subparsers.add_parser("weak", help="Process weak scaling data")
+    parser_weak.add_argument(
+        "--output",
+        help="Output directory for the plots",
+        default=".",
+    )
+    parser_weak.add_argument(
+        "folders",
+        nargs="+",
+        help="Folders containing log files. Each folder should contain a set of log files with the same number of processes.",
+    )
+
+    # Subparser for the 'strong' command
+    parser_strong = subparsers.add_parser("strong", help="Process strong scaling data")
+    parser_strong.add_argument(
+        "--cpu", nargs="+", help="Folder containing CPU log files", required=True
+    )
+    parser_strong.add_argument(
+        "--gpu", nargs="+", help="Folder containing GPU log files"
+    )
+    parser_strong.add_argument(
+        "--output",
+        help="Output directory for the plots",
+        default=".",
+    )
+
+    args = parser.parse_args()
+
+    if args.command == "weak":
+        process_weak(args)
+    elif args.command == "strong":
+        process_strong(args)
+    else:
+        parser.print_help()
