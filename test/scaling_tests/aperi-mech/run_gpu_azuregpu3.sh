@@ -1,15 +1,15 @@
 #!/bin/bash
 
 run_and_cleanup() {
-    current_dir=$(pwd)
-    echo "Running in folder $1"
-    echo "Running: ./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 $1"
-    ./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 $1
-    cd $1 || exit
-    mkdir azuregpu3_results_gpu
-    mv run_* azuregpu3_results_gpu
-    rm results.exo
-    cd $current_dir
+	current_dir=$(pwd)
+	echo "Running in folder $1"
+	echo "Running: ./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 $1"
+	./batch_run.sh -n 1 -g -e ~/aperi-mech/protego-mech/build/ -p 1 "$1"
+	cd "$1" || exit
+	mkdir azuregpu3_results_gpu
+	mv run_* azuregpu3_results_gpu
+	rm results.exo
+	cd "${current_dir}" || exit
 }
 
 run_and_cleanup taylor_bar_1e4_hexes/rkpm

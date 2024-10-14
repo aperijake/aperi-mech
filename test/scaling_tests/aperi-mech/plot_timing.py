@@ -74,7 +74,7 @@ def find_solver_block(i, lines):
         return solver_data
 
     # Read the data in the next 10 lines
-    for j in range(i, i + 10):
+    for j in range(i, i + 11):
         # Find: Total Time: 2.061426e-01 seconds
         match = re.search(r"Total Time: ([\d\.e\+\-]+) seconds", lines[j])
         if match:
@@ -260,6 +260,10 @@ def read_timing_data(log_file):
 def plot_weak_timing_data(df, output_dir):
     # Create a plot of the timing data
     # Plot the scaling of the time spent in each step vs. the number of processes
+
+    # Sort the data by the number of processes
+    df = df.sort_values(by=["num_procs"])
+
     for step in df["step"].unique():
         step_data = df[df["step"] == step]
         if step.startswith("Communicate"):
