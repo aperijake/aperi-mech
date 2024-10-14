@@ -68,7 +68,7 @@ if __name__ == "__main__":
     settings_group.add_argument(
         "--exec",
         help="Path to the executable",
-        default="../../build/Release/performance_tests",
+        default="../../../build/Release/performance_tests",
     )
     settings_group.add_argument(
         "--output", help="Output folder", default="performance_results"
@@ -79,30 +79,32 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    exe_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "build")
+
     # Apply default settings if specified
     if args.use_mac_defaults:
         args.num_procs = [1, 2, 4, 8]
-        args.exec = "../../build/Release/performance_tests"
+        args.exec = exe_root + "/Release/performance_tests"
         args.output = "mac_performance_results"
         args.filter = ""
     elif args.use_azure_t4_defaults:
-        args.num_procs = [1, 2, 4]
-        args.exec = "../../build/Release_gpu/performance_tests"
+        args.num_procs = [1]
+        args.exec = exe_root + "/Release_gpu/performance_tests"
         args.output = "azure_t4_performance_results"
         args.filter = ""
     elif args.use_azure_h100_defaults:
-        args.num_procs = [1, 2, 4, 8, 16, 32]
-        args.exec = "../../build/Release_gpu/performance_tests"
+        args.num_procs = [1]
+        args.exec = exe_root + "/Release_gpu/performance_tests"
         args.output = "azure_h100_performance_results"
         args.filter = ""
     elif args.use_azure_4proc_defaults:
         args.num_procs = [1, 2, 4]
-        args.exec = "../../build/Release/performance_tests"
+        args.exec = exe_root + "/Release/performance_tests"
         args.output = "azure_4proc_performance_results"
         args.filter = ""
     elif args.use_azure_40proc_defaults:
         args.num_procs = [1, 2, 4, 8, 16, 32]
-        args.exec = "../../build/Release/performance_tests"
+        args.exec = exe_root + "/Release/performance_tests"
         args.output = "azure_40proc_performance_results"
         args.filter = ""
 
