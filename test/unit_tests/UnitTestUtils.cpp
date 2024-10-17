@@ -318,8 +318,24 @@ void CheckPartitionOfNullity(const Eigen::Matrix<double, 1, Eigen::Dynamic>& sha
 // Check linear completeness
 void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
     // Check the linear completeness
+    // x = /sum_i N_i * x_i
     const Eigen::Matrix<double, 1, 3>& calculated_physical_coordinates = shape_functions.transpose() * neighbor_coordinates;
     for (size_t i = 0; i < 3; ++i) {
         EXPECT_NEAR(calculated_physical_coordinates(0, i), evaluation_point_phyiscal_coordinates(0, i), 1.0e-12);
+    }
+}
+
+// Check quadratic completeness
+void CheckQuadraticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates) {
+    // Check the quadratic completeness
+    // x_i * x_j = /sum_i N_i * x_i * x_j
+    for (size_t i = 0; i < 3; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+            double calculated_value = 0.0;
+            for (size_t k = 0; k < shape_functions.rows(); ++k) {
+                calculated_value += shape_functions(k) * neighbor_coordinates(k, i) * neighbor_coordinates(k, j);
+            }
+            EXPECT_NEAR(calculated_value, evaluation_point_phyiscal_coordinates(0, i) * evaluation_point_phyiscal_coordinates(0, j), 1.0e-12);
+        }
     }
 }
