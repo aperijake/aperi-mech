@@ -140,6 +140,11 @@ void Application::Run(const std::string& input_filename) {
     // Run pre-processing
     aperi::DoPreprocessing(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions);
 
+    // Print element data, if not using strain smoothing (strain smoothing prints its own data)
+    if (!has_strain_smoothing) {
+        m_io_mesh->GetMeshData()->PrintElementCounts();
+    }
+
     // Create solver
     m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
     auto end_solver_setup = std::chrono::high_resolution_clock::now();

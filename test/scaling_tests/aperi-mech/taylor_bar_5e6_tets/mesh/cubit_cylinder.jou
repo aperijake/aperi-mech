@@ -1,0 +1,14 @@
+undo on
+create cylinder height 0.2346 radius 0.0391
+block 1 volume 1
+volume all scheme tetmesh
+volume all size 0.00125
+nodeset 1 add surface 2
+mesh volume all
+set exodus netcdf4 off
+set large exodus file on
+export mesh "cylinder0p00125.exo" overwrite
+thex volume all
+delete nodeset 1
+nodeset 1 add surface 2
+export mesh "cylinder0p00125_thex.exo" overwrite
