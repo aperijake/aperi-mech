@@ -36,8 +36,10 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
     // Check shape function completeness
     static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, size_t order, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
+        double tolerance = 1.0e-13 * std::pow(10.0, order - 1);
+
         // Check the partition of unity
-        CheckPartitionOfUnity(shape_functions);
+        CheckPartitionOfUnity(shape_functions, tolerance);
 
         // Calculate the physical coordinates of the evaluation point
         aperi::ShapeFunctionsFunctorTet4 functions_functor;
@@ -47,12 +49,22 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
         if (order >= 1) {
             // Check the linear completeness
-            CheckLinearCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates);
+            CheckLinearCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates, tolerance);
         }
 
         if (order >= 2) {
             // Check the quadratic completeness
-            CheckQuadraticCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates);
+            CheckQuadraticCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates, tolerance);
+        }
+
+        if (order >= 3) {
+            // Check the cubic completeness
+            CheckCubicCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates, tolerance);
+        }
+
+        if (order >= 4) {
+            // Check the quartic completeness
+            CheckQuarticCompleteness(shape_functions, neighbor_coordinates, evaluation_point_physical_coordinates, tolerance);
         }
     }
 
@@ -207,7 +219,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeig
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuadratic) {
     constexpr size_t k_num_neighbors = 20;
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernelQuadratic<k_num_neighbors>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesQuadratic>> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
@@ -218,5 +230,41 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuadrati
     // Scale to be within the unit cube
     neighbor_coordinates = (neighbor_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
     size_t order = 2;
+    TestFunctionsFunctorValues(functions_functor, order, node_coordinates, neighbor_coordinates, k_num_neighbors, false);
+}
+
+// Test cubic reproducing kernel shape functions on a tet4 element
+TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsCubic) {
+    constexpr size_t k_num_neighbors = 40;
+    // Create the tet4 functions functor
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesCubic>> functions_functor;
+
+    Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = neighbor_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = neighbor_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    neighbor_coordinates = (neighbor_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+    size_t order = 3;
+    TestFunctionsFunctorValues(functions_functor, order, node_coordinates, neighbor_coordinates, k_num_neighbors, false);
+}
+
+// Test quartic reproducing kernel shape functions on a tet4 element
+TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuartic) {
+    constexpr size_t k_num_neighbors = 70;
+    // Create the tet4 functions functor
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesQuartic>> functions_functor;
+
+    Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
+    Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
+    // Find the bounding box dimensions
+    Eigen::Matrix<double, 3, 1> min = neighbor_coordinates.colwise().minCoeff();
+    Eigen::Matrix<double, 3, 1> max = neighbor_coordinates.colwise().maxCoeff();
+    Eigen::Matrix<double, 3, 1> bounding_box_dimensions = max - min;
+    // Scale to be within the unit cube
+    neighbor_coordinates = (neighbor_coordinates.rowwise() - min.transpose()).array().rowwise() / bounding_box_dimensions.transpose().array();
+    size_t order = 4;
     TestFunctionsFunctorValues(functions_functor, order, node_coordinates, neighbor_coordinates, k_num_neighbors, false);
 }
