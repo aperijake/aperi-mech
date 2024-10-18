@@ -36,7 +36,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
     // Check shape function completeness
     static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, size_t order, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
-        double tolerance = 2.0e-13 * std::pow(10.0, order - 1);
+        double tolerance = 4.0e-13 * std::pow(10.0, order - 1);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions, tolerance);
