@@ -122,17 +122,17 @@ struct ShapeFunctionsFunctorReproducingKernel {
         } else if (actual_num_neighbors == 1) {
             function_values(0, 0) = 1.0;
             return function_values;
-        } else if (actual_num_neighbors < bases.size) {
+        } else if (actual_num_neighbors < Bases::size) {
             // Throw an error if the number of neighbors is less than the matrix size
-            printf("The number of neighbors is less than the matrix size. Number of neighbors: %zu, Matrix size: %zu\n", actual_num_neighbors, bases.size);
+            printf("The number of neighbors is less than the matrix size. Number of neighbors: %zu, Matrix size: %zu\n", actual_num_neighbors, Bases::size);
             Kokkos::abort("Aborting due to insufficient number of neighbors.");
         }
 
         // Allocate moment matrix (M) and M^-1
-        Eigen::Matrix<double, bases.size, bases.size> M = Eigen::Matrix<double, bases.size, bases.size>::Zero();
+        Eigen::Matrix<double, Bases::size, Bases::size> M = Eigen::Matrix<double, Bases::size, Bases::size>::Zero();
 
         // Allocate basis vector (H)
-        Eigen::Vector<double, bases.size> H = Eigen::Vector<double, bases.size>::Zero();
+        Eigen::Vector<double, Bases::size> H = Eigen::Vector<double, Bases::size>::Zero();
 
         // Loop over neighbor nodes
         for (size_t i = 0; i < actual_num_neighbors; i++) {
@@ -148,7 +148,7 @@ struct ShapeFunctionsFunctorReproducingKernel {
         }
 
         // Compute M^-1
-        Eigen::Matrix<double, bases.size, bases.size> M_inv = InvertMatrix(M);
+        Eigen::Matrix<double, Bases::size, Bases::size> M_inv = InvertMatrix(M);
 
         // Loop over neighbor nodes again
         for (size_t i = 0; i < actual_num_neighbors; i++) {
