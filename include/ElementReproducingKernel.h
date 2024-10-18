@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "Constants.h"
 #include "ComputeInternalForceFunctors.h"
+#include "Constants.h"
 #include "ElementBase.h"
 #include "ElementProcessor.h"
 #include "FieldData.h"
@@ -72,7 +72,7 @@ class ElementReproducingKernel : public ElementBase {
     // but works fine in Debug mode or on the CPU. Spent a lot of time trying to figure out why, but couldn't find the issue.
     template <size_t MaxNumNeighbors, typename Bases>
     struct FunctionFunctorWrapper {
-        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Bases& bases, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
+        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Bases &bases, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
             return compute_node_functions_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, actual_num_neighbors);
         }
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
@@ -83,7 +83,7 @@ class ElementReproducingKernel : public ElementBase {
         auto start_function_values = std::chrono::high_resolution_clock::now();
 
         // Create an instance of the functor
-        FunctionFunctorWrapper <MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
+        FunctionFunctorWrapper<MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
         // Create the bases
         aperi::BasesLinear bases;
