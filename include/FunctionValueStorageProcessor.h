@@ -79,8 +79,8 @@ class FunctionValueStorageProcessor {
     }
 
     // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
-    template <size_t NumNodes, typename FunctionFunctor>
-    void compute_and_store_function_values(FunctionFunctor &function_functor, const bool use_evaluation_point_kernels = false) {
+    template <size_t NumNodes, typename FunctionFunctor, typename Bases>
+    void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
@@ -122,7 +122,7 @@ class FunctionValueStorageProcessor {
                 }
 
                 // Compute the function values
-                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.Values(kernel_values, shifted_neighbor_coordinates, num_neighbors);
+                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, num_neighbors);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);

@@ -75,7 +75,8 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
 
     m_search_processor->add_nodes_ring_0_nodes();
     BuildFunctionValueStorageProcessor();
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    aperi::BasesLinear bases;
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
     m_value_from_generalized_field_processor->compute_value_from_generalized_field();
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
@@ -97,7 +98,8 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
 
     m_search_processor->add_nodes_neighbors_within_constant_ball(2.00);
     BuildFunctionValueStorageProcessor();
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    aperi::BasesLinear bases;
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
     m_value_from_generalized_field_processor->compute_value_from_generalized_field();
     m_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();

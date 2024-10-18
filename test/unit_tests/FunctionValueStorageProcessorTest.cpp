@@ -28,7 +28,9 @@ TEST_F(FunctionValueStorageProcessorTestFixture, OneNeighbor) {
 
     BuildFunctionValueStorageProcessor();
 
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    aperi::BasesLinear bases;
+
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
     m_function_value_storage_processor->SyncFieldsToHost();
 
@@ -55,7 +57,9 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
 
     BuildFunctionValueStorageProcessor();
 
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    aperi::BasesLinear bases;
+
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
     m_function_value_storage_processor->SyncFieldsToHost();
 
@@ -104,7 +108,9 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsRandomizedMesh) {
 
     BuildFunctionValueStorageProcessor();
 
-    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel);
+    aperi::BasesLinear bases;
+
+    m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
     m_function_value_storage_processor->SyncFieldsToHost();
 
