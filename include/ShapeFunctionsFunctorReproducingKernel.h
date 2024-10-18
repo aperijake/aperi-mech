@@ -9,7 +9,9 @@ namespace aperi {
 
 struct BasesLinear {
     constexpr static size_t size = 4;
+    constexpr static size_t order = 1;
 
+    KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
         basis_vector.segment(1, 3) = coordinates;
@@ -18,7 +20,9 @@ struct BasesLinear {
 
 struct BasesQuadratic {
     constexpr static size_t size = 10;
+    constexpr static size_t order = 2;
 
+    KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
         basis_vector.segment(1, 3) = coordinates;
@@ -33,7 +37,9 @@ struct BasesQuadratic {
 
 struct BasesCubic {
     constexpr static size_t size = 20;
+    constexpr static size_t order = 3;
 
+    KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
         basis_vector.segment(1, 3) = coordinates;
@@ -58,7 +64,9 @@ struct BasesCubic {
 
 struct BasesQuartic {
     constexpr static size_t size = 35;
+    constexpr static size_t order = 4;
 
+    KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
         basis_vector.segment(1, 3) = coordinates;
@@ -96,7 +104,7 @@ struct BasesQuartic {
     }
 };
 
-template <size_t MaxNumNeighbors, typename Bases = BasesLinear>
+template <size_t MaxNumNeighbors>
 struct ShapeFunctionsFunctorReproducingKernel {
     /**
      * @brief Computes the shape functions of the element.
@@ -104,9 +112,8 @@ struct ShapeFunctionsFunctorReproducingKernel {
      * @param actual_num_neighbors The actual number of neighbors.
      * @return The shape function values at the evaluation point.
      */
-    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
-        Bases bases;
-
+    template <typename Bases>
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Bases &bases, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
         // Allocate function values
         Eigen::Matrix<double, MaxNumNeighbors, 1> function_values = Eigen::Matrix<double, MaxNumNeighbors, 1>::Zero();
 

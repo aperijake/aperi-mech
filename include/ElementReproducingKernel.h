@@ -70,10 +70,10 @@ class ElementReproducingKernel : public ElementBase {
     // Using a wrapper class seems to fix the issue.
     // Using ShapeFunctionsFunctorReproducingKernel directly in the compute_and_store_function_values function causes a segfault on the GPU in Release mode,
     // but works fine in Debug mode or on the CPU. Spent a lot of time trying to figure out why, but couldn't find the issue.
-    template <size_t MaxNumNeighbors>
+    template <size_t MaxNumNeighbors, typename Bases>
     struct FunctionFunctorWrapper {
-        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
-            return compute_node_functions_functor.Values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
+        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Bases& bases, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
+            return compute_node_functions_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, actual_num_neighbors);
         }
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
     };
@@ -83,10 +83,14 @@ class ElementReproducingKernel : public ElementBase {
         auto start_function_values = std::chrono::high_resolution_clock::now();
 
         // Create an instance of the functor
-        FunctionFunctorWrapper <MAX_NODE_NUM_NEIGHBORS> compute_node_functions_functor;
+        FunctionFunctorWrapper <MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
+        // Create the bases
+        aperi::BasesLinear bases;
+
+        // Create the function value storage processor
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_mesh_data, m_part_names);
-        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor);
+        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 
         auto end_function_values = std::chrono::high_resolution_clock::now();
         aperi::CoutP0() << "     Finished Computing and Storing Function Values. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_function_values - start_function_values).count() << " ms" << std::endl;

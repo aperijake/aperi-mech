@@ -314,9 +314,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // Compute the function values using the shape functions functor for comparison
         BuildFunctionValueStorageProcessor();
+        aperi::BasesLinear bases;
         bool use_target_center_kernel = true;                            // Like Compadre, but search still uses source center kernel so this is not perfect
         auto rk_start_time = std::chrono::high_resolution_clock::now();  // benchmark
-        m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, use_target_center_kernel);
+        m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases, use_target_center_kernel);
         auto rk_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> rk_runtime = rk_end_time - rk_start_time;
         runtimes.emplace("compute_reproducing_kernel", rk_runtime.count());

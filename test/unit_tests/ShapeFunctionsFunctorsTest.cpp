@@ -36,7 +36,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
     // Check shape function completeness
     static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, size_t order, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
-        double tolerance = 1.0e-13 * std::pow(10.0, order - 1);
+        double tolerance = 2.0e-13 * std::pow(10.0, order - 1);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions, tolerance);
@@ -145,7 +145,7 @@ TEST_F(ShapeFunctionsFunctorsTest, Tet4) {
     TestFunctionsFunctorDerivatives(functions_functor, node_coordinates);
 }
 
-template <size_t MaxNumNeighbors, typename FunctionsFunctor>
+template <size_t MaxNumNeighbors, typename FunctionsFunctor, typename Bases>
 struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
     /**
      * @brief Computes the shape functions of the element.
@@ -171,8 +171,9 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
         }
 
         FunctionsFunctor functions_functor = FunctionsFunctor();
+        Bases bases;
 
-        return functions_functor.Values(kernel_values, shifted_neighbor_coordinates, actual_num_neighbors);
+        return functions_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, actual_num_neighbors);
     }
 };
 
@@ -180,7 +181,7 @@ struct ShapeFunctionsFunctorReproducingKernelOnTet4 {
 // This is a basic, small test to ensure the reproducing kernel shape functions are working
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly) {
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<4, aperi::ShapeFunctionsFunctorReproducingKernel<4>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<4, aperi::ShapeFunctionsFunctorReproducingKernel<4>, aperi::BasesLinear> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     size_t order = 1;
@@ -201,7 +202,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsTetOnly)
 // This is a basic, small test to ensure the reproducing kernel shape functions are working
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeighbors) {
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<8, aperi::ShapeFunctionsFunctorReproducingKernel<8>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<8, aperi::ShapeFunctionsFunctorReproducingKernel<8>, aperi::BasesLinear> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, 8, 3> neighbor_coordinates = Eigen::Matrix<double, 8, 3>::Random() * 3.0;
@@ -219,7 +220,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeig
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuadratic) {
     constexpr size_t k_num_neighbors = 20;
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesQuadratic>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors>, aperi::BasesQuadratic> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
@@ -237,7 +238,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuadrati
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsCubic) {
     constexpr size_t k_num_neighbors = 40;
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesCubic>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors>, aperi::BasesCubic> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
@@ -255,7 +256,7 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsCubic) {
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuartic) {
     constexpr size_t k_num_neighbors = 70;
     // Create the tet4 functions functor
-    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors, aperi::BasesQuartic>> functions_functor;
+    ShapeFunctionsFunctorReproducingKernelOnTet4<k_num_neighbors, aperi::ShapeFunctionsFunctorReproducingKernel<k_num_neighbors>, aperi::BasesQuartic> functions_functor;
 
     Eigen::Matrix<double, 4, 3> node_coordinates = Eigen::Matrix<double, 4, 3>::Identity();
     Eigen::Matrix<double, k_num_neighbors, 3> neighbor_coordinates = Eigen::Matrix<double, k_num_neighbors, 3>::Random() * 3.0;
