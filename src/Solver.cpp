@@ -289,6 +289,17 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Power method to estimate the largest eigenvalue system (M^{-1}K) for the time step
+        // Build the function, apply_system_directional_tangent, to approximate M^{-1}K v
+        // apply_system_directional_tangent
+        // 1. M^{-1} (F(u + \epsilon v) - F(u)) / \epsilon; epsilon is a small number about 1.e-4 or 1.e-5
+        // Need a processor:
+        // 1. Need scratch STK fields v, stated (like displacement but for the eigenvector). Temp field to store F(u)
+        // 2. Loop over power iterations
+        //    a. Compute v_n+1 = (M^{-1}K)v_n, using apply_system_directional_tangent
+        //    b. Normalize v_n+1
+        // 3. Compute the Rayleigh quotient. lambda = v^T M^{-1}K v, using apply_system_directional_tangent
+
         // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;
         double time_midstep = time + half_time_increment;
