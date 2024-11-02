@@ -180,6 +180,28 @@ TEST_F(NodeProcessingTestFixture, NormalizeField) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "acceleration", expected_normalized_data_2, aperi::FieldQueryState::N);
 }
 
+// Test CopyFieldData method
+TEST_F(NodeProcessingTestFixture, CopyFieldData) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    // Copy the fields
+    m_node_processor_stk_ngp->CopyFieldData(0, 1);
+    m_node_processor_stk_ngp->CopyFieldData(0, 2);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Expected values
+    std::array<double, 3> expected_velocity_data_np1 = {1.78, 1.78, 1.78};
+    std::array<double, 3> expected_velocity_data_n = {1.78, 1.78, 1.78};
+    std::array<double, 3> expected_acceleration_data_n = {1.78, 1.78, 1.78};
+    // Check the copied values
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_velocity_data_n, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "acceleration", expected_acceleration_data_n, aperi::FieldQueryState::N);
+}
+
 // Test for_component_i method
 TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
