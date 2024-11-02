@@ -119,6 +119,67 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
+// Test ComputeDotProduct method
+TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    size_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    size_t num_components = 3;
+    size_t num_dofs = num_nodes * num_components;
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Compute the dot product
+    double dot_product_01 = m_node_processor_stk_ngp->ComputeDotProduct(0, 1);
+    double dot_product_02 = m_node_processor_stk_ngp->ComputeDotProduct(0, 2);
+    double dot_product_12 = m_node_processor_stk_ngp->ComputeDotProduct(1, 2);
+    // Expected dot products
+    double expected_dot_product_01 = num_dofs * 1.78 * 2.89;
+    double expected_dot_product_02 = num_dofs * 1.78 * 3.79;
+    double expected_dot_product_12 = num_dofs * 2.89 * 3.79;
+    // Check the dot products
+    EXPECT_NEAR(dot_product_01, expected_dot_product_01, 1.0e-8);
+    EXPECT_NEAR(dot_product_02, expected_dot_product_02, 1.0e-8);
+    EXPECT_NEAR(dot_product_12, expected_dot_product_12, 1.0e-8);
+}
+
+// Test NormalizeField method
+TEST_F(NodeProcessingTestFixture, NormalizeField) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    size_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    size_t num_components = 3;
+    size_t num_dofs = num_nodes * num_components;
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Normalize the fields
+    m_node_processor_stk_ngp->NormalizeField(0);
+    m_node_processor_stk_ngp->NormalizeField(1);
+    m_node_processor_stk_ngp->NormalizeField(2);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Expected magnitudes
+    double expected_magnitude_0 = std::sqrt(num_dofs * (1.78 * 1.78));
+    double expected_magnitude_1 = std::sqrt(num_dofs * (2.89 * 2.89));
+    double expected_magnitude_2 = std::sqrt(num_dofs * (3.79 * 3.79));
+    // Expected normalized values
+    double expected_normalized_0 = 1.78 / expected_magnitude_0;
+    double expected_normalized_1 = 2.89 / expected_magnitude_1;
+    double expected_normalized_2 = 3.79 / expected_magnitude_2;
+    // Check the normalized values
+    std::array<double, 3> expected_normalized_data_0 = {expected_normalized_0, expected_normalized_0, expected_normalized_0};
+    std::array<double, 3> expected_normalized_data_1 = {expected_normalized_1, expected_normalized_1, expected_normalized_1};
+    std::array<double, 3> expected_normalized_data_2 = {expected_normalized_2, expected_normalized_2, expected_normalized_2};
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_normalized_data_0, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_normalized_data_1, aperi::FieldQueryState::N);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "acceleration", expected_normalized_data_2, aperi::FieldQueryState::N);
+}
+
 // Test for_component_i method
 TEST_F(NodeProcessingTestFixture, NodeProcessorForDofI) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);

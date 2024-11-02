@@ -474,6 +474,7 @@ class EntityProcessor {
     double ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
         // Kokkos array for the dot product
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
+        dot_product(0) = 0.0;
 
         // Get the fields
         auto field_0 = *m_ngp_fields[field_index_0];
