@@ -421,8 +421,14 @@ class EntityProcessor {
         for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
-    // Normalize the field
-    void NormalizeField(size_t field_index) {
+    // Randomize the field
+    void RandomizeField(size_t field_index, size_t seed = 0) {
+        srand(seed);
+        for_each_component_impl([](double *value) { *value = (double)rand() / RAND_MAX; }, field_index, m_selector);
+    }
+
+    // Calculate the norm of the field
+    double CalculateFieldNorm(size_t field_index) {
         // Kokkos view for the field sum
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
         field_sum(0) = 0.0;
@@ -457,6 +463,17 @@ class EntityProcessor {
         // Do the square root of the sum
         double field_norm = std::sqrt(field_sum_value_global);
 
+        return field_norm;
+    }
+
+    // Normalize the field
+    double NormalizeField(size_t field_index) {
+        // Calculate the field norm
+        double field_norm = CalculateFieldNorm(field_index);
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
         // Normalize the field
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, Rank, m_selector,
@@ -468,6 +485,8 @@ class EntityProcessor {
                     field(entity, i) /= field_norm;
                 }
             });
+
+        return field_norm;
     }
 
     // Compute the dot product of two fields

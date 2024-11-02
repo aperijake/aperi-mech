@@ -59,8 +59,8 @@ class PowerMethodProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the displacement_temp field, temporary field to store the displacement at n+1
-        m_displacement_temp_field = StkGetField(FieldQueryData<double>{"displacement_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_displacement_temp_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_temp_field);
+        m_displacement_in_field = StkGetField(FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_displacement_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_in_field);
 
         // Get the displacement_coefficients field, field to store the displacement coefficients
         m_displacement_coefficients_field = StkGetField(FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}, meta_data);
@@ -75,8 +75,8 @@ class PowerMethodProcessor {
         m_ngp_force_field = &stk::mesh::get_updated_ngp_field<double>(*m_force_field);
 
         // Get the force_coefficients_temp field, temporary field to store the force at n+1
-        m_force_coefficients_temp_field = StkGetField(FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_force_coefficients_temp_field = &stk::mesh::get_updated_ngp_field<double>(*m_force_coefficients_temp_field);
+        m_force_coefficients_in_field = StkGetField(FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_force_coefficients_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_force_coefficients_in_field);
 
         // Get the essential_boundary field, indicator for if the dof is in the essential boundary set
         m_essential_boundary_field = StkGetField(FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -89,21 +89,20 @@ class PowerMethodProcessor {
     void InitializeEntityProcessor() {
         std::array<FieldQueryData<double>, 4> field_query_data_vec = {
             FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1},
-            FieldQueryData<double>{"displacement_temp", FieldQueryState::None},
+            FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None}};
         m_node_processor = std::make_unique<EntityProcessor<stk::topology::BEGIN_RANK, false, 4, double>>(field_query_data_vec, m_mesh_data, m_sets);
     }
 
     void PerturbDisplacementCoefficients(double epsilon) {
-        // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon * essential_boundary
-        // u is the displacement_coefficients_temp field
+        // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon. Only nodes not in the essential boundary set are perturbed
+        // u is the displacement_in field
         // v is the displacement_coefficients field
-        // essential_boundary is the essential_boundary field
 
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
-        auto ngp_displacement_temp_field = *m_ngp_displacement_temp_field;
+        auto ngp_displacement_in_field = *m_ngp_displacement_in_field;
         auto ngp_displacement_coefficients_field = *m_ngp_displacement_coefficients_field;
         auto ngp_essential_boundary_field = *m_ngp_essential_boundary_field;
 
@@ -111,21 +110,25 @@ class PowerMethodProcessor {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the essential boundary value
-                uint64_t essential_boundary = ngp_essential_boundary_field(node_index, 0);
+                // Number of components
+                const size_t num_components = ngp_displacement_in_field.get_num_components_per_entity(node_index);
 
-                if (essential_boundary == 1.0) {
-                    return;
+                // Loop over the components
+                for (size_t i = 0; i < num_components; ++i) {
+                    // If the node is in the essential boundary set, do not perturb the displacement coefficients
+                    if (ngp_essential_boundary_field(node_index, i) == 1) {
+                        continue;
+                    }
+
+                    // Get the eigenvector value
+                    double v = ngp_displacement_coefficients_field(node_index, i);
+
+                    // Get the displacement
+                    double u = ngp_displacement_in_field(node_index, i);
+
+                    // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon
+                    ngp_displacement_coefficients_field(node_index, i) = u + v * epsilon;
                 }
-
-                // Get the displacement coefficients
-                double displacement_coefficients = ngp_displacement_coefficients_field(node_index, 0);
-
-                // Get the displacement temp
-                double displacement_temp = ngp_displacement_temp_field(node_index, 0);
-
-                // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon
-                ngp_displacement_coefficients_field(node_index, 0) = displacement_temp + displacement_coefficients * epsilon;
             });
     }
 
@@ -135,7 +138,7 @@ class PowerMethodProcessor {
             (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
 
             v_n+1 will be calculated in place in the displacement coefficients field
-            f(u) is the force_coefficients_temp field
+            f(u) is the force_coefficients_in field
             f(u + \epsilon v_n) is the force_coefficients field
             M is the mass field
         */
@@ -145,36 +148,34 @@ class PowerMethodProcessor {
         // Get the ngp fields
         auto ngp_mass_field = *m_ngp_mass_field;
         auto ngp_force_field = *m_ngp_force_field;
-        auto ngp_force_coefficients_temp_field = *m_ngp_force_coefficients_temp_field;
+        auto ngp_force_coefficients_in_field = *m_ngp_force_coefficients_in_field;
         auto ngp_displacement_coefficients_field = *m_ngp_displacement_coefficients_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the mass
-                double mass = ngp_mass_field(node_index, 0);
+                // Get the number of components
+                const size_t num_components = ngp_mass_field.get_num_components_per_entity(node_index);
 
-                // Get the force coefficients
-                double force_coefficients = ngp_force_field(node_index, 0);
+                // Loop over the components
+                for (size_t i = 0; i < num_components; ++i) {
+                    // Get the mass
+                    double mass = ngp_mass_field(node_index, i);
 
-                // Get the force coefficients temp
-                double force_coefficients_temp = ngp_force_coefficients_temp_field(node_index, 0);
+                    // Get the force coefficients
+                    double force_u_epsilon = ngp_force_field(node_index, i);
 
-                // Compute v_n+1 = (M^{-1}K) v_n
-                ngp_displacement_coefficients_field(node_index, 0) = (force_coefficients - force_coefficients_temp) / epsilon / mass;
+                    // Get the force coefficients temp
+                    double force_u = ngp_force_coefficients_in_field(node_index, i);
+
+                    // Compute v_n+1 = (M^{-1}K) v_n
+                    ngp_displacement_coefficients_field(node_index, i) *= (force_u_epsilon - force_u) / epsilon / mass;
+                }
             });
     }
 
     double ComputeStableTimeIncrement() {
-        /*
-            1. Need scratch STK fields for storing displacement and n+1. Need new field and force_coefficients_epsilon field
-            2. Loop over power iterations
-               a. Compute v_n+1 = (M^{-1}K) v_n
-               b. Normalize v_n+1
-            3. Compute the Rayleigh quotient. lambda = v^T M^{-1}K v, using apply_system_directional_tangent
-        */
-
         // Copy the displacement coefficients to the displacement temp field
         m_node_processor->CopyFieldData(0, 1);
 
@@ -187,9 +188,16 @@ class PowerMethodProcessor {
         // Number of power iterations
         size_t num_iterations = 20;
 
+        // Randomize the displacement coefficients
+        m_node_processor->RandomizeField(0);
+
+        // Initialize the eigenvalue
+        double lambda_n = 0.0;
+        double lambda_np1 = 0.0;
+
         // Loop over the power iterations
         for (size_t k = 0; k < num_iterations; ++k) {
-            // Perturb the displacement coefficients by epsilon, u + v * \epsilon * essential_boundary
+            // Perturb the displacement coefficients by epsilon, u + v * \epsilon. Only nodes not in the essential boundary set are perturbed
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
@@ -200,16 +208,15 @@ class PowerMethodProcessor {
             ApplySystemDirectionTangent(epsilon);
 
             // Normalize the eigenvector
-            m_node_processor->NormalizeField(0);
+            lambda_np1 = m_node_processor->NormalizeField(0);
+
+            printf(" Iteration: %lu, Eigenvalue: %f\n", k, lambda_np1);
         }
 
-        // Compute the Rayleigh quotient
-        double lambda = m_node_processor->ComputeDotProduct(0, 0);
-
         // Compute the stable time increment
-        double stable_time_increment = 2.0 / std::sqrt(lambda);
+        double stable_time_increment = 2.0 / std::sqrt(lambda_np1);
 
-        // Copy the displacement temp to the displacement coefficients field
+        // Copy the displacement temp to the displacement coefficients field. Force will be cleared in the next iteration so no need to copy it
         m_node_processor->CopyFieldData(1, 0);
 
         return stable_time_increment;
@@ -224,18 +231,18 @@ class PowerMethodProcessor {
     stk::mesh::Selector m_owned_selector;          // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
 
-    DoubleField *m_displacement_temp_field;          // The scratch displacement field, stores the displacement at n+1
+    DoubleField *m_displacement_in_field;            // The scratch displacement field, stores the displacement at n+1
     DoubleField *m_displacement_coefficients_field;  // The displacement coefficients field, the input displacement field, u_n+1
     DoubleField *m_mass_field;                       // The mass field
     DoubleField *m_force_field;                      // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
-    DoubleField *m_force_coefficients_temp_field;    // The force field, input for force, f(u)
+    DoubleField *m_force_coefficients_in_field;      // The force field, input for force, f(u)
     UnsignedField *m_essential_boundary_field;       // The essential boundary field, flag for if the dof is in the essential boundary set
 
-    NgpDoubleField *m_ngp_displacement_temp_field;          // The ngp scratch displacement field
+    NgpDoubleField *m_ngp_displacement_in_field;            // The ngp scratch displacement field
     NgpDoubleField *m_ngp_displacement_coefficients_field;  // The ngp displacement coefficients field
     NgpDoubleField *m_ngp_mass_field;                       // The ngp mass field
     NgpDoubleField *m_ngp_force_field;                      // The ngp force field
-    NgpDoubleField *m_ngp_force_coefficients_temp_field;    // The ngp force field
+    NgpDoubleField *m_ngp_force_coefficients_in_field;      // The ngp force field
     NgpUnsignedField *m_ngp_essential_boundary_field;       // The ngp essential boundary field
 
     std::unique_ptr<EntityProcessor<stk::topology::NODE_RANK, false, 4, double>> m_node_processor;  // The node processor

@@ -119,6 +119,19 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_velocity_data_np1, aperi::FieldQueryState::NP1);
 }
 
+// Test RandomizeField method
+TEST_F(NodeProcessingTestFixture, RandomizeField) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Randomize the last two fields with the same seed
+    m_node_processor_stk_ngp->RandomizeField(1, 3);
+    m_node_processor_stk_ngp->RandomizeField(2, 3);
+    m_node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, "velocity", "acceleration", aperi::FieldQueryState::N);
+    // Make sure the norm is not zero
+    EXPECT_NE(m_node_processor_stk_ngp->CalculateFieldNorm(1), 0.0);
+}
+
 // Test ComputeDotProduct method
 TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
@@ -145,6 +158,26 @@ TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
     EXPECT_NEAR(dot_product_12, expected_dot_product_12, 1.0e-8);
 }
 
+// Test ComputeNorm method
+TEST_F(NodeProcessingTestFixture, CalculateFieldNorm) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    size_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    size_t num_components = 3;
+    size_t num_dofs = num_nodes * num_components;
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    // Expected magnitudes
+    double expected_magnitude_0 = std::sqrt(num_dofs * (1.78 * 1.78));
+    double expected_magnitude_1 = std::sqrt(num_dofs * (2.89 * 2.89));
+    double expected_magnitude_2 = std::sqrt(num_dofs * (3.79 * 3.79));
+    // Check the magnitudes
+    EXPECT_NEAR(m_node_processor_stk_ngp->CalculateFieldNorm(0), expected_magnitude_0, 1.0e-8);
+    EXPECT_NEAR(m_node_processor_stk_ngp->CalculateFieldNorm(1), expected_magnitude_1, 1.0e-8);
+    EXPECT_NEAR(m_node_processor_stk_ngp->CalculateFieldNorm(2), expected_magnitude_2, 1.0e-8);
+}
+
 // Test NormalizeField method
 TEST_F(NodeProcessingTestFixture, NormalizeField) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
@@ -158,15 +191,19 @@ TEST_F(NodeProcessingTestFixture, NormalizeField) {
     m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
     m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     // Normalize the fields
-    m_node_processor_stk_ngp->NormalizeField(0);
-    m_node_processor_stk_ngp->NormalizeField(1);
-    m_node_processor_stk_ngp->NormalizeField(2);
+    double magnitude_0 = m_node_processor_stk_ngp->NormalizeField(0);
+    double magnitude_1 = m_node_processor_stk_ngp->NormalizeField(1);
+    double magnitude_2 = m_node_processor_stk_ngp->NormalizeField(2);
     m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
     m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     // Expected magnitudes
     double expected_magnitude_0 = std::sqrt(num_dofs * (1.78 * 1.78));
     double expected_magnitude_1 = std::sqrt(num_dofs * (2.89 * 2.89));
     double expected_magnitude_2 = std::sqrt(num_dofs * (3.79 * 3.79));
+    // Check the magnitudes
+    EXPECT_NEAR(magnitude_0, expected_magnitude_0, 1.0e-8);
+    EXPECT_NEAR(magnitude_1, expected_magnitude_1, 1.0e-8);
+    EXPECT_NEAR(magnitude_2, expected_magnitude_2, 1.0e-8);
     // Expected normalized values
     double expected_normalized_0 = 1.78 / expected_magnitude_0;
     double expected_normalized_1 = 2.89 / expected_magnitude_1;
