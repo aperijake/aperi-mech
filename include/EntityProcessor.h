@@ -421,6 +421,91 @@ class EntityProcessor {
         for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
+    // Normalize the field
+    void NormalizeField(size_t field_index) {
+        // Kokkos view for the field sum
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
+        field_sum(0) = 0.0;
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Sum the squares of the components
+                double value_squared = 0.0;
+                for (size_t i = 0; i < num_components; i++) {
+                    double value = field(entity, i);
+                    value_squared += value * value;
+                }
+                // Atomic add the value squared to the field sum
+                Kokkos::atomic_add(&field_sum[0], value_squared);
+            });
+
+        // Host view for the field sum
+        Kokkos::View<double *, Kokkos::HostSpace> field_sum_host("field_sum_host", 1);
+        Kokkos::deep_copy(field_sum_host, field_sum);
+
+        // Parallel sum the field sum
+        double field_sum_value = field_sum_host(0);
+        double field_sum_value_global = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &field_sum_value, &field_sum_value_global, 1);
+
+        // Do the square root of the sum
+        double field_norm = std::sqrt(field_sum_value_global);
+
+        // Normalize the field
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Normalize the components
+                for (size_t i = 0; i < num_components; i++) {
+                    field(entity, i) /= field_norm;
+                }
+            });
+    }
+
+    // Compute the dot product of two fields
+    double ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
+        // Kokkos array for the dot product
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
+
+        // Get the fields
+        auto field_0 = *m_ngp_fields[field_index_0];
+        auto field_1 = *m_ngp_fields[field_index_1];
+
+        // Compute the dot product
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field_0.get_num_components_per_entity(entity);
+                // Compute the dot product
+                double local_dot_product = 0.0;
+                for (size_t i = 0; i < num_components; i++) {
+                    local_dot_product += field_0(entity, i) * field_1(entity, i);
+                }
+                // Atomic add the local dot product to the dot product
+                Kokkos::atomic_add(&dot_product[0], local_dot_product);
+            });
+
+        // Host view for the dot product
+        Kokkos::View<double *, Kokkos::HostSpace> dot_product_host("dot_product_host", 1);
+        Kokkos::deep_copy(dot_product_host, dot_product);
+
+        // Parallel sum the dot product
+        double dot_product_value = dot_product_host(0);
+        double dot_product_value_global = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &dot_product_value, &dot_product_value_global, 1);
+
+        return dot_product_value_global;
+    }
+
    private:
     Kokkos::Array<stk::mesh::NgpField<T> *, N> m_ngp_fields;  // The ngp fields to process
     std::vector<stk::mesh::Field<T> *> m_fields;              // The fields to process

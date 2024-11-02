@@ -14,6 +14,7 @@
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "PowerMethodProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
 #include "ValueFromGeneralizedFieldProcessor.h"
@@ -251,6 +252,9 @@ double ExplicitSolver::Solve() {
     // Set the initial increment, n = 0
     size_t n = 0;
 
+    // Create the power method processor
+    std::shared_ptr<PowerMethodProcessor> power_method_processor = std::make_shared<PowerMethodProcessor>(mp_mesh_data, std::vector<std::string>{}, this);
+
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
     ComputeForce();
     CommunicateForce();
@@ -289,16 +293,9 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        // Power method to estimate the largest eigenvalue system (M^{-1}K) for the time step
-        // Build the function, apply_system_directional_tangent, to approximate M^{-1}K v
-        // apply_system_directional_tangent
-        // 1. M^{-1} (F(u + \epsilon v) - F(u)) / \epsilon; epsilon is a small number about 1.e-4 or 1.e-5
-        // Need a processor:
-        // 1. Need scratch STK fields v, stated (like displacement but for the eigenvector). Temp field to store F(u)
-        // 2. Loop over power iterations
-        //    a. Compute v_n+1 = (M^{-1}K)v_n, using apply_system_directional_tangent
-        //    b. Normalize v_n+1
-        // 3. Compute the Rayleigh quotient. lambda = v^T M^{-1}K v, using apply_system_directional_tangent
+        // Compute the stable time increment
+        // double stable_time_increment = power_method_processor->ComputeStableTimeIncrement();
+        // printf("Stable time increment: %f\n", stable_time_increment);
 
         // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;

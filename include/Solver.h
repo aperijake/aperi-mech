@@ -113,7 +113,6 @@ class Solver {
      */
     void UpdateFieldsFromGeneralizedFields();
 
-   protected:
     /**
      * @brief Pure virtual function for computing forces.
      *
@@ -128,6 +127,7 @@ class Solver {
      */
     virtual void CommunicateForce() = 0;
 
+   protected:
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                  ///< The vector of internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                  ///< The vector of external force contributions.
@@ -259,13 +259,6 @@ class ExplicitSolver : public Solver {
      */
     double Solve() override;
 
-   protected:
-    /**
-     * @brief Updates the field states. N -> NP1 and NP1 -> N.
-     *
-     */
-    void UpdateFieldStates() override;
-
     /**
      * @brief Computes the force.
      *
@@ -281,6 +274,13 @@ class ExplicitSolver : public Solver {
      * It overrides the base class function.
      */
     void CommunicateForce() override;
+
+   protected:
+    /**
+     * @brief Updates the field states. N -> NP1 and NP1 -> N.
+     *
+     */
+    void UpdateFieldStates() override;
 
     /**
      * @brief Computes the acceleration.
