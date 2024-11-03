@@ -28,14 +28,18 @@ struct FillFieldFunctor {
     T m_value;
 };
 
+// Functor to copy a field
+template <typename T>
 struct CopyFieldFunctor {
     CopyFieldFunctor() {}
-    KOKKOS_INLINE_FUNCTION void operator()(const double *src, double *dest) const { *dest = *src; }
+    KOKKOS_INLINE_FUNCTION void operator()(const T *src, T *dest) const { *dest = *src; }
 };
 
+// Functor to print a field
+template <typename T>
 struct PrintFieldFunctor {
     PrintFieldFunctor() {}
-    KOKKOS_INLINE_FUNCTION void operator()(const double *value) const { printf(" %f\n", *value); }
+    KOKKOS_INLINE_FUNCTION void operator()(const T *value) const { printf(" %f\n", static_cast<double>(*value)); }
 };
 
 // A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
@@ -157,8 +161,8 @@ class EntityProcessor {
     }
 
     // Get the sum of a field
-    double GetFieldSumHost(size_t field_index) const {
-        double field_sum = 0.0;
+    T GetFieldSumHost(size_t field_index) const {
+        T field_sum = 0.0;
         stk::mesh::field_asum(field_sum, *m_fields[field_index], m_owned_selector, m_bulk_data->parallel());
         return field_sum;
     }
@@ -217,7 +221,7 @@ class EntityProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 const size_t num_components = field.get_num_components_per_entity(entity);
                 for (size_t i = 0; i < num_components; i++) {
-                    double *field_ptr = &field(entity, i);
+                    T *field_ptr = &field(entity, i);
                     KOKKOS_ASSERT(field_ptr != nullptr);
                     func(field_ptr);
                 }
@@ -240,8 +244,8 @@ class EntityProcessor {
                 const size_t num_components = field_0.get_num_components_per_entity(entity);
                 KOKKOS_ASSERT(field_1.get_num_components_per_entity(entity) == num_components);
                 for (size_t i = 0; i < num_components; i++) {
-                    double *field_0_ptr = &field_0(entity, i);
-                    double *field_1_ptr = &field_1(entity, i);
+                    T *field_0_ptr = &field_0(entity, i);
+                    T *field_1_ptr = &field_1(entity, i);
                     KOKKOS_ASSERT(field_0_ptr != nullptr);
                     KOKKOS_ASSERT(field_1_ptr != nullptr);
                     func(field_0_ptr, field_1_ptr);
@@ -297,7 +301,7 @@ class EntityProcessor {
 
     // Debug printing. Only should do for small meshes.
     void debug_print_field_with_id_host(size_t field_index) const {
-        double *field_data;
+        T *field_data;
         // Loop over all the buckets
         std::string output = "";
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
@@ -327,7 +331,7 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_component_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) const {
-        std::array<double *, N> field_data;  // Array to hold field data
+        std::array<T *, N> field_data;  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
@@ -355,13 +359,13 @@ class EntityProcessor {
 
     // Just print the value of component i
     void print_component_i(size_t i, size_t field_index = 0) {
-        auto print_functor = PrintFieldFunctor();
+        auto print_functor = PrintFieldFunctor<T>();
         for_component_i(print_functor, i, field_index);
     }
 
     // Just print the value of component i on the host
     void print_component_i_host(size_t i, size_t field_index = 0) const {
-        double *field_data;
+        T *field_data;
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[field_index], *bucket);
@@ -412,27 +416,27 @@ class EntityProcessor {
     }
 
     // Fill the field with a value
-    void FillField(double value, size_t field_index) {
+    void FillField(T value, size_t field_index) {
         FillFieldFunctor functor(value);
         for_each_component_impl(functor, field_index, m_selector);
     }
 
     // Copy the field to another field
     void CopyFieldData(size_t src_field_index, size_t dest_field_index) {
-        CopyFieldFunctor functor;
+        CopyFieldFunctor<T> functor;
         for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
     // Randomize the field
     void RandomizeField(size_t field_index, size_t seed = 0) {
         srand(seed);
-        for_each_component_impl([](double *value) { *value = (double)rand() / RAND_MAX; }, field_index, m_selector);
+        for_each_component_impl([](T *value) { *value = (T)rand() / RAND_MAX; }, field_index, m_selector);
     }
 
     // Calculate the norm of the field
-    double CalculateFieldNorm(size_t field_index) {
+    T CalculateFieldNorm(size_t field_index) {
         // Kokkos view for the field sum
-        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
         field_sum(0) = 0.0;
 
         // Get the field
@@ -444,9 +448,9 @@ class EntityProcessor {
                 // Get the number of components
                 const size_t num_components = field.get_num_components_per_entity(entity);
                 // Sum the squares of the components
-                double value_squared = 0.0;
+                T value_squared = 0.0;
                 for (size_t i = 0; i < num_components; i++) {
-                    double value = field(entity, i);
+                    T value = field(entity, i);
                     value_squared += value * value;
                 }
                 // Atomic add the value squared to the field sum
@@ -454,24 +458,24 @@ class EntityProcessor {
             });
 
         // Host view for the field sum
-        Kokkos::View<double *, Kokkos::HostSpace> field_sum_host("field_sum_host", 1);
+        Kokkos::View<T *, Kokkos::HostSpace> field_sum_host("field_sum_host", 1);
         Kokkos::deep_copy(field_sum_host, field_sum);
 
         // Parallel sum the field sum
-        double field_sum_value = field_sum_host(0);
-        double field_sum_value_global = 0.0;
+        T field_sum_value = field_sum_host(0);
+        T field_sum_value_global = 0.0;
         stk::all_reduce_sum(m_bulk_data->parallel(), &field_sum_value, &field_sum_value_global, 1);
 
         // Do the square root of the sum
-        double field_norm = std::sqrt(field_sum_value_global);
+        T field_norm = std::sqrt(field_sum_value_global);
 
         return field_norm;
     }
 
     // Normalize the field
-    double NormalizeField(size_t field_index) {
+    T NormalizeField(size_t field_index) {
         // Calculate the field norm
-        double field_norm = CalculateFieldNorm(field_index);
+        T field_norm = CalculateFieldNorm(field_index);
 
         // Get the field
         auto field = *m_ngp_fields[field_index];
@@ -492,9 +496,9 @@ class EntityProcessor {
     }
 
     // Compute the dot product of two fields
-    double ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
+    T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
         // Kokkos array for the dot product
-        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
         dot_product(0) = 0.0;
 
         // Get the fields
@@ -508,7 +512,7 @@ class EntityProcessor {
                 // Get the number of components
                 const size_t num_components = field_0.get_num_components_per_entity(entity);
                 // Compute the dot product
-                double local_dot_product = 0.0;
+                T local_dot_product = 0.0;
                 for (size_t i = 0; i < num_components; i++) {
                     local_dot_product += field_0(entity, i) * field_1(entity, i);
                 }
@@ -517,12 +521,12 @@ class EntityProcessor {
             });
 
         // Host view for the dot product
-        Kokkos::View<double *, Kokkos::HostSpace> dot_product_host("dot_product_host", 1);
+        Kokkos::View<T *, Kokkos::HostSpace> dot_product_host("dot_product_host", 1);
         Kokkos::deep_copy(dot_product_host, dot_product);
 
         // Parallel sum the dot product
-        double dot_product_value = dot_product_host(0);
-        double dot_product_value_global = 0.0;
+        T dot_product_value = dot_product_host(0);
+        T dot_product_value_global = 0.0;
         stk::all_reduce_sum(m_bulk_data->parallel(), &dot_product_value, &dot_product_value_global, 1);
 
         return dot_product_value_global;
