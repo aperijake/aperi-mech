@@ -295,7 +295,7 @@ double ExplicitSolver::Solve() {
 
         // Compute the stable time increment
         double stable_time_increment = power_method_processor->ComputeStableTimeIncrement();
-        printf("Stable time increment: %f\n", stable_time_increment);
+        printf("Stable time increment: %e\n", stable_time_increment);
 
         // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;

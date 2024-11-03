@@ -96,11 +96,16 @@ class PowerMethodProcessor {
     }
 
     void PerturbDisplacementCoefficients(double epsilon) {
-        // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon. Only nodes not in the essential boundary set are perturbed
-        // u is the displacement_in field
-        // v is the displacement_coefficients field
+        /* Perturb the displacement coefficients by epsilon, u_epsilon = u + v * \epsilon.
+            - Only nodes not in the essential boundary set are perturbed
+            - u:         displacement_in field, the displacement at time n+1
+            - v:         displacement_coefficients field, which is the eigenvector
+            - u_epsilon: displacement_coefficients field, overwriting the eigenvector, v
+        */
 
+        // Get the ngp mesh
         auto ngp_mesh = m_ngp_mesh;
+
         // Get the ngp fields
         auto ngp_displacement_in_field = *m_ngp_displacement_in_field;
         auto ngp_displacement_coefficients_field = *m_ngp_displacement_coefficients_field;
@@ -132,17 +137,18 @@ class PowerMethodProcessor {
             });
     }
 
-    void ApplySystemDirectionTangent(double epsilon) {
-        /*
+    void ComputeNextEigenvector(double epsilon) {
+        /* Compute the next eigenvector
             Compute v_n+1 = (M^{-1}K) v_n, where:
             (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
 
-            v_n+1 will be calculated in place in the displacement coefficients field
-            f(u) is the force_coefficients_in field
-            f(u + \epsilon v_n) is the force_coefficients field
-            M is the mass field
+            - v_n+1:               displacement_coefficients field, the next eigenvector, computed in place
+            - f(u):                force_coefficients_in field, computed outside of the power method
+            - f(u + \epsilon v_n): force_coefficients field, computed before this function
+            - M:                   mass field
         */
 
+        // Get the ngp mesh
         auto ngp_mesh = m_ngp_mesh;
 
         // Get the ngp fields
@@ -169,7 +175,7 @@ class PowerMethodProcessor {
                     // Get the force coefficients temp
                     double force_u = ngp_force_coefficients_in_field(node_index, i);
 
-                    // Compute v_n+1 = (M^{-1}K) v_n
+                    // Compute v_n+1 = (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
                     ngp_displacement_coefficients_field(node_index, i) *= (force_u_epsilon - force_u) / epsilon / mass;
                 }
             });
@@ -182,35 +188,54 @@ class PowerMethodProcessor {
         // Copy the force coefficients to the force coefficients temp field
         m_node_processor->CopyFieldData(2, 3);
 
-        // Episilon for the perturbation
+        // Epsilon for the perturbation
         double epsilon = 1.e-4;
 
         // Number of power iterations
-        size_t num_iterations = 20;
+        size_t num_iterations = 50;
 
-        // Randomize the displacement coefficients
+        // Convergence tolerance squared
+        double tolerance_squared = 1.e-2 * 1.e-2;
+
+        // Randomize the displacement coefficients for the initial guess at the eigenvector
         m_node_processor->RandomizeField(0);
 
         // Initialize the eigenvalue
         double lambda_n = 0.0;
         double lambda_np1 = 0.0;
 
+        bool converged = false;
+
         // Loop over the power iterations
         for (size_t k = 0; k < num_iterations; ++k) {
-            // Perturb the displacement coefficients by epsilon, u + v * \epsilon. Only nodes not in the essential boundary set are perturbed
+            // Update lambda_n
+            lambda_n = lambda_np1;
+
+            // Perturb the displacement coefficients by epsilon, u + v * \epsilon
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
             m_solver->ComputeForce();
             m_solver->CommunicateForce();
 
-            // Apply the system directional tangent
-            ApplySystemDirectionTangent(epsilon);
+            // Compute the next eigenvector
+            ComputeNextEigenvector(epsilon);
 
             // Normalize the eigenvector
             lambda_np1 = m_node_processor->NormalizeField(0);
 
-            printf(" Iteration: %lu, Eigenvalue: %f\n", k, lambda_np1);
+            printf(" Iteration: %lu, Eigenvalue: %e\n", k, lambda_np1);
+
+            // Check for convergence
+            if (std::abs(lambda_np1 - lambda_n) < tolerance_squared) {
+                printf(" Converged in %lu iterations\n", k + 1);
+                converged = true;
+                break;
+            }
+        }
+
+        if (!converged) {
+            printf(" Power method did not converge after %lu iterations\n", num_iterations);
         }
 
         // Compute the stable time increment
