@@ -20,10 +20,12 @@
 
 namespace aperi {
 
+// Functor to fill a field with a value
+template <typename T>
 struct FillFieldFunctor {
-    FillFieldFunctor(double value) : m_value(value) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *value) const { *value = m_value; }
-    double m_value;
+    FillFieldFunctor(T value) : m_value(value) {}
+    KOKKOS_INLINE_FUNCTION void operator()(T *value) const { *value = m_value; }
+    T m_value;
 };
 
 struct CopyFieldFunctor {
@@ -257,7 +259,7 @@ class EntityProcessor {
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                double *field_ptr = &field(entity, i);
+                T *field_ptr = &field(entity, i);
                 KOKKOS_ASSERT(field_ptr != nullptr);
                 func(field_ptr);
             });
