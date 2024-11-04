@@ -262,9 +262,6 @@ double ExplicitSolver::Solve() {
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     ComputeAcceleration(node_processor_acceleration);
 
-    // Get the initial time step
-    double time_increment = m_time_stepper->GetTimeIncrement(time);
-
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
     double average_runtime = 0.0;
@@ -292,6 +289,9 @@ double ExplicitSolver::Solve() {
 
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
+
+        // Get the next time step, Δt^{n+½}
+        double time_increment = m_time_stepper->GetTimeIncrement(time);
 
         // Compute the stable time increment
         double stable_time_increment = power_method_processor->ComputeStableTimeIncrement();
@@ -350,9 +350,6 @@ double ExplicitSolver::Solve() {
 
         // Update the increment, n = n + 1
         n = n + 1;
-
-        // Get the next time step, Δt^{n+½}
-        time_increment = m_time_stepper->GetTimeIncrement(time);
 
         // Benchmarking
         auto end_time = std::chrono::high_resolution_clock::now();

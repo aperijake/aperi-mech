@@ -123,8 +123,8 @@ TEST_F(NodeProcessingTestFixture, FillFields) {
 TEST_F(NodeProcessingTestFixture, RandomizeField) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     // Randomize the last two fields with the same seed
-    m_node_processor_stk_ngp->RandomizeField(1, 3);
-    m_node_processor_stk_ngp->RandomizeField(2, 3);
+    m_node_processor_stk_ngp->RandomizeField(1, 0, 1, 3);
+    m_node_processor_stk_ngp->RandomizeField(2, 0, 1, 3);
     m_node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
     m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
     CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, "velocity", "acceleration", aperi::FieldQueryState::N);

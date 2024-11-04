@@ -94,7 +94,8 @@ class PowerMethodProcessor {
         InitializeEntityProcessor();
 
         // Randomize the displacement coefficients for the initial guess at the eigenvector
-        m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR);
+        // Using a small perturbation to avoid a excessively inverting elements
+        m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR, -1.0e-6, 1.0e-6);
     }
 
     void InitializeEntityProcessor() {
@@ -159,6 +160,8 @@ class PowerMethodProcessor {
             - f(u):                force_in field, computed outside of the power method
             - f(u + \epsilon v_n): force field, computed before this function
             - M:                   mass field
+
+            - The eigenvector is zeroed out for nodes in the essential boundary set
         */
 
         // Get the ngp mesh
@@ -169,6 +172,7 @@ class PowerMethodProcessor {
         auto ngp_force_field = *m_ngp_force_field;
         auto ngp_force_in_field = *m_ngp_force_in_field;
         auto ngp_displacement_field = *m_ngp_displacement_field;
+        auto ngp_essential_boundary_field = *m_ngp_essential_boundary_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
@@ -179,6 +183,12 @@ class PowerMethodProcessor {
 
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
+                    // If the node is in the essential boundary set, zero out the eigenvector
+                    if (ngp_essential_boundary_field(node_index, i) == 1) {
+                        ngp_displacement_field(node_index, i) = 0.0;
+                        continue;
+                    }
+
                     // Get the mass
                     double mass = ngp_mass_field(node_index, i);
 
@@ -194,7 +204,16 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement() {
+    double ComputeStableTimeIncrement(size_t num_iterations = 50, double epsilon = 1.e-4, double tolerance = 1.e-2) {
+        /*
+            Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
+            The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
+
+            - num_iterations:        The number of power iterations to perform
+            - epsilon:               The perturbation factor for the displacement coefficients
+            - tolerance:             The tolerance for the power method convergence
+        */
+
         // Copy the displacement coefficients to the displacement temp field
         m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
 
@@ -205,14 +224,8 @@ class PowerMethodProcessor {
         // Copy the force coefficients to the force coefficients temp field
         m_node_processor->CopyFieldData(FieldIndex::FORCE, FieldIndex::FORCE_IN);
 
-        // Epsilon for the perturbation
-        double epsilon = 1.e-4;
-
-        // Number of power iterations
-        size_t num_iterations = 50;
-
         // Convergence tolerance squared
-        double tolerance_squared = 1.e-2 * 1.e-2;
+        double tolerance_squared = tolerance * tolerance;
 
         // Initialize the eigenvalue
         double lambda_n = 0.0;

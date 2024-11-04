@@ -428,9 +428,9 @@ class EntityProcessor {
     }
 
     // Randomize the field
-    void RandomizeField(size_t field_index, size_t seed = 0) {
+    void RandomizeField(size_t field_index, const T &min = 0.0, const T &max = 1.0, size_t seed = 0) {
         srand(seed);
-        for_each_component_impl([](T *value) { *value = (T)rand() / RAND_MAX; }, field_index, m_selector);
+        for_each_component_impl([min, max](T *value) { *value = min + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX / (max - min))); }, field_index, m_selector);
     }
 
     // Calculate the norm of the field
