@@ -87,12 +87,13 @@ class PowerMethodProcessor {
     }
 
     void InitializeEntityProcessor() {
-        std::array<FieldQueryData<double>, 4> field_query_data_vec = {
+        std::array<FieldQueryData<double>, 5> field_query_data_vec = {
             FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1},
             FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
-            FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None}};
-        m_node_processor = std::make_unique<EntityProcessor<stk::topology::BEGIN_RANK, false, 4, double>>(field_query_data_vec, m_mesh_data, m_sets);
+            FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
+            FieldQueryData<double>{"eigenvector", FieldQueryState::None}};
+        m_node_processor = std::make_unique<EntityProcessor<stk::topology::BEGIN_RANK, false, 5, double>>(field_query_data_vec, m_mesh_data, m_sets);
     }
 
     void PerturbDisplacementCoefficients(double epsilon) {
@@ -241,6 +242,9 @@ class PowerMethodProcessor {
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_np1);
 
+        // Copy the displacement coefficient field to the eigenvector field
+        m_node_processor->CopyFieldData(0, 4);
+
         // Copy the displacement temp to the displacement coefficients field. Force will be cleared in the next iteration so no need to copy it
         m_node_processor->CopyFieldData(1, 0);
 
@@ -270,7 +274,7 @@ class PowerMethodProcessor {
     NgpDoubleField *m_ngp_force_coefficients_in_field;      // The ngp force field
     NgpUnsignedField *m_ngp_essential_boundary_field;       // The ngp essential boundary field
 
-    std::unique_ptr<EntityProcessor<stk::topology::NODE_RANK, false, 4, double>> m_node_processor;  // The node processor
+    std::unique_ptr<EntityProcessor<stk::topology::NODE_RANK, false, 5, double>> m_node_processor;  // The node processor
 };
 
 }  // namespace aperi
