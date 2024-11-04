@@ -228,7 +228,7 @@ class PowerMethodProcessor {
             printf(" Iteration: %lu, Eigenvalue: %e\n", k, lambda_np1);
 
             // Check for convergence
-            if (std::abs(lambda_np1 - lambda_n) < tolerance_squared) {
+            if (std::abs(lambda_np1 - lambda_n) < tolerance_squared * lambda_np1) {
                 printf(" Converged in %lu iterations\n", k + 1);
                 converged = true;
                 break;
