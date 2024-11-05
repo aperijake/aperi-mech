@@ -27,6 +27,7 @@
 #include <stk_util/parallel/Parallel.hpp>
 #include <stk_util/parallel/ParallelComm.hpp>
 #include <stk_util/parallel/ParallelReduce.hpp>
+#include <string>
 #include <vector>
 
 #include "AperiStkUtils.h"
@@ -35,6 +36,42 @@
 #include "MeshData.h"
 
 namespace aperi {
+
+// Power method convergence stats
+struct PowerMethodStats {
+    double eigenvalue = 0;
+    size_t num_iterations = 0;
+    bool converged = false;
+    std::vector<double> eigenvalues_for_iterations;
+
+    void Reset(size_t max_num_iterations) {
+        eigenvalue = 0;
+        num_iterations = 0;
+        converged = false;
+        eigenvalues_for_iterations.clear();
+        eigenvalues_for_iterations.resize(max_num_iterations, 0.0);
+    }
+
+    void SetStats(double eigenvalue, size_t num_iterations, bool converged) {
+        this->eigenvalue = eigenvalue;
+        this->num_iterations = num_iterations;
+        this->converged = converged;
+    }
+
+    void PrintStats() {
+        aperi::CoutP0() << "Power method stats:" << std::endl;
+        aperi::CoutP0() << "  Eigenvalue: " << eigenvalue << std::endl;
+        aperi::CoutP0() << "  Number of iterations: " << num_iterations << std::endl;
+        aperi::CoutP0() << "  Converged: " << converged << std::endl;
+    }
+
+    void PrintHistory() {
+        aperi::CoutP0() << "Power method history:" << std::endl;
+        for (size_t i = 0; i < eigenvalues_for_iterations.size(); i++) {
+            aperi::CoutP0() << "  Iteration " << i << ": " << eigenvalues_for_iterations[i] << std::endl;
+        }
+    }
+};
 
 // Power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step
 class PowerMethodProcessor {
@@ -214,6 +251,8 @@ class PowerMethodProcessor {
             - tolerance:             The tolerance for the power method convergence
         */
 
+        assert(m_solver != nullptr);
+
         // Copy the displacement coefficients to the displacement temp field
         m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
 
@@ -228,8 +267,11 @@ class PowerMethodProcessor {
         double tolerance_squared = tolerance * tolerance;
 
         // Initialize the eigenvalue
-        double lambda_n = 0.0;
-        double lambda_np1 = 0.0;
+        double lambda_n = m_power_method_stats.eigenvalue;
+        double lambda_np1 = lambda_n;
+
+        // Initialize the power method stats
+        m_power_method_stats.Reset(num_iterations);
 
         bool converged = false;
 
@@ -251,11 +293,11 @@ class PowerMethodProcessor {
             // Normalize the eigenvector
             lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
 
-            printf(" Iteration: %lu, Eigenvalue: %e\n", k, lambda_np1);
+            // Add the eigenvalue to the stats
+            m_power_method_stats.eigenvalues_for_iterations[k] = lambda_np1;
 
             // Check for convergence
             if (std::abs(lambda_np1 - lambda_n) < tolerance_squared * lambda_np1) {
-                printf(" Converged in %lu iterations\n", k + 1);
                 converged = true;
                 break;
             }
@@ -265,8 +307,10 @@ class PowerMethodProcessor {
 
         if (!converged) {
             lambda_max = std::max(lambda_n, lambda_np1);
-            printf(" Power method did not converge after %lu iterations\n", num_iterations);
         }
+
+        // Update the power method stats
+        m_power_method_stats.SetStats(lambda_max, num_iterations, converged);
 
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_max);
@@ -304,6 +348,8 @@ class PowerMethodProcessor {
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
     std::unique_ptr<EntityProcessor<stk::topology::NODE_RANK, false, FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The entity processor
+
+    PowerMethodStats m_power_method_stats;  // Stats for the last power method run
 };
 
 }  // namespace aperi
