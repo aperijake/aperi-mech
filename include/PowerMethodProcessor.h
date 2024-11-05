@@ -143,7 +143,7 @@ class PowerMethodProcessor {
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
             FieldQueryData<double>{"eigenvector", FieldQueryState::None}};
-        m_node_processor = std::make_unique<EntityProcessor<stk::topology::BEGIN_RANK, false, FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, m_sets);
+        m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, m_sets);
     }
 
     void PerturbDisplacementCoefficients(double epsilon) {
@@ -274,6 +274,7 @@ class PowerMethodProcessor {
         m_power_method_stats.Reset(num_iterations);
 
         bool converged = false;
+        size_t num_iterations_required = num_iterations;
 
         // Loop over the power iterations
         for (size_t k = 0; k < num_iterations; ++k) {
@@ -299,6 +300,7 @@ class PowerMethodProcessor {
             // Check for convergence
             if (std::abs(lambda_np1 - lambda_n) < tolerance_squared * lambda_np1) {
                 converged = true;
+                num_iterations_required = k + 1;
                 break;
             }
         }
@@ -310,7 +312,7 @@ class PowerMethodProcessor {
         }
 
         // Update the power method stats
-        m_power_method_stats.SetStats(lambda_max, num_iterations, converged);
+        m_power_method_stats.SetStats(lambda_max, num_iterations_required, converged);
 
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_max);
@@ -347,7 +349,7 @@ class PowerMethodProcessor {
     NgpDoubleField *m_ngp_force_in_field;              // The ngp force field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
-    std::unique_ptr<EntityProcessor<stk::topology::NODE_RANK, false, FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The entity processor
+    std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The node processor
 
     PowerMethodStats m_power_method_stats;  // Stats for the last power method run
 };
