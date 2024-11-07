@@ -171,16 +171,18 @@ class PowerMethodProcessor {
 
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
+                    // Get the displacement input to the power method
+                    double u = ngp_displacement_in_field(node_index, i);
+
                     // If the node is in the essential boundary set, do not perturb the displacement coefficients
                     if (ngp_essential_boundary_field(node_index, i) == 1) {
+                        // Set the displacement field to the displacement input to the power method, no perturbation
+                        ngp_displacement_field(node_index, i) = u;
                         continue;
                     }
 
                     // Get the eigenvector value
                     double v = ngp_displacement_field(node_index, i);
-
-                    // Get the displacement
-                    double u = ngp_displacement_in_field(node_index, i);
 
                     // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon
                     ngp_displacement_field(node_index, i) = u + v * epsilon;
@@ -241,7 +243,7 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement(size_t num_iterations = 50, double epsilon = 1.e-4, double tolerance = 1.e-2) {
+    double ComputeStableTimeIncrement(size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
         /*
             Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
             The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
@@ -313,6 +315,8 @@ class PowerMethodProcessor {
 
         // Update the power method stats
         m_power_method_stats.SetStats(lambda_max, num_iterations_required, converged);
+        m_power_method_stats.PrintStats();
+        m_power_method_stats.PrintHistory();
 
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_max);
