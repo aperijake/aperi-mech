@@ -11,6 +11,7 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
 #include "SmoothedCellData.h"
 #include "UnitTestUtils.h"
@@ -62,6 +63,10 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         mesh_labeler_parameters.set = "block_1";
         mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
         mesh_labeler.LabelPart(mesh_labeler_parameters);
+
+        // Create a max edge length processor
+        aperi::MaxEdgeLengthProcessor max_edge_length_processor(mesh_data, std::vector<std::string>{});
+        max_edge_length_processor.ComputeMaxEdgeLength();
 
         // Make an element processor
         std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementGatherScatterProcessor in CreateElement. TODO(jake) change this?

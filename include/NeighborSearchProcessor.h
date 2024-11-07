@@ -108,6 +108,10 @@ class NeighborSearchProcessor {
         m_kernel_radius_field = StkGetField(FieldQueryData<double>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
 
+        // Get the max edge length field
+        m_max_edge_length_field = StkGetField(FieldQueryData<double>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_max_edge_length_field = &stk::mesh::get_updated_ngp_field<double>(*m_max_edge_length_field);
+
         // Get the function values field
         m_node_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
@@ -154,7 +158,7 @@ class NeighborSearchProcessor {
         auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
 
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the node's coordinates
                 double kernel_radius = ngp_kernel_radius_field(node_index, 0);
@@ -239,7 +243,7 @@ class NeighborSearchProcessor {
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
 
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the node's coordinates
                 ngp_kernel_radius_field(node_index, 0) = kernel_radius;
@@ -257,46 +261,19 @@ class NeighborSearchProcessor {
         }
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
-        auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
-        auto ngp_active_field = *m_ngp_node_active_field;
+        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the node's coordinates
-                Eigen::Matrix<double, 1, 3> coordinates;
-                for (size_t j = 0; j < 3; ++j) {
-                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
-                }
-                // Get the kernel radius
-                double kernel_radius = 0.0;
-                stk::mesh::NgpMesh::ConnectedEntities connected_entities = ngp_mesh.get_connected_entities(stk::topology::NODE_RANK, node_index, stk::topology::ELEMENT_RANK);
-                for (size_t i = 0; i < connected_entities.size(); ++i) {
-                    stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(connected_entities[i]);
-                    stk::mesh::NgpMesh::ConnectedNodes connected_nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                    for (size_t j = 0; j < connected_nodes.size(); ++j) {
-                        stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(connected_nodes[j]);
-                        Eigen::Matrix<double, 1, 3> neighbor_coordinates;
-                        for (size_t k = 0; k < 3; ++k) {
-                            neighbor_coordinates(0, k) = ngp_coordinates_field(neighbor_index, k);
-                        }
-                        // If the neighbor is not active, then expecting this is a refined, nodal integration mesh where the distance to the nearest active node would be double the edge length.
-                        double scale_factor = ngp_active_field(neighbor_index, 0) == 0.0 ? 2.0 : 1.0;
-                        double length = (coordinates - neighbor_coordinates).norm() * scale_factor;
-                        kernel_radius = Kokkos::max(kernel_radius, length);
-                    }
-                }
-                ngp_kernel_radius_field(node_index, 0) = kernel_radius * scale_factor;
+                // Get the max edge length
+                double max_edge_length = ngp_max_edge_length_field(node_index, 0);
+                ngp_kernel_radius_field(node_index, 0) = max_edge_length * scale_factor;
             });
         ngp_kernel_radius_field.clear_sync_state();
         ngp_kernel_radius_field.modify_on_device();
         ngp_kernel_radius_field.sync_to_host();
-
-        // Get the parallel max kernel radius
-        stk::mesh::parallel_max(*m_bulk_data, {m_kernel_radius_field});
-        ngp_kernel_radius_field.modify_on_host();
-        ngp_kernel_radius_field.sync_to_device();
     }
 
     // Create local entities on host and copy to device
@@ -635,12 +612,14 @@ class NeighborSearchProcessor {
     UnsignedField *m_node_neighbors_field;             // The neighbors field
     UnsignedField *m_node_active_field;                // The active field
     DoubleField *m_kernel_radius_field;                // The kernel radius field
+    DoubleField *m_max_edge_length_field;              // The max edge length field
     DoubleField *m_node_function_values_field;         // The function values field
     NgpDoubleField *m_ngp_coordinates_field;           // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
     NgpUnsignedField *m_ngp_node_active_field;         // The ngp active field
     NgpDoubleField *m_ngp_kernel_radius_field;         // The ngp kernel radius field
+    NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
     NgpDoubleField *m_ngp_node_function_values_field;  // The ngp function values field
 };
 
