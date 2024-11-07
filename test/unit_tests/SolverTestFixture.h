@@ -32,7 +32,7 @@ class SolverTest : public ApplicationTest {
         ApplicationTest::SetUp();
     }
 
-    double CreateSolver() {
+    void CreateSolver() {
         aperi::CoutP0() << "############################################" << std::endl;
         aperi::CoutP0() << "Starting Application" << std::endl;
         aperi::CoutP0() << " - Reading Input File and Mesh" << std::endl;

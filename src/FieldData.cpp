@@ -58,7 +58,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("displacement_np1_temp", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The temporary displacement field, used in the power method calculation
     field_data.push_back(FieldData("eigenvector", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));              // The eigenvector field, used as output from the power method calculation
     field_data.push_back(FieldData("force_coefficients_temp", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The temporary force field, used in the power method calculation
-    field_data.push_back(FieldData("essential_boundary", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));     // Indicator for essential boundary conditions
+    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));     // Indicator for essential boundary conditions
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
