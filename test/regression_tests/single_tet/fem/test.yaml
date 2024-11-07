@@ -1,0 +1,24 @@
+# Define common settings
+defaults: &defaults
+  num_processors: 1
+  input_file: input.yaml
+  build: Release
+  cleanup:
+    remove: [results.exo, "*.log"]
+  exodiff:
+    - compare_file: compare.exodiff
+      gold_file: gold_results.exo
+      results_file: results.exo
+
+# List of tests using the defaults
+tests:
+  - <<: *defaults
+    hardware: cpu
+  - <<: *defaults
+    hardware: gpu
+  - <<: *defaults
+    hardware: gpu
+    build: Debug
+  - <<: *defaults
+    hardware: cpu
+    build: Debug

@@ -1,0 +1,63 @@
+procedures:
+  - explicit_dynamics_procedure:
+      geometry:
+        mesh: ../mesh/tet.e
+        parts:
+          - part:
+              set: block_1
+              formulation:
+                integration_scheme:
+                  gauss_quadrature:
+                    integration_order: 1
+                approximation_space:
+                  finite_element: ~
+              material:
+                neo_hookean:
+                  density: 1.0
+                  youngs_modulus: 1.0
+                  poissons_ratio: 0.3
+      initial_conditions:
+        - velocity:
+            sets:
+              - block_1
+            components:
+              Z: -0.001 # m/s
+      time_stepper:
+        direct_time_stepper:
+          time_increment: 8.622200e-02
+          time_end: 8.622200
+      output:
+        file: results.exo
+        time_start: 0
+        time_end: 1000.0
+        time_increment: 8.622200e-02
+      boundary_conditions:
+        - displacement:
+            sets:
+              - nodeset_1
+            components:
+              X: 0.0
+              Y: 0.0
+              Z: 0.0
+            time_function:
+              ramp_function:
+                abscissa_values:
+                  - 0
+                  - 1
+                ordinate_values:
+                  - 0
+                  - 1
+        - displacement:
+            sets:
+              - nodeset_2
+            components:
+              X: 0.0
+              Y: 0.0
+            time_function:
+              ramp_function:
+                abscissa_values:
+                  - 0
+                  - 1
+                ordinate_values:
+                  - 0
+                  - 1

@@ -1,0 +1,80 @@
+procedures:
+  - explicit_dynamics_procedure:
+      geometry:
+        mesh: ../mesh/beam.e
+        parts:
+          - part:
+              set: block_1
+              formulation:
+                integration_scheme:
+                  gauss_quadrature:
+                    integration_order: 1
+                approximation_space:
+                  finite_element: ~
+              material:
+                neo_hookean:
+                  density: 0.0001
+                  youngs_modulus: 0.01
+                  poissons_ratio: 0.3
+      time_stepper:
+        direct_time_stepper:
+          time_increment: 4.e-2
+          time_end: 1.0
+      output:
+        file: results.exo
+        time_start: 0
+        time_end: 1.0
+        time_increment: 1.0
+      boundary_conditions:
+        - displacement:
+            sets:
+              - nodeset_1
+            components:
+              Z: 0.2
+            time_function:
+              smooth_step_function:
+                abscissa_values:
+                  - 0
+                  - 2
+                ordinate_values:
+                  - 0
+                  - 1
+        - displacement:
+            sets:
+              - nodeset_4
+            components:
+              X: 0.0
+            time_function:
+              smooth_step_function:
+                abscissa_values:
+                  - 0
+                  - 1
+                ordinate_values:
+                  - 0
+                  - 1
+        - displacement:
+            sets:
+              - nodeset_3
+            components:
+              Y: 0.0
+            time_function:
+              smooth_step_function:
+                abscissa_values:
+                  - 0
+                  - 1
+                ordinate_values:
+                  - 0
+                  - 1
+        - displacement:
+            sets:
+              - nodeset_2
+            components:
+              Z: 0.0
+            time_function:
+              smooth_step_function:
+                abscissa_values:
+                  - 0
+                  - 1
+                ordinate_values:
+                  - 0
+                  - 1
