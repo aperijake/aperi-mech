@@ -24,3 +24,10 @@ set exodus netcdf4 off
 set large exodus file on
 export mesh "tet.e" overwrite
 undo group end
+thex volume 1
+undo group begin
+set exodus netcdf4 off
+set large exodus file on
+export mesh "tet_thex.e" overwrite
+undo group end
+

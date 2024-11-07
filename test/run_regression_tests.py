@@ -80,11 +80,13 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
     # Set the exodiff inputs
     if "exodiff" in yaml_node:
         for exodiff in yaml_node["exodiff"]:
+            # if exodiff has 'args' key, add it to the exodiff check
             inputs["exodiff"].append(
                 {
                     "compare_file": exodiff["compare_file"],
                     "results_file": exodiff["results_file"],
                     "gold_file": exodiff["gold_file"],
+                    "args": exodiff.get("args", []),
                 }
             )
 
@@ -155,7 +157,7 @@ def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
             exodiff["compare_file"],
             exodiff["results_file"],
             exodiff["gold_file"],
-            [],
+            exodiff["args"],
         ).run()
         == 0
         for i, exodiff in enumerate(inputs["exodiff"])

@@ -26,3 +26,9 @@ set exodus netcdf4 off
 set large exodus file on
 export mesh "beam.e" overwrite
 undo group end
+thex volume 1
+undo group begin
+set exodus netcdf4 off
+set large exodus file on
+export mesh "beam_thex.e" overwrite
+undo group end

@@ -425,10 +425,12 @@ class ExodiffCheck:
             [
                 "-f",
                 self.exodiff_file,
+            ]
+            + self.exodiff_args
+            + [
                 self.exodiff_results_file,
                 self.exodiff_gold_results_file,
-            ]
-            + self.exodiff_args,
+            ],
             self.log_file,
             check_memory=False,
         )

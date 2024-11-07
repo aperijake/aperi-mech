@@ -101,8 +101,12 @@ class PowerMethodProcessor {
         m_selector = StkGetSelector(m_sets, meta_data);
         assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
 
-        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_owned_selector = m_selector & full_owned_selector;
+        // Append "_active" to each set name and create a selector for the active entities
+        std::vector<std::string> active_sets;
+        for (const std::string &set : sets) {
+            active_sets.push_back(set + "_active");
+        }
+        m_active_selector = StkGetSelector(active_sets, meta_data);
 
         // Get the displacement_temp field, temporary field to store the displacement at n+1
         m_displacement_in_field = StkGetField(FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -165,7 +169,7 @@ class PowerMethodProcessor {
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Number of components
                 const size_t num_components = ngp_displacement_in_field.get_num_components_per_entity(node_index);
@@ -216,7 +220,7 @@ class PowerMethodProcessor {
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of components
                 const size_t num_components = ngp_mass_field.get_num_components_per_entity(node_index);
@@ -337,7 +341,7 @@ class PowerMethodProcessor {
     ExplicitSolver *m_solver;                      // The solver object.
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_owned_selector;          // The local selector
+    stk::mesh::Selector m_active_selector;         // The active selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
 
     DoubleField *m_displacement_in_field;       // The scratch displacement field, stores the displacement at n+1
