@@ -253,6 +253,13 @@ class ExplicitSolver : public Solver {
     }
 
     /**
+     * @brief Build the mass matrix.
+     *
+     * This function builds the mass matrix for the system.
+     */
+    void BuildMassMatrix();
+
+    /**
      * @brief Solves the mechanical system.
      *
      * This function overrides the base class function and is responsible for solving the mechanical system using an explicit time integration scheme.

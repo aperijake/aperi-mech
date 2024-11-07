@@ -226,10 +226,7 @@ void LogEvent(const size_t n, const double time, const double average_runtime, c
                     << std::endl;
 }
 
-double ExplicitSolver::Solve() {
-    // Print the number of nodes
-    mp_mesh_data->PrintNodeCounts();
-
+void ExplicitSolver::BuildMassMatrix() {
     // Compute mass matrix
     aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
     auto start_mass_matrix = std::chrono::high_resolution_clock::now();
@@ -238,6 +235,14 @@ double ExplicitSolver::Solve() {
     }
     auto end_mass_matrix = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished Computing Mass Matrix. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mass_matrix - start_mass_matrix).count() << " ms" << std::endl;
+}
+
+double ExplicitSolver::Solve() {
+    // Print the number of nodes
+    mp_mesh_data->PrintNodeCounts();
+
+    // Build the mass matrix
+    BuildMassMatrix();
 
     // Create node processors for each step of the time integration algorithm
     // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof

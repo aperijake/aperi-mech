@@ -32,7 +32,7 @@ class SolverTest : public ApplicationTest {
         ApplicationTest::SetUp();
     }
 
-    double RunSolver() {
+    double CreateSolver() {
         aperi::CoutP0() << "############################################" << std::endl;
         aperi::CoutP0() << "Starting Application" << std::endl;
         aperi::CoutP0() << " - Reading Input File and Mesh" << std::endl;
@@ -155,6 +155,11 @@ class SolverTest : public ApplicationTest {
         m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
         auto end_solver_setup = std::chrono::high_resolution_clock::now();
         aperi::CoutP0() << "   Finished Setting up for the Solver. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver_setup - start_solver_setup).count() << " ms" << std::endl;
+    }
+
+    double RunSolver() {
+        // Create solver
+        CreateSolver();
 
         // Run solver
         aperi::CoutP0() << " - Starting Solver" << std::endl;
