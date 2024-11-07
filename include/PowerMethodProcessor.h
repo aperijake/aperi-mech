@@ -87,6 +87,7 @@ class PowerMethodProcessor {
                       FORCE,
                       FORCE_IN,
                       EIGENVECTOR,
+                      MAX_EDGE_LENGTH,
                       NUM_FIELDS };
 
    public:
@@ -128,16 +129,19 @@ class PowerMethodProcessor {
         m_force_in_field = StkGetField(FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_force_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_force_in_field);
 
+        // Get the max edge length field
+        m_max_edge_length_field = StkGetField(FieldQueryData<double>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_max_edge_length_field = &stk::mesh::get_updated_ngp_field<double>(*m_max_edge_length_field);
+
         // Get the essential_boundary field, indicator for if the dof is in the essential boundary set
         m_essential_boundary_field = StkGetField(FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_essential_boundary_field);
 
-        // Initialize the EntityProcessor later
+        // Initialize the EntityProcessor
         InitializeEntityProcessor();
 
-        // Randomize the displacement coefficients for the initial guess at the eigenvector
-        // Using a small perturbation to avoid a excessively inverting elements
-        m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR, -1.0e-6, 1.0e-6);
+        // Randomize the displacement coefficients for the initial guess at the eigenvector. Scale later to be epsilon * max_edge_length * random value
+        m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR, -1.0, 1.0);
     }
 
     void InitializeEntityProcessor() {
@@ -147,15 +151,43 @@ class PowerMethodProcessor {
             FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
-            FieldQueryData<double>{"eigenvector", FieldQueryState::None}};
+            FieldQueryData<double>{"eigenvector", FieldQueryState::None},
+            FieldQueryData<double>{"max_edge_length", FieldQueryState::None}};
         m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, m_sets);
     }
 
+    void InitializeEigenvector(double epsilon) {
+        // Scale the eigenvector to be epsilon * max_edge_length * random value
+
+        // Get the ngp mesh
+        auto ngp_mesh = m_ngp_mesh;
+
+        // Get the ngp fields
+        auto ngp_displacement_field = *m_ngp_displacement_field;
+
+        // Loop over all the buckets
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the max edge length
+                double l = ngp_displacement_field(node_index, 0);
+
+                // Number of components
+                const size_t num_components = ngp_displacement_field.get_num_components_per_entity(node_index);
+                // Loop over the components
+                for (size_t i = 0; i < num_components; ++i) {
+                    // Scale the eigenvector to be epsilon * max_edge_length * random value
+                    ngp_displacement_field(node_index, i) *= epsilon * l;
+                }
+            });
+    }
+
     void PerturbDisplacementCoefficients(double epsilon) {
-        /* Perturb the displacement coefficients by epsilon, u_epsilon = u + v * \epsilon.
+        /* Perturb the displacement coefficients by epsilon, u_epsilon = u + v * l * epsilon
             - Only nodes not in the essential boundary set are perturbed
             - u:         displacement_in field, the displacement at time n+1
             - v:         displacement field, which is the eigenvector
+            - l:         max_edge_length field, the scaling factor for the eigenvector
             - u_epsilon: displacement field, overwriting the eigenvector, v
         */
 
@@ -166,6 +198,7 @@ class PowerMethodProcessor {
         auto ngp_displacement_in_field = *m_ngp_displacement_in_field;
         auto ngp_displacement_field = *m_ngp_displacement_field;
         auto ngp_essential_boundary_field = *m_ngp_essential_boundary_field;
+        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
@@ -189,8 +222,11 @@ class PowerMethodProcessor {
                     // Get the eigenvector value
                     double v = ngp_displacement_field(node_index, i);
 
-                    // Perturb the displacement coefficients by epsilon, v = u + v * \epsilon
-                    ngp_displacement_field(node_index, i) = u + v * epsilon;
+                    // Get the max edge length
+                    double l = ngp_max_edge_length_field(node_index, 0);
+
+                    // Perturb the displacement coefficients by epsilon, v = u + v * l * epsilon
+                    ngp_displacement_field(node_index, i) = u + v * l * epsilon;
                 }
             });
     }
@@ -198,11 +234,12 @@ class PowerMethodProcessor {
     void ComputeNextEigenvector(double epsilon) {
         /* Compute the next eigenvector
             Compute v_n+1 = (M^{-1}K) v_n, where:
-            (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
+            (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / (epsilon * l)
 
             - v_n+1:               displacement field, the next eigenvector, computed in place
             - f(u):                force_in field, computed outside of the power method
             - f(u + \epsilon v_n): force field, computed before this function
+            - l:                   max_edge_length field
             - M:                   mass field
 
             - The eigenvector is zeroed out for nodes in the essential boundary set
@@ -217,11 +254,16 @@ class PowerMethodProcessor {
         auto ngp_force_in_field = *m_ngp_force_in_field;
         auto ngp_displacement_field = *m_ngp_displacement_field;
         auto ngp_essential_boundary_field = *m_ngp_essential_boundary_field;
+        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get the max edge length
+                double l = ngp_max_edge_length_field(node_index, 0);
+                double l_epsilon = l * epsilon;
+
                 // Get the number of components
                 const size_t num_components = ngp_mass_field.get_num_components_per_entity(node_index);
 
@@ -243,7 +285,7 @@ class PowerMethodProcessor {
                     double force_u = ngp_force_in_field(node_index, i);
 
                     // Compute v_n+1 = (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
-                    ngp_displacement_field(node_index, i) = (force_u_epsilon - force_u) / (epsilon * mass);
+                    ngp_displacement_field(node_index, i) = (force_u_epsilon - force_u) / (l_epsilon * mass);
                 }
             });
     }
@@ -269,6 +311,12 @@ class PowerMethodProcessor {
 
         // Copy the force coefficients to the force coefficients temp field
         m_node_processor->CopyFieldData(FieldIndex::FORCE, FieldIndex::FORCE_IN);
+
+        // Initialize the eigenvector if it is not already initialized
+        if (m_eigenvector_is_initialized == false) {
+            InitializeEigenvector(epsilon);
+            m_eigenvector_is_initialized = true;
+        }
 
         // Convergence tolerance squared
         double tolerance_squared = tolerance * tolerance;
@@ -339,6 +387,7 @@ class PowerMethodProcessor {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::vector<std::string> m_sets;               // The sets to process.
     ExplicitSolver *m_solver;                      // The solver object.
+    bool m_eigenvector_is_initialized = false;     // Flag for if the eigenvector is initialized
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector
     stk::mesh::Selector m_active_selector;         // The active selector
@@ -349,6 +398,7 @@ class PowerMethodProcessor {
     DoubleField *m_mass_field;                  // The mass field
     DoubleField *m_force_field;                 // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
     DoubleField *m_force_in_field;              // The force field, input for force, f(u)
+    DoubleField *m_max_edge_length_field;       // The max edge length field
     UnsignedField *m_essential_boundary_field;  // The essential boundary field, flag for if the dof is in the essential boundary set
 
     NgpDoubleField *m_ngp_displacement_in_field;       // The ngp scratch displacement field
@@ -356,6 +406,7 @@ class PowerMethodProcessor {
     NgpDoubleField *m_ngp_mass_field;                  // The ngp mass field
     NgpDoubleField *m_ngp_force_field;                 // The ngp force field
     NgpDoubleField *m_ngp_force_in_field;              // The ngp force field
+    NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
     std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The node processor

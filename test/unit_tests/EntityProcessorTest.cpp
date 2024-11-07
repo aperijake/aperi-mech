@@ -217,6 +217,21 @@ TEST_F(NodeProcessingTestFixture, NormalizeField) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "acceleration", expected_normalized_data_2, aperi::FieldQueryState::N);
 }
 
+// Test ScaleAndMultiplyField method
+TEST_F(NodeProcessingTestFixture, ScaleAndMultiplyField) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    // Scale and multiply the fields
+    m_node_processor_stk_ngp->ScaleAndMultiplyField(0, 1, 0.5);
+    m_node_processor_stk_ngp->MarkFieldModifiedOnDevice(0);
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Expected values
+    std::array<double, 3> expected_data_01 = {2.5721, 2.5721, 2.5721};
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "velocity", expected_data_01, aperi::FieldQueryState::NP1);
+}
+
 // Test CopyFieldData method
 TEST_F(NodeProcessingTestFixture, CopyFieldData) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);

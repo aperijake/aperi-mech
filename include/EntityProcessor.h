@@ -532,6 +532,25 @@ class EntityProcessor {
         return dot_product_value_global;
     }
 
+    // Scale and multiply fields
+    void ScaleAndMultiplyField(size_t field_index_1, size_t field_index_2, double a) {
+        // Get the fields
+        auto field_1 = *m_ngp_fields[field_index_1];
+        auto field_2 = *m_ngp_fields[field_index_2];
+
+        // Perform the operation field_1 = field_1 * a * field_2
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field_1.get_num_components_per_entity(entity);
+                // Perform the element-wise operation
+                for (size_t i = 0; i < num_components; i++) {
+                    field_1(entity, i) = field_1(entity, i) * a * field_2(entity, i);
+                }
+            });
+    }
+
    private:
     Kokkos::Array<stk::mesh::NgpField<T> *, N> m_ngp_fields;  // The ngp fields to process
     std::vector<stk::mesh::Field<T> *> m_fields;              // The fields to process
