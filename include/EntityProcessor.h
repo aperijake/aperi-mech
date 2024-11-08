@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -40,6 +42,24 @@ template <typename T>
 struct PrintFieldFunctor {
     PrintFieldFunctor() {}
     KOKKOS_INLINE_FUNCTION void operator()(const T *value) const { printf(" %f\n", static_cast<double>(*value)); }
+};
+
+// Functor for randomizing the field
+template <typename T>
+struct RandomizeFunctor {
+    T min;
+    T max;
+    Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool;
+
+    RandomizeFunctor(T min_val, T max_val, Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool_) 
+        : min(min_val), max(max_val), rand_pool(rand_pool_) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(T *value) const {
+        auto rand_gen = rand_pool.get_state();
+        T random_value = static_cast<T>(rand_gen.drand());
+        *value = min + random_value * (max - min);
+        rand_pool.free_state(rand_gen);
+    }
 };
 
 // A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
@@ -429,15 +449,18 @@ class EntityProcessor {
 
     // Randomize the field
     void RandomizeField(size_t field_index, const T &min = 0.0, const T &max = 1.0, size_t seed = 0) {
-        srand(seed);
-        for_each_component_impl([min, max](T *value) { *value = min + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX / (max - min))); }, field_index, m_selector);
+        Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool(seed);
+        RandomizeFunctor<T> randomize_functor(min, max, rand_pool);
+        for_each_component_impl(randomize_functor, field_index, m_selector);
     }
 
     // Calculate the norm of the field
     T CalculateFieldNorm(size_t field_index) {
         // Kokkos view for the field sum
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
-        field_sum(0) = 0.0;
+        auto field_sum_host = Kokkos::create_mirror_view(field_sum);
+        field_sum_host(0) = 0.0;
+        Kokkos::deep_copy(field_sum, field_sum_host);
 
         // Get the field
         auto field = *m_ngp_fields[field_index];
@@ -458,7 +481,6 @@ class EntityProcessor {
             });
 
         // Host view for the field sum
-        Kokkos::View<T *, Kokkos::HostSpace> field_sum_host("field_sum_host", 1);
         Kokkos::deep_copy(field_sum_host, field_sum);
 
         // Parallel sum the field sum
@@ -499,7 +521,9 @@ class EntityProcessor {
     T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
         // Kokkos array for the dot product
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
-        dot_product(0) = 0.0;
+        auto dot_product_host = Kokkos::create_mirror_view(dot_product);
+        dot_product_host(0) = 0.0;
+        Kokkos::deep_copy(dot_product, dot_product_host);
 
         // Get the fields
         auto field_0 = *m_ngp_fields[field_index_0];
@@ -521,7 +545,6 @@ class EntityProcessor {
             });
 
         // Host view for the dot product
-        Kokkos::View<T *, Kokkos::HostSpace> dot_product_host("dot_product_host", 1);
         Kokkos::deep_copy(dot_product_host, dot_product);
 
         // Parallel sum the dot product
