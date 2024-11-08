@@ -23,8 +23,9 @@ procedures:
             components:
               Z: -0.001 # m/s
       time_stepper:
-        direct_time_stepper:
-          time_increment: 8.622200e-02
+        power_method_time_stepper:
+          scale_factor: 0.1
+          update_interval: 10
           time_end: 8.622200
       output:
         file: results.exo
