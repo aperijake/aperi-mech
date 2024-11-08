@@ -205,9 +205,11 @@ void LogHeader() {
     aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
     aperi::CoutP0() << std::setw(20) << "Increment Number"
                     << std::setw(20) << "Time"
+                    << std::setw(20) << "Time Increment"
                     << std::setw(25) << "Mean Runtime/Increment"
                     << std::setw(20) << "Event" << std::endl;
     aperi::CoutP0() << std::setw(20) << "(N)"
+                    << std::setw(20) << "(seconds)"
                     << std::setw(20) << "(seconds)"
                     << std::setw(25) << "(seconds)"
                     << std::setw(20) << " " << std::endl;
@@ -218,9 +220,10 @@ void LogFooter() {
     aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
 }
 
-void LogEvent(const size_t n, const double time, const double average_runtime, const std::string &event = "") {
+void LogEvent(const size_t n, const double time, const double time_increment, const double average_runtime, const std::string &event = "") {
     aperi::CoutP0() << std::setw(20) << n
                     << std::setw(20) << time
+                    << std::setw(20) << time_increment
                     << std::setw(25) << average_runtime
                     << std::setw(20) << event
                     << std::endl;
@@ -257,8 +260,8 @@ double ExplicitSolver::Solve() {
     // Set the initial increment, n = 0
     size_t n = 0;
 
-    // Create the power method processor
-    std::shared_ptr<PowerMethodProcessor> power_method_processor = std::make_shared<PowerMethodProcessor>(mp_mesh_data, std::vector<std::string>{}, this);
+    // Initialize the time stepper
+    m_time_stepper->Initialize(mp_mesh_data, this);
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
     ComputeForce();
@@ -279,28 +282,26 @@ double ExplicitSolver::Solve() {
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
 
+    double time_increment = m_time_stepper->GetTimeIncrement(time, n);
+
     // Output initial state
     aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
     if (m_output_scheduler->AtNextEvent(time)) {
-        LogEvent(n, time, average_runtime, "Write Field Output");
+        LogEvent(n, time, time_increment, average_runtime, "Write Field Output");
         WriteOutput(time);
     }
 
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
         if (log_scheduler.AtNextEvent(total_runtime)) {
-            LogEvent(n, time, average_runtime, "");
+            LogEvent(n, time, time_increment, average_runtime, "");
         }
 
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
         // Get the next time step, Δt^{n+½}
-        double time_increment = m_time_stepper->GetTimeIncrement(time);
-
-        // Compute the stable time increment
-        double stable_time_increment = power_method_processor->ComputeStableTimeIncrement();
-        printf("Stable time increment: %e\n", stable_time_increment);
+        time_increment = m_time_stepper->GetTimeIncrement(time, n);
 
         // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;
@@ -364,11 +365,11 @@ double ExplicitSolver::Solve() {
 
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
-            LogEvent(n, time, average_runtime, "Write Field Output");
+            LogEvent(n, time, time_increment, average_runtime, "Write Field Output");
             WriteOutput(time);
         }
     }
-    LogEvent(n, time, average_runtime, "End of Simulation");
+    LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogFooter();
 
     // Print the performance summary, percent of time spent in each step

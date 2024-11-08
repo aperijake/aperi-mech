@@ -146,7 +146,7 @@ class SolverTest : public ApplicationTest {
         std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
         // Get the output scheduler
-        std::shared_ptr<aperi::Scheduler> output_scheduler = aperi::CreateScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
+        std::shared_ptr<aperi::Scheduler<double>> output_scheduler = aperi::CreateTimeIncrementScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
 
         // Do preprocessing
         aperi::DoPreprocessing(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions);

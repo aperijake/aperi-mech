@@ -25,7 +25,7 @@ class PowerMethodProcessorTest : public SolverTest {
         m_explicit_solver->BuildMassMatrix();
 
         // Create a PowerMethodProcessor object
-        m_power_method_processor = std::make_shared<aperi::PowerMethodProcessor>(m_solver->GetMeshData(), std::vector<std::string>{}, m_explicit_solver);
+        m_power_method_processor = std::make_shared<aperi::PowerMethodProcessor>(m_solver->GetMeshData(), m_explicit_solver);
         // Run the power method processor
         double stable_time_step = m_power_method_processor->ComputeStableTimeIncrement(500);
         return stable_time_step;

@@ -16,6 +16,7 @@ class BoundaryCondition;
 class IoMesh;
 class ExternalForceContribution;
 class TimeStepper;
+template <typename EventType>
 class Scheduler;
 
 /**
@@ -35,7 +36,7 @@ class Solver {
      * @param external_force_contributions The vector of external force contributions.
      * @param time_stepper The time stepper object.
      */
-    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
         : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
         mp_mesh_data = m_io_mesh->GetMeshData();
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
@@ -133,7 +134,7 @@ class Solver {
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                  ///< The vector of external force contributions.
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                                   ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                             ///< The time stepper object.
-    std::shared_ptr<aperi::Scheduler> m_output_scheduler;                                                           ///< The output scheduler object.
+    std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                                   ///< The output scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
@@ -173,7 +174,7 @@ class ExplicitSolver : public Solver {
      * @param time_stepper The time stepper used to advance the simulation over time.
      * @param output_scheduler The output scheduler used to control the output of the simulation.
      */
-    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler)
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler), m_timer_manager("Explicit Solver", explicit_solver_timer_names) {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
@@ -352,7 +353,7 @@ class ExplicitSolver : public Solver {
  * @param time_stepper The time stepper object.
  * @return A unique pointer to the created solver object.
  */
-inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler> output_scheduler) {
+inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler) {
     return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
 }
 

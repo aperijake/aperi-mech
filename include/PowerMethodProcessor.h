@@ -91,7 +91,7 @@ class PowerMethodProcessor {
                       NUM_FIELDS };
 
    public:
-    PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, ExplicitSolver *solver) : m_mesh_data(mesh_data), m_sets(sets), m_solver(solver) {
+    PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, ExplicitSolver *solver) : m_mesh_data(mesh_data), m_solver(solver) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -99,14 +99,12 @@ class PowerMethodProcessor {
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
         // Get the selector
-        m_selector = StkGetSelector(m_sets, meta_data);
+        std::vector<std::string> sets = {};
+        m_selector = StkGetSelector(sets, meta_data);
         assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
 
         // Append "_active" to each set name and create a selector for the active entities
-        std::vector<std::string> active_sets;
-        for (const std::string &set : sets) {
-            active_sets.push_back(set + "_active");
-        }
+        std::vector<std::string> active_sets = {"universal_active_part"};
         m_active_selector = StkGetSelector(active_sets, meta_data);
 
         // Get the displacement_temp field, temporary field to store the displacement at n+1
@@ -153,7 +151,8 @@ class PowerMethodProcessor {
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
             FieldQueryData<double>{"eigenvector", FieldQueryState::None},
             FieldQueryData<double>{"max_edge_length", FieldQueryState::None}};
-        m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, m_sets);
+        std::vector<std::string> sets = {};
+        m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, sets);
     }
 
     void InitializeEigenvector(double epsilon) {
@@ -368,8 +367,7 @@ class PowerMethodProcessor {
 
         // Update the power method stats
         m_power_method_stats.SetStats(lambda_max, num_iterations_required, converged);
-        m_power_method_stats.PrintStats();
-        m_power_method_stats.PrintHistory();
+        // m_power_method_stats.PrintStats();
 
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_max);
@@ -385,7 +383,6 @@ class PowerMethodProcessor {
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::vector<std::string> m_sets;               // The sets to process.
     ExplicitSolver *m_solver;                      // The solver object.
     bool m_eigenvector_is_initialized = false;     // Flag for if the eigenvector is initialized
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
