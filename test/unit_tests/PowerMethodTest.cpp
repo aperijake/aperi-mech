@@ -55,6 +55,9 @@ TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
     double stable_time_step = RunPowerMethodProcessor();
     double expected_stable_time_step = 0.0001;
     EXPECT_NEAR(stable_time_step, expected_stable_time_step, 1e-5);
+    auto stats = m_power_method_processor->GetPowerMethodStats();
+    EXPECT_TRUE(stats.converged);
+    EXPECT_EQ(stats.num_iterations, 45);
 }
 
 // Test that the PowerMethodProcessor will throw an exception if the all nodes are fixed

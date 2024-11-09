@@ -320,11 +320,11 @@ class EntityProcessor {
     }
 
     // Debug printing. Only should do for small meshes.
-    void debug_print_field_with_id_host(size_t field_index) const {
+    void debug_print_field_with_id_host_impl(size_t field_index, const stk::mesh::Selector &selector) const {
         T *field_data;
         // Loop over all the buckets
         std::string output = "";
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
+        for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[field_index], *bucket);
             // Get the field data for the bucket
             field_data = stk::mesh::field_data(*m_fields[field_index], *bucket);
@@ -340,6 +340,16 @@ class EntityProcessor {
             }
         }
         aperi::Cout() << output << std::endl;
+    }
+
+    // Debug printing. Only should do for small meshes.
+    void debug_print_field_with_id_host(size_t field_index) const {
+        debug_print_field_with_id_host_impl(field_index, m_selector);
+    }
+
+    // Debug printing. Only should do for small meshes. Owned entities only.
+    void debug_print_field_with_id_owned_host(size_t field_index) const {
+        debug_print_field_with_id_host_impl(field_index, m_owned_selector);
     }
 
     template <typename Func>
@@ -381,6 +391,12 @@ class EntityProcessor {
     void print_component_i(size_t i, size_t field_index = 0) {
         auto print_functor = PrintFieldFunctor<T>();
         for_component_i(print_functor, i, field_index);
+    }
+
+    // Just print the value of component i owned
+    void print_component_i_owned(size_t i, size_t field_index = 0) {
+        auto print_functor = PrintFieldFunctor<T>();
+        for_component_i(print_functor, i, field_index, m_owned_selector);
     }
 
     // Just print the value of component i on the host
@@ -452,6 +468,42 @@ class EntityProcessor {
         Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool(seed);
         RandomizeFunctor<T> randomize_functor(min, max, rand_pool);
         for_each_component_impl(randomize_functor, field_index, m_selector);
+    }
+
+    // Consistently randomize the field. This will give the same result regardless of the number of processors.
+    void ConsistentlyRandomizeField(size_t field_index, const T &min = 0.0, const T &max = 1.0, size_t global_seed = 0) {
+        assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
+        auto field = *m_ngp_fields[field_index];
+
+        // Get the node indices
+        Kokkos::View<stk::mesh::FastMeshIndex *, stk::ngp::ExecSpace> entity_indices = GetLocalEntityIndices(Rank, m_selector, m_bulk_data);
+
+        // Get the number of local entities
+        const unsigned num_local_entities = stk::mesh::count_entities(*m_bulk_data, Rank, m_selector);
+
+        // Loop over all the entities
+        Kokkos::parallel_for(
+            stk::ngp::DeviceRangePolicy(0, num_local_entities), KOKKOS_LAMBDA(const unsigned &i) {
+                // Get the fast mesh index
+                stk::mesh::FastMeshIndex entity_index = entity_indices(i);
+
+                //// Set the seed based on the entity id and the global seed
+                stk::mesh::Entity entity = m_ngp_mesh.get_entity(Rank, entity_index);
+                size_t seed = global_seed + m_ngp_mesh.identifier(entity);
+
+                // Set up the random number generator
+                Kokkos::Random_XorShift64<stk::ngp::ExecSpace> rand_gen(seed);
+
+                // Get the number of components and loop over them
+                const size_t num_components = field.get_num_components_per_entity(entity_index);
+                stk::mesh::EntityFieldData<T> field_values = field(entity_index);
+                for (size_t j = 0; j < num_components; j++) {
+                    // Get the random value
+                    T random_value = static_cast<T>(rand_gen.drand());
+                    // Set the field value
+                    field_values[j] = min + random_value * (max - min);
+                }
+            });
     }
 
     // Calculate the sum of the field

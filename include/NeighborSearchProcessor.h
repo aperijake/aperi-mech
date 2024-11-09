@@ -276,24 +276,7 @@ class NeighborSearchProcessor {
         ngp_kernel_radius_field.sync_to_host();
     }
 
-    // Create local entities on host and copy to device
-    FastMeshIndicesViewType GetLocalEntityIndices(stk::mesh::EntityRank rank, stk::mesh::Selector selector) {
-        std::vector<stk::mesh::Entity> local_entities;
-        stk::mesh::get_entities(*m_bulk_data, rank, selector, local_entities);
-
-        FastMeshIndicesViewType mesh_indices("mesh_indices", local_entities.size());
-        FastMeshIndicesViewType::HostMirror host_mesh_indices = Kokkos::create_mirror_view(Kokkos::WithoutInitializing, mesh_indices);
-
-        for (size_t i = 0; i < local_entities.size(); ++i) {
-            const stk::mesh::MeshIndex &mesh_index = m_bulk_data->mesh_index(local_entities[i]);
-            host_mesh_indices(i) = stk::mesh::FastMeshIndex{mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal};
-        }
-
-        Kokkos::deep_copy(mesh_indices, host_mesh_indices);
-        return mesh_indices;
-    }
-
-    // The domain will be the nodes. Search will find the nodes within the spheres from above.
+    // The domain will be the nodes. Search will find the nodes within the spheres from below.
     // The identifiers will be the global node ids.
     DomainViewType CreateNodePoints() {
         const stk::mesh::MetaData &meta = m_bulk_data->mesh_meta_data();
@@ -304,7 +287,7 @@ class NeighborSearchProcessor {
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
+        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part(), m_bulk_data);
         const int my_rank = m_bulk_data->parallel_rank();
 
         Kokkos::parallel_for(
@@ -328,7 +311,7 @@ class NeighborSearchProcessor {
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_and_active_selector);
+        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_and_active_selector, m_bulk_data);
         const int my_rank = m_bulk_data->parallel_rank();
 
         Kokkos::parallel_for(
@@ -518,7 +501,7 @@ class NeighborSearchProcessor {
         ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
         reserved_memory = MAX_NODE_NUM_NEIGHBORS;
 
-        FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector);
+        FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector, m_bulk_data);
 
         // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
         Kokkos::parallel_reduce(

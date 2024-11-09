@@ -297,6 +297,13 @@ double ExplicitSolver::Solve() {
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
 
+    // Output initial state
+    aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
+    if (m_output_scheduler->AtNextEvent(time)) {
+        LogEvent(n, time, 0.0, average_runtime, "Write Field Output");
+        WriteOutput(time);
+    }
+
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
     {
@@ -305,13 +312,6 @@ double ExplicitSolver::Solve() {
     }
     double time_increment = time_increment_data.time_increment;
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
-
-    // Output initial state
-    aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
-    if (m_output_scheduler->AtNextEvent(time)) {
-        LogEvent(n, time, time_increment, average_runtime, "Write Field Output");
-        WriteOutput(time);
-    }
 
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
@@ -355,7 +355,7 @@ double ExplicitSolver::Solve() {
         UpdateDisplacements(time_increment, node_processor_update_displacements);
 
         // Communicate displacements
-        CommunicateDisplacements(node_processor_update_displacements);
+        // CommunicateDisplacements(node_processor_update_displacements);
 
         // Compute the force, f^{n+1}
         ComputeForce();

@@ -132,6 +132,20 @@ TEST_F(NodeProcessingTestFixture, RandomizeField) {
     EXPECT_NE(m_node_processor_stk_ngp->CalculateFieldNorm(1), 0.0);
 }
 
+// Test ConsistentlyRandomizeField method
+TEST_F(NodeProcessingTestFixture, ConsistentlyRandomizeField) {
+    // TODO(jake): This doesn't check consistency between runs with different numbers of processors
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Randomize the last two fields with the same seed
+    m_node_processor_stk_ngp->ConsistentlyRandomizeField(1, 0, 1, 3);
+    m_node_processor_stk_ngp->ConsistentlyRandomizeField(2, 0, 1, 3);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, "velocity", "acceleration", aperi::FieldQueryState::N);
+    // Make sure the norm is not zero
+    EXPECT_NE(m_node_processor_stk_ngp->CalculateFieldNorm(1), 0.0);
+}
+
 // Test ComputeDotProduct method
 TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);

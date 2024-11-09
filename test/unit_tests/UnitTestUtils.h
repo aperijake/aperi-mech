@@ -175,9 +175,9 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
         for (size_t i = 0; i < num_components[0]; i++) {
             found_at_least_one_entity = true;
             if (std::abs(field_data[0][i_entity_start[0] + i]) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], tolerance) << "Field " << field_1_name << " and " << field_2_name << " values do not match";
+                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], tolerance) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
             } else {
-                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], std::abs(tolerance * field_data[0][i_entity_start[0] + i])) << "Field " << field_1_name << " and " << field_2_name << " values do not match";
+                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], std::abs(tolerance * field_data[0][i_entity_start[0] + i])) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
             }
         }
     });

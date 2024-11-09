@@ -154,7 +154,7 @@ class PowerMethodProcessor {
         CheckEssentialBoundaries();
 
         // Randomize the displacement coefficients for the initial guess at the eigenvector. Scale later to be epsilon * max_edge_length * random value
-        m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR, -1.0, 1.0);
+        m_node_processor->ConsistentlyRandomizeField(FieldIndex::EIGENVECTOR, -1.0, 1.0);
     }
 
     void CheckEssentialBoundaries() {
@@ -414,13 +414,13 @@ class PowerMethodProcessor {
     PowerMethodStats GetPowerMethodStats() { return m_power_method_stats; }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;     // The mesh data object.
     std::shared_ptr<aperi::ExplicitSolver> m_solver;  // The solver object.
-    bool m_eigenvector_is_initialized = false;     // Flag for if the eigenvector is initialized
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_active_selector;         // The active selector
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
+    bool m_eigenvector_is_initialized = false;        // Flag for if the eigenvector is initialized
+    stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
+    stk::mesh::Selector m_selector;                   // The selector
+    stk::mesh::Selector m_active_selector;            // The active selector
+    stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
 
     DoubleField *m_displacement_in_field;       // The scratch displacement field, stores the displacement at n+1
     DoubleField *m_displacement_field;          // The displacement coefficients field, the input displacement field, u_n+1
