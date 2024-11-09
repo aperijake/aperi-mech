@@ -13,6 +13,12 @@ namespace aperi {
 class ExplicitSolver;
 class MeshData;
 
+struct TimeStepperData {
+    double time_increment;
+    bool updated = false;
+    std::string message = "";
+};
+
 /**
  * @class TimeStepper
  * @brief Abstract base class for time stepping algorithms.
@@ -54,6 +60,18 @@ class TimeStepper {
      * @return The time increment.
      */
     virtual double GetTimeIncrement(double time, size_t increment) = 0;
+
+    /**
+     * @brief Get the time stepper data.
+     * @param time The current time.
+     * @param increment The current increment.
+     * @return The time stepper data.
+     */
+    virtual TimeStepperData GetTimeStepperData(double time, size_t increment) {
+        TimeStepperData data;
+        data.time_increment = GetTimeIncrement(time, increment);
+        return data;
+    }
 
    private:
     double m_time_end;
@@ -138,23 +156,50 @@ class PowerMethodTimeStepper : public TimeStepper {
      * @return The calculated time increment.
      */
     double GetTimeIncrement(double time, size_t increment) override {
+        return GetTimeIncrementAndUpdated(time, increment).first;
+    };
+
+    /**
+     * @brief Get the time stepper data.
+     * @param time The current time.
+     * @param increment The current increment.
+     * @return The time stepper data.
+     */
+    TimeStepperData GetTimeStepperData(double time, size_t increment) override {
+        TimeStepperData data;
+        std::pair<double, bool> time_increment_and_updated = GetTimeIncrementAndUpdated(time, increment);
+        data.time_increment = time_increment_and_updated.first;
+        data.updated = time_increment_and_updated.second;
+        data.message = m_power_method_processor->GetPowerMethodStats().Message();
+        return data;
+    }
+
+   private:
+    /**
+     * @brief Get the time increment and whether the time increment was updated.
+     * @param time The current time.
+     * @param increment The current increment.
+     * @return A pair containing the time increment and a boolean indicating whether the time increment was updated.
+     */
+    std::pair<double, bool> GetTimeIncrementAndUpdated(double time, size_t increment) {
         assert(m_power_method_processor != nullptr);
+        bool updated = false;
         // Update the time increment if necessary
         if (m_step_scheduler->AtNextEvent(increment)) {
             double full_time_increment = m_power_method_processor->ComputeStableTimeIncrement();
             m_time_increment = full_time_increment * m_scale_factor;
+            updated = true;
         }
         if (time + m_time_increment <= GetTimeEnd()) {
-            return m_time_increment;
+            return {m_time_increment, updated};
         } else if (time > GetTimeEnd()) {
-            return 0.0;
+            return {0.0, updated};
         } else {
-            return GetTimeEnd() - time;
+            return {GetTimeEnd() - time, updated};
         }
-        return m_time_increment;
-    };
+        return {m_time_increment, updated};
+    }
 
-   private:
     double m_scale_factor;
     double m_time_increment;
     std::shared_ptr<aperi::StepScheduler> m_step_scheduler;

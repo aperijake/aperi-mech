@@ -41,27 +41,39 @@ namespace aperi {
 // Power method convergence stats
 struct PowerMethodStats {
     double eigenvalue = 0;
+    double stable_time_step = 0;
     size_t num_iterations = 0;
     bool converged = false;
     std::vector<double> eigenvalues_for_iterations;
 
     void Reset(size_t max_num_iterations) {
         eigenvalue = 0;
+        stable_time_step = 0;
         num_iterations = 0;
         converged = false;
         eigenvalues_for_iterations.clear();
         eigenvalues_for_iterations.resize(max_num_iterations, 0.0);
     }
 
-    void SetStats(double eigenvalue, size_t num_iterations, bool converged) {
+    void SetStats(double eigenvalue, double stable_time_step, size_t num_iterations, bool converged) {
         this->eigenvalue = eigenvalue;
+        this->stable_time_step = stable_time_step;
         this->num_iterations = num_iterations;
         this->converged = converged;
+    }
+
+    std::string Message() {
+        if (converged) {
+            return "Power method, iterations: " + std::to_string(num_iterations);
+        } else {
+            return "Power method, not converged";
+        }
     }
 
     void PrintStats() {
         aperi::CoutP0() << "Power method stats:" << std::endl;
         aperi::CoutP0() << "  Eigenvalue: " << eigenvalue << std::endl;
+        aperi::CoutP0() << "  Stable time step: " << stable_time_step << std::endl;
         aperi::CoutP0() << "  Number of iterations: " << num_iterations << std::endl;
         aperi::CoutP0() << "  Converged: " << converged << std::endl;
     }
@@ -365,12 +377,12 @@ class PowerMethodProcessor {
             lambda_max = std::max(lambda_n, lambda_np1);
         }
 
-        // Update the power method stats
-        m_power_method_stats.SetStats(lambda_max, num_iterations_required, converged);
-        // m_power_method_stats.PrintStats();
-
         // Compute the stable time increment
         double stable_time_increment = 2.0 / std::sqrt(lambda_max);
+
+        // Update the power method stats
+        m_power_method_stats.SetStats(lambda_max, stable_time_increment, num_iterations_required, converged);
+        // m_power_method_stats.PrintStats();
 
         // Copy the displacement coefficient field to the eigenvector field
         m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::EIGENVECTOR);
@@ -380,6 +392,8 @@ class PowerMethodProcessor {
 
         return stable_time_increment;
     }
+
+    PowerMethodStats GetPowerMethodStats() { return m_power_method_stats; }
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.

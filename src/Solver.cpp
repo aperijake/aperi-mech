@@ -201,32 +201,39 @@ void ExplicitSolver::WriteOutput(double time) {
     m_io_mesh->WriteFieldResults(time);
 }
 
-void LogHeader() {
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
-    aperi::CoutP0() << std::setw(20) << "Increment Number"
-                    << std::setw(20) << "Time"
-                    << std::setw(20) << "Time Increment"
-                    << std::setw(25) << "Mean Runtime/Increment"
-                    << std::setw(20) << "Event" << std::endl;
-    aperi::CoutP0() << std::setw(20) << "(N)"
-                    << std::setw(20) << "(seconds)"
-                    << std::setw(20) << "(seconds)"
-                    << std::setw(25) << "(seconds)"
-                    << std::setw(20) << " " << std::endl;
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+void LogLine(int width = 89) {
+    aperi::CoutP0() << std::setw(width) << std::setfill('-') << "-" << std::endl;
+    aperi::CoutP0() << std::setfill(' ');
 }
 
-void LogFooter() {
-    aperi::CoutP0() << std::setw(65) << "---------------------------------------------------------------------------------------" << std::endl;
+void LogRow(const std::array<std::string, 5> &row) {
+    aperi::CoutP0() << std::left
+                    << std::setw(12) << row[0]
+                    << std::setw(16) << row[1]
+                    << std::setw(16) << row[2]
+                    << std::setw(16) << row[3]
+                    << std::setw(30) << row[4]
+                    << std::endl
+                    << std::right;
+}
+
+void LogHeader() {
+    LogLine();
+    LogRow({" ", " ", " ", "Running Mean", " "});
+    LogRow({"Increment", "Time", "Time Step", "Walltime/Step", "Event Message"});
+    LogRow({"(N)", "(seconds)", "(seconds)", "(seconds)", " "});
+    LogLine();
 }
 
 void LogEvent(const size_t n, const double time, const double time_increment, const double average_runtime, const std::string &event = "") {
-    aperi::CoutP0() << std::setw(20) << n
-                    << std::setw(20) << time
-                    << std::setw(20) << time_increment
-                    << std::setw(25) << average_runtime
-                    << std::setw(20) << event
-                    << std::endl;
+    aperi::CoutP0() << std::left
+                    << std::setw(12) << n
+                    << std::setw(16) << time
+                    << std::setw(16) << time_increment
+                    << std::setw(16) << average_runtime
+                    << std::setw(30) << event
+                    << std::endl
+                    << std::right;
 }
 
 void ExplicitSolver::BuildMassMatrix() {
@@ -282,7 +289,9 @@ double ExplicitSolver::Solve() {
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
 
-    double time_increment = m_time_stepper->GetTimeIncrement(time, n);
+    aperi::TimeStepperData time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+    double time_increment = time_increment_data.time_increment;
+    LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Output initial state
     aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
@@ -293,7 +302,7 @@ double ExplicitSolver::Solve() {
 
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
-        if (log_scheduler.AtNextEvent(total_runtime)) {
+        if (log_scheduler.AtNextEvent(total_runtime) && n > 0) {
             LogEvent(n, time, time_increment, average_runtime, "");
         }
 
@@ -301,7 +310,11 @@ double ExplicitSolver::Solve() {
         auto start_time = std::chrono::high_resolution_clock::now();
 
         // Get the next time step, Δt^{n+½}
-        time_increment = m_time_stepper->GetTimeIncrement(time, n);
+        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+        time_increment = time_increment_data.time_increment;
+        if (time_increment_data.updated) {
+            LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
+        }
 
         // Compute the time increment, time midstep, and time next
         double half_time_increment = 0.5 * time_increment;
@@ -370,7 +383,7 @@ double ExplicitSolver::Solve() {
         }
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
-    LogFooter();
+    LogLine();
 
     // Print the performance summary, percent of time spent in each step
     m_timer_manager.PrintTimers();
