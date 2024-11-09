@@ -351,8 +351,8 @@ class PowerMethodProcessor {
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce();
-            m_solver->CommunicateForce();
+            m_solver->ComputeForce(aperi::SolverTimerType::NONE);
+            m_solver->CommunicateForce(aperi::SolverTimerType::NONE);
 
             // Compute the next eigenvector
             ComputeNextEigenvector(epsilon);

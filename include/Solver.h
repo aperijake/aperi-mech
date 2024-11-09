@@ -19,6 +19,17 @@ class TimeStepper;
 template <typename EventType>
 class Scheduler;
 
+enum class SolverTimerType {
+    UpdateFieldStates,
+    ApplyBoundaryConditions,
+    ComputeForce,
+    TimeIntegrationNodalUpdates,
+    CommunicateDisplacements,
+    CommunicateForce,
+    TimeStepCompute,
+    NONE
+};
+
 /**
  * @class Solver
  * @brief Abstract base class for solving mechanical problems.
@@ -119,14 +130,14 @@ class Solver {
      *
      * This function must be implemented by derived classes to compute the forces acting on the mesh.
      */
-    virtual void ComputeForce() = 0;
+    virtual void ComputeForce(const SolverTimerType &timer_type) = 0;
 
     /**
      * @brief Pure virtual function for communicating forces.
      *
      * This function must be implemented by derived classes to communicate the forces between processors.
      */
-    virtual void CommunicateForce() = 0;
+    virtual void CommunicateForce(const SolverTimerType &timer_type) = 0;
 
    protected:
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
@@ -144,17 +155,7 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
 };
 
-enum class ExplicitSolverTimerType {
-    UpdateFieldStates,
-    ApplyBoundaryConditions,
-    ComputeForce,
-    TimeIntegrationNodalUpdates,
-    CommunicateDisplacements,
-    CommunicateForce,
-    COUNT
-};
-
-inline std::vector<std::string> explicit_solver_timer_names = {"UpdateFieldStates", "ApplyBoundaryConditions", "ComputeForce", "TimeIntegrationNodalUpdates", "CommunicateDisplacements", "CommunicateForce"};
+inline std::vector<std::string> explicit_solver_timer_names = {"UpdateFieldStates", "ApplyBoundaryConditions", "ComputeForce", "TimeIntegrationNodalUpdates", "CommunicateDisplacements", "CommunicateForce", "TimeStepCompute", "TimeStepCommunicate"};
 
 /**
  * @class ExplicitSolver
@@ -273,7 +274,7 @@ class ExplicitSolver : public Solver {
      * This function is responsible for calculating the force.
      * It overrides the base class function.
      */
-    void ComputeForce() override;
+    void ComputeForce(const SolverTimerType &timer_type = SolverTimerType::ComputeForce) override;
 
     /**
      * @brief Communicates the force.
@@ -281,7 +282,7 @@ class ExplicitSolver : public Solver {
      * This function is responsible for communicating the force.
      * It overrides the base class function.
      */
-    void CommunicateForce() override;
+    void CommunicateForce(const SolverTimerType &timer_type = SolverTimerType::CommunicateForce) override;
 
    protected:
     /**
@@ -333,7 +334,7 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::shared_ptr<ActiveNodeProcessor<8>> m_node_processor_all;
-    aperi::TimerManager<ExplicitSolverTimerType> m_timer_manager;
+    aperi::TimerManager<SolverTimerType> m_timer_manager;
 
     /**
      * @brief Writes the output.

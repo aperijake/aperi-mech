@@ -22,7 +22,7 @@
 namespace aperi {
 
 void ExplicitSolver::UpdateFieldStates() {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::UpdateFieldStates);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::UpdateFieldStates);
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
@@ -67,8 +67,8 @@ Reference:
     13. Output; if simulation not complete, go to 4.
 */
 
-void ExplicitSolver::ComputeForce() {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ComputeForce);
+void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type) {
+    auto timer = m_timer_manager.CreateScopedTimer(timer_type);
     // Set the force field to zero
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
@@ -102,8 +102,8 @@ void ExplicitSolver::ComputeForce() {
     }
 }
 
-void ExplicitSolver::CommunicateForce() {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::CommunicateForce);
+void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
+    auto timer = m_timer_manager.CreateScopedTimer(timer_type);
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         m_node_processor_force->SyncFieldDeviceToHost(0);
@@ -120,7 +120,7 @@ struct ComputeAccelerationFunctor {
 };
 
 void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_acceleration) {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
     // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
     ComputeAccelerationFunctor compute_acceleration_functor;
     node_processor_acceleration->for_each_component(compute_acceleration_functor);
@@ -138,7 +138,7 @@ struct ComputeFirstPartialUpdateFunctor {
 };
 
 void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_first_update) {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
     // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
     ComputeFirstPartialUpdateFunctor compute_first_partial_update_functor(half_time_increment);
     node_processor_first_update->for_each_component(compute_first_partial_update_functor);
@@ -156,7 +156,7 @@ struct UpdateDisplacementsFunctor {
 };
 
 void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
     // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
     UpdateDisplacementsFunctor update_displacements_functor(time_increment);
     node_processor_update_displacements->for_each_component(update_displacements_functor);
@@ -164,7 +164,7 @@ void ExplicitSolver::UpdateDisplacements(double time_increment, const std::share
 }
 
 void ExplicitSolver::CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::CommunicateDisplacements);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::CommunicateDisplacements);
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
         node_processor_update_displacements->SyncFieldDeviceToHost(0);
@@ -185,7 +185,7 @@ struct ComputeSecondPartialUpdateFunctor {
 };
 
 void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ActiveNodeProcessor<2>> &node_processor_second_update) {
-    auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::TimeIntegrationNodalUpdates);
+    auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
     // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
     ComputeSecondPartialUpdateFunctor compute_second_partial_update_functor(half_time_increment);
     node_processor_second_update->for_each_component(compute_second_partial_update_functor);
@@ -289,7 +289,12 @@ double ExplicitSolver::Solve() {
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
 
-    aperi::TimeStepperData time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+    // Compute first time step
+    aperi::TimeStepperData time_increment_data;
+    {
+        auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeStepCompute);
+        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+    }
     double time_increment = time_increment_data.time_increment;
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
@@ -310,7 +315,10 @@ double ExplicitSolver::Solve() {
         auto start_time = std::chrono::high_resolution_clock::now();
 
         // Get the next time step, Δt^{n+½}
-        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+        {
+            auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::TimeStepCompute);
+            time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+        }
         time_increment = time_increment_data.time_increment;
         if (time_increment_data.updated) {
             LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
@@ -329,7 +337,7 @@ double ExplicitSolver::Solve() {
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         {
-            auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ApplyBoundaryConditions);
+            auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyVelocity(time_midstep);
             }
@@ -352,7 +360,7 @@ double ExplicitSolver::Solve() {
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         {
-            auto timer = m_timer_manager.CreateScopedTimer(ExplicitSolverTimerType::ApplyBoundaryConditions);
+            auto timer = m_timer_manager.CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyAcceleration(time_next);
             }
