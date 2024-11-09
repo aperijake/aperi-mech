@@ -150,8 +150,26 @@ class PowerMethodProcessor {
         // Initialize the EntityProcessor
         InitializeEntityProcessor();
 
+        // Check if all nodes are in the essential boundary set
+        CheckEssentialBoundaries();
+
         // Randomize the displacement coefficients for the initial guess at the eigenvector. Scale later to be epsilon * max_edge_length * random value
         m_node_processor->RandomizeField(FieldIndex::EIGENVECTOR, -1.0, 1.0);
+    }
+
+    void CheckEssentialBoundaries() {
+        std::array<FieldQueryData<uint64_t>, 1> field_query_data_vec = {FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None}};
+        std::vector<std::string> sets = {};
+        ActiveNodeProcessor<1, uint64_t> m_essential_boundary_node_processor(field_query_data_vec, m_mesh_data, sets);
+
+        // Get the min and max values of the essential boundary field
+        std::pair<uint64_t, uint64_t> essential_boundary_min_max = m_essential_boundary_node_processor.MinMaxField(0);
+
+        // If min != 0, then all nodes are in the essential boundary set
+        if (essential_boundary_min_max.first != 0) {
+            // Throw an exception if all nodes are in the essential boundary set
+            throw std::runtime_error("All nodes are in the essential boundary set. Cannot run the power method. Use the direct_time_stepper instead.");
+        }
     }
 
     void InitializeEntityProcessor() {

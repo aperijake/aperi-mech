@@ -158,6 +158,50 @@ TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
     EXPECT_NEAR(dot_product_12, expected_dot_product_12, 1.0e-8);
 }
 
+// Tests SumField method
+TEST_F(NodeProcessingTestFixture, SumField) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    size_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    size_t num_components = 3;
+    size_t num_dofs = num_nodes * num_components;
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    // Expected magnitudes
+    double expected_magnitude_0 = num_dofs * 1.78;
+    double expected_magnitude_1 = num_dofs * 2.89;
+    double expected_magnitude_2 = num_dofs * 3.79;
+    // Check the magnitudes
+    EXPECT_NEAR(m_node_processor_stk_ngp->SumField(0), expected_magnitude_0, 1.0e-8);
+    EXPECT_NEAR(m_node_processor_stk_ngp->SumField(1), expected_magnitude_1, 1.0e-8);
+    EXPECT_NEAR(m_node_processor_stk_ngp->SumField(2), expected_magnitude_2, 1.0e-8);
+}
+
+// Test MinMaxField method
+TEST_F(NodeProcessingTestFixture, MinMaxField) {
+    // TODO(jake): Use something other then a constant value for the fields
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    // Fill the fields with initial values
+    m_node_processor_stk_ngp->FillField(1.78, 0);
+    m_node_processor_stk_ngp->FillField(2.89, 1);
+    m_node_processor_stk_ngp->FillField(3.79, 2);
+    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
+    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
+    // Compute the min and max values
+    std::pair<double, double> min_max_0 = m_node_processor_stk_ngp->MinMaxField(0);
+    std::pair<double, double> min_max_1 = m_node_processor_stk_ngp->MinMaxField(1);
+    std::pair<double, double> min_max_2 = m_node_processor_stk_ngp->MinMaxField(2);
+    // Expected min and max values
+    std::pair<double, double> expected_min_max_0 = {1.78, 1.78};
+    std::pair<double, double> expected_min_max_1 = {2.89, 2.89};
+    std::pair<double, double> expected_min_max_2 = {3.79, 3.79};
+    // Check the min and max values
+    EXPECT_EQ(min_max_0, expected_min_max_0);
+    EXPECT_EQ(min_max_1, expected_min_max_1);
+    EXPECT_EQ(min_max_2, expected_min_max_2);
+}
+
 // Test ComputeNorm method
 TEST_F(NodeProcessingTestFixture, CalculateFieldNorm) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
