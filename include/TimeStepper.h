@@ -43,7 +43,7 @@ class TimeStepper {
     /**
      * @brief Initialize the time stepper.
      */
-    virtual void Initialize(std::shared_ptr<aperi::MeshData> mesh_data, ExplicitSolver *solver){};
+    virtual void Initialize(std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<ExplicitSolver> solver){};
 
     /**
      * @brief Get the end time of the simulation.
@@ -144,7 +144,7 @@ class PowerMethodTimeStepper : public TimeStepper {
     /**
      * @brief Initialize the time stepper.
      */
-    void Initialize(std::shared_ptr<aperi::MeshData> mesh_data, ExplicitSolver *solver) override {
+    void Initialize(std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<ExplicitSolver> solver) override {
         m_power_method_processor = std::make_shared<PowerMethodProcessor>(mesh_data, solver);
     };
 

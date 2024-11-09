@@ -130,6 +130,7 @@ class Solver {
      *
      * This function must be implemented by derived classes to compute the forces acting on the mesh.
      */
+    virtual void ComputeForce() = 0;
     virtual void ComputeForce(const SolverTimerType &timer_type) = 0;
 
     /**
@@ -137,6 +138,7 @@ class Solver {
      *
      * This function must be implemented by derived classes to communicate the forces between processors.
      */
+    virtual void CommunicateForce() = 0;
     virtual void CommunicateForce(const SolverTimerType &timer_type) = 0;
 
    protected:
@@ -164,7 +166,7 @@ inline std::vector<std::string> explicit_solver_timer_names = {"UpdateFieldState
  * This class is responsible for solving the mechanical system using an explicit time integration scheme.
  * It takes in various force contributions and a time stepper to advance the simulation over time.
  */
-class ExplicitSolver : public Solver {
+class ExplicitSolver : public Solver, public std::enable_shared_from_this<ExplicitSolver> {
    public:
     /**
      * @brief Constructs an ExplicitSolver object.
@@ -176,7 +178,8 @@ class ExplicitSolver : public Solver {
      * @param output_scheduler The output scheduler used to control the output of the simulation.
      */
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
-        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler), m_timer_manager("Explicit Solver", explicit_solver_timer_names) {
+        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
+        m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names);
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         m_node_processor_all = CreateNodeProcessorAll();  // TODO(jake): I am not sure if this is needed anymore
@@ -274,7 +277,8 @@ class ExplicitSolver : public Solver {
      * This function is responsible for calculating the force.
      * It overrides the base class function.
      */
-    void ComputeForce(const SolverTimerType &timer_type = SolverTimerType::ComputeForce) override;
+    void ComputeForce() override;
+    void ComputeForce(const SolverTimerType &timer_type) override;
 
     /**
      * @brief Communicates the force.
@@ -282,7 +286,8 @@ class ExplicitSolver : public Solver {
      * This function is responsible for communicating the force.
      * It overrides the base class function.
      */
-    void CommunicateForce(const SolverTimerType &timer_type = SolverTimerType::CommunicateForce) override;
+    void CommunicateForce() override;
+    void CommunicateForce(const SolverTimerType &timer_type) override;
 
    protected:
     /**
@@ -334,7 +339,7 @@ class ExplicitSolver : public Solver {
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::shared_ptr<ActiveNodeProcessor<8>> m_node_processor_all;
-    aperi::TimerManager<SolverTimerType> m_timer_manager;
+    std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;
 
     /**
      * @brief Writes the output.
@@ -352,10 +357,10 @@ class ExplicitSolver : public Solver {
  * @param external_force_contributions The vector of external force contributions.
  * @param boundary_conditions The vector of boundary conditions.
  * @param time_stepper The time stepper object.
- * @return A unique pointer to the created solver object.
+ * @return A shared pointer to the created solver object.
  */
-inline std::unique_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler) {
-    return std::make_unique<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
+inline std::shared_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler) {
+    return std::make_shared<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
 }
 
 }  // namespace aperi

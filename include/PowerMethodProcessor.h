@@ -103,7 +103,7 @@ class PowerMethodProcessor {
                       NUM_FIELDS };
 
    public:
-    PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, ExplicitSolver *solver) : m_mesh_data(mesh_data), m_solver(solver) {
+    PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<aperi::ExplicitSolver> solver) : m_mesh_data(mesh_data), m_solver(solver) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -369,8 +369,8 @@ class PowerMethodProcessor {
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce(aperi::SolverTimerType::NONE);
-            m_solver->CommunicateForce(aperi::SolverTimerType::NONE);
+            m_solver->ComputeForce();
+            m_solver->CommunicateForce();
 
             // Compute the next eigenvector
             ComputeNextEigenvector(epsilon);
@@ -415,7 +415,7 @@ class PowerMethodProcessor {
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    ExplicitSolver *m_solver;                      // The solver object.
+    std::shared_ptr<aperi::ExplicitSolver> m_solver;  // The solver object.
     bool m_eigenvector_is_initialized = false;     // Flag for if the eigenvector is initialized
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector

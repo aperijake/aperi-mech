@@ -17,22 +17,27 @@ class PowerMethodProcessorTest : public SolverTest {
         SolverTest::SetUp();
     }
 
+    void TearDown() override {
+        m_power_method_processor.reset();
+        // Run SolverTest::TearDown last
+        SolverTest::TearDown();
+    }
+
     double RunPowerMethodProcessor() {
         // Get the solver
-        m_explicit_solver = dynamic_cast<aperi::ExplicitSolver *>(m_solver.get());
+        auto explicit_solver = std::dynamic_pointer_cast<aperi::ExplicitSolver>(m_solver);
 
         // Build the mass matrix
-        m_explicit_solver->BuildMassMatrix();
+        explicit_solver->BuildMassMatrix();
 
         // Create a PowerMethodProcessor object
-        m_power_method_processor = std::make_shared<aperi::PowerMethodProcessor>(m_solver->GetMeshData(), m_explicit_solver);
+        m_power_method_processor = std::make_shared<aperi::PowerMethodProcessor>(m_solver->GetMeshData(), explicit_solver);
         // Run the power method processor
         double stable_time_step = m_power_method_processor->ComputeStableTimeIncrement(500);
         return stable_time_step;
     }
 
     std::shared_ptr<aperi::PowerMethodProcessor> m_power_method_processor;  ///< The power method processor object.
-    aperi::ExplicitSolver *m_explicit_solver;                               ///< The explicit solver object.
 };
 
 // Test that the PowerMethodProcessor can be run
@@ -49,7 +54,7 @@ TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
     CreateSolver();
     double stable_time_step = RunPowerMethodProcessor();
     double expected_stable_time_step = 0.0001;
-    EXPECT_NEAR(stable_time_step, expected_stable_time_step, 1e-4);
+    EXPECT_NEAR(stable_time_step, expected_stable_time_step, 1e-5);
 }
 
 // Test that the PowerMethodProcessor will throw an exception if the all nodes are fixed
