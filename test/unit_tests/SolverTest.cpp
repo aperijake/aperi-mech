@@ -31,6 +31,35 @@ TEST_F(SolverTest, Explicit) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration_coefficients", expected_acceleration, aperi::FieldQueryState::N);
 }
 
+// Test that a basic explicit problem with the power method can be solved
+TEST_F(SolverTest, ExplicitPowerMethod) {
+    m_yaml_data = CreateTestYaml();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"].remove("direct_time_stepper");
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["scale_factor"] = 0.9;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["update_interval"] = 3;
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["time_end"] = 1.0;
+    // Increase the density to make the time step larger, try and make it near 0.1
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = 1.21 * 7.15555e9;
+    CreateInputFile();
+    CreateTestMesh();
+    RunSolver();
+    const YAML::Node velocity_node = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"];
+    double final_time = 1.0;
+    auto magnitude = velocity_node["magnitude"].as<double>();
+    auto direction = velocity_node["direction"].as<std::array<double, 3>>();
+    std::array<double, 3> expected_velocity = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
+    std::array<double, 3> expected_displacement = {expected_velocity[0] * final_time, expected_velocity[1] * final_time, expected_velocity[2] * final_time};
+    std::array<double, 3> expected_acceleration = {0, 0, 0};
+
+    EXPECT_GT(std::abs(magnitude), 0);
+    EXPECT_GT((direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]), 0);
+
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "displacement_coefficients", expected_displacement, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "velocity_coefficients", expected_velocity, aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "acceleration_coefficients", expected_acceleration, aperi::FieldQueryState::NP1);
+}
+
 // Driver function for gravity tests
 void TestGravity(const YAML::Node& yaml_data, const std::shared_ptr<aperi::Solver>& solver, int num_procs, int num_blocks) {
     const YAML::Node velocity_node = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["initial_conditions"][0]["velocity"]["vector"];

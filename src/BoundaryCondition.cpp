@@ -35,6 +35,17 @@ void BoundaryCondition::ApplyAcceleration(double time) {
     m_node_processor_acceleration->MarkAllFieldsModifiedOnDevice();
 }
 
+// Set the flag to mark the field as on an essential boundary
+void BoundaryCondition::SetEssentialBoundaryFlag() {
+    // Loop over the nodes
+    uint64_t essential_boundary_flag = 1;
+    for (auto&& component_value : m_components_and_values) {
+        auto fill_field_functor = FillFieldFunctor(essential_boundary_flag);
+        m_node_processor_boundary->for_component_i(fill_field_functor, component_value.first, 0);
+    }
+    m_node_processor_boundary->MarkAllFieldsModifiedOnDevice();
+}
+
 // Set the time function
 std::pair<std::function<double(double)>, std::function<double(double)>> SetTimeFunctions(const YAML::Node& boundary_condition, const std::string& bc_type) {
     // Get the time function node

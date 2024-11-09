@@ -70,8 +70,13 @@ for nodeset_id in nodeset_ids:
 old_nodal_vars = old_file.get_node_variable_names()
 nodal_vars = []
 for var in old_nodal_vars:
-    # skip variables that start with "neighbors_" or "function_values_"
-    if not var.startswith("neighbors_") and not var.startswith("function_values_"):
+    # skip variables that start with "neighbors_" or "function_values_" or "eigenvector_"
+    if (
+        not var.startswith("neighbors_")
+        and not var.startswith("function_values_")
+        and not var.startswith("eigenvector_")
+        and not var.count("_temp_")
+    ):
         nodal_vars.append(var)
 
 new_file.set_node_variable_number(len(nodal_vars))

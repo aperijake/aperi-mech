@@ -8,6 +8,7 @@
 #include "InternalForceContribution.h"
 #include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
+#include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
@@ -65,6 +66,10 @@ class MassMatrixTest : public CaptureOutputTest {
         // Label the mesh for element integration
         m_mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
         mesh_labeler.LabelPart(m_mesh_labeler_parameters);
+
+        // Create a max edge length processor
+        aperi::MaxEdgeLengthProcessor max_edge_length_processor(m_io_mesh->GetMeshData(), std::vector<std::string>{});
+        max_edge_length_processor.ComputeMaxEdgeLength();
 
         if (uses_generalized_fields) {
             // Create an internal force contribution in order to run strain smoothing and populate the volume field, needed for the mass matrix computation

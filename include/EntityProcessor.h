@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -20,20 +22,44 @@
 
 namespace aperi {
 
+// Functor to fill a field with a value
+template <typename T>
 struct FillFieldFunctor {
-    FillFieldFunctor(double value) : m_value(value) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *value) const { *value = m_value; }
-    double m_value;
+    FillFieldFunctor(T value) : m_value(value) {}
+    KOKKOS_INLINE_FUNCTION void operator()(T *value) const { *value = m_value; }
+    T m_value;
 };
 
+// Functor to copy a field
+template <typename T>
 struct CopyFieldFunctor {
     CopyFieldFunctor() {}
-    KOKKOS_INLINE_FUNCTION void operator()(const double *src, double *dest) const { *dest = *src; }
+    KOKKOS_INLINE_FUNCTION void operator()(const T *src, T *dest) const { *dest = *src; }
 };
 
+// Functor to print a field
+template <typename T>
 struct PrintFieldFunctor {
     PrintFieldFunctor() {}
-    KOKKOS_INLINE_FUNCTION void operator()(const double *value) const { printf(" %f\n", *value); }
+    KOKKOS_INLINE_FUNCTION void operator()(const T *value) const { printf(" %f\n", static_cast<double>(*value)); }
+};
+
+// Functor for randomizing the field
+template <typename T>
+struct RandomizeFunctor {
+    T min;
+    T max;
+    Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool;
+
+    RandomizeFunctor(T min_val, T max_val, Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool_)
+        : min(min_val), max(max_val), rand_pool(rand_pool_) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(T *value) const {
+        auto rand_gen = rand_pool.get_state();
+        T random_value = static_cast<T>(rand_gen.drand());
+        *value = min + random_value * (max - min);
+        rand_pool.free_state(rand_gen);
+    }
 };
 
 // A Entity processor that uses the stk::mesh::NgpForEachEntity to apply a lambda function to each component of each entity
@@ -155,8 +181,8 @@ class EntityProcessor {
     }
 
     // Get the sum of a field
-    double GetFieldSumHost(size_t field_index) const {
-        double field_sum = 0.0;
+    T GetFieldSumHost(size_t field_index) const {
+        T field_sum = 0.0;
         stk::mesh::field_asum(field_sum, *m_fields[field_index], m_owned_selector, m_bulk_data->parallel());
         return field_sum;
     }
@@ -215,7 +241,7 @@ class EntityProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 const size_t num_components = field.get_num_components_per_entity(entity);
                 for (size_t i = 0; i < num_components; i++) {
-                    double *field_ptr = &field(entity, i);
+                    T *field_ptr = &field(entity, i);
                     KOKKOS_ASSERT(field_ptr != nullptr);
                     func(field_ptr);
                 }
@@ -238,8 +264,8 @@ class EntityProcessor {
                 const size_t num_components = field_0.get_num_components_per_entity(entity);
                 KOKKOS_ASSERT(field_1.get_num_components_per_entity(entity) == num_components);
                 for (size_t i = 0; i < num_components; i++) {
-                    double *field_0_ptr = &field_0(entity, i);
-                    double *field_1_ptr = &field_1(entity, i);
+                    T *field_0_ptr = &field_0(entity, i);
+                    T *field_1_ptr = &field_1(entity, i);
                     KOKKOS_ASSERT(field_0_ptr != nullptr);
                     KOKKOS_ASSERT(field_1_ptr != nullptr);
                     func(field_0_ptr, field_1_ptr);
@@ -257,7 +283,7 @@ class EntityProcessor {
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                double *field_ptr = &field(entity, i);
+                T *field_ptr = &field(entity, i);
                 KOKKOS_ASSERT(field_ptr != nullptr);
                 func(field_ptr);
             });
@@ -295,7 +321,7 @@ class EntityProcessor {
 
     // Debug printing. Only should do for small meshes.
     void debug_print_field_with_id_host(size_t field_index) const {
-        double *field_data;
+        T *field_data;
         // Loop over all the buckets
         std::string output = "";
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
@@ -325,7 +351,7 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_component_i_host_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) const {
-        std::array<double *, N> field_data;  // Array to hold field data
+        std::array<T *, N> field_data;  // Array to hold field data
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[0], *bucket);
@@ -353,13 +379,13 @@ class EntityProcessor {
 
     // Just print the value of component i
     void print_component_i(size_t i, size_t field_index = 0) {
-        auto print_functor = PrintFieldFunctor();
+        auto print_functor = PrintFieldFunctor<T>();
         for_component_i(print_functor, i, field_index);
     }
 
     // Just print the value of component i on the host
     void print_component_i_host(size_t i, size_t field_index = 0) const {
-        double *field_data;
+        T *field_data;
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(Rank)) {
             const size_t num_components = stk::mesh::field_scalars_per_entity(*m_fields[field_index], *bucket);
@@ -410,15 +436,214 @@ class EntityProcessor {
     }
 
     // Fill the field with a value
-    void FillField(double value, size_t field_index) {
+    void FillField(T value, size_t field_index) {
         FillFieldFunctor functor(value);
         for_each_component_impl(functor, field_index, m_selector);
     }
 
     // Copy the field to another field
     void CopyFieldData(size_t src_field_index, size_t dest_field_index) {
-        CopyFieldFunctor functor;
+        CopyFieldFunctor<T> functor;
         for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
+    }
+
+    // Randomize the field
+    void RandomizeField(size_t field_index, const T &min = 0.0, const T &max = 1.0, size_t seed = 0) {
+        Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace> rand_pool(seed);
+        RandomizeFunctor<T> randomize_functor(min, max, rand_pool);
+        for_each_component_impl(randomize_functor, field_index, m_selector);
+    }
+
+    // Calculate the sum of the field
+    T SumField(size_t field_index) {
+        // Kokkos view for the field sum
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
+        auto field_sum_host = Kokkos::create_mirror_view(field_sum);
+        field_sum_host(0) = 0.0;
+        Kokkos::deep_copy(field_sum, field_sum_host);
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Sum the squares of the components
+                T value_sum = 0.0;
+                for (size_t i = 0; i < num_components; i++) {
+                    T value = field(entity, i);
+                    value_sum += value;
+                }
+                // Atomic add the value squared to the field sum
+                Kokkos::atomic_add(&field_sum[0], value_sum);
+            });
+
+        // Host view for the field sum
+        Kokkos::deep_copy(field_sum_host, field_sum);
+
+        // Parallel sum the field sum
+        T field_sum_value = field_sum_host(0);
+        T field_sum_value_global = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &field_sum_value, &field_sum_value_global, 1);
+
+        return field_sum_value_global;
+    }
+
+    // Calculate the min and max of the field
+    std::pair<T, T> MinMaxField(size_t field_index) {
+        // Kokkos view for the field min and max
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_min("field_min", 1);
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_max("field_max", 1);
+        auto field_min_host = Kokkos::create_mirror_view(field_min);
+        auto field_max_host = Kokkos::create_mirror_view(field_max);
+        field_min_host(0) = std::numeric_limits<T>::max();
+        field_max_host(0) = std::numeric_limits<T>::lowest();
+        Kokkos::deep_copy(field_min, field_min_host);
+        Kokkos::deep_copy(field_max, field_max_host);
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Find the min and max of the components
+                for (size_t i = 0; i < num_components; i++) {
+                    T value = field(entity, i);
+                    Kokkos::atomic_min(&field_min[0], value);
+                    Kokkos::atomic_max(&field_max[0], value);
+                }
+            });
+
+        // Host view for the field min and max
+        Kokkos::deep_copy(field_min_host, field_min);
+        Kokkos::deep_copy(field_max_host, field_max);
+
+        return std::make_pair(field_min_host(0), field_max_host(0));
+    }
+
+    // Calculate the norm of the field
+    T CalculateFieldNorm(size_t field_index) {
+        // Kokkos view for the field sum
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
+        auto field_sum_host = Kokkos::create_mirror_view(field_sum);
+        field_sum_host(0) = 0.0;
+        Kokkos::deep_copy(field_sum, field_sum_host);
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Sum the squares of the components
+                T value_squared = 0.0;
+                for (size_t i = 0; i < num_components; i++) {
+                    T value = field(entity, i);
+                    value_squared += value * value;
+                }
+                // Atomic add the value squared to the field sum
+                Kokkos::atomic_add(&field_sum[0], value_squared);
+            });
+
+        // Host view for the field sum
+        Kokkos::deep_copy(field_sum_host, field_sum);
+
+        // Parallel sum the field sum
+        T field_sum_value = field_sum_host(0);
+        T field_sum_value_global = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &field_sum_value, &field_sum_value_global, 1);
+
+        // Do the square root of the sum
+        T field_norm = std::sqrt(field_sum_value_global);
+
+        return field_norm;
+    }
+
+    // Normalize the field
+    T NormalizeField(size_t field_index) {
+        // Calculate the field norm
+        T field_norm = CalculateFieldNorm(field_index);
+
+        // Get the field
+        auto field = *m_ngp_fields[field_index];
+
+        // Normalize the field
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field.get_num_components_per_entity(entity);
+                // Normalize the components
+                for (size_t i = 0; i < num_components; i++) {
+                    field(entity, i) /= field_norm;
+                }
+            });
+
+        return field_norm;
+    }
+
+    // Compute the dot product of two fields
+    T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
+        // Kokkos array for the dot product
+        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
+        auto dot_product_host = Kokkos::create_mirror_view(dot_product);
+        dot_product_host(0) = 0.0;
+        Kokkos::deep_copy(dot_product, dot_product_host);
+
+        // Get the fields
+        auto field_0 = *m_ngp_fields[field_index_0];
+        auto field_1 = *m_ngp_fields[field_index_1];
+
+        // Compute the dot product
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field_0.get_num_components_per_entity(entity);
+                // Compute the dot product
+                T local_dot_product = 0.0;
+                for (size_t i = 0; i < num_components; i++) {
+                    local_dot_product += field_0(entity, i) * field_1(entity, i);
+                }
+                // Atomic add the local dot product to the dot product
+                Kokkos::atomic_add(&dot_product[0], local_dot_product);
+            });
+
+        // Host view for the dot product
+        Kokkos::deep_copy(dot_product_host, dot_product);
+
+        // Parallel sum the dot product
+        T dot_product_value = dot_product_host(0);
+        T dot_product_value_global = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &dot_product_value, &dot_product_value_global, 1);
+
+        return dot_product_value_global;
+    }
+
+    // Scale and multiply fields
+    void ScaleAndMultiplyField(size_t field_index_1, size_t field_index_2, double a) {
+        // Get the fields
+        auto field_1 = *m_ngp_fields[field_index_1];
+        auto field_2 = *m_ngp_fields[field_index_2];
+
+        // Perform the operation field_1 = field_1 * a * field_2
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, m_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                // Get the number of components
+                const size_t num_components = field_1.get_num_components_per_entity(entity);
+                // Perform the element-wise operation
+                for (size_t i = 0; i < num_components; i++) {
+                    field_1(entity, i) = field_1(entity, i) * a * field_2(entity, i);
+                }
+            });
     }
 
    private:

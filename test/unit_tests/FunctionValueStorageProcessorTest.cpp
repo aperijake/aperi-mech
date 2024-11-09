@@ -102,6 +102,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     RandomizeCoordinates(*m_mesh_data);
+    m_max_edge_length_processor->ComputeMaxEdgeLength();  // Recompute the max edge length after the coordinates are randomized
     double kernel_radius = 1.5;
     m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius);
     m_search_processor->SyncFieldsToHost();

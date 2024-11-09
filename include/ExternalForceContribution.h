@@ -77,7 +77,7 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
 
 struct ComputeGravityForceFunctor {
     ComputeGravityForceFunctor(double gravity_value) : m_gravity_value(gravity_value) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force = m_gravity_value * *mass; }
+    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force += m_gravity_value * *mass; }
     double m_gravity_value;
 };
 

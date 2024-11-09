@@ -9,7 +9,7 @@ namespace aperi {
 enum class TestTimerType {
     TIMER1,
     TIMER2,
-    COUNT  // This should always be the last element
+    NONE  // This should always be the last element
 };
 
 class TimerTest : public ::testing::Test {
