@@ -190,11 +190,12 @@ class EntityProcessor {
     // Loop over each entity and apply the function
     // Does not mark anything modified. Need to do that separately
     template <typename Func, size_t NumFields, std::size_t... Is>
-    void for_each_component_impl(const Func &func, Kokkos::Array<stk::mesh::NgpField<T> *, NumFields> ngp_fields, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
+    void for_each_component_impl(const Func &func, std::array<size_t, NumFields> field_indices, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
         // Create an array of ngp fields
         Kokkos::Array<stk::mesh::NgpField<T>, NumFields> fields;
         for (size_t i = 0; i < NumFields; ++i) {
-            fields[i] = *ngp_fields[i];
+            assert(field_indices[i] < N && "field_index out of bounds");
+            fields[i] = *m_ngp_fields[field_indices[i]];
         }
 
         // Loop over all the entities
@@ -203,13 +204,19 @@ class EntityProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 const size_t num_components = fields[0].get_num_components_per_entity(entity);
                 // assert each other field has same number of components
-                for (size_t i = 1; i < N; i++) {
-                    assert(fields[i].get_num_components_per_entity(entity) == num_components);
+                for (size_t i = 1; i < NumFields; i++) {
+                    KOKKOS_ASSERT(fields[i].get_num_components_per_entity(entity) == num_components);
                 }
                 for (size_t j = 0; j < num_components; j++) {
                     func(&fields[Is](entity, j)...);
                 }
             });
+    }
+
+    // Wrapper for above function
+    template <typename Func, size_t NumFields>
+    void for_each_component_impl(const Func &func, std::array<size_t, NumFields> field_indices, const stk::mesh::Selector &selector) {
+        for_each_component_impl(func, field_indices, std::make_index_sequence<NumFields>{}, selector);
     }
 
     // Loop over each entity and apply the function
@@ -485,8 +492,8 @@ class EntityProcessor {
     // Copy the field to another field
     void CopyFieldData(size_t src_field_index, size_t dest_field_index) {
         CopyFieldFunctor<T> functor;
-        Kokkos::Array<stk::mesh::NgpField<T> *, 2> ngp_fields = {m_ngp_fields[src_field_index], m_ngp_fields[dest_field_index]};
-        for_each_component_impl(functor, ngp_fields, std::make_index_sequence<2>{}, m_selector);
+        std::array<size_t, 2> field_indices = {src_field_index, dest_field_index};
+        for_each_component_impl(functor, field_indices, std::make_index_sequence<2>{}, m_selector);
         //for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
