@@ -26,7 +26,7 @@ template <typename TimerType>
 class TimerManager {
    public:
     TimerManager(const std::string& group_name, const std::vector<std::string>& timer_names) : m_timer_group_name(group_name), m_timer_names(timer_names) {
-        m_timers.resize(static_cast<size_t>(TimerType::COUNT), 0.0);
+        m_timers.resize(static_cast<size_t>(TimerType::NONE), 0.0);
     }
 
     ScopedTimer CreateScopedTimer(TimerType type) {

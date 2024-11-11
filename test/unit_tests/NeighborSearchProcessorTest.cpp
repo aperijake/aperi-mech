@@ -243,8 +243,9 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     // Run the mesh labeling
     RunMeshLabeling();
 
-    // Create the search processor
+    // Create the search processor and max edge length processor
     CreateSearchProcessor();
+    CreateMaxEdgeLengthProcessor();
 
     // Have not added neighbors yet
     // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.

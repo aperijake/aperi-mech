@@ -451,7 +451,7 @@ class StrainSmoothingProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Set up the field data to gather
-                Eigen::Matrix<double, NumNodes, 3> cell_node_coordinates;
+                Eigen::Matrix<double, NumNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumNodes, 3>::Zero();
 
                 // Gather the field data for each node
                 for (size_t i = 0; i < num_nodes; ++i) {

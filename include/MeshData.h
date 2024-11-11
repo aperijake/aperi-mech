@@ -179,7 +179,7 @@ class MeshData {
         }
     }
 
-    void PrintElementCounts(bool print_each_processor = false) const {
+    void PrintElementCounts() const {
         // Get the universal part
         stk::mesh::Selector selector = StkGetSelector({}, &m_bulk_data->mesh_meta_data());
         // Get the owned part

@@ -93,4 +93,28 @@ inline stk::mesh::Selector StkGetSelector(const std::vector<std::string> &sets, 
     return stk::mesh::selectUnion(parts);
 }
 
+// Create local entities on host and copy to device
+inline Kokkos::View<stk::mesh::FastMeshIndex *, stk::ngp::ExecSpace> GetLocalEntityIndices(stk::mesh::EntityRank rank, stk::mesh::Selector selector, stk::mesh::BulkData *bulk_data) {
+    // TODO(jake): This is a temporary solution. STK is working on having the local entities available on the device.
+
+    // Get the local entities
+    std::vector<stk::mesh::Entity> local_entities;
+    stk::mesh::get_entities(*bulk_data, rank, selector, local_entities);
+
+    // Create the mesh indices views
+    Kokkos::View<stk::mesh::FastMeshIndex *, stk::ngp::ExecSpace> mesh_indices("mesh_indices", local_entities.size());
+    Kokkos::View<stk::mesh::FastMeshIndex *, stk::ngp::ExecSpace>::HostMirror host_mesh_indices = Kokkos::create_mirror_view(Kokkos::WithoutInitializing, mesh_indices);
+
+    // Put the local entities in the host view
+    for (size_t i = 0; i < local_entities.size(); ++i) {
+        const stk::mesh::MeshIndex &mesh_index = bulk_data->mesh_index(local_entities[i]);
+        host_mesh_indices(i) = stk::mesh::FastMeshIndex{mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal};
+    }
+
+    // Copy to device
+    Kokkos::deep_copy(mesh_indices, host_mesh_indices);
+
+    return mesh_indices;
+}
+
 }  // namespace aperi

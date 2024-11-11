@@ -7,18 +7,17 @@ TEST(SchedulerTest, TimeIncrementScheduler) {
     output_scheduler_node["time_start"] = 0.0;
     output_scheduler_node["time_end"] = 1.0;
     output_scheduler_node["time_increment"] = 0.1;
-    std::shared_ptr<aperi::Scheduler> scheduler = aperi::CreateScheduler(output_scheduler_node);
-    EXPECT_EQ(scheduler->GetTimeStart(), 0.0);
+    std::shared_ptr<aperi::Scheduler<double>> scheduler = aperi::CreateTimeIncrementScheduler(output_scheduler_node);
     EXPECT_EQ(scheduler->GetTimeEnd(), 1.0);
 }
 
-// Test that the next event is detected correctly
-TEST(SchedulerTest, NextEventDetection) {
+// Test that the next event is detected correctly for the time increment scheduler
+TEST(SchedulerTest, TimeIncrementSchedulerAtNextEvent) {
     YAML::Node output_scheduler_node;
     output_scheduler_node["time_start"] = 0.0;
     output_scheduler_node["time_end"] = 1.0;
     output_scheduler_node["time_increment"] = 0.1;
-    std::shared_ptr<aperi::Scheduler> scheduler = aperi::CreateScheduler(output_scheduler_node);
+    std::shared_ptr<aperi::Scheduler<double>> scheduler = aperi::CreateTimeIncrementScheduler(output_scheduler_node);
     double tolerance = 1.0e-15;
 
     EXPECT_EQ(scheduler->GetNextEventTime(), 0.0);  // Initial next event time is 0.0
@@ -62,4 +61,33 @@ TEST(SchedulerTest, NextEventDetection) {
     // Beyond the end time
     EXPECT_FALSE(scheduler->AtNextEvent(1.1));
     EXPECT_FALSE(scheduler->AtNextEvent(10.1));
+}
+
+// Test that the next event is detected correctly for the step scheduler
+TEST(SchedulerTest, StepSchedulerAtNextEvent) {
+    size_t step_increment = 5;
+    std::shared_ptr<aperi::Scheduler<size_t>> scheduler = std::make_shared<aperi::StepScheduler>(0, step_increment);
+
+    EXPECT_EQ(scheduler->GetNextEventTime(), 0);  // Initial next event time is 0
+
+    EXPECT_TRUE(scheduler->AtNextEvent(0));       // Not yet at the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 5);  // Next event time is 0
+
+    EXPECT_FALSE(scheduler->AtNextEvent(1));      // Not yet at the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 5);  // Next event time is 0
+
+    EXPECT_FALSE(scheduler->AtNextEvent(4));      // Not yet at the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 5);  // Next event time is 0
+
+    EXPECT_TRUE(scheduler->AtNextEvent(5));        // At the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 10);  // Next event time is 5
+
+    EXPECT_FALSE(scheduler->AtNextEvent(6));       // Not yet at the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 10);  // Next event time is 5
+
+    EXPECT_FALSE(scheduler->AtNextEvent(9));       // Not yet at the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 10);  // Next event time is 5
+
+    EXPECT_TRUE(scheduler->AtNextEvent(10));       // At the next event
+    EXPECT_EQ(scheduler->GetNextEventTime(), 15);  // Next event time is 10
 }

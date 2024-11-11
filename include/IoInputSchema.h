@@ -146,6 +146,14 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema time_increment_schema("time_increment", "float", "the time increment");
     YAML::Node time_increment_node = time_increment_schema.GetInputSchema();
 
+    // Scale factor node
+    aperi::InputSchema scale_factor_schema("scale_factor", "float", "the scale factor");
+    YAML::Node scale_factor_node = scale_factor_schema.GetInputSchema();
+
+    // Update interval node
+    aperi::InputSchema update_interval_schema("update_interval", "int", "the update interval");
+    YAML::Node update_interval_node = update_interval_schema.GetInputSchema();
+
     // Set node
     aperi::InputSchema set_schema("set", "string", "the name of the set");
     YAML::Node set_node = set_schema.GetInputSchema();
@@ -193,9 +201,17 @@ YAML::Node GetInputSchema() {
     direct_time_stepper_schema.AddAllOf(time_end_node);
     YAML::Node direct_time_stepper_node = direct_time_stepper_schema.GetInputSchema();
 
+    // Power method time stepper node
+    aperi::InputSchema power_method_time_stepper_schema("power_method_time_stepper", "map", "the power method time stepper");
+    power_method_time_stepper_schema.AddAllOf(time_end_node);
+    power_method_time_stepper_schema.AddAllOf(scale_factor_node);
+    power_method_time_stepper_schema.AddAllOf(update_interval_node);
+    YAML::Node power_method_time_stepper_node = power_method_time_stepper_schema.GetInputSchema();
+
     // Time stepper node
     aperi::InputSchema time_stepper_schema("time_stepper", "map", "the time stepper");
     time_stepper_schema.AddOneOf(direct_time_stepper_node);
+    time_stepper_schema.AddOneOf(power_method_time_stepper_node);
     YAML::Node time_stepper_node = time_stepper_schema.GetInputSchema();
 
     // Output node

@@ -34,6 +34,7 @@ class BoundaryConditionTest : public ApplicationTest {
         m_field_data.emplace_back("velocity_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
         m_field_data.emplace_back("displacement_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
         m_field_data.emplace_back("acceleration_coefficients", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 2, std::vector<double>{});
+        m_field_data.emplace_back("essential_boundary", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{});
     }
 
     void TearDown() override {
@@ -69,6 +70,12 @@ class BoundaryConditionTest : public ApplicationTest {
         field_query_data_vec[5] = {"acceleration_coefficients", aperi::FieldQueryState::N};
 
         m_all_field_node_processor = std::make_shared<aperi::NodeProcessor<6>>(field_query_data_vec, m_io_mesh->GetMeshData());
+
+        // Create a node processor for the essential boundary field
+        std::array<aperi::FieldQueryData<uint64_t>, 1> boundary_field_query_data_vec;
+        boundary_field_query_data_vec[0] = {"essential_boundary", aperi::FieldQueryState::None};
+
+        m_essential_boundary_node_processor = std::make_shared<aperi::NodeProcessor<1, uint64_t>>(boundary_field_query_data_vec, m_io_mesh->GetMeshData());
     }
 
     void UpdateNodalDisplacements(double time_increment) {
@@ -128,6 +135,19 @@ class BoundaryConditionTest : public ApplicationTest {
         expected_values[1] = expected_velocity;
     }
 
+    void CheckEssentialBoundaryFlag() {
+        // Set up the expected essential boundary values
+        std::array<uint64_t, 1> expected_on_essential_boundary = {1};
+
+        // Sync the fields
+        m_essential_boundary_node_processor->SyncAllFieldsDeviceToHost();
+
+        // Check the essential boundary conditions
+        for (const auto &m_boundary_condition : m_boundary_conditions) {
+            CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), m_boundary_condition->GetSetNames(), "essential_boundary", expected_on_essential_boundary, aperi::FieldQueryState::None);
+        }
+    }
+
     void CheckBoundaryConditions(const std::string &bc_type) {
         // Get the boundary condition from the yaml data
         YAML::Node boundary_condition = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
@@ -152,6 +172,10 @@ class BoundaryConditionTest : public ApplicationTest {
         std::array<double, 3> expected_displacement = {0.0, 0.0, 0.0};
         std::array<double, 3> expected_velocity = {0.0, 0.0, 0.0};
 
+        // Check the essential boundary flag
+        CheckEssentialBoundaryFlag();
+
+        // Loop over the time increments
         for (double time = 0.0; time < final_time; time += time_increment) {
             // Apply the boundary conditions
             for (auto &m_boundary_condition : m_boundary_conditions) {
@@ -230,6 +254,7 @@ class BoundaryConditionTest : public ApplicationTest {
     std::shared_ptr<aperi::IoInputFile> m_io_input_file;
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;
     std::shared_ptr<aperi::NodeProcessor<6>> m_all_field_node_processor;
+    std::shared_ptr<aperi::NodeProcessor<1, uint64_t>> m_essential_boundary_node_processor;
 };
 
 // Test adding a displacement boundary condition

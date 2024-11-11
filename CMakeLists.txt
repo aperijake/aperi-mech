@@ -8,6 +8,11 @@ option(USE_PROTEGO_MECH "Include protego-mech library" OFF)
 
 # Set the flags for the RelWithDebInfo configuration
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -pg")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -pg")
+
+# Set the flags for the Release configuration
+set(MAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_C_FLAGS_RELEASE "-O3")
 
 include(cmake/version_info.cmake)
 include(cmake/build_settings.cmake)

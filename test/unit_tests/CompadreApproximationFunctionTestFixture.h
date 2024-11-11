@@ -40,13 +40,13 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
    public:
     template <typename ViewType, typename DataType>
-    void TransferFieldToKokkosView(const aperi::FieldQueryData<DataType> &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace> &field_view, const bool overwrite = false) {
+    void TransferFieldToKokkosView(const aperi::FieldQueryData<DataType> &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace> &field_view) {
         stk::mesh::BulkData *bulk_data = mesh_data.GetBulkData();
         stk::mesh::MetaData &meta_data = bulk_data->mesh_meta_data();
         stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);
         stk::topology::rank_t topology_rank = field_query_data.topology_rank == aperi::FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
         // Slow host operation
-        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(topology_rank, selector);
+        FastMeshIndicesViewType entity_indices = aperi::GetLocalEntityIndices(topology_rank, selector, bulk_data);
         const unsigned num_entities = entity_indices.extent(0);
         assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == num_entities);
         assert(field_view.extent(0) == num_entities);
@@ -81,7 +81,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);
         stk::topology::rank_t topology_rank = field_query_data.topology_rank == aperi::FieldDataTopologyRank::NODE ? stk::topology::NODE_RANK : stk::topology::ELEMENT_RANK;
         // Slow host operation
-        FastMeshIndicesViewType entity_indices = m_search_processor->GetLocalEntityIndices(topology_rank, selector);
+        FastMeshIndicesViewType entity_indices = aperi::GetLocalEntityIndices(topology_rank, selector, bulk_data);
         assert(stk::mesh::count_entities(*m_bulk_data, topology_rank, selector) == entity_indices.extent(0));
 
         stk::mesh::Field<OutputDataType> *field = aperi::StkGetField(field_query_data, &meta_data);

@@ -16,6 +16,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "MaxEdgeLengthProcessor.h"
 #include "MeshData.h"
 #include "MeshLabeler.h"
 #include "NeighborSearchProcessor.h"
@@ -58,6 +59,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_kernel_radius_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "kernel_radius", 1);
         stk::mesh::put_field_on_entire_mesh(*m_kernel_radius_field, 1);
 
+        m_max_edge_length_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "max_edge_length", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_max_edge_length_field, 1);
+
         m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
 
@@ -98,6 +102,11 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, sets);
     }
 
+    void CreateMaxEdgeLengthProcessor() {
+        m_max_edge_length_processor = std::make_shared<aperi::MaxEdgeLengthProcessor>(m_mesh_data, std::vector<std::string>{});
+        m_max_edge_length_processor->ComputeMaxEdgeLength();
+    }
+
     template <typename T>
     double CreateMeshAndProcessors(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::string extra_mesh_spec = "|tets", const std::vector<aperi::FieldQueryData<T>> &extra_fields = {}) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -106,6 +115,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         PopulateBulkAndMeshData();
         RunMeshLabeling();
         CreateSearchProcessor();
+        CreateMaxEdgeLengthProcessor();
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         return elapsed_seconds.count();
@@ -122,6 +132,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_bulk_data.reset();
         m_mesh_data.reset();
         m_search_processor.reset();
+        m_max_edge_length_processor.reset();
 
         // Explicitly set field pointers to nullptr
         m_node_num_neighbors_field = nullptr;
@@ -129,6 +140,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_active_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
+        m_max_edge_length_field = nullptr;
         m_cell_id_field = nullptr;
         m_smoothed_cell_id_field = nullptr;
 
@@ -148,6 +160,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     UnsignedField *m_smoothed_cell_id_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
+    DoubleField *m_max_edge_length_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
+    std::shared_ptr<aperi::MaxEdgeLengthProcessor> m_max_edge_length_processor;
 };
