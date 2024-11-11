@@ -40,7 +40,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
    public:
     template <typename ViewType, typename DataType>
-    void TransferFieldToKokkosView(const aperi::FieldQueryData<DataType> &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace> &field_view, const bool overwrite = false) {
+    void TransferFieldToKokkosView(const aperi::FieldQueryData<DataType> &field_query_data, const aperi::MeshData &mesh_data, const std::vector<std::string> &sets, Kokkos::View<ViewType, Kokkos::DefaultExecutionSpace> &field_view) {
         stk::mesh::BulkData *bulk_data = mesh_data.GetBulkData();
         stk::mesh::MetaData &meta_data = bulk_data->mesh_meta_data();
         stk::mesh::Selector selector = aperi::StkGetSelector(sets, &meta_data);

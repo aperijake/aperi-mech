@@ -94,7 +94,7 @@ Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& 
     size_t num_components = 0;
     bool num_components_set = false;
     size_t num_entities = 0;
-    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& /*i_entity_start*/, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& /*field_data*/) {
         if (num_components_set) {
             EXPECT_EQ(entity_num_components[0], num_components) << "Number of components is not consistent";
         } else {
@@ -105,7 +105,7 @@ Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& 
     });
     Eigen::Matrix<T, Eigen::Dynamic, N> field_values(num_entities, num_components);
     size_t i_entity = 0;
-    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& /*entity_num_components*/, std::array<T*, 1>& field_data) {
         for (size_t i = 0; i < num_components; i++) {
             field_values.row(i_entity) = Eigen::Map<Eigen::Matrix<T, 1, N>>(field_data[0] + i_entity_start[0]);
         }
@@ -234,7 +234,7 @@ void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std
     // Get the sum of the field values
     size_t num_components = 0;
     bool num_components_set = false;
-    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& /*i_entity_start*/, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& /*field_data*/) {
         if (num_components_set) {
             EXPECT_EQ(entity_num_components[0], num_components) << "Number of components is not consistent";
         } else {

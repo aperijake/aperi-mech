@@ -42,6 +42,9 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
     for (const auto& external_force_contribution : external_force_contributions) {
         external_force_contribution->Preprocess();
     }
+    for (const auto& boundary_condition : boundary_conditions) {
+        boundary_condition->Preprocess();
+    }
 }
 
 }  // namespace aperi

@@ -50,7 +50,7 @@ class ApproximationSpaceFiniteElementParameters : public ApproximationSpaceParam
         approximation_space = "finite_element";
         approximation_space_type = ApproximationSpaceType::FiniteElement;
     }
-    ApproximationSpaceFiniteElementParameters(const YAML::Node& finite_element_node) {
+    ApproximationSpaceFiniteElementParameters(const YAML::Node& /*finite_element_node*/) {
         approximation_space = "finite_element";
         approximation_space_type = ApproximationSpaceType::FiniteElement;
     }

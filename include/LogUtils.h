@@ -73,7 +73,7 @@ class Cout {
                 }
             } else {
                 // send output to process 0
-                SendToRank0(m_ostringstream.str() + "\n", m_rank);
+                SendToRank0(m_ostringstream.str() + "\n");
             }
 
             // clear the ostringstream
@@ -84,7 +84,7 @@ class Cout {
         return *this;
     }
 
-    void SendToRank0(const std::string& data, int rank) {
+    void SendToRank0(const std::string& data) {
         int size = data.size();
         const void* data_ptr = data.c_str();
         MPI_Datatype datatype = MPI_CHAR;

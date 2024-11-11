@@ -30,6 +30,9 @@ class BoundaryCondition {
 
     ~BoundaryCondition() = default;
 
+    // Preprocess the boundary condition
+    void Preprocess(){};
+
     // Apply the velocity boundary condition to the field
     void ApplyVelocity(double time);
 

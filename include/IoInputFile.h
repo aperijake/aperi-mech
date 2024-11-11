@@ -27,7 +27,7 @@ class IoInputFile {
         if (check_input && CheckInputWithSchema() != 0) throw std::runtime_error("Error checking input file");
     };
 
-    IoInputFile(const YAML::Node& yaml_data, bool check_input = true) : m_yaml_file(yaml_data) {
+    IoInputFile(const YAML::Node& yaml_data) : m_yaml_file(yaml_data) {
         if (CheckInputWithSchema() != 0) throw std::runtime_error("Error checking input file");
     };
 
@@ -191,8 +191,8 @@ inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool
     return std::make_unique<IoInputFile>(filename, check_input);
 }
 
-inline std::unique_ptr<IoInputFile> CreateIoInputFile(const YAML::Node& yaml_data, bool check_input = true) {
-    return std::make_unique<IoInputFile>(yaml_data, check_input);
+inline std::unique_ptr<IoInputFile> CreateIoInputFile(const YAML::Node& yaml_data) {
+    return std::make_unique<IoInputFile>(yaml_data);
 }
 
 }  // namespace aperi

@@ -32,7 +32,7 @@ struct ComputeNodeVolumeFunctor {
     KOKKOS_INLINE_FUNCTION
     void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes) const {
         KOKKOS_ASSERT(CheckNumNodes(num_nodes));
-        double volume = TetVolume(field_data_to_gather[0]) / NumNodes;
+        double volume = TetVolume(field_data_to_gather[0]) / num_nodes;
         for (size_t i = 0; i < NumNodes; ++i) {
             results_to_scatter.row(i) = Eigen::Vector3d::Constant(volume);
         }

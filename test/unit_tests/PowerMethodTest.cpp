@@ -18,46 +18,62 @@ class PowerMethodProcessorTest : public SolverTest {
     }
 
     void TearDown() override {
-        m_power_method_processor.reset();
         // Run SolverTest::TearDown last
         SolverTest::TearDown();
     }
 
-    double RunPowerMethodProcessor() {
+    void RunPowerMethodProcessor(bool expected_converged, double expected_stable_time_step, size_t expected_num_iterations, double relative_tolerance = 0.1) {
         // Get the solver
         auto explicit_solver = std::dynamic_pointer_cast<aperi::ExplicitSolver>(m_solver);
+        ASSERT_TRUE(m_solver != nullptr);
 
         // Build the mass matrix
         explicit_solver->BuildMassMatrix();
 
         // Create a PowerMethodProcessor object
-        m_power_method_processor = std::make_shared<aperi::PowerMethodProcessor>(m_solver->GetMeshData(), explicit_solver);
+        aperi::PowerMethodProcessor power_method_processor(m_solver->GetMeshData(), explicit_solver);
         // Run the power method processor
-        double stable_time_step = m_power_method_processor->ComputeStableTimeIncrement(500);
-        return stable_time_step;
-    }
+        double stable_time_step = power_method_processor.ComputeStableTimeIncrement(500);
+        EXPECT_NEAR(stable_time_step, expected_stable_time_step, relative_tolerance * expected_stable_time_step);
 
-    std::shared_ptr<aperi::PowerMethodProcessor> m_power_method_processor;  ///< The power method processor object.
+        // Get and check the stats
+        auto stats = power_method_processor.GetPowerMethodStats();
+        EXPECT_EQ(stats.converged, expected_converged);
+        EXPECT_EQ(stats.num_iterations, expected_num_iterations);
+    }
 };
 
 // Test that the PowerMethodProcessor can be run
 TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
-    // Skip this test if we have more than 4 processes
+    bool skip = false;
     if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+        skip = true;
     }
+    // Skip if running on GPU and in Release mode
+    // TODO(jake): Get rid of this when we can. It is only here because of some strange compiling issues that lead to a segfault.
+    // As with ShapeFunctionsFunctorReproducingKernel, a segfault on the GPU in Release mode, but works fine in Debug mode or on the CPU.
+    // Spent a lot of time trying to figure out why, but couldn't find the issue.
+#ifdef NDEBUG
+    bool using_gpu = Kokkos::DefaultExecutionSpace::concurrency() > 1;
+    if (using_gpu) {
+        skip = true;
+    }
+#endif
+    // Skip this test if we have more than 4 processes
+    if (skip) {
+        GTEST_SKIP();
+    }
+
     m_yaml_data = CreateTestYaml();
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     CreateInputFile();
     std::string mesh_string = "1x1x4|tets";
     CreateTestMesh(mesh_string);
     CreateSolver();
-    double stable_time_step = RunPowerMethodProcessor();
+    bool expected_converged = true;
     double expected_stable_time_step = 0.0001;
-    EXPECT_NEAR(stable_time_step, expected_stable_time_step, 1e-5);
-    auto stats = m_power_method_processor->GetPowerMethodStats();
-    EXPECT_TRUE(stats.converged);
-    EXPECT_EQ(stats.num_iterations, 45);
+    size_t expected_num_iterations = 45;
+    RunPowerMethodProcessor(expected_converged, expected_stable_time_step, expected_num_iterations);
 }
 
 // Test that the PowerMethodProcessor will throw an exception if the all nodes are fixed
@@ -73,5 +89,5 @@ TEST_F(PowerMethodProcessorTest, AllFixed) {
     std::string mesh_string = "1x1x4|tets";
     CreateTestMesh(mesh_string);
     CreateSolver();
-    EXPECT_THROW(RunPowerMethodProcessor(), std::runtime_error);
+    EXPECT_THROW(RunPowerMethodProcessor(true, 0.0, 0), std::runtime_error);
 }

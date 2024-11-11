@@ -188,6 +188,31 @@ class EntityProcessor {
     }
 
     // Loop over each entity and apply the function
+    // Does not mark anything modified. Need to do that separately
+    template <typename Func, size_t NumFields, std::size_t... Is>
+    void for_each_component_impl(const Func &func, Kokkos::Array<stk::mesh::NgpField<T> *, NumFields> ngp_fields, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
+        // Create an array of ngp fields
+        Kokkos::Array<stk::mesh::NgpField<T>, NumFields> fields;
+        for (size_t i = 0; i < NumFields; ++i) {
+            fields[i] = *ngp_fields[i];
+        }
+
+        // Loop over all the entities
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, Rank, selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                const size_t num_components = fields[0].get_num_components_per_entity(entity);
+                // assert each other field has same number of components
+                for (size_t i = 1; i < N; i++) {
+                    assert(fields[i].get_num_components_per_entity(entity) == num_components);
+                }
+                for (size_t j = 0; j < num_components; j++) {
+                    func(&fields[Is](entity, j)...);
+                }
+            });
+    }
+
+    // Loop over each entity and apply the function
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_each_component_impl(const Func &func, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
@@ -460,7 +485,9 @@ class EntityProcessor {
     // Copy the field to another field
     void CopyFieldData(size_t src_field_index, size_t dest_field_index) {
         CopyFieldFunctor<T> functor;
-        for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
+        Kokkos::Array<stk::mesh::NgpField<T> *, 2> ngp_fields = {m_ngp_fields[src_field_index], m_ngp_fields[dest_field_index]};
+        for_each_component_impl(functor, ngp_fields, std::make_index_sequence<2>{}, m_selector);
+        //for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
     // Randomize the field
@@ -481,15 +508,18 @@ class EntityProcessor {
         // Get the number of local entities
         const unsigned num_local_entities = stk::mesh::count_entities(*m_bulk_data, Rank, m_selector);
 
+        // Get the mesh
+        auto ngp_mesh = m_ngp_mesh;
+
         // Loop over all the entities
         Kokkos::parallel_for(
             stk::ngp::DeviceRangePolicy(0, num_local_entities), KOKKOS_LAMBDA(const unsigned &i) {
                 // Get the fast mesh index
                 stk::mesh::FastMeshIndex entity_index = entity_indices(i);
 
-                //// Set the seed based on the entity id and the global seed
-                stk::mesh::Entity entity = m_ngp_mesh.get_entity(Rank, entity_index);
-                size_t seed = global_seed + m_ngp_mesh.identifier(entity);
+                // Set the seed based on the entity id and the global seed
+                stk::mesh::Entity entity = ngp_mesh.get_entity(Rank, entity_index);
+                size_t seed = global_seed + ngp_mesh.identifier(entity);
 
                 // Set up the random number generator
                 Kokkos::Random_XorShift64<stk::ngp::ExecSpace> rand_gen(seed);
