@@ -67,8 +67,10 @@ def read_json_file(file_path):
     # Create a DataFrame from the JSON data
     df = pd.DataFrame(data)
 
-    # Only keep the rows where the name starts with "compute_"
-    df = df[df["name"].str.startswith("compute_")]
+    # Only keep the rows where the name starts with "compute_" or "neighbor_search_"
+    df = df[
+        df["name"].str.startswith("compute_") | df["name"].str.startswith("neighbor_")
+    ]
 
     # Ensure the DataFrame is properly indexed
     df.reset_index(drop=True, inplace=True)
@@ -96,15 +98,18 @@ def read_json_file(file_path):
     return df
 
 
-def plot_elements_vs_time(df):
+def plot_nodes_vs_time(df):
     """
-    Plot the function value construction time vs. number of elements.
+    Plot the function value construction time vs. number of nodes.
     """
     # Get the compadre data
     compadre = df[df["construction_type"] == "compadre"]
 
     # Get the reproducing kernel data
     reproducing_kernel = df[df["construction_type"] == "reproducing"]
+
+    # Get the search data
+    search = df[df["construction_type"] == "search"]
 
     # Group the compadre data by number of processors and processor type
     grouped_compadre = compadre.groupby(["processors", "processor_type"])
@@ -114,63 +119,72 @@ def plot_elements_vs_time(df):
         ["processors", "processor_type"]
     )
 
+    # Group the search data by number of processors and processor type
+    grouped_search = search.groupby(["processors", "processor_type"])
+
     # Define a color palette
     colors = plt.cm.tab10.colors
 
+    # Define a list of linestyles
+    linestyles = ["--", "-", "-.", ":"]
+
     # Plot the data
+    for idx, (name, group) in enumerate(grouped_reproducing_kernel):
+        plt.loglog(
+            group["nodes"],
+            group["value"],
+            label=f"Aperi / Kokkos {int(name[0])} {name[1]}",
+            marker="o",
+            color=colors[0],
+            linestyle=linestyles[idx % len(linestyles)],
+        )
+
     for idx, (name, group) in enumerate(grouped_compadre):
         plt.loglog(
-            group["elements"],
+            group["nodes"],
             group["value"],
             label=f"Compadre {int(name[0])} {name[1]}",
             marker="o",
-            color=colors[idx % len(colors)],
-            linestyle="-",
+            color=colors[1],
+            linestyle=linestyles[idx % len(linestyles)],
         )
 
-    for idx, (name, group) in enumerate(grouped_reproducing_kernel):
-        plt.loglog(
-            group["elements"],
-            group["value"],
-            label=f"Reproducing Kernel {int(name[0])} {name[1]}",
-            marker="o",
-            color=colors[idx % len(colors)],
-            linestyle="--",
-        )
-
-    # Get the list of unique number of elements
-    elements = list(df["elements"].unique())
+    # Get the list of unique number of nodes
+    nodes = list(df["nodes"].unique())
 
     # Set the x-ticks and labels
-    plt.xlabel("Number of Elements")
-    plt.xticks(elements, labels=[f"{int(e):.2e}" for e in elements])
+    plt.xlabel("Number of Nodes")
+    plt.xticks(nodes, labels=[f"{int(n):.2e}" for n in nodes])
     plt.ylabel("Value Computation Time (s)")
-    plt.title("Time to Compute Function Values vs. Number of Elements")
+    plt.title("Time to Compute Function Values vs. Number of Nodes")
     plt.legend()
-    plt.grid()
-    plt.savefig("ElementsVsFunctionComputationTime.png")
+    plt.grid("on")
+    plt.savefig("NodesVsFunctionComputationTime.pdf")
+    plt.savefig("NodesVsFunctionComputationTime.png")
+
+    # Add the search data to the plot
+    for idx, (name, group) in enumerate(grouped_search):
+        plt.loglog(
+            group["nodes"],
+            group["value"],
+            label=f"Neighbor Search {int(name[0])} {name[1]}",
+            marker="o",
+            color=colors[2],
+            linestyle=linestyles[idx % len(linestyles)],
+        )
+
+    # Set the x-ticks and labels
+    plt.xlabel("Number of Nodes")
+    plt.xticks(nodes, labels=[f"{int(n):.2e}" for n in nodes])
+    plt.ylabel("Computation Time (s)")
+    plt.title("Time to Compute vs. Number of Nodes")
+    plt.legend()
+    plt.grid("on")
+    plt.savefig("NodesVsComputationTime.pdf")
+    plt.savefig("NodesVsComputationTime.png")
     plt.close()
 
     # Calculate the advantage of using the GPU, value cpu / value gpu
-    for _idx, (name, group) in enumerate(grouped_compadre):
-        if name[1] == "cpu":
-            cpu_group = group
-        else:
-            gpu_group = group
-
-    # Calculate the advantage of using the GPU
-    advantage = cpu_group["value"].values / gpu_group["value"].values
-
-    # Plot the advantage of using the GPU
-    plt.semilogx(
-        cpu_group["elements"],
-        advantage,
-        label="Compadre (Time 1 CPU / Time GPU)",
-        marker="o",
-        color=colors[0],
-        linestyle="-",
-    )
-
     for _idx, (name, group) in enumerate(grouped_reproducing_kernel):
         if name[1] == "cpu":
             cpu_group = group
@@ -182,22 +196,72 @@ def plot_elements_vs_time(df):
 
     # Plot the advantage of using the GPU
     plt.semilogx(
-        cpu_group["elements"],
+        cpu_group["nodes"],
         advantage,
-        label="Reproducing Kernel (Time 1 CPU / Time GPU)",
+        label="Aperi / Kokkos (Time 1 CPU / Time GPU)",
         marker="o",
         color=colors[0],
-        linestyle="--",
+        linestyle=linestyles[idx % len(linestyles)],
+    )
+    for _idx, (name, group) in enumerate(grouped_compadre):
+        if name[1] == "cpu":
+            cpu_group = group
+        else:
+            gpu_group = group
+
+    # Calculate the advantage of using the GPU
+    advantage = cpu_group["value"].values / gpu_group["value"].values
+
+    # Plot the advantage of using the GPU
+    plt.semilogx(
+        cpu_group["nodes"],
+        advantage,
+        label="Compadre (Time 1 CPU / Time GPU)",
+        marker="o",
+        color=colors[1],
+        linestyle=linestyles[idx % len(linestyles)],
     )
 
     # Set the x-ticks and labels
-    plt.xlabel("Number of Elements")
-    plt.xticks(elements, labels=[f"{int(e):.2e}" for e in elements])
+    plt.xlabel("Number of Nodes")
+    plt.xticks(nodes, labels=[f"{int(n):.2e}" for n in nodes])
     plt.ylabel("Advantage of Using the GPU")
     plt.title("GPU Advantage for Function Computation Time")
     plt.legend()
-    plt.grid()
+    plt.grid("on")
+    plt.savefig("AdvantageOfUsingGPUFunctionComputationTime.pdf")
     plt.savefig("AdvantageOfUsingGPUFunctionComputationTime.png")
+
+    # Calculate the advantage of using the GPU, value cpu / value gpu
+    for _idx, (name, group) in enumerate(grouped_search):
+        if name[1] == "cpu":
+            cpu_group = group
+        else:
+            gpu_group = group
+
+    # Calculate the advantage of using the GPU
+    advantage = cpu_group["value"].values / gpu_group["value"].values
+
+    # Plot the advantage of using the GPU
+    plt.semilogx(
+        cpu_group["nodes"],
+        advantage,
+        label="Neighbor Search (Time 1 CPU / Time GPU)",
+        marker="o",
+        color=colors[2],
+        linestyle=linestyles[idx % len(linestyles)],
+    )
+
+    # Set the x-ticks and labels
+    plt.xlabel("Number of Nodes")
+    plt.xticks(nodes, labels=[f"{int(n):.2e}" for n in nodes])
+    plt.ylabel("Advantage of Using the GPU")
+    plt.title("GPU Advantage for Computation Time")
+    plt.legend()
+    plt.grid("on")
+    plt.savefig("AdvantageOfUsingGPUComputationTime.pdf")
+    plt.savefig("AdvantageOfUsingGPUComputationTime.png")
+    plt.close()
 
 
 def get_args():
@@ -240,9 +304,9 @@ if __name__ == "__main__":
         # Join the data from the JSON file to the DataFrame
         df = pd.concat([df, read_json_file(file)], ignore_index=True)
 
-    # Sort the DataFrame by the construction type, processor type, number of processors, and number of elements
+    # Sort the DataFrame by the construction type, processor type, number of processors, and number of nodes
     df = df.sort_values(
-        ["construction_type", "processor_type", "processors", "elements"],
+        ["construction_type", "processor_type", "processors", "nodes"],
         ascending=[True, False, True, True],
     )
 
@@ -252,5 +316,5 @@ if __name__ == "__main__":
     # Print the DataFrame
     print(df)
 
-    # Plot the number of elements vs. time
-    plot_elements_vs_time(df)
+    # Plot the number of nodes vs. time
+    plot_nodes_vs_time(df)

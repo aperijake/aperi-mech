@@ -2,3 +2,4 @@ build
 __pycache__
 gh-pages/
 .vscode/settings.json
+.DS_Store
