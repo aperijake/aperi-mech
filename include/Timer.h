@@ -1,6 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <numeric>
+#include <string>
 #include <vector>
 
 #include "LogUtils.h"
@@ -78,6 +84,25 @@ class TimerManager {
             aperi::CoutP0() << std::setw(max_name_length) << m_timer_names[i] << " | " << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat << std::setw(percent_width) << m_timers[i] / total_time * 100 << "%" << std::endl;
         }
         PrintLine(header_width);
+    }
+
+    void WriteCSV(const std::string& filename) const {
+        std::ofstream csv_file(filename);
+        if (!csv_file.is_open()) {
+            aperi::CoutP0() << "Failed to open file " << filename << " for writing." << std::endl;
+            return;
+        }
+
+        // Write the header
+        csv_file << "Timer Name, Time (seconds), Percent of Total Time" << std::endl;
+
+        double total_time = GetTotalTime();
+        for (size_t i = 0; i < m_timers.size(); ++i) {
+            std::string timer_name = m_timer_group_name + "_" + m_timer_names[i];
+            csv_file << timer_name << ", " << m_timers[i] << ", " << m_timers[i] / total_time * 100 << std::endl;
+        }
+
+        csv_file.close();
     }
 
    private:
