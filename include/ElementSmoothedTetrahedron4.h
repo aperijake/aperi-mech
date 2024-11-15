@@ -15,6 +15,7 @@
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
+#include "StrainSmoothingProcessor.h"
 
 namespace aperi {
 

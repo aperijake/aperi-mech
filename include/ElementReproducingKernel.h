@@ -20,6 +20,7 @@
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
+#include "StrainSmoothingProcessor.h"
 
 namespace aperi {
 
