@@ -19,7 +19,6 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_neighbors) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
-        // const Eigen::Matrix<double, NumNodes, 3> &node_velocities = gathered_node_data[2];
 
         force.fill(0.0);
 
@@ -53,7 +52,6 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
 
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors) const {
         const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
-        // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
 
         // Compute the stress and internal force of the element.
         const Eigen::Matrix<double, 3, 3> pk1_stress_neg_transpose_volume = m_stress_functor(displacement_gradient).transpose() * -volume;
@@ -72,11 +70,7 @@ struct ComputeStressOnSmoothingCellFunctor {
         : m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient) const {
-        const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
-        // const Eigen::Matrix3d& velocity_gradient = gathered_node_data_gradient[1];
-
-        // Compute the stress
-        return m_stress_functor(displacement_gradient);
+        return m_stress_functor(gathered_node_data_gradient[0]);  // Compute the stress of the material
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };

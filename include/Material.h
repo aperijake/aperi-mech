@@ -91,13 +91,6 @@ class Material {
         return m_stress_functor;
     }
 
-    /**
-     * @brief Get the 1st Piola-Kirchhoff stress of the material.
-     * @param displacement_gradient The displacement gradient of the material.
-     * @return The 1st Piola-Kirchhoff stress of the material.
-     */
-    virtual Eigen::Matrix<double, 3, 3> GetStress(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const = 0;
-
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
     StressFunctor* m_stress_functor;                           /**< The stress functor of the elastic material */
@@ -181,15 +174,6 @@ class ElasticMaterial : public Material {
         double m_lambda; /**< The lambda parameter of the elastic material */
         double m_two_mu; /**< The two mu parameter of the elastic material */
     };
-
-    /**
-     * @brief Get the 1st Piola-Kirchhoff stress
-     * @param displacement_gradient The displacement gradient
-     * @return The 1st Piola-Kirchhoff stress
-     */
-    Eigen::Matrix<double, 3, 3> GetStress(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
-        return m_stress_functor->operator()(displacement_gradient);
-    }
 };
 
 /**
@@ -267,15 +251,6 @@ class NeoHookeanMaterial : public Material {
         double m_lambda; /**< The lambda parameter */
         double m_mu;     /**< The mu parameter */
     };
-
-    /**
-     * @brief Get the 1st Piola-Kirchhoff stress
-     * @param displacement_gradient The displacement gradient
-     * @return The 1st Piola-Kirchhoff stress
-     */
-    Eigen::Matrix<double, 3, 3> GetStress(const Eigen::Matrix<double, 3, 3>& displacement_gradient) const override {
-        return m_stress_functor->operator()(displacement_gradient);
-    }
 };
 
 /**
