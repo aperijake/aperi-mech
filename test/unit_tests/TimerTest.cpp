@@ -87,6 +87,13 @@ TEST_F(TimerTest, TimerManagerWriteCSV) {
     std::string filename = full_test_name + ".csv";
     m_timer_manager.WriteCSV(filename);
 
+    // Only check the file on rank 0
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank != 0) {
+        return;
+    }
+
     // Check that the file was created
     std::ifstream file(filename);
     EXPECT_TRUE(file.good());

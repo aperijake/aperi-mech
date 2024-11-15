@@ -87,6 +87,13 @@ class TimerManager {
     }
 
     void WriteCSV(const std::string& filename) const {
+        // Only write the CSV file on the rank 0 processor
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        if (rank != 0) {
+            return;
+        }
+
         std::ofstream csv_file(filename);
         if (!csv_file.is_open()) {
             aperi::CoutP0() << "Failed to open file " << filename << " for writing." << std::endl;
