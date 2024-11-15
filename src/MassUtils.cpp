@@ -78,12 +78,12 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
     return true;
 }
 
-void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool uses_generalized_fields) {
+void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, bool uses_generalized_fields) {
     FieldQueryData<double> field_query_data_scatter = {"mass_from_elements", FieldQueryState::None};  // Store the nodal volume temporarily in the mass field
 
     if (!uses_generalized_fields) {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
-        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
         // Create the mass functor
         ComputeNodeVolumeFunctor<4> compute_volume_functor;
 
@@ -91,7 +91,7 @@ void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool u
         element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_volume_functor);
     } else {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {};
-        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
         // Create the mass functor
         ComputeNodeVolumeFromPrecomputedElementVolumesFunctor<aperi::MAX_CELL_NUM_NODES> compute_volume_functor;
 
@@ -116,7 +116,7 @@ void ComputeMassFromElements(const std::shared_ptr<aperi::MeshData> &mesh_data, 
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
-    ComputeNodeVolume(mesh_data, uses_generalized_fields);
+    ComputeNodeVolume(mesh_data, part_name, uses_generalized_fields);
     ComputeMassFromElements(mesh_data, density);
 
     // Sum the mass at the nodes

@@ -42,7 +42,7 @@ class ElementForceProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementForceProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    ElementForceProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -69,10 +69,6 @@ class ElementForceProcessor {
             // Get the element volume field
             m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
-
-            // Get the cell volume field
-            m_cell_volume_fraction = StkGetField(FieldQueryData<double>{"cell_volume_fraction", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_cell_volume_fraction = &stk::mesh::get_updated_ngp_field<double>(*m_cell_volume_fraction);
 
             // Get the function derivatives fields
             std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
@@ -142,7 +138,6 @@ class ElementForceProcessor {
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
 
         auto ngp_element_volume = *m_ngp_element_volume;
-        auto ngp_cell_volume_fraction = *m_ngp_cell_volume_fraction;
 
         Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
@@ -297,53 +292,6 @@ class ElementForceProcessor {
             });
     }
 
-    // Loop over each element and apply the function on host data
-    template <size_t NumNodes, typename Func>
-    void for_each_element_host_gather_scatter_nodal_data(const Func &func) {
-        // Throw if trying to use precomputed derivatives
-        if constexpr (UsePrecomputedDerivatives) {
-            throw std::invalid_argument("for_each_element_host_gather_scatter_nodal_data does not support precomputed derivatives.");
-        }
-        // Set up the field data to gather
-        Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather;
-        for (size_t f = 0; f < NumFields; ++f) {
-            field_data_to_gather[f].resize(NumNodes, 3);
-        }
-
-        // Set up the results matrix
-        Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
-        results_to_scatter.resize(NumNodes, 3);
-
-        // Loop over all the buckets
-        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            // Loop over the elements
-            for (auto &&mesh_element : *bucket) {
-                // Get the element's nodes
-                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(mesh_element);
-
-                // Gather the coordinates, displacements, and velocities of the nodes
-                for (size_t f = 0; f < NumFields; ++f) {
-                    for (size_t i = 0; i < NumNodes; ++i) {
-                        double *element_node_data = stk::mesh::field_data(*m_fields_to_gather[f], element_nodes[i]);
-                        for (size_t j = 0; j < 3; ++j) {
-                            field_data_to_gather[f](i, j) = element_node_data[j];
-                        }
-                    }
-                }
-                // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter, NumNodes);
-
-                // Scatter the force to the nodes
-                for (size_t i = 0; i < NumNodes; ++i) {
-                    double *element_node_data = stk::mesh::field_data(*m_field_to_scatter, element_nodes[i]);
-                    for (size_t j = 0; j < 3; ++j) {
-                        element_node_data[j] += results_to_scatter(i, j);
-                    }
-                }
-            }
-        }
-    }
-
     // Get the sum of the field to scatter
     double GetFieldToScatterSum() {
         double field_to_scatter_sum = 0.0;
@@ -373,12 +321,10 @@ class ElementForceProcessor {
     std::array<DoubleField *, NumFields> m_fields_to_gather;                       // The fields to gather
     DoubleField *m_field_to_scatter;                                               // The field to scatter
     DoubleField *m_element_volume;                                                 // The element volume field
-    DoubleField *m_cell_volume_fraction;                                           // The cell volume field
     std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
     Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
     NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
-    NgpDoubleField *m_ngp_cell_volume_fraction;                                    // The ngp cell volume field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 
