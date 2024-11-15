@@ -3,7 +3,7 @@
 #include <array>
 
 #include "Constants.h"
-#include "ElementProcessor.h"
+#include "ElementForceProcessor.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "LogUtils.h"
@@ -83,7 +83,7 @@ void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool u
 
     if (!uses_generalized_fields) {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
-        ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
         // Create the mass functor
         ComputeNodeVolumeFunctor<4> compute_volume_functor;
 
@@ -91,7 +91,7 @@ void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool u
         element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_volume_functor);
     } else {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {};
-        ElementGatherScatterProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
         // Create the mass functor
         ComputeNodeVolumeFromPrecomputedElementVolumesFunctor<aperi::MAX_CELL_NUM_NODES> compute_volume_functor;
 

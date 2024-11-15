@@ -30,19 +30,19 @@ namespace aperi {
  * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
  */
 template <size_t NumFields, bool UsePrecomputedDerivatives = false>
-class ElementGatherScatterProcessor {
+class ElementForceProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
     /**
-     * @brief Constructs an ElementGatherScatterProcessor object.
+     * @brief Constructs an ElementForceProcessor object.
      * @param field_query_data_gather_vec An array of FieldQueryData objects representing the fields to gather.
      * @param field_query_data_scatter A FieldQueryData object representing the field to scatter.
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementGatherScatterProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    ElementForceProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -53,7 +53,7 @@ class ElementGatherScatterProcessor {
         m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: ElementGatherScatterProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: ElementForceProcessor selector is empty." << std::endl;
         }
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 

@@ -8,7 +8,7 @@
 
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
-#include "ElementProcessor.h"
+#include "ElementForceProcessor.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
@@ -33,7 +33,7 @@ class ElementTetrahedron4 : public ElementBase {
      * @brief Constructs a ElementTetrahedron4 object.
      */
     ElementTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
-        CreateElementProcessor();
+        CreateElementForceProcessor();
         CreateFunctors();
     }
 
@@ -47,7 +47,7 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Creates the element processor associated with the element.
      */
-    void CreateElementProcessor() {
+    void CreateElementForceProcessor() {
         // Create the element processor
         if (!m_mesh_data) {
             // Allowing for testing
@@ -55,7 +55,7 @@ class ElementTetrahedron4 : public ElementBase {
             return;
         }
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<aperi::ElementGatherScatterProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        m_element_processor = std::make_shared<aperi::ElementForceProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -124,7 +124,7 @@ class ElementTetrahedron4 : public ElementBase {
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<2, false>> m_element_processor;
+    std::shared_ptr<aperi::ElementForceProcessor<2, false>> m_element_processor;
 };
 
 }  // namespace aperi
