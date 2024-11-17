@@ -16,7 +16,7 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
     ComputeInternalForceFromIntegrationPointFunctor(FunctionsFunctor &functions_functor, IntegrationFunctor &integration_functor, StressFunctor &stress_functor)
         : m_functions_functor(functions_functor), m_integration_functor(integration_functor), m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 2> &gathered_node_data, Eigen::Matrix<double, NumNodes, 3> &force, size_t actual_num_neighbors, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
         const Eigen::Matrix<double, NumNodes, 3> &node_coordinates = gathered_node_data[0];
         const Eigen::Matrix<double, NumNodes, 3> &node_displacements = gathered_node_data[1];
 
@@ -30,12 +30,12 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
 
-            // Compute the 2nd pk stress and internal force of the element.
-            const Eigen::Matrix<double, 3, 3> pk1_stress_neg_transpose_volume = m_stress_functor(displacement_gradient).transpose() * -b_matrix_and_weight.second;
+            // Compute the 1st pk stress and internal force of the element.
+            const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset) * -b_matrix_and_weight.second;
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_neighbors; ++i) {
-                force.row(i).noalias() = b_matrix_and_weight.first.row(i) * pk1_stress_neg_transpose_volume;
+                force.row(i).noalias() += b_matrix_and_weight.first.row(i) * pk1_stress_neg_volume;
             }
         }
     }
@@ -50,15 +50,15 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
     ComputeInternalForceFromSmoothingCellFunctor(StressFunctor &stress_functor)
         : m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
         const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
 
         // Compute the stress and internal force of the element.
-        const Eigen::Matrix<double, 3, 3> pk1_stress_neg_transpose_volume = m_stress_functor(displacement_gradient).transpose() * -volume;
+        const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset) * -volume;
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
-            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_neg_transpose_volume;
+            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_neg_volume;
         }
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
@@ -69,8 +69,8 @@ struct ComputeStressOnSmoothingCellFunctor {
     ComputeStressOnSmoothingCellFunctor(StressFunctor &stress_functor)
         : m_stress_functor(stress_functor) {}
 
-    KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient) const {
-        return m_stress_functor(gathered_node_data_gradient[0]);  // Compute the stress of the material
+    KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
+        return m_stress_functor(gathered_node_data_gradient[0], state_old, state_new, state_bucket_offset);  // Compute the stress of the element
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };

@@ -30,7 +30,7 @@ struct ComputeNodeVolumeFunctor {
 
     // Compute the volume of en element and scatter it to the nodes
     KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes) const {
+    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
         KOKKOS_ASSERT(CheckNumNodes(num_nodes));
         double volume = TetVolume(field_data_to_gather[0]) / num_nodes;
         for (size_t i = 0; i < NumNodes; ++i) {
@@ -47,7 +47,7 @@ struct ComputeNodeVolumeFromPrecomputedElementVolumesFunctor {
 
     // Compute the volume of en element and scatter it to the nodes
     KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_volume, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes) const {
+    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_volume, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
         for (size_t i = 0; i < num_nodes; ++i) {
             node_volume.row(i) = Eigen::Vector3d::Constant(element_volume / num_nodes);
         }

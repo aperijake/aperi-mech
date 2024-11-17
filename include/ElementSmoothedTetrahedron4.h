@@ -48,7 +48,11 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     void CreateElementForceProcessor() {
         // Create the element processor
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        bool has_state = false;
+        if (m_material) {
+            has_state = m_material->HasState();
+        }
+        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
     }
 
     void ComputeNeighborValues() {

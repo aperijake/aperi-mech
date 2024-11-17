@@ -55,7 +55,11 @@ class ElementTetrahedron4 : public ElementBase {
             return;
         }
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<aperi::ElementForceProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        bool has_state = false;
+        if (m_material) {
+            has_state = m_material->HasState();
+        }
+        m_element_processor = std::make_shared<aperi::ElementForceProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
     }
 
     // Create and destroy functors. Must be public to run on device.

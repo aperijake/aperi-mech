@@ -42,7 +42,7 @@ class ElementForceProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementForceProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
+    ElementForceProcessor(const std::vector<FieldQueryData<double>> &field_query_data_gather_vec, const FieldQueryData<double> field_query_data_scatter, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, bool has_state = false) : m_mesh_data(mesh_data), m_sets(sets), m_has_state(has_state) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -64,6 +64,14 @@ class ElementForceProcessor {
         }
         m_field_to_scatter = StkGetField(field_query_data_scatter, meta_data);
         m_ngp_field_to_scatter = &stk::mesh::get_updated_ngp_field<double>(*m_field_to_scatter);
+
+        if (has_state) {
+            m_state_old = StkGetField(FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_state_old = &stk::mesh::get_updated_ngp_field<double>(*m_state_old);
+
+            m_state_new = StkGetField(FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_state_new = &stk::mesh::get_updated_ngp_field<double>(*m_state_new);
+        }
 
         if constexpr (UsePrecomputedDerivatives) {
             // Get the element volume field
@@ -89,6 +97,17 @@ class ElementForceProcessor {
             ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
         }
         auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
+
+        bool has_state = m_has_state;
+
+        // Get the state fields
+        NgpDoubleField ngp_state_old;
+        NgpDoubleField ngp_state_new;
+        if (has_state) {
+            ngp_state_old = *m_ngp_state_old;
+            ngp_state_new = *m_ngp_state_new;
+        }
+
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
@@ -113,8 +132,13 @@ class ElementForceProcessor {
                     }
                 }
 
+                // Get the state fields
+                const double *state_old = has_state ? &ngp_state_old(elem_index, 0) : nullptr;
+                double *state_new = has_state ? &ngp_state_new(elem_index, 0) : nullptr;
+                size_t state_bucket_size = 1;
+
                 // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter, num_nodes);
+                func(field_data_to_gather, results_to_scatter, num_nodes, state_old, state_new, state_bucket_size);
 
                 // Scatter the force to the nodes
                 for (size_t i = 0; i < num_nodes; ++i) {
@@ -142,6 +166,16 @@ class ElementForceProcessor {
         Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
         for (size_t i = 0; i < 3; ++i) {
             ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
+        }
+
+        bool has_state = m_has_state;
+
+        // Get the state fields
+        NgpDoubleField ngp_state_old;
+        NgpDoubleField ngp_state_new;
+        if (has_state) {
+            ngp_state_old = *m_ngp_state_old;
+            ngp_state_new = *m_ngp_state_new;
         }
 
         // Loop over all the buckets
@@ -189,9 +223,14 @@ class ElementForceProcessor {
                 double element_volume = ngp_element_volume(elem_index, 0);
                 // Kokkos::Profiling::popRegion();
 
+                // Get the state fields
+                const double *state_old = has_state ? &ngp_state_old(elem_index, 0) : nullptr;
+                double *state_new = has_state ? &ngp_state_new(elem_index, 0) : nullptr;
+                size_t state_bucket_size = 1;
+
                 // Apply the function to the gathered data
                 // Kokkos::Profiling::pushRegion("apply_function");
-                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes);
+                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes, state_old, state_new, state_bucket_size);
                 // Kokkos::Profiling::popRegion();
 
                 // Scatter the force to the nodes
@@ -231,6 +270,16 @@ class ElementForceProcessor {
         // Get the number of cells
         const size_t num_cells = scd.NumCells();
 
+        bool has_state = m_has_state;
+
+        // Get the state fields
+        NgpDoubleField ngp_state_old;
+        NgpDoubleField ngp_state_new;
+        if (has_state) {
+            ngp_state_old = *m_ngp_state_old;
+            ngp_state_new = *m_ngp_state_new;
+        }
+
         // Loop over all the cells
         Kokkos::parallel_for(
             "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
@@ -267,9 +316,21 @@ class ElementForceProcessor {
                     }
                 }
 
+                // Get the state fields
+                double *state_new = nullptr;
+                double *state_old = nullptr;
+                if (has_state) {
+                    const auto element_local_offsets = scd.GetCellElementLocalOffsets(cell_id);
+                    const stk::mesh::Entity element(element_local_offsets[0]);
+                    const stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(element);
+                    state_old = &ngp_state_old(elem_index, 0);
+                    state_new = &ngp_state_new(elem_index, 0);
+                }
+                size_t state_bucket_size = 1;
+
                 // Compute the stress and internal force of the element.
                 double volume = scd.GetCellVolume(cell_id);
-                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient) * -volume;
+                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient, state_old, state_new, state_bucket_size) * -volume;
 
                 // Scatter the force to the nodes
                 for (size_t k = 0; k < num_nodes; ++k) {
@@ -280,7 +341,7 @@ class ElementForceProcessor {
                     }
 
                     // Calculate the force
-                    const Eigen::Matrix<double, 3, 1> force = pk1_stress_neg_volume * function_derivatives.transpose();
+                    const Eigen::Matrix<double, 1, 3> force = function_derivatives * pk1_stress_neg_volume;
 
                     // Add the force to the node
                     const stk::mesh::Entity node(node_local_offsets[k]);
@@ -314,6 +375,7 @@ class ElementForceProcessor {
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                                  // The mesh data object.
     std::vector<std::string> m_sets;                                               // The sets to process.
+    bool m_has_state;                                                              // Whether the material has state
     stk::mesh::BulkData *m_bulk_data;                                              // The bulk data object.
     stk::mesh::Selector m_selector;                                                // The selector
     stk::mesh::Selector m_owned_selector;                                          // The selector for owned entities
@@ -321,10 +383,14 @@ class ElementForceProcessor {
     std::array<DoubleField *, NumFields> m_fields_to_gather;                       // The fields to gather
     DoubleField *m_field_to_scatter;                                               // The field to scatter
     DoubleField *m_element_volume;                                                 // The element volume field
+    DoubleField *m_state_new;                                                      // The state field
+    DoubleField *m_state_old;                                                      // The state field
     std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
     Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
     NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
     NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
+    NgpDoubleField *m_ngp_state_new;                                               // The ngp state field
+    NgpDoubleField *m_ngp_state_old;                                               // The ngp state field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
 };
 

@@ -339,6 +339,14 @@ class SmoothedCellData {
         return Kokkos::subview(m_element_local_offsets_host, Kokkos::make_pair(start, end));
     }
 
+    // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
+    KOKKOS_INLINE_FUNCTION
+    Kokkos::View<uint64_t *> GetCellElementLocalOffsets(size_t cell_id) const {
+        size_t start = m_element_indices.start(cell_id);
+        size_t length = m_element_indices.length(cell_id);
+        size_t end = start + length;
+        return Kokkos::subview(m_element_local_offsets, Kokkos::make_pair(start, end));
+    }
     // Get the local offsets for the nodes in a cell. Return a kokkos subview of the node local offsets.
     KOKKOS_INLINE_FUNCTION
     Kokkos::View<uint64_t *> GetCellNodeLocalOffsets(size_t cell_id) const {

@@ -55,7 +55,11 @@ class ElementReproducingKernel : public ElementBase {
         // Create the element processor
         std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
         const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
-        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        bool has_state = false;
+        if (m_material) {
+            has_state = m_material->HasState();
+        }
+        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
     }
 
     void FindNeighbors() {
