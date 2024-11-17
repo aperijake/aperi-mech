@@ -8,6 +8,7 @@
 
 #include "Constants.h"
 #include "ElementBase.h"
+#include "ElementHexahedron8.h"
 #include "ElementReproducingKernel.h"
 #include "ElementSmoothedTetrahedron4.h"
 #include "ElementTetrahedron4.h"
@@ -50,7 +51,12 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
         }
     } else if (element_topology == ElementTopology::Hexahedron8) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
-            throw std::runtime_error("Finite Element is not supported for Hexahedron8");
+            if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
+                // Throw, not supported
+                throw std::runtime_error("Strain Smoothing is not supported for finite elements and Hexahedron8");
+            } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
+                return std::make_shared<ElementHexahedron8>(field_query_data_gather, part_names, mesh_data, material);
+            }
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();

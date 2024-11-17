@@ -240,21 +240,27 @@ class ElasticMaterial : public Material {
         KOKKOS_INLINE_FUNCTION
         Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* /*state_old*/, double* /*state_new*/, size_t /*state_bucket_size*/) const override {
             // Compute the Green Lagrange strain tensor, Voigt Notation.
-            const Eigen::Matrix<double, 6, 1> green_lagrange_strain = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
+            // const Eigen::Matrix<double, 6, 1> green_lagrange_strain = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
 
             // Compute the 2nd Piola-Kirchhoff stress
-            Eigen::Matrix<double, 3, 3> pk2_stress;
-            const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-            pk2_stress(0, 0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
-            pk2_stress(1, 1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
-            pk2_stress(2, 2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
-            pk2_stress(1, 2) = pk2_stress(2, 1) = m_two_mu * green_lagrange_strain(3);
-            pk2_stress(0, 2) = pk2_stress(2, 0) = m_two_mu * green_lagrange_strain(4);
-            pk2_stress(0, 1) = pk2_stress(1, 0) = m_two_mu * green_lagrange_strain(5);
+            // Eigen::Matrix<double, 3, 3> pk2_stress;
+            // const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
+            // pk2_stress(0, 0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
+            // pk2_stress(1, 1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
+            // pk2_stress(2, 2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
+            // pk2_stress(1, 2) = pk2_stress(2, 1) = m_two_mu * green_lagrange_strain(3);
+            // pk2_stress(0, 2) = pk2_stress(2, 0) = m_two_mu * green_lagrange_strain(4);
+            // pk2_stress(0, 1) = pk2_stress(1, 0) = m_two_mu * green_lagrange_strain(5);
 
-            // Compute the 1st Piola-Kirchhoff stress
-            const Eigen::Matrix<double, 3, 3> F = displacement_gradient + Eigen::Matrix<double, 3, 3>::Identity();
-            const Eigen::Matrix<double, 3, 3> pk1_stress = F * pk2_stress;
+            // Compute the Green Lagrange strain tensor. E = 0.5 * (H + H^T + H^T * H)
+            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
+
+            // Compute the second Piola-Kirchhoff stress
+            Eigen::Matrix3d pk2_stress = m_two_mu * green_lagrange_strain_tensor;
+            pk2_stress.diagonal().array() += m_lambda * green_lagrange_strain_tensor.trace();
+
+            // Compute the 1st Piola-Kirchhoff stress, P = F * S = (I + displacement_gradient) * pk2_stress
+            const Eigen::Matrix3d pk1_stress = (Eigen::Matrix3d::Identity() + displacement_gradient) * pk2_stress;
             return pk1_stress;
         }
 
@@ -413,8 +419,11 @@ class PlasticMaterial : public Material {
         Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* state_old = nullptr, double* state_new = nullptr, size_t state_bucket_size = 1) const override {
             // in "Computational Methods for Plasticity", page 260, box 7.5
 
+            // Update the state
+            state_new[0] = state_old[0];
+
             // Get the plastic strain state
-            double plastic_strain = state_old[0];
+            double plastic_strain = state_new[0];
 
             // Identity matrix
             const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
@@ -453,13 +462,7 @@ class PlasticMaterial : public Material {
             // Update the state
             state_new[0] = plastic_strain;
 
-            // Deformation gradient
-            const Eigen::Matrix3d F = displacement_gradient + I;
-
-            // First Piola-Kirchhoff stress from the Cauchy stress
-            Eigen::Matrix<double, 3, 3> pk1_stress = (s + p * I) * InvertMatrix(F).transpose() * F.determinant();
-
-            return pk1_stress;
+            return (s + p * I);
         }
 
        private:

@@ -31,11 +31,11 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
 
             // Compute the 1st pk stress and internal force of the element.
-            const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset) * -b_matrix_and_weight.second;
+            const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset).transpose() * b_matrix_and_weight.second;
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_neighbors; ++i) {
-                force.row(i).noalias() += b_matrix_and_weight.first.row(i) * pk1_stress_neg_volume;
+                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress_transpose_volume;
             }
         }
     }
@@ -54,11 +54,11 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
         const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
 
         // Compute the stress and internal force of the element.
-        const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset) * -volume;
+        const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset).transpose() * -volume;
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
-            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_neg_volume;
+            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_transpose_neg_volume;
         }
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material

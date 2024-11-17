@@ -330,7 +330,7 @@ class ElementForceProcessor {
 
                 // Compute the stress and internal force of the element.
                 double volume = scd.GetCellVolume(cell_id);
-                const Eigen::Matrix<double, 3, 3> pk1_stress_neg_volume = stress_functor(field_data_to_gather_gradient, state_old, state_new, state_bucket_size) * -volume;
+                const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_neg_volume = stress_functor(field_data_to_gather_gradient, state_old, state_new, state_bucket_size).transpose() * -volume;
 
                 // Scatter the force to the nodes
                 for (size_t k = 0; k < num_nodes; ++k) {
@@ -341,7 +341,7 @@ class ElementForceProcessor {
                     }
 
                     // Calculate the force
-                    const Eigen::Matrix<double, 1, 3> force = function_derivatives * pk1_stress_neg_volume;
+                    const Eigen::Matrix<double, 1, 3> force = function_derivatives * pk1_stress_transpose_neg_volume;
 
                     // Add the force to the node
                     const stk::mesh::Entity node(node_local_offsets[k]);
