@@ -9,6 +9,7 @@
 
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
+#include "LogUtils.h"
 #include "MathUtils.h"
 
 namespace aperi {
@@ -370,7 +371,8 @@ class PlasticMaterial : public Material {
      * @return The field data of the material.
      */
     std::vector<aperi::FieldData> GetFieldData() override {
-        return {FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2, 1, std::vector<double>{0.0})};
+        std::vector<double> initial_state(1, 0.0);
+        return {FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2, 1, initial_state)};
     }
 
     bool HasState() override {
@@ -419,41 +421,44 @@ class PlasticMaterial : public Material {
         Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* state_old = nullptr, double* state_new = nullptr, size_t state_bucket_size = 1) const override {
             // in "Computational Methods for Plasticity", page 260, box 7.5
 
-            // Update the state
-            state_new[0] = state_old[0];
-
             // Get the plastic strain state
-            double plastic_strain = state_new[0];
+            double plastic_strain = state_old[0];
 
             // Identity matrix
             const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
-            // Bulk modulus
-            const double K = m_lambda + 2.0 * m_mu / 3.0;
-
             // Compute the small strain tensor
             const Eigen::Matrix<double, 3, 3> strain_elastic = 0.5 * (displacement_gradient + displacement_gradient.transpose());
-            const double trace_strain_elastic = displacement_gradient.trace();
+            const double trace_strain_elastic = strain_elastic.trace();
+
+            // Bulk modulus
+            const double bulk_modulus = m_lambda + 2.0 * m_mu / 3.0;
 
             // Compute the hydrostatic pressure
-            const double p = K * trace_strain_elastic;
+            const double pressure = bulk_modulus * trace_strain_elastic;
 
             // Compute the deviatoric stress
-            Eigen::Matrix<double, 3, 3> s = 2.0 * m_mu * (strain_elastic - (1.0 / 3.0) * trace_strain_elastic * I);
+            Eigen::Matrix<double, 3, 3> deviatoric_stress = 2.0 * m_mu * (strain_elastic - (1.0 / 3.0) * trace_strain_elastic * I);
 
-            Eigen::Matrix<double, 3, 3> eta = s;  // - state.beta; // but beta is zero for now
+            Eigen::Matrix<double, 3, 3> eta = deviatoric_stress;  // - state.beta; // but beta is zero for now
 
-            const double q = sqrt(3.0 / 2.0) * eta.norm();
+            double eta_norm = eta.norm();
+
+            const double q = sqrt(3.0 / 2.0) * eta_norm;
 
             const double phi = q - (m_yield_stress + m_hardening_modulus * plastic_strain);
 
             if (phi > 0.0) {
-                const double plastic_strain_inc = phi / (3 * m_mu + m_hardening_modulus);  // should be 3 * G + m_hardening_modulus + m_kinematic_hardening_modulus, but kinematic hardening is zero for now
+                const double plastic_strain_inc = phi / (3.0 * m_mu + m_hardening_modulus);  // should be 3 * G + m_hardening_modulus + m_kinematic_hardening_modulus, but kinematic hardening is zero for now
 
-                eta.normalize();
-                s -= (sqrt(6.0) * m_mu * plastic_strain_inc) * eta;
+                deviatoric_stress -= (sqrt(6.0) * m_mu * plastic_strain_inc / eta_norm) * eta;
 
                 plastic_strain += plastic_strain_inc;
+                // aperi::CoutP0() << "plastic_strain_old: " << state_old[0] << ", plastic_strain_inc: " << plastic_strain_inc << ", plastic_strain: " << plastic_strain << std::endl;
+                // aperi::CoutP0() << "    eta_norm: " << eta_norm << ", q: " << q << ", phi: " << phi << std::endl;
+                // aperi::CoutP0() << "    deviatoric stress:\n      " << deviatoric_stress << std::endl;
+                // aperi::CoutP0() << "    elastic strain:\n      " << strain_elastic << std::endl;
+                // aperi::CoutP0() << "    eta:\n      " << eta << std::endl;
 
                 // If kinematic hardening is present, would have
                 // beta += sqrt(2.0 / 3.0) * m_kinematic_hardening_modulus * plastic_strain_inc * eta;
@@ -462,7 +467,7 @@ class PlasticMaterial : public Material {
             // Update the state
             state_new[0] = plastic_strain;
 
-            return (s + p * I);
+            return (deviatoric_stress + pressure * I);
         }
 
        private:
