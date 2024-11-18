@@ -52,8 +52,8 @@ NODAL VARIABLES relative 1.e-6 floor 0.0
 	VELOCITY_Y                  # min:               0 @ t1,n1	max:      0.61634031 @ t2,n3
 	VELOCITY_Z                  # min:               0 @ t1,n1	max:       2.8123891 @ t2,n1
 
-ELEMENT VARIABLES relative 1.e-6 floor 0.0
-	STATE                       # min:               0 @ t1,b1,e1	max:       3.5399549 @ t2,b1,e2
+# ELEMENT VARIABLES relative 1.e-6 floor 0.0
+	# STATE                       # min:               0 @ t1,b1,e1	max:       3.5399549 @ t2,b1,e2
 
 # No NODESET VARIABLES
 
