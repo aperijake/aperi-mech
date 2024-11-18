@@ -69,7 +69,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         max_edge_length_processor.ComputeMaxEdgeLength();
 
         // Make an element processor
-        std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementGatherScatterProcessor in CreateElement. TODO(jake) change this?
+        std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementForceProcessor in CreateElement. TODO(jake) change this?
         field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
         field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
         field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};

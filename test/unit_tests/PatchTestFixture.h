@@ -124,31 +124,33 @@ class PatchTest : public SolverTest {
         RunSolver();
     }
 
-    static Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix<double, 6, 1>& expected_second_piola_kirchhoff_stress, const Eigen::Matrix3d& expected_displacement_gradient) {
-        const Eigen::Matrix3d expected_deformation_gradient = expected_displacement_gradient + Eigen::Matrix3d::Identity();
-        // S = P * F^-T
-        // P = S F^T
-        // Force = /sum_ip B P J w = /sum_ip B S F^T J w // sum over integration points, ip
+    Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix3d& expected_displacement_gradient) {
+        // S = F^-1 P
+        // P = F S
+        // Force = /sum_ip B P J w = /sum_ip B F S J w // sum over integration points, ip
         // Unit cube:
-        //  Force = B S F^T
-        Eigen::Vector3d expected_force;
-        if (face_direction == 0) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0, 2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1, 2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(0) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2, 2);
-        } else if (face_direction == 1) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0, 2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1, 2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(5) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(1) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2, 2);
-        } else if (face_direction == 2) {
-            expected_force(0) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(0, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(0, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(0, 2);
-            expected_force(1) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(1, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(1, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(1, 2);
-            expected_force(2) = expected_second_piola_kirchhoff_stress(4) * expected_deformation_gradient(2, 0) + expected_second_piola_kirchhoff_stress(3) * expected_deformation_gradient(2, 1) + expected_second_piola_kirchhoff_stress(2) * expected_deformation_gradient(2, 2);
-        } else {
-            throw std::runtime_error("Invalid face direction");
-        }
-        // Size multiplier due to the number of unit cubes
-        expected_force *= cross_section_area;
+        //  Force = B F S
+
+        // Calculate the expected deformation gradient
+        const Eigen::Matrix3d expected_deformation_gradient = expected_displacement_gradient + Eigen::Matrix3d::Identity();
+
+        // Calculate the expected Green-Lagrange strain
+        const Eigen::Matrix3d expected_green_lagrange_strain = 0.5 * (expected_deformation_gradient.transpose() * expected_deformation_gradient - Eigen::Matrix3d::Identity());
+
+        // Calculate the expected Lame parameters
+        const double lambda = m_youngs_modulus * m_poissons_ratio / ((1.0 + m_poissons_ratio) * (1.0 - 2.0 * m_poissons_ratio));
+        const double mu = m_youngs_modulus / (2.0 * (1.0 + m_poissons_ratio));
+
+        // Calculate the expected PK2 stress
+        const Eigen::Matrix<double, 3, 3> expected_pk2_stress = lambda * expected_green_lagrange_strain.trace() * Eigen::Matrix3d::Identity() + 2.0 * mu * expected_green_lagrange_strain;
+
+        // Set the normal vector for the face
+        Eigen::Vector3d normal_vector = Eigen::Vector3d::Zero();
+        normal_vector(face_direction) = 1.0;
+
+        // Calculate the expected force in the reference configuration
+        Eigen::Vector3d expected_force = expected_deformation_gradient * expected_pk2_stress * normal_vector * cross_section_area;
+
         return expected_force;
     }
 
@@ -192,30 +194,6 @@ class PatchTest : public SolverTest {
         CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_acceleration_field_name, expected_zero, aperi::FieldQueryState::None);
     }
 
-    Eigen::Matrix<double, 6, 1> GetExpectedSecondPiolaKirchhoffStress() {
-        // 2 mu = E / (1 + nu)
-        double two_mu = m_youngs_modulus / (1.0 + m_poissons_ratio);
-        // lambda = E * nu / ((1 + nu) * (1 - 2 * nu))
-        double lambda = m_youngs_modulus * m_poissons_ratio / ((1.0 + m_poissons_ratio) * (1.0 - 2.0 * m_poissons_ratio));
-
-        // Compute the Green Lagrange strain tensor. TODO(jake): Get rid of this and go straight to voigt notation
-        // E = 0.5 * (H + H^T + H^T * H)
-        const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (m_displacement_gradient + m_displacement_gradient.transpose() + m_displacement_gradient.transpose() * m_displacement_gradient);
-        // Green Lagrange strain tensor in voigt notation
-        Eigen::Matrix<double, 6, 1> green_lagrange_strain;
-        green_lagrange_strain << green_lagrange_strain_tensor(0, 0), green_lagrange_strain_tensor(1, 1), green_lagrange_strain_tensor(2, 2), green_lagrange_strain_tensor(1, 2), green_lagrange_strain_tensor(0, 2), green_lagrange_strain_tensor(0, 1);
-
-        Eigen::Matrix<double, 6, 1> stress;
-        const double lambda_trace_strain = lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-        stress(0) = lambda_trace_strain + two_mu * green_lagrange_strain(0);
-        stress(1) = lambda_trace_strain + two_mu * green_lagrange_strain(1);
-        stress(2) = lambda_trace_strain + two_mu * green_lagrange_strain(2);
-        stress(3) = two_mu * green_lagrange_strain(3);
-        stress(4) = two_mu * green_lagrange_strain(4);
-        stress(5) = two_mu * green_lagrange_strain(5);
-        return stress;
-    }
-
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
@@ -223,12 +201,9 @@ class PatchTest : public SolverTest {
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
-        // Get the expected second piola kirchhoff stress
-        Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = GetExpectedSecondPiolaKirchhoffStress();
-
         // Get the expected force in the positive x direction
         double cross_section_area = m_elements_y * m_elements_z;
-        Eigen::Vector3d expected_force_positive = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+        Eigen::Vector3d expected_force_positive = GetExpectedPositiveForces(0, cross_section_area, m_displacement_gradient);
         // Put into an array for comparison
         std::array<double, 3> expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         std::array<double, 3> expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
@@ -237,7 +212,7 @@ class PatchTest : public SolverTest {
 
         // Get the expected force in the positive y direction
         cross_section_area = m_elements_x * m_elements_z;
-        expected_force_positive = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+        expected_force_positive = GetExpectedPositiveForces(1, cross_section_area, m_displacement_gradient);
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};
@@ -246,7 +221,7 @@ class PatchTest : public SolverTest {
 
         // Get the expected force in the positive z direction
         cross_section_area = m_elements_x * m_elements_y;
-        expected_force_positive = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+        expected_force_positive = GetExpectedPositiveForces(2, cross_section_area, m_displacement_gradient);
         // Put into an array for comparison
         expected_force_positive_array = {expected_force_positive(0), expected_force_positive(1), expected_force_positive(2)};
         expected_force_negative_array = {-expected_force_positive(0), -expected_force_positive(1), -expected_force_positive(2)};

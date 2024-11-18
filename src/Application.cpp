@@ -63,16 +63,21 @@ void Application::Run(const std::string& input_filename) {
 
     // Loop over parts, create materials, and add parts to force contributions
     aperi::CoutP0() << "   - Adding parts to force contributions: " << std::endl;
+    std::vector<aperi::FieldData> field_data;
     for (const auto& part : parts) {
         // Create InternalForceContributionParameters
         aperi::CoutP0() << "      " << part["set"].as<std::string>() << std::endl;
         InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
         m_internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         uses_generalized_fields = internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields() || uses_generalized_fields;
+        // Add field data from the material. TODO(jake) Change this to just add the field on this part.
+        std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
+        field_data.insert(field_data.end(), material_field_data.begin(), material_field_data.end());
     }
 
     // Get field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
+    std::vector<aperi::FieldData> general_field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
+    field_data.insert(field_data.end(), general_field_data.begin(), general_field_data.end());
 
     // Create a mesh labeler
     std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();

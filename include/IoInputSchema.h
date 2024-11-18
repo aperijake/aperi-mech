@@ -306,8 +306,23 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema poissons_ratio_schema("poissons_ratio", "float", "the poissons ratio");
     YAML::Node poissons_ratio_node = poissons_ratio_schema.GetInputSchema();
 
-    // Elastic material properties node
-    aperi::InputSchema elastic_schema("elastic", "map", "the elastic material properties");
+    // Yield stress node
+    aperi::InputSchema yield_stress_schema("yield_stress", "float", "the yield stress");
+    YAML::Node yield_stress_node = yield_stress_schema.GetInputSchema();
+
+    // Hardening modulus node
+    aperi::InputSchema hardening_modulus_schema("hardening_modulus", "float", "the hardening modulus");
+    YAML::Node hardening_modulus_node = hardening_modulus_schema.GetInputSchema();
+
+    // Linear elastic material properties node (small strain)
+    aperi::InputSchema linear_elastic_schema("linear_elastic", "map", "the elastic material properties for the small strain model");
+    linear_elastic_schema.AddAllOf(density_node);
+    linear_elastic_schema.AddAllOf(youngs_modulus_node);
+    linear_elastic_schema.AddAllOf(poissons_ratio_node);
+    YAML::Node linear_elastic_node = linear_elastic_schema.GetInputSchema();
+
+    // Elastic material properties node (St. Venant-Kirchhoff)
+    aperi::InputSchema elastic_schema("elastic", "map", "the elastic material properties for the St. Venant-Kirchhoff model");
     elastic_schema.AddAllOf(density_node);
     elastic_schema.AddAllOf(youngs_modulus_node);
     elastic_schema.AddAllOf(poissons_ratio_node);
@@ -320,10 +335,19 @@ YAML::Node GetInputSchema() {
     neo_hookean_schema.AddAllOf(poissons_ratio_node);
     YAML::Node neo_hookean_node = neo_hookean_schema.GetInputSchema();
 
+    // Plastic material properties node
+    aperi::InputSchema plastic_schema("plastic", "map", "the plastic material properties");
+    plastic_schema.AddAllOf(density_node);
+    plastic_schema.AddAllOf(youngs_modulus_node);
+    plastic_schema.AddAllOf(poissons_ratio_node);
+    YAML::Node plastic_node = plastic_schema.GetInputSchema();
+
     // Material node
     aperi::InputSchema material_schema("material", "map", "the material");
+    material_schema.AddOneOf(linear_elastic_node);
     material_schema.AddOneOf(elastic_node);
     material_schema.AddOneOf(neo_hookean_node);
+    material_schema.AddOneOf(plastic_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
     // Integration order node

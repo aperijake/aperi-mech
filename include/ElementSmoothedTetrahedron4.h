@@ -8,13 +8,14 @@
 
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
-#include "ElementProcessor.h"
+#include "ElementForceProcessor.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
+#include "StrainSmoothingProcessor.h"
 
 namespace aperi {
 
@@ -30,9 +31,9 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         // Find and store the element neighbors
-        CreateElementProcessor();
+        CreateElementForceProcessor();
         CreateFunctors();
         ComputeNeighborValues();
     }
@@ -44,10 +45,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         DestroyFunctors();
     }
 
-    void CreateElementProcessor() {
+    void CreateElementForceProcessor() {
         // Create the element processor
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        m_element_processor = std::make_shared<ElementGatherScatterProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names);
+        bool has_state = false;
+        if (m_material) {
+            has_state = m_material->HasState();
+        }
+        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
     }
 
     void ComputeNeighborValues() {
@@ -122,7 +127,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementGatherScatterProcessor<1, true>> m_element_processor;
+    std::shared_ptr<aperi::ElementForceProcessor<1, true>> m_element_processor;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
 };
 

@@ -3,7 +3,7 @@
 #include <array>
 
 #include "Constants.h"
-#include "ElementProcessor.h"
+#include "ElementForceProcessor.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "LogUtils.h"
@@ -30,7 +30,7 @@ struct ComputeNodeVolumeFunctor {
 
     // Compute the volume of en element and scatter it to the nodes
     KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes) const {
+    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
         KOKKOS_ASSERT(CheckNumNodes(num_nodes));
         double volume = TetVolume(field_data_to_gather[0]) / num_nodes;
         for (size_t i = 0; i < NumNodes; ++i) {
@@ -47,7 +47,7 @@ struct ComputeNodeVolumeFromPrecomputedElementVolumesFunctor {
 
     // Compute the volume of en element and scatter it to the nodes
     KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_volume, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes) const {
+    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_volume, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
         for (size_t i = 0; i < num_nodes; ++i) {
             node_volume.row(i) = Eigen::Vector3d::Constant(element_volume / num_nodes);
         }
@@ -78,12 +78,12 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
     return true;
 }
 
-void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool uses_generalized_fields) {
+void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, bool uses_generalized_fields) {
     FieldQueryData<double> field_query_data_scatter = {"mass_from_elements", FieldQueryState::None};  // Store the nodal volume temporarily in the mass field
 
     if (!uses_generalized_fields) {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
-        ElementGatherScatterProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
         // Create the mass functor
         ComputeNodeVolumeFunctor<4> compute_volume_functor;
 
@@ -91,7 +91,7 @@ void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, bool u
         element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_volume_functor);
     } else {
         std::vector<FieldQueryData<double>> field_query_data_gather_vec = {};
-        ElementGatherScatterProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data);
+        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
         // Create the mass functor
         ComputeNodeVolumeFromPrecomputedElementVolumesFunctor<aperi::MAX_CELL_NUM_NODES> compute_volume_functor;
 
@@ -116,7 +116,7 @@ void ComputeMassFromElements(const std::shared_ptr<aperi::MeshData> &mesh_data, 
 
 // Compute the diagonal mass matrix
 double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
-    ComputeNodeVolume(mesh_data, uses_generalized_fields);
+    ComputeNodeVolume(mesh_data, part_name, uses_generalized_fields);
     ComputeMassFromElements(mesh_data, density);
 
     // Sum the mass at the nodes

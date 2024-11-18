@@ -56,6 +56,15 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
+     * @brief Gets the field data associated with the force contribution.
+     *
+     * @return A vector of FieldData objects.
+     */
+    std::vector<FieldData> GetFieldData() const {
+        return m_internal_force_contribution_parameters.material->GetFieldData();
+    }
+
+    /**
      * @brief Gets the part name object associated with the force contribution.
      *
      * @return A string representing the part name.

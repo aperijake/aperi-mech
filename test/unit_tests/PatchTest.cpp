@@ -105,11 +105,8 @@ TEST_F(PatchTest, ExplicitShearYXForce) {
     // Set the expected displacement gradient
     m_displacement_gradient(1, 0) = 2.0 * magnitude;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.0, 0.1};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(0, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
@@ -138,11 +135,8 @@ TEST_F(PatchTest, ExplicitShearZXForce) {
     // Set the expected displacement gradient
     m_displacement_gradient(2, 0) = 2.0 * magnitude;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.02, 0.0, 0.0, 0.0, 0.1, 0.0};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(0, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(0, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
@@ -165,17 +159,14 @@ TEST_F(PatchTest, ExplicitShearXYForce) {
     // Cross section area for loading direction
     double cross_section_area = m_num_procs * m_num_procs;
 
-    // Run the problem, apply the displacement boundary conditions on the x faces
+    // Run the problem, apply the displacement boundary conditions on the y faces
     RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, "surface_1", "surface_2");
 
     // Set the expected displacement gradient
     m_displacement_gradient(0, 1) = 2.0 * magnitude;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.0, 0.0, 0.1};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(1, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
@@ -204,11 +195,8 @@ TEST_F(PatchTest, ExplicitShearZYForce) {
     // Set the expected displacement gradient
     m_displacement_gradient(2, 1) = 2.0 * magnitude;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.0, 0.02, 0.0, 0.1, 0.0, 0.0};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(1, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(1, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
@@ -244,11 +232,8 @@ TEST_F(PatchTest, ExplicitShearXZForce) {
     // Set the expected displacement gradient
     m_displacement_gradient(0, 2) = 2.0 * magnitude / m_num_procs;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.0, 0.1, 0.0};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(2, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
@@ -283,11 +268,8 @@ TEST_F(PatchTest, ExplicitShearYZForce) {
     // Set the expected displacement gradient
     m_displacement_gradient(1, 2) = 2.0 * magnitude / m_num_procs;
 
-    // Set the expected second piola kirchhoff stress
-    Eigen::Matrix<double, 6, 1> expected_second_piola_kirchhoff_stress = {0.0, 0.0, 0.02, 0.1, 0.0, 0.0};
-
     // Get the expected forces
-    Eigen::Vector3d expected_force = GetExpectedPositiveForces(2, cross_section_area, expected_second_piola_kirchhoff_stress, m_displacement_gradient);
+    Eigen::Vector3d expected_force = GetExpectedPositiveForces(2, cross_section_area, m_displacement_gradient);
 
     // Check the force balance and the other fields
     CheckForcesAndFields(expected_force, volume);
