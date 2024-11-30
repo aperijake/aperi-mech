@@ -15,6 +15,7 @@ class MeshData;
 
 struct TimeStepperData {
     double time_increment;
+    double scale_factor;
     bool updated = false;
     std::string message = "";
 };
@@ -70,6 +71,7 @@ class TimeStepper {
     virtual TimeStepperData GetTimeStepperData(double time, size_t increment) {
         TimeStepperData data;
         data.time_increment = GetTimeIncrement(time, increment);
+        data.scale_factor = 1.0;
         return data;
     }
 
@@ -169,6 +171,7 @@ class PowerMethodTimeStepper : public TimeStepper {
         TimeStepperData data;
         std::pair<double, bool> time_increment_and_updated = GetTimeIncrementAndUpdated(time, increment);
         data.time_increment = time_increment_and_updated.first;
+        data.scale_factor = m_scale_factor;
         data.updated = time_increment_and_updated.second;
         data.message = m_power_method_processor->GetPowerMethodStats().Message();
         return data;

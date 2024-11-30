@@ -311,6 +311,7 @@ double ExplicitSolver::Solve() {
         time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
     }
     double time_increment = time_increment_data.time_increment;
+    double initial_time_increment = time_increment / time_increment_data.scale_factor;
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Loop over time steps
@@ -400,6 +401,25 @@ double ExplicitSolver::Solve() {
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogLine();
+
+    // Only write the CSV file on the rank 0 processor
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) {
+        std::ofstream csv_file("timing.csv");
+        if (!csv_file.is_open()) {
+            aperi::CoutP0() << "Failed to open file 'timing.csv' for writing." << std::endl;
+        }
+
+        // Write the header
+        csv_file << "Increments, Simulation Time, Wall Time, Wall Time/Increment, Initial Timestep" << std::endl;
+
+        // Write the data
+        csv_file << n << ", " << time << ", " << total_runtime << ", " << average_runtime << ", " << initial_time_increment << std::endl;
+
+        // Close the file
+        csv_file.close();
+    }
 
     // Print the performance summary, percent of time spent in each step
     m_timer_manager->PrintTimers();
