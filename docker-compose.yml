@@ -16,4 +16,5 @@ services:
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
       - ~/aperi-mech_test:/home/aperi-mech_docker/aperi-mech_test
+      - ~/Trilinos:/home/aperi-mech_docker/Trilinos
     working_dir: /home/aperi-mech_docker/aperi-mech
