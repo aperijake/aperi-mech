@@ -187,6 +187,10 @@ void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vect
 
     // Iterate all fields and set them as results fields...
     for (const auto &field : field_data) {
+        if (!field.output) {
+            continue;
+        }
+        assert(!field.output_name.empty());
         stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
         stk::mesh::FieldBase *p_field = mp_io_broker->meta_data().get_field(topology_rank, field.name);
         assert(p_field != nullptr);
