@@ -70,6 +70,9 @@ class SolverTest : public ApplicationTest {
         aperi::CoutP0() << " - Setting up for the Solver" << std::endl;
         auto start_solver_setup = std::chrono::high_resolution_clock::now();
 
+        // Get the time stepper
+        std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
+
         bool uses_generalized_fields = false;
 
         // Loop over parts, create materials, and add parts to force contributions
@@ -82,8 +85,12 @@ class SolverTest : public ApplicationTest {
             uses_generalized_fields = internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields() || uses_generalized_fields;
         }
 
-        // Get field data
+        // Get general field data
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
+
+        // Get the time stepper field data
+        std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
+        field_data.insert(field_data.end(), time_stepper_field_data.begin(), time_stepper_field_data.end());
 
         // Create a mesh labeler
         std::shared_ptr<aperi::MeshLabeler> mesh_labeler = aperi::CreateMeshLabeler();
@@ -141,9 +148,6 @@ class SolverTest : public ApplicationTest {
             aperi::CoutP0() << "      " << name << std::endl;
             m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
         }
-
-        // Get the time stepper
-        std::shared_ptr<aperi::TimeStepper> time_stepper = aperi::CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
         // Get the output scheduler
         std::shared_ptr<aperi::Scheduler<double>> output_scheduler = aperi::CreateTimeIncrementScheduler(m_io_input_file->GetOutputScheduler(procedure_id));

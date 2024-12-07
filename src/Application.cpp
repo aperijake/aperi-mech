@@ -59,6 +59,9 @@ void Application::Run(const std::string& input_filename) {
     aperi::CoutP0() << " - Setting up for the Solver" << std::endl;
     auto start_solver_setup = std::chrono::high_resolution_clock::now();
 
+    // Get the time stepper
+    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
+
     bool uses_generalized_fields = false;
 
     // Loop over parts, create materials, and add parts to force contributions
@@ -75,9 +78,13 @@ void Application::Run(const std::string& input_filename) {
         field_data.insert(field_data.end(), material_field_data.begin(), material_field_data.end());
     }
 
-    // Get field data
+    // Get general field data
     std::vector<aperi::FieldData> general_field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
     field_data.insert(field_data.end(), general_field_data.begin(), general_field_data.end());
+
+    // Add time stepper field data
+    std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
+    field_data.insert(field_data.end(), time_stepper_field_data.begin(), time_stepper_field_data.end());
 
     // Create a mesh labeler
     std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
@@ -135,9 +142,6 @@ void Application::Run(const std::string& input_filename) {
         aperi::CoutP0() << "      " << name << std::endl;
         m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
     }
-
-    // Get the time stepper
-    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
     // Get the output scheduler
     std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateTimeIncrementScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
