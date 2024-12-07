@@ -66,21 +66,22 @@ void Application::Run(const std::string& input_filename) {
 
     // Loop over parts, create materials, and add parts to force contributions
     aperi::CoutP0() << "   - Adding parts to force contributions: " << std::endl;
-    std::vector<aperi::FieldData> field_data;
+    std::vector<FieldData> all_field_data;
     for (const auto& part : parts) {
         // Create InternalForceContributionParameters
-        aperi::CoutP0() << "      " << part["set"].as<std::string>() << std::endl;
+        std::string part_name = part["set"].as<std::string>();
+        aperi::CoutP0() << "      " << part_name << std::endl;
         InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
         m_internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         uses_generalized_fields = internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields() || uses_generalized_fields;
         // Add field data from the material. TODO(jake) Change this to just add the field on this part.
         std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
-        field_data.insert(field_data.end(), material_field_data.begin(), material_field_data.end());
+        m_io_mesh->AddFields(material_field_data, {part_name});
+        all_field_data.insert(all_field_data.end(), material_field_data.begin(), material_field_data.end());
     }
 
     // Get general field data
-    std::vector<aperi::FieldData> general_field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
-    field_data.insert(field_data.end(), general_field_data.begin(), general_field_data.end());
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
 
     // Add time stepper field data
     std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
@@ -113,7 +114,8 @@ void Application::Run(const std::string& input_filename) {
     // Create the field results file
     aperi::CoutP0() << "   - Creating the field results file" << std::endl;
     auto start_field_results_file = std::chrono::high_resolution_clock::now();
-    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), field_data);
+    all_field_data.insert(all_field_data.end(), field_data.begin(), field_data.end());
+    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), all_field_data);
     auto end_field_results_file = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished creating the field results file. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_field_results_file - start_field_results_file).count() << " ms" << std::endl;
 

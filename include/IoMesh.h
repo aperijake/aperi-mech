@@ -35,7 +35,7 @@ class IoMesh {
 
     void CompleteInitialization();
 
-    void AddFields(const std::vector<aperi::FieldData> &field_data);
+    void AddFields(const std::vector<aperi::FieldData> &field_data, const std::vector<std::string> &part_names = {});
 
     void CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data);
 
