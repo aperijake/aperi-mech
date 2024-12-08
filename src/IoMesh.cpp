@@ -185,8 +185,15 @@ void IoMesh::CompleteInitialization() {
     mp_io_broker->populate_bulk_data();  // committing here
 }
 
-void IoMesh::CreateFieldResultsFile(const std::string &filename, const std::vector<aperi::FieldData> &field_data) {
+void IoMesh::CreateFieldResultsFile(const std::string &filename) {
     m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
+}
+
+void IoMesh::AddFieldResultsOutput(const std::vector<aperi::FieldData> &field_data) {
+    // Make sure CreateFieldResultsFile has been called
+    if (m_results_index == -1) {
+        throw std::runtime_error("CreateFieldResultsFile called before AddFieldResultsOutput");
+    }
 
     // Iterate all fields and set them as results fields...
     for (const auto &field : field_data) {

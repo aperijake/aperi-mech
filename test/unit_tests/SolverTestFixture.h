@@ -119,7 +119,8 @@ class SolverTest : public ApplicationTest {
         // Create the field results file
         aperi::CoutP0() << "   - Creating the field results file" << std::endl;
         auto start_field_results_file = std::chrono::high_resolution_clock::now();
-        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), field_data);
+        m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
+        m_io_mesh->AddFieldResultsOutput(field_data);
         auto end_field_results_file = std::chrono::high_resolution_clock::now();
         aperi::CoutP0() << "     Finished creating the field results file. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_field_results_file - start_field_results_file).count() << " ms" << std::endl;
 

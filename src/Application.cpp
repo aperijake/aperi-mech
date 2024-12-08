@@ -59,6 +59,9 @@ void Application::Run(const std::string& input_filename) {
     aperi::CoutP0() << " - Setting up for the Solver" << std::endl;
     auto start_solver_setup = std::chrono::high_resolution_clock::now();
 
+    // Create the field results file
+    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id));
+
     // Get the time stepper
     std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(m_io_input_file->GetTimeStepper(procedure_id));
 
@@ -66,7 +69,6 @@ void Application::Run(const std::string& input_filename) {
 
     // Loop over parts, create materials, and add parts to force contributions
     aperi::CoutP0() << "   - Adding parts to force contributions: " << std::endl;
-    std::vector<FieldData> all_field_data;
     for (const auto& part : parts) {
         // Create InternalForceContributionParameters
         std::string part_name = part["set"].as<std::string>();
@@ -77,7 +79,7 @@ void Application::Run(const std::string& input_filename) {
         // Add field data from the material. TODO(jake) Change this to just add the field on this part.
         std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
         m_io_mesh->AddFields(material_field_data, {part_name});
-        all_field_data.insert(all_field_data.end(), material_field_data.begin(), material_field_data.end());
+        m_io_mesh->AddFieldResultsOutput(material_field_data);
     }
 
     // Get general field data
@@ -97,6 +99,7 @@ void Application::Run(const std::string& input_filename) {
     aperi::CoutP0() << "   - Adding fields to the mesh and completing initialization" << std::endl;
     auto start_complete_initialization = std::chrono::high_resolution_clock::now();
     m_io_mesh->AddFields(field_data);
+    m_io_mesh->AddFieldResultsOutput(field_data);
     m_io_mesh->CompleteInitialization();
     auto end_complete_initialization = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished adding fields to the mesh and completing initialization. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_complete_initialization - start_complete_initialization).count() << " ms" << std::endl;
@@ -110,14 +113,6 @@ void Application::Run(const std::string& input_filename) {
     }
     auto end_labeling = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished labeling the mesh. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_labeling - start_labeling).count() << " ms" << std::endl;
-
-    // Create the field results file
-    aperi::CoutP0() << "   - Creating the field results file" << std::endl;
-    auto start_field_results_file = std::chrono::high_resolution_clock::now();
-    all_field_data.insert(all_field_data.end(), field_data.begin(), field_data.end());
-    m_io_mesh->CreateFieldResultsFile(m_io_input_file->GetOutputFile(procedure_id), all_field_data);
-    auto end_field_results_file = std::chrono::high_resolution_clock::now();
-    aperi::CoutP0() << "     Finished creating the field results file. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_field_results_file - start_field_results_file).count() << " ms" << std::endl;
 
     // Get loads
     std::vector<YAML::Node> loads = m_io_input_file->GetLoads(procedure_id);
