@@ -28,12 +28,13 @@ class MassMatrixTest : public CaptureOutputTest {
         std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
         std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
-        m_mesh_string = "1x1x" + std::to_string(m_num_procs);
-        m_volume = m_num_procs;
+        m_mesh_string = "1x1x" + std::to_string(m_num_procs * 2);
+        m_volume = m_num_procs * 2;
 
-        // Mesh labeler parameters
-        m_mesh_labeler_parameters.set = "block_1";
-        m_mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+        // Mesh labeler parameters, default to 1 block
+        m_mesh_labeler_parameters.resize(1);
+        m_mesh_labeler_parameters[0].set = "block_1";
+        m_mesh_labeler_parameters[0].smoothing_cell_type = aperi::SmoothingCellType::Element;
     }
 
     void TestComputeMassMatrix(const bool uses_generalized_fields, const std::string &override_mesh_string = "", const double density = 1.23) {
@@ -64,8 +65,10 @@ class MassMatrixTest : public CaptureOutputTest {
         }
 
         // Label the mesh for element integration
-        m_mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
-        mesh_labeler.LabelPart(m_mesh_labeler_parameters);
+        for (auto &mesh_labeler_parameters : m_mesh_labeler_parameters) {
+            mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
+            mesh_labeler.LabelPart(mesh_labeler_parameters);
+        }
 
         // Create a max edge length processor
         aperi::MaxEdgeLengthProcessor max_edge_length_processor(m_io_mesh->GetMeshData(), std::vector<std::string>{});
@@ -129,7 +132,7 @@ class MassMatrixTest : public CaptureOutputTest {
     std::string m_mesh_filename;
     std::string m_mesh_string;
     double m_volume;
-    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
+    std::vector<aperi::MeshLabelerParameters> m_mesh_labeler_parameters;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
     MPI_Comm m_comm;
     int m_num_procs;
@@ -160,6 +163,6 @@ TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsNodalIntegration) {
     bool uses_generalized_fields = true;
     std::string override_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
     m_volume = 8.0;
-    m_mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    m_mesh_labeler_parameters[0].smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     TestComputeMassMatrix(uses_generalized_fields, override_mesh_string);
 }

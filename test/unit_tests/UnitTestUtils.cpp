@@ -376,3 +376,20 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
         }
     }
 }
+
+// void SplitMeshIntoTwoBlocks(stk::mesh::Part &addPart, stk::mesh::Part &removePart)
+void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const size_t total_num_elems) {
+    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    stk::mesh::Part& addPart = mesh_data.GetMetaData()->declare_part_with_topology("block_2", stk::topology::HEX_8);
+    stk::mesh::Part& removePart = *bulk.mesh_meta_data().get_part("block_1");
+    bulk.modification_begin();
+    for (size_t elemId = 1; elemId <= total_num_elems; ++elemId) {
+        stk::mesh::Entity elem = bulk.get_entity(stk::topology::ELEM_RANK, elemId);
+        if (bulk.is_valid(elem) && bulk.bucket(elem).owned()) {
+            if (elemId > total_num_elems / 2) {
+                bulk.change_entity_parts(elem, stk::mesh::ConstPartVector{&addPart}, stk::mesh::ConstPartVector{&removePart});
+            }
+        }
+    }
+    bulk.modification_end();
+}
