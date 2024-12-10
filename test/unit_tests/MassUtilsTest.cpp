@@ -1,5 +1,6 @@
 #include <MassUtils.h>
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <vector>
 
@@ -87,25 +88,46 @@ class MassMatrixTest : public CaptureOutputTest {
         aperi::MaxEdgeLengthProcessor max_edge_length_processor(m_io_mesh->GetMeshData(), std::vector<std::string>{});
         max_edge_length_processor.ComputeMaxEdgeLength();
 
-        if (uses_generalized_fields) {
-            // Create an internal force contribution in order to run strain smoothing and populate the volume field, needed for the mass matrix computation
-            for (auto &part : m_part_parameters) {
-                aperi::InternalForceContributionParameters internal_force_contribution_parameters;
-                internal_force_contribution_parameters.part_name = part.mesh_labeler_parameters.set;
-                internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
+        // Create an internal force contribution in order to populate the volume field, needed for the mass matrix computation
+        for (auto &part : m_part_parameters) {
+            aperi::InternalForceContributionParameters internal_force_contribution_parameters;
+            internal_force_contribution_parameters.part_name = part.mesh_labeler_parameters.set;
+            internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
+            if (uses_generalized_fields) {
                 double kernel_radius_scale_factor = 1.5;
                 internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
                 internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
-
-                auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
-                internal_force_contrib->Preprocess();
+            } else {
+                internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
+                internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeGaussQuadratureParameters>();
             }
+            // Yaml node for material, unused but needed for the internal force contribution
+            YAML::Node material_node;
+            material_node["elastic"]["youngs_modulus"] = 1.0;
+            material_node["elastic"]["poissons_ratio"] = 0.3;
+            material_node["elastic"]["density"] = part.density;
+            internal_force_contribution_parameters.material = aperi::CreateMaterial(material_node);
+            auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
+            internal_force_contrib->Preprocess();
+        }
+
+        // Check element volume
+        std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+        double tolerance = 1.0e-13;
+        for (auto &part : m_part_parameters) {
+            double expected_part_volume = m_volume / m_part_parameters.size();  // Volume split evenly between parts
+
+            std::array<aperi::FieldQueryData<double>, 1> volume_field_query_data;
+            volume_field_query_data[0] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT, 1};
+            aperi::ElementProcessor<1> element_processor(volume_field_query_data, mesh_data, {part.mesh_labeler_parameters.set});
+            double part_volume = element_processor.GetFieldSumHost(0);
+
+            EXPECT_NEAR(part_volume, expected_part_volume, tolerance);
         }
 
         // Compute mass matrix
         double total_mass = 0.0;
         double expected_total_mass = 0;
-        double tolerance = 1.0e-13;
         for (auto &part : m_part_parameters) {
             double part_mass = aperi::ComputeMassMatrixForPart(m_io_mesh->GetMeshData(), part.mesh_labeler_parameters.set, part.density, uses_generalized_fields);
             double expected_part_mass = m_volume * part.density / m_part_parameters.size();  // Volume split evenly between parts
@@ -114,8 +136,6 @@ class MassMatrixTest : public CaptureOutputTest {
             expected_total_mass += expected_part_mass;
         }
 
-        // Get the mass fields
-        std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
         // Sum the mass at the nodes
         std::array<aperi::FieldQueryData<double>, 2> mass_field_query_data;
         mass_field_query_data[0] = {"mass", aperi::FieldQueryState::None};

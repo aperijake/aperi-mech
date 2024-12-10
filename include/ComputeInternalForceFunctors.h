@@ -40,6 +40,19 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
         }
     }
 
+    KOKKOS_INLINE_FUNCTION void ComputeElementVolume(const Eigen::Matrix<double, NumNodes, 3> &node_coordinates, double &volume) const {
+        volume = 0.0;
+
+        // Loop over all gauss points
+        for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
+            // Compute the B matrix and integration weight for a given gauss point
+            const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
+
+            // Compute the volume of the element
+            volume += b_matrix_and_weight.second;
+        }
+    }
+
     FunctionsFunctor &m_functions_functor;      ///< Functor for computing the shape function values and derivatives
     IntegrationFunctor &m_integration_functor;  ///< Functor for computing the B matrix and integration weight
     StressFunctor &m_stress_functor;            ///< Functor for computing the stress of the material

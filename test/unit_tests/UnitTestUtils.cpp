@@ -393,6 +393,9 @@ void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, double z_plane_off
     // Nodes to move
     stk::mesh::EntityVector nodes_to_move;
 
+    // Topology rank
+    stk::topology block_1_topology;
+
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     // Loop over all the element buckets
@@ -403,6 +406,9 @@ void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, double z_plane_off
             stk::mesh::Entity element = (*bucket)[i_entity];
             const stk::mesh::Entity* nodes = bucket->begin_nodes(i_entity);
             size_t num_nodes = bucket->num_nodes(i_entity);
+
+            // Set the topology
+            block_1_topology = bulk.bucket(element).topology();
 
             double z_average = 0.0;
 
@@ -436,7 +442,7 @@ void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, double z_plane_off
 
     bulk.modification_begin();
     // Create a new part
-    stk::mesh::Part& add_part = mesh_data.GetMetaData()->declare_part("block_2");
+    stk::mesh::Part& add_part = mesh_data.GetMetaData()->declare_part_with_topology("block_2", block_1_topology);
 
     // Prepare the parts to add and remove
     stk::mesh::PartVector add_parts = {&add_part};
