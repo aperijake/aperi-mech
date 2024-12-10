@@ -249,7 +249,7 @@ void ExplicitSolver::BuildMassMatrix() {
     aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
     auto start_mass_matrix = std::chrono::high_resolution_clock::now();
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
+        ComputeMassMatrixForPart(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
     }
     auto end_mass_matrix = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished Computing Mass Matrix. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mass_matrix - start_mass_matrix).count() << " ms" << std::endl;

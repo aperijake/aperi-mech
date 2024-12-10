@@ -377,19 +377,93 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
     }
 }
 
-// void SplitMeshIntoTwoBlocks(stk::mesh::Part &addPart, stk::mesh::Part &removePart)
-void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const size_t total_num_elems) {
+void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, double z_plane_offset) {
+    // Get the bulk data
     stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
-    stk::mesh::Part& addPart = mesh_data.GetMetaData()->declare_part_with_topology("block_2", stk::topology::HEX_8);
-    stk::mesh::Part& removePart = *bulk.mesh_meta_data().get_part("block_1");
-    bulk.modification_begin();
-    for (size_t elemId = 1; elemId <= total_num_elems; ++elemId) {
-        stk::mesh::Entity elem = bulk.get_entity(stk::topology::ELEM_RANK, elemId);
-        if (bulk.is_valid(elem) && bulk.bucket(elem).owned()) {
-            if (elemId > total_num_elems / 2) {
-                bulk.change_entity_parts(elem, stk::mesh::ConstPartVector{&addPart}, stk::mesh::ConstPartVector{&removePart});
+
+    // Create a selector for block 1
+    stk::mesh::Selector selector = mesh_data.GetMetaData()->locally_owned_part() & mesh_data.GetMetaData()->universal_part();
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    // Elements to move
+    stk::mesh::EntityVector elements_to_move;
+
+    // Nodes to move
+    stk::mesh::EntityVector nodes_to_move;
+
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    // Loop over all the element buckets
+    for (stk::mesh::Bucket* bucket : selector.get_buckets(stk::topology::ELEM_RANK)) {
+        // Loop over each entity in the bucket
+        for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+            // Get the nodes of the element
+            stk::mesh::Entity element = (*bucket)[i_entity];
+            const stk::mesh::Entity* nodes = bucket->begin_nodes(i_entity);
+            size_t num_nodes = bucket->num_nodes(i_entity);
+
+            double z_average = 0.0;
+
+            // Loop over the nodes of the element
+            for (size_t i_node = 0; i_node < num_nodes; ++i_node) {
+                // Get the node
+                stk::mesh::Entity node = nodes[i_node];
+                double* node_coords = stk::mesh::field_data(coordinates_field, node);
+
+                // Add nodes to move if they are above the z plane offset with a little bit of tolerance
+                if (node_coords[2] >= z_plane_offset - 1.0e-12) {
+                    // Only move if owned
+                    if (bulk.bucket(node).owned()) {
+                        nodes_to_move.push_back(node);
+                    }
+                }
+
+                // Get the average z value
+                z_average += node_coords[2];
+            }
+
+            // Get the average z value
+            z_average /= num_nodes;
+
+            // Add elements to move
+            if (z_average > z_plane_offset) {
+                elements_to_move.push_back(element);
             }
         }
     }
+
+    bulk.modification_begin();
+    // Create a new part
+    stk::mesh::Part& add_part = mesh_data.GetMetaData()->declare_part("block_2");
+
+    // Prepare the parts to add and remove
+    stk::mesh::PartVector add_parts = {&add_part};
+    stk::mesh::Part& remove_part = *bulk.mesh_meta_data().get_part("block_1");
+    stk::mesh::PartVector remove_parts = {&remove_part};
+    stk::mesh::PartVector empty_parts;  // No parts to remove for nodes
+
+    // Change entity parts
+    bulk.change_entity_parts(elements_to_move, add_parts, remove_parts);
+    bulk.change_entity_parts(nodes_to_move, add_parts, empty_parts);
+
     bulk.modification_end();
+}
+
+size_t GetNumEntitiesInPart(const aperi::MeshData& mesh_data, const std::string& part_name, stk::topology::rank_t rank) {
+    stk::mesh::Part* p_part = mesh_data.GetMetaData()->get_part(part_name);
+    assert(p_part != nullptr);
+    stk::mesh::Selector selector(*p_part);
+    std::vector<size_t> counts;
+    stk::mesh::comm_mesh_counts(*mesh_data.GetBulkData(), counts, &selector);
+    return counts[rank];
+}
+
+size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name) {
+    return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::ELEM_RANK);
+}
+
+size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name) {
+    return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::NODE_RANK);
 }

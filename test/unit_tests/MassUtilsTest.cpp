@@ -14,6 +14,11 @@
 
 // Fixture for mass matrix tests
 class MassMatrixTest : public CaptureOutputTest {
+    struct PartParameters {
+        aperi::MeshLabelerParameters mesh_labeler_parameters;
+        double density;
+    };
+
    protected:
     void SetUp() override {
         // Run CaptureOutputTest::SetUp first
@@ -31,13 +36,14 @@ class MassMatrixTest : public CaptureOutputTest {
         m_mesh_string = "1x1x" + std::to_string(m_num_procs * 2);
         m_volume = m_num_procs * 2;
 
-        // Mesh labeler parameters, default to 1 block
-        m_mesh_labeler_parameters.resize(1);
-        m_mesh_labeler_parameters[0].set = "block_1";
-        m_mesh_labeler_parameters[0].smoothing_cell_type = aperi::SmoothingCellType::Element;
+        // Default to one part
+        m_part_parameters.resize(1);
+        m_part_parameters[0].density = 1.23;
+        m_part_parameters[0].mesh_labeler_parameters.set = "block_1";
+        m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
     }
 
-    void TestComputeMassMatrix(const bool uses_generalized_fields, const std::string &override_mesh_string = "", const double density = 1.23) {
+    void TestComputeMassMatrix(const bool uses_generalized_fields, bool split_mesh_in_two = false, const std::string &override_mesh_string = "") {
         // Create FieldData
         bool uses_strain_smoothing = uses_generalized_fields;
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing);
@@ -64,10 +70,17 @@ class MassMatrixTest : public CaptureOutputTest {
             WriteTestMesh(m_mesh_filename, *m_io_mesh, m_mesh_string, field_data);
         }
 
+        // Split the mesh in two
+        if (split_mesh_in_two) {
+            // Mid point of the mesh in z direction
+            auto z_mid = static_cast<double>(m_num_procs);
+            SplitMeshIntoTwoBlocks(*m_io_mesh->GetMeshData(), z_mid);
+        }
+
         // Label the mesh for element integration
-        for (auto &mesh_labeler_parameters : m_mesh_labeler_parameters) {
-            mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
-            mesh_labeler.LabelPart(mesh_labeler_parameters);
+        for (auto &part : m_part_parameters) {
+            part.mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
+            mesh_labeler.LabelPart(part.mesh_labeler_parameters);
         }
 
         // Create a max edge length processor
@@ -76,19 +89,30 @@ class MassMatrixTest : public CaptureOutputTest {
 
         if (uses_generalized_fields) {
             // Create an internal force contribution in order to run strain smoothing and populate the volume field, needed for the mass matrix computation
-            aperi::InternalForceContributionParameters internal_force_contribution_parameters;
-            internal_force_contribution_parameters.part_name = "block_1";
-            internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
-            double kernel_radius_scale_factor = 1.5;
-            internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
-            internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
+            for (auto &part : m_part_parameters) {
+                aperi::InternalForceContributionParameters internal_force_contribution_parameters;
+                internal_force_contribution_parameters.part_name = part.mesh_labeler_parameters.set;
+                internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
+                double kernel_radius_scale_factor = 1.5;
+                internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+                internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
 
-            auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
-            internal_force_contrib->Preprocess();
+                auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
+                internal_force_contrib->Preprocess();
+            }
         }
 
         // Compute mass matrix
-        double total_mass = aperi::ComputeMassMatrix(m_io_mesh->GetMeshData(), "block_1", density, uses_generalized_fields);
+        double total_mass = 0.0;
+        double expected_total_mass = 0;
+        double tolerance = 1.0e-13;
+        for (auto &part : m_part_parameters) {
+            double part_mass = aperi::ComputeMassMatrixForPart(m_io_mesh->GetMeshData(), part.mesh_labeler_parameters.set, part.density, uses_generalized_fields);
+            double expected_part_mass = m_volume * part.density / m_part_parameters.size();  // Volume split evenly between parts
+            EXPECT_NEAR(part_mass, expected_part_mass, tolerance);
+            total_mass += part_mass;
+            expected_total_mass += expected_part_mass;
+        }
 
         // Get the mass fields
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
@@ -103,8 +127,6 @@ class MassMatrixTest : public CaptureOutputTest {
         double mass_from_elements_sum_global = node_processor.GetFieldSumHost(1) / 3.0;
 
         // Check that the total mass is correct
-        double expected_total_mass = density * m_volume;
-        double tolerance = 1.0e-13;
         EXPECT_NEAR(total_mass, expected_total_mass, tolerance);
         EXPECT_NEAR(mass_sum_global, expected_total_mass, tolerance);
         EXPECT_NEAR(mass_from_elements_sum_global, expected_total_mass, tolerance);
@@ -112,7 +134,10 @@ class MassMatrixTest : public CaptureOutputTest {
         // Sum the mass at the active nodes. For nodal integration, but should work in general
         std::array<aperi::FieldQueryData<double>, 1> mass_field_query_data_active;
         mass_field_query_data_active[0] = {"mass", aperi::FieldQueryState::None};
-        std::vector<std::string> active_part_names = {"block_1_active"};
+        std::vector<std::string> active_part_names;
+        for (auto &part : m_part_parameters) {
+            active_part_names.push_back(part.mesh_labeler_parameters.set + "_active");
+        }
         aperi::NodeProcessor<1> node_processor_active(mass_field_query_data_active, mesh_data, active_part_names);
 
         // Parallel sum
@@ -132,7 +157,7 @@ class MassMatrixTest : public CaptureOutputTest {
     std::string m_mesh_filename;
     std::string m_mesh_string;
     double m_volume;
-    std::vector<aperi::MeshLabelerParameters> m_mesh_labeler_parameters;
+    std::vector<PartParameters> m_part_parameters;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
     MPI_Comm m_comm;
     int m_num_procs;
@@ -163,6 +188,17 @@ TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsNodalIntegration) {
     bool uses_generalized_fields = true;
     std::string override_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
     m_volume = 8.0;
-    m_mesh_labeler_parameters[0].smoothing_cell_type = aperi::SmoothingCellType::Nodal;
-    TestComputeMassMatrix(uses_generalized_fields, override_mesh_string);
+    m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    TestComputeMassMatrix(uses_generalized_fields, false, override_mesh_string);
+}
+
+// Test ComputeMassMatrix on two parts
+TEST_F(MassMatrixTest, ComputeMassMatrixTwoParts) {
+    m_mesh_string += "|tets";
+    bool uses_generalized_fields = false;
+    m_part_parameters.resize(2);
+    m_part_parameters[1].density = 2.34;
+    m_part_parameters[1].mesh_labeler_parameters.set = "block_2";
+    m_part_parameters[1].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+    TestComputeMassMatrix(uses_generalized_fields, true);
 }

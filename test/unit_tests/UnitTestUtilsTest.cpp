@@ -35,12 +35,11 @@ class UnitTestUtilsTestFixture : public ::testing::Test {
     }
 
     void CheckNumElementsInPart(const std::string& part_name, size_t expected_num_elems) {
-        stk::mesh::Part* p_part = m_io_mesh->GetMetaData().get_part(part_name);
-        ASSERT_TRUE(p_part != nullptr);
-        stk::mesh::Selector selector(*p_part);
-        std::vector<size_t> counts;
-        stk::mesh::comm_mesh_counts(m_io_mesh->GetBulkData(), counts, &selector);
-        EXPECT_EQ(expected_num_elems, counts[stk::topology::ELEM_RANK]);
+        EXPECT_EQ(expected_num_elems, GetNumElementsInPart(*m_io_mesh->GetMeshData(), part_name)) << "Part: " << part_name;
+    }
+
+    void CheckNumNodesInPart(const std::string& part_name, size_t expected_num_nodes) {
+        EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(*m_io_mesh->GetMeshData(), part_name)) << "Part: " << part_name;
     }
 
     int m_num_procs;
@@ -62,6 +61,9 @@ TEST_F(UnitTestUtilsTestFixture, WriteTestMesh) {
 
     // Check that the mesh has the correct number of elements
     CheckNumElementsInPart("block_1", m_num_procs);
+
+    // Check that the mesh has the correct number of nodes
+    CheckNumNodesInPart("block_1", (m_num_procs + 1) * 4);
 }
 
 // Test SplitMeshIntoTwoBlocks
@@ -77,10 +79,17 @@ TEST_F(UnitTestUtilsTestFixture, SplitMeshIntoTwoBlocks) {
     // Check that the mesh has the correct number of elements
     CheckNumElementsInPart("block_1", m_num_procs * 2);
 
+    // Check that the mesh has the correct number of nodes
+    CheckNumNodesInPart("block_1", (m_num_procs * 2 + 1) * 4);
+
     // Split the mesh into two blocks
-    SplitMeshIntoTwoBlocks(*m_io_mesh->GetMeshData(), m_num_procs * 2);
+    SplitMeshIntoTwoBlocks(*m_io_mesh->GetMeshData(), static_cast<double>(m_num_procs));
 
     // Check that the mesh has the correct number of elements
     CheckNumElementsInPart("block_1", m_num_procs);
     CheckNumElementsInPart("block_2", m_num_procs);
+
+    // Check that the mesh has the correct number of nodes
+    CheckNumNodesInPart("block_1", (m_num_procs + 1) * 4);
+    CheckNumNodesInPart("block_2", (m_num_procs + 1) * 4);
 }
