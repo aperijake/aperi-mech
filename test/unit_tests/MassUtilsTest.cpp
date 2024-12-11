@@ -114,6 +114,7 @@ class MassMatrixTest : public CaptureOutputTest {
         // Check element volume
         std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
         double tolerance = 1.0e-13;
+        double expected_total_mass = 0;
         for (auto &part : m_part_parameters) {
             double expected_part_volume = m_volume / m_part_parameters.size();  // Volume split evenly between parts
 
@@ -123,18 +124,15 @@ class MassMatrixTest : public CaptureOutputTest {
             double part_volume = element_processor.GetFieldSumHost(0);
 
             EXPECT_NEAR(part_volume, expected_part_volume, tolerance);
+
+            expected_total_mass += part_volume * part.density;
         }
 
         // Compute mass matrix
-        double total_mass = 0.0;
-        double expected_total_mass = 0;
         for (auto &part : m_part_parameters) {
-            double part_mass = aperi::ComputeMassMatrixForPart(m_io_mesh->GetMeshData(), part.mesh_labeler_parameters.set, part.density, uses_generalized_fields);
-            double expected_part_mass = m_volume * part.density / m_part_parameters.size();  // Volume split evenly between parts
-            EXPECT_NEAR(part_mass, expected_part_mass, tolerance);
-            total_mass += part_mass;
-            expected_total_mass += expected_part_mass;
+            aperi::ComputeMassMatrixForPart(m_io_mesh->GetMeshData(), part.mesh_labeler_parameters.set, part.density);
         }
+        double total_mass = aperi::FinishComputingMassMatrix(m_io_mesh->GetMeshData(), uses_generalized_fields);
 
         // Sum the mass at the nodes
         std::array<aperi::FieldQueryData<double>, 2> mass_field_query_data;

@@ -17,6 +17,7 @@ class MeshData;
  * @param density The density used in the mass calculation.
  * @return The computed mass matrix.
  */
-double ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::string& part_name, double density, bool uses_generalized_fields = false);
+void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::string& part_name, double density);
+double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData>& mesh_data, bool uses_generalized_fields = false);
 
 }  // namespace aperi
