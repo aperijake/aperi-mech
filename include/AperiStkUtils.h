@@ -58,6 +58,13 @@ inline stk::io::FieldOutputType GetFieldOutputType(FieldDataRank data_rank) {
 }
 
 template <typename T>
+inline bool StkFieldExists(const FieldQueryData<T> &field_query_data, stk::mesh::MetaData *meta_data) {
+    stk::topology::rank_t topology_rank = GetTopologyRank(field_query_data.topology_rank);
+    stk::mesh::Field<T> *field = meta_data->get_field<T>(topology_rank, field_query_data.name);
+    return field != nullptr;
+}
+
+template <typename T>
 inline stk::mesh::Field<T> *StkGetField(const FieldQueryData<T> &field_query_data, stk::mesh::MetaData *meta_data) {
     stk::topology::rank_t topology_rank = GetTopologyRank(field_query_data.topology_rank);
     stk::mesh::Field<T> *field = meta_data->get_field<T>(topology_rank, field_query_data.name);

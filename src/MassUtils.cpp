@@ -3,7 +3,7 @@
 #include <array>
 
 #include "Constants.h"
-#include "ElementForceProcessor.h"
+#include "ElementNodeProcessor.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "LogUtils.h"
@@ -13,52 +13,35 @@
 
 namespace aperi {
 
-// Functor for computing the mass of a node
-template <size_t NumNodes>
-struct ComputeNodeMassFunctor {
-    KOKKOS_FUNCTION
-    explicit ComputeNodeMassFunctor(double density) : m_density(density) {}
+struct ComputeMassFromElementVolumeKernel {
+    ComputeMassFromElementVolumeKernel(const aperi::MeshData &mesh_data, double density) : m_density("density", 1),
+                                                                                           m_element_volume_gather_kernel(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+                                                                                           m_node_mass_from_elements_scatter_kernel(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
+        // Initialize the density
+        Kokkos::deep_copy(m_density, density);
 
-    KOKKOS_INLINE_FUNCTION
-    bool CheckNumNodes(size_t num_nodes) const {
-        if (num_nodes != NumNodes) {
-            Kokkos::printf("Error: ComputeNodeMassFunctor requires %lu nodes, but %lu were provided.\n", NumNodes, num_nodes);
-            return false;
-        }
-        return true;
+        // Initialize the ngp mesh object
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*mesh_data.GetBulkData());
     }
 
-    // Compute the mass of an element and scatter it to the nodes
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
-        KOKKOS_ASSERT(CheckNumNodes(num_nodes));
-        double node_mass = TetVolume(field_data_to_gather[0]) * m_density / NumNodes;
-        for (size_t i = 0; i < NumNodes; ++i) {
-            results_to_scatter.row(i) = Eigen::Vector3d::Constant(node_mass);
-        }
-    }
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const stk::mesh::NgpMesh::ConnectedNodes &nodes, size_t num_nodes) const {
+        // Gather the element volume
+        Eigen::Vector<double, 1> element_volume;
+        m_element_volume_gather_kernel(elem_index, element_volume);
 
-   private:
-    double m_density;
-};
-
-// Functor for computing the mass of a node from precomputed element volumes
-template <size_t MaxNumNodes>
-struct ComputeNodeMassFromPrecomputedElementVolumesFunctor {
-    KOKKOS_FUNCTION
-    explicit ComputeNodeMassFromPrecomputedElementVolumesFunctor(double density) : m_density(density) {}
-
-    // Compute the volume of en element and scatter it to the nodes
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_mass, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
-        double mass = element_volume * m_density / num_nodes;
+        // Compute the mass of the element and scatter it to the nodes
+        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume(0) * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
-            node_mass.row(i) = Eigen::Vector3d::Constant(mass);
+            stk::mesh::FastMeshIndex node_index = m_ngp_mesh.fast_mesh_index(nodes[i]);
+            m_node_mass_from_elements_scatter_kernel.AtomicAdd(node_index, node_mass_from_elements);
         }
     }
 
    private:
-    double m_density;
+    Kokkos::View<double *> m_density;                                   // The density of the material
+    GatherKernel<double, 1> m_element_volume_gather_kernel;             // The gather kernel for the element volume
+    ScatterKernel<double, 3> m_node_mass_from_elements_scatter_kernel;  // The scatter kernel for the node mass from elements
+    stk::mesh::NgpMesh m_ngp_mesh;                                      // The ngp mesh object
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
@@ -71,25 +54,14 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
 }
 
 void ComputeNodeMass(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
-    FieldQueryData<double> field_query_data_scatter = {"mass_from_elements", FieldQueryState::None};
+    // Initialize the mesh data and element node processor
+    aperi::ElementNodeProcessor processor(mesh_data, {part_name});
 
-    if (!uses_generalized_fields) {
-        std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
-        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
-        // Create the mass functor
-        ComputeNodeMassFunctor<4> compute_mass_functor(density);
+    // Define the action kernel
+    ComputeMassFromElementVolumeKernel action_kernel(*mesh_data, density);
 
-        // Compute the mass of each element
-        element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_mass_functor);
-    } else {
-        std::vector<FieldQueryData<double>> field_query_data_gather_vec = {};
-        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
-        // Create the mass functor
-        ComputeNodeMassFromPrecomputedElementVolumesFunctor<aperi::MAX_CELL_NUM_NODES> compute_mass_functor(density);
-
-        // Compute the mass of each element
-        element_processor.for_each_element_gather_scatter_nodal_data<aperi::MAX_CELL_NUM_NODES>(compute_mass_functor);
-    }
+    // Call the for_each_element_and_node function
+    processor.for_each_element_and_nodes(action_kernel);
 }
 
 // Compute the diagonal mass matrix
