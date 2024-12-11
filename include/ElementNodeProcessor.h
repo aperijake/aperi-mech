@@ -49,6 +49,9 @@ class ElementNodeProcessor {
     void for_each_element_and_nodes(ActionFunc action_func) {
         auto ngp_mesh = m_ngp_mesh;
 
+        // Allocate for the node indices
+        Kokkos::View<stk::mesh::FastMeshIndex *, Kokkos::DefaultExecutionSpace> node_indices("node_indices", 8);
+
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
@@ -56,8 +59,18 @@ class ElementNodeProcessor {
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 size_t num_nodes = nodes.size();
 
+                // Assert num_nodes is less than or equal to the extent of node_indices
+                if (num_nodes > node_indices.extent(0)) {
+                    Kokkos::abort("Error: num_nodes > node_indices.extent(0)");
+                }
+
+                // Get the node indices
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    node_indices(i) = ngp_mesh.fast_mesh_index(nodes[i]);
+                }
+
                 // Call the action function
-                action_func(elem_index, nodes, num_nodes);
+                action_func(elem_index, node_indices, num_nodes);
             });
     }
 

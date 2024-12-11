@@ -1,7 +1,6 @@
 #include "MassUtils.h"
 
 #include <array>
-#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 
 #include "Constants.h"
@@ -21,12 +20,9 @@ struct ComputeMassFromElementVolumeKernel {
                                                                                            m_node_mass_from_elements_scatter_kernel(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
-
-        // Initialize the ngp mesh object
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*mesh_data.GetBulkData());
     }
 
-    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const stk::mesh::NgpMesh::ConnectedNodes &nodes, size_t num_nodes) const {
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::View<stk::mesh::FastMeshIndex *> &nodes, size_t num_nodes) const {
         // Gather the element volume
         Eigen::Vector<double, 1> element_volume;
         m_element_volume_gather_kernel(elem_index, element_volume);
@@ -34,8 +30,7 @@ struct ComputeMassFromElementVolumeKernel {
         // Compute the mass of the element and scatter it to the nodes
         auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume(0) * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
-            stk::mesh::FastMeshIndex node_index = m_ngp_mesh.fast_mesh_index(nodes[i]);
-            m_node_mass_from_elements_scatter_kernel.AtomicAdd(node_index, node_mass_from_elements);
+            m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes(i), node_mass_from_elements);
         }
     }
 
@@ -43,7 +38,6 @@ struct ComputeMassFromElementVolumeKernel {
     Kokkos::View<double *> m_density;                                   // The density of the material
     GatherKernel<double, 1> m_element_volume_gather_kernel;             // The gather kernel for the element volume
     ScatterKernel<double, 3> m_node_mass_from_elements_scatter_kernel;  // The scatter kernel for the node mass from elements
-    stk::mesh::NgpMesh m_ngp_mesh;                                      // The ngp mesh object
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
