@@ -88,7 +88,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
         value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
         node_processor.ParallelSumFieldData(1);
-        
+
         // Sync the mass field back to the device
         node_processor.MarkFieldModifiedOnHost(1);
         node_processor.SyncFieldHostToDevice(1);
