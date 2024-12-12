@@ -205,7 +205,7 @@ void ExplicitSolver::WriteOutput(double time) {
         UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
-    m_node_processor_all->SyncAllFieldsDeviceToHost();
+    m_node_processor_output->SyncAllFieldsDeviceToHost();
     m_io_mesh->WriteFieldResults(time);
 }
 
@@ -246,11 +246,13 @@ void LogEvent(const size_t n, const double time, const double time_increment, co
 
 void ExplicitSolver::BuildMassMatrix() {
     // Compute mass matrix
-    aperi::CoutP0() << "   - Computing mass matrix for parts:" << std::endl;
+    aperi::CoutP0() << "   - Computing mass matrix" << std::endl;
     auto start_mass_matrix = std::chrono::high_resolution_clock::now();
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        ComputeMassMatrix(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity(), internal_force_contribution->UsesGeneralizedFields());
+        ComputeMassMatrixForPart(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
     }
+    double total_mass = FinishComputingMassMatrix(mp_mesh_data, m_uses_generalized_fields);
+    aperi::CoutP0() << "     Total mass: " << total_mass << std::endl;
     auto end_mass_matrix = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished Computing Mass Matrix. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mass_matrix - start_mass_matrix).count() << " ms" << std::endl;
 }

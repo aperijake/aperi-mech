@@ -15,6 +15,16 @@ class PowerMethodProcessorTest : public SolverTest {
     void SetUp() override {
         // Run SolverTest::SetUp first
         SolverTest::SetUp();
+
+        // Remove the loads from the input file
+        m_yaml_data = CreateTestYaml();
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
+
+        // Change the time stepper to a power method time stepper, not really used, just need it so fields are generated
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"].remove("direct_time_stepper");
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["scale_factor"] = 1.0;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["update_interval"] = 500;
+        m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["power_method_time_stepper"]["time_end"] = 0.1;
     }
 
     void TearDown() override {
@@ -64,8 +74,6 @@ TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
         GTEST_SKIP();
     }
 
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     CreateInputFile();
     std::string mesh_string = "1x1x4|tets";
     CreateTestMesh(mesh_string);
@@ -82,8 +90,6 @@ TEST_F(PowerMethodProcessorTest, AllFixed) {
     if (m_num_procs > 4) {
         GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
     }
-    m_yaml_data = CreateTestYaml();
-    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"].remove("loads");
     AddVelocityBoundaryConditions(m_yaml_data);  // Fixes all nodes
     CreateInputFile();
     std::string mesh_string = "1x1x4|tets";

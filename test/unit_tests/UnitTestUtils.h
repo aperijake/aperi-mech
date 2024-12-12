@@ -49,6 +49,9 @@ void CheckLinearCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sha
 void CheckQuadraticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates, double tolerance = 1.0e-12);
 void CheckCubicCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates, double tolerance = 1.0e-12);
 void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_point_phyiscal_coordinates, double tolerance = 1.0e-12);
+void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const double z_plane_offset);
+size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
+size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same

@@ -1,0 +1,40 @@
+## /Applications/Coreform-Cubit-2024.3.app/Contents/MacOS/Coreform-Cubit-2024.3
+## Coreform Cubit Version 2024.3
+## Coreform Cubit Build ce90958e
+## Revised Mon Mar 4 17:28:41 2024 +0000
+## Running 11/04/2024 06:32:08 AM
+## Command Options:
+undo on
+create brick x 1 y 1 z 2
+move volume 1 z 1
+create brick x 1 y 1 z 2
+move volume 2 z -1
+imprint volume all
+merge volume all
+volume all size 1
+mesh volume all
+htet volume all
+undo group begin
+nodeset 1 add surface 1
+nodeset 2 add surface 8
+nodeset 3 add surface 3 9
+nodeset 4 add surface 4 10
+nodeset 5 add surface 5 11
+nodeset 6 add surface 6 12
+undo group end
+set duplicate block elements off
+undo group begin
+block 1 add volume 1
+block 2 add volume 2
+undo group end
+undo group begin
+set exodus netcdf4 off
+set large exodus file on
+export mesh "two_beams.e" overwrite
+undo group end
+# thex volume all
+# undo group begin
+# set exodus netcdf4 off
+# set large exodus file on
+# export mesh "two_beams_thex.e" overwrite
+# undo group end

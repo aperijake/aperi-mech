@@ -1,9 +1,10 @@
 #include "MassUtils.h"
 
 #include <array>
+#include <stk_mesh/base/NgpMesh.hpp>
 
 #include "Constants.h"
-#include "ElementForceProcessor.h"
+#include "ElementNodeProcessor.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "LogUtils.h"
@@ -13,112 +14,54 @@
 
 namespace aperi {
 
-// Functor for computing the volume of a node
-template <size_t NumNodes>
-struct ComputeNodeVolumeFunctor {
-    KOKKOS_FUNCTION
-    explicit ComputeNodeVolumeFunctor() = default;
-
-    KOKKOS_INLINE_FUNCTION
-    bool CheckNumNodes(size_t num_nodes) const {
-        if (num_nodes != NumNodes) {
-            Kokkos::printf("Error: ComputeElementVolumeFunctor requires %lu nodes, but %lu were provided.\n", NumNodes, num_nodes);
-            return false;
-        }
-        return true;
+struct ComputeMassFromElementVolumeKernel {
+    ComputeMassFromElementVolumeKernel(const aperi::MeshData &mesh_data, double density) : m_density("density", 1),
+                                                                                           m_element_volume_gather_kernel(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+                                                                                           m_node_mass_from_elements_scatter_kernel(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
+        // Initialize the density
+        Kokkos::deep_copy(m_density, density);
     }
 
-    // Compute the volume of en element and scatter it to the nodes
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, 1> &field_data_to_gather, Eigen::Matrix<double, NumNodes, 3> &results_to_scatter, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
-        KOKKOS_ASSERT(CheckNumNodes(num_nodes));
-        double volume = TetVolume(field_data_to_gather[0]) / num_nodes;
-        for (size_t i = 0; i < NumNodes; ++i) {
-            results_to_scatter.row(i) = Eigen::Vector3d::Constant(volume);
-        }
-    }
-};
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
+        // Gather the element volume
+        Eigen::Vector<double, 1> element_volume;
+        m_element_volume_gather_kernel(elem_index, element_volume);
 
-// Functor for computing the volume of a node from precomputed element volumes
-template <size_t MaxNumNodes>
-struct ComputeNodeVolumeFromPrecomputedElementVolumesFunctor {
-    KOKKOS_FUNCTION
-    explicit ComputeNodeVolumeFromPrecomputedElementVolumesFunctor() = default;
-
-    // Compute the volume of en element and scatter it to the nodes
-    KOKKOS_INLINE_FUNCTION
-    void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 0> & /*gathered_node_data_gradient*/, Eigen::Matrix<double, MaxNumNodes, 3> &node_volume, const Eigen::Matrix<double, MaxNumNodes, 3> & /*b_matrix*/, double element_volume, size_t num_nodes, const double * /*state_old*/, double * /*state_new*/, size_t /*state_bucket_offset*/) const {
+        // Compute the mass of the element and scatter it to the nodes
+        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume(0) * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
-            node_volume.row(i) = Eigen::Vector3d::Constant(element_volume / num_nodes);
+            m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes[i], node_mass_from_elements);
         }
-    }
-};
-
-// Functor for computing the mass of a node from the volume of the node
-struct ComputeMassFunctor {
-    KOKKOS_FUNCTION
-    explicit ComputeMassFunctor(double density) : m_density(density) {}
-
-    // Compute the mass
-    KOKKOS_INLINE_FUNCTION
-    void operator()(double *mass) const {
-        *mass = *mass * m_density;  // Node volume is stored in the mass field
     }
 
    private:
-    double m_density;
+    Kokkos::View<double *> m_density;                                   // The density of the material
+    GatherKernel<double, 1> m_element_volume_gather_kernel;             // The gather kernel for the element volume
+    ScatterKernel<double, 3> m_node_mass_from_elements_scatter_kernel;  // The scatter kernel for the node mass from elements
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
     double tol = 1.0e-10 * mass_1;
-    if (std::abs(mass_1 - mass_2) > tol) {
+    bool are_equal = std::abs(mass_1 - mass_2) <= tol;
+    if (!are_equal) {
         Kokkos::printf("Error: Mass sums are not equal: %f != %f\n", mass_1, mass_2);
-        return false;
     }
-    return true;
+    return are_equal;
 }
 
-void ComputeNodeVolume(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, bool uses_generalized_fields) {
-    FieldQueryData<double> field_query_data_scatter = {"mass_from_elements", FieldQueryState::None};  // Store the nodal volume temporarily in the mass field
+void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density) {
+    // Initialize the mesh data and element node processor
+    aperi::ElementNodeProcessor processor(mesh_data, {part_name});
 
-    if (!uses_generalized_fields) {
-        std::vector<FieldQueryData<double>> field_query_data_gather_vec = {FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None}};
-        ElementForceProcessor<1> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
-        // Create the mass functor
-        ComputeNodeVolumeFunctor<4> compute_volume_functor;
+    // Define the action kernel
+    ComputeMassFromElementVolumeKernel action_kernel(*mesh_data, density);
 
-        // Compute the mass of each element
-        element_processor.for_each_element_gather_scatter_nodal_data<4>(compute_volume_functor);
-    } else {
-        std::vector<FieldQueryData<double>> field_query_data_gather_vec = {};
-        ElementForceProcessor<0, true> element_processor(field_query_data_gather_vec, field_query_data_scatter, mesh_data, {part_name});
-        // Create the mass functor
-        ComputeNodeVolumeFromPrecomputedElementVolumesFunctor<aperi::MAX_CELL_NUM_NODES> compute_volume_functor;
-
-        // Compute the mass of each element
-        element_processor.for_each_element_gather_scatter_nodal_data<aperi::MAX_CELL_NUM_NODES>(compute_volume_functor);
-    }
-}
-
-void ComputeMassFromElements(const std::shared_ptr<aperi::MeshData> &mesh_data, double density) {
-    std::string mass_from_elements_name = "mass_from_elements";
-    std::array<FieldQueryData<double>, 1> field_query_data_gather_vec;
-    field_query_data_gather_vec[0] = FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None};
-
-    NodeProcessor<1> node_mass_from_elements_processor(field_query_data_gather_vec, mesh_data);
-
-    // Create the mass functor
-    ComputeMassFunctor compute_mass_functor(density);
-
-    // Compute the mass of each node
-    node_mass_from_elements_processor.for_each_component(compute_mass_functor);
+    // Call the for_each_element_and_node function
+    processor.for_each_element_and_nodes(action_kernel);
 }
 
 // Compute the diagonal mass matrix
-double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density, bool uses_generalized_fields) {
-    ComputeNodeVolume(mesh_data, part_name, uses_generalized_fields);
-    ComputeMassFromElements(mesh_data, density);
-
+double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, bool uses_generalized_fields) {
     // Sum the mass at the nodes
     std::string mass_from_elements_name = "mass_from_elements";
     std::string mass_name = "mass";
@@ -145,16 +88,20 @@ double ComputeMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_data, cons
         value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
         node_processor.ParallelSumFieldData(1);
+
+        // Sync the mass field back to the device
+        node_processor.MarkFieldModifiedOnHost(1);
+        node_processor.SyncFieldHostToDevice(1);
     } else {
         node_processor.CopyFieldData(0, 1);
+        node_processor.MarkFieldModifiedOnDevice(1);
+        node_processor.SyncFieldDeviceToHost(1);
     }
-    node_processor.MarkFieldModifiedOnDevice(1);
-    node_processor.SyncFieldDeviceToHost(1);
 
-    // Parallel sum
+    // Total mass after the mass from this element block is added
     double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
     assert(CheckMassSumsAreEqual(mass_sum_global, node_processor.GetFieldSumHost(1) / 3.0));
-    aperi::CoutP0() << "      " << part_name << ", Mass: " << mass_sum_global << std::endl;
+
     return mass_sum_global;
 }
 

@@ -36,29 +36,29 @@ enum class FieldDataTopologyRank { NODE,
 struct FieldData {
     // For non-custom fields
     template <typename T>
-    FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in = {})
-        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}) {
+    FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in, bool output_in = true)
+        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}), output(output_in) {
         number_of_components = FieldDataRankToNumberComponents(data_rank);
         AssignInitialValues(initial_values_in);
     }
 
     template <typename T>
-    FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in = {})
-        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}) {
+    FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in, bool output_in = true)
+        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}), output(output_in) {
         number_of_components = FieldDataRankToNumberComponents(data_rank);
         AssignInitialValues(initial_values_in);
     }
 
     // Mainly for custom fields
     template <typename T>
-    FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in = {})
-        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}) {
+    FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in, bool output_in = true)
+        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}), output(output_in) {
         AssignInitialValues(initial_values_in);
     }
 
     template <typename T>
-    FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in = {})
-        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}) {
+    FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in, bool output_in = true)
+        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}), output(output_in) {
         AssignInitialValues(initial_values_in);
     }
 
@@ -86,6 +86,7 @@ struct FieldData {
     size_t number_of_components;                ///< The number of components of the field.
     FieldDataType data_type;                    ///< The data type of the field.
     std::vector<FieldDataType> initial_values;  ///< The initial values of the field. Only used to apply to entire mesh. Not used for individual sets.
+    bool output = true;                         ///< Whether to output the field.
 };
 
 /**

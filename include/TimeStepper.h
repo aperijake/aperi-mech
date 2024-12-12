@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "FieldData.h"
 #include "PowerMethodProcessor.h"
 #include "Scheduler.h"
 
@@ -73,8 +74,17 @@ class TimeStepper {
         return data;
     }
 
+    /**
+     * @brief Get the field data.
+     * @return The field data.
+     */
+    std::vector<aperi::FieldData> GetFieldData() const { return m_field_data; }
+
    private:
     double m_time_end;
+
+   protected:
+    std::vector<aperi::FieldData> m_field_data;
 };
 
 /**
@@ -137,6 +147,13 @@ class PowerMethodTimeStepper : public TimeStepper {
     PowerMethodTimeStepper(double scale_factor, size_t time_update_interval, double time_end)
         : TimeStepper(time_end), m_scale_factor(scale_factor), m_time_increment(0.0) {
         m_step_scheduler = std::make_shared<StepScheduler>(0, time_update_interval);
+
+        std::vector<double> empty_vector;
+        bool output = false;
+        size_t number_of_states = 1;
+        m_field_data.push_back(aperi::FieldData("displacement_np1_temp", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
+        m_field_data.push_back(aperi::FieldData("eigenvector", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
+        m_field_data.push_back(aperi::FieldData("force_coefficients_temp", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
     };
 
     virtual ~PowerMethodTimeStepper() = default;

@@ -35,6 +35,7 @@ class ElementTetrahedron4 : public ElementBase {
     ElementTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateElementForceProcessor();
         CreateFunctors();
+        ComputeElementVolume();
     }
 
     /**
@@ -104,6 +105,21 @@ class ElementTetrahedron4 : public ElementBase {
 
         m_shape_functions_functor = nullptr;
         m_integration_functor = nullptr;
+    }
+
+    /**
+     * @brief Computes the volume of all elements.
+     *
+     */
+    void ComputeElementVolume() {
+        assert(m_element_processor != nullptr);
+        assert(m_integration_functor != nullptr);
+
+        // Create the compute force functor, no stress functor needed
+        ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+
+        // Loop over all elements and compute the internal force
+        m_element_processor->ComputeElementVolume<TET4_NUM_NODES>(0, compute_force_functor);
     }
 
     /**

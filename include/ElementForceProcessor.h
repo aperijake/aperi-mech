@@ -73,11 +73,11 @@ class ElementForceProcessor {
             m_ngp_state_new = &stk::mesh::get_updated_ngp_field<double>(*m_state_new);
         }
 
-        if constexpr (UsePrecomputedDerivatives) {
-            // Get the element volume field
-            m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
+        // Get the element volume field
+        m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
 
+        if constexpr (UsePrecomputedDerivatives) {
             // Get the function derivatives fields
             std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
             for (size_t i = 0; i < 3; ++i) {
@@ -85,6 +85,50 @@ class ElementForceProcessor {
                 m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
             }
         }
+    }
+
+    // Compute the element volume
+    template <size_t NumNodes, typename Func>
+    void ComputeElementVolume(size_t coordinate_field_index, Func func) {
+        // If using precomputed derivatives, the element volume is already computed
+        if (UsePrecomputedDerivatives) {
+            return;
+        }
+
+        auto ngp_mesh = m_ngp_mesh;
+        auto ngp_element_volume = *m_ngp_element_volume;
+
+        // Get the ngp fields
+        auto ngp_coordinates_field = *m_ngp_fields_to_gather[coordinate_field_index];
+
+        // Loop over all the buckets
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the neighbors
+                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
+                size_t num_nodes = nodes.size();
+
+                // Set up the field data to gather
+                Eigen::Matrix<double, NumNodes, 3> coordinate_field_data;
+
+                // Gather the field data for each node
+                for (size_t i = 0; i < num_nodes; ++i) {
+                    for (size_t j = 0; j < 3; ++j) {
+                        coordinate_field_data(i, j) = ngp_coordinates_field(ngp_mesh.fast_mesh_index(nodes[i]), j);
+                    }
+                }
+
+                // Apply the function to compute the element volume
+                double element_volume;
+                func.ComputeElementVolume(coordinate_field_data, element_volume);
+
+                // Store the computed volume to the field
+                ngp_element_volume(elem_index)[0] = element_volume;
+            });
+        // Sync the element volume field to the host
+        m_ngp_element_volume->modify_on_device();
+        m_ngp_element_volume->sync_to_host();
     }
 
     // Loop over each element and apply the function

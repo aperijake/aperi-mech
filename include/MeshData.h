@@ -31,6 +31,8 @@ class MeshData {
 
     stk::mesh::BulkData *GetBulkData() const { return m_bulk_data; }
 
+    stk::mesh::MetaData *GetMetaData() const { return &m_bulk_data->mesh_meta_data(); }
+
     void UpdateFieldDataStates(bool rotate_device_states = false) { m_bulk_data->update_field_data_states(rotate_device_states); }
 
     template <typename T, size_t N>

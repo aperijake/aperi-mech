@@ -56,10 +56,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
     field_data.push_back(FieldData("max_edge_length", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));     // The maximum edge length for the node
 
-    field_data.push_back(FieldData("displacement_np1_temp", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The temporary displacement field, used in the power method calculation
-    field_data.push_back(FieldData("eigenvector", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));              // The eigenvector field, used as output from the power method calculation
-    field_data.push_back(FieldData("force_coefficients_temp", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The temporary force field, used in the power method calculation
-    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));     // Indicator for essential boundary conditions
+    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));  // Indicator for essential boundary conditions
 
     // Element data
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
@@ -68,21 +65,19 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     // TODO(jake): Add ability to turn this on / off per part
     if (use_strain_smoothing) {
         // TODO(jake): Some of these fields are only really needed for RK, but NeighborSearchProcessor needs to be refactored to allow for this
+
         // Node neighbor data.
         field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));  // The number of neighbors for the node
-        if (uses_generalized_fields) {
-            field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<uint64_t>{}));      // The neighbors of the node
-            field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The function values of neighbors at the node
-        } else {
-            field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, FEM_NODE_NUM_NEIGHBORS, std::vector<uint64_t>{}));      // The neighbors of the node
-            field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, FEM_NODE_NUM_NEIGHBORS, std::vector<double>{}));  // The function values of neighbors at the node
-        }
-        field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The kernel radius for the node
+        field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The kernel radius for the node
+
+        uint64_t max_node_num_neighbors = uses_generalized_fields ? MAX_NODE_NUM_NEIGHBORS : FEM_NODE_NUM_NEIGHBORS;
+        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<uint64_t>{}, false));      // The neighbors of the node
+        field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<double>{}, false));  // The function values of neighbors at the node
 
         // Cell neighbor data.
-        field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in x of neighbors at the cell
-        field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in y of neighbors at the cell
-        field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}));  // The function derivatives in z of neighbors at the cell
+        field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in x of neighbors at the cell
+        field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in y of neighbors at the cell
+        field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in z of neighbors at the cell
 
 #ifdef USE_PROTEGO_MECH
         std::vector<FieldData> protego_field_data = protego::GetFieldData();

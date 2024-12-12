@@ -182,7 +182,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names);
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
-        m_node_processor_all = CreateNodeProcessorAll();  // TODO(jake): I am not sure if this is needed anymore
+        m_node_processor_output = CreateNodeProcessorOutput();
         if (m_uses_generalized_fields) {
             m_node_processor_force_local = CreateNodeProcessorForceLocal();
         }
@@ -191,17 +191,13 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
     ~ExplicitSolver() {}
 
     // Create node processor for all fields to make syncing easier
-    std::shared_ptr<ActiveNodeProcessor<8>> CreateNodeProcessorAll() {
-        std::array<FieldQueryData<double>, 8> field_query_data_vec;
+    std::shared_ptr<ActiveNodeProcessor<4>> CreateNodeProcessorOutput() {
+        std::array<FieldQueryData<double>, 4> field_query_data_vec;
         field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
-        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
-        field_query_data_vec[2] = {"displacement_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[3] = {"velocity_coefficients", FieldQueryState::N};
-        field_query_data_vec[4] = {"velocity_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[5] = {"acceleration_coefficients", FieldQueryState::N};
-        field_query_data_vec[6] = {"acceleration_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[7] = {"mass", FieldQueryState::None};
-        return std::make_shared<ActiveNodeProcessor<8>>(field_query_data_vec, mp_mesh_data);
+        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
+        field_query_data_vec[3] = {"acceleration_coefficients", FieldQueryState::NP1};
+        return std::make_shared<ActiveNodeProcessor<4>>(field_query_data_vec, mp_mesh_data);
     }
 
     // Create a node processor for force
@@ -338,7 +334,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
 
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
-    std::shared_ptr<ActiveNodeProcessor<8>> m_node_processor_all;
+    std::shared_ptr<ActiveNodeProcessor<4>> m_node_processor_output;
     std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;
 
     /**

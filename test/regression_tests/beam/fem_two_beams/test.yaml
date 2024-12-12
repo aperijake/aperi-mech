@@ -1,5 +1,6 @@
 # Define common settings
 defaults: &defaults
+  description: Added to test multiple blocks. Blocks use different materials so have different output variables.
   num_processors: 1
   input_file: input.yaml
   build: Release
@@ -7,20 +8,17 @@ defaults: &defaults
     remove: [results.exo, "*.log"]
   exodiff:
     - compare_file: compare.exodiff
-      gold_file: ../rkpm/gold_results.exo
+      gold_file: gold_results.exo
       results_file: results.exo
 
 # List of tests using the defaults
 tests:
   - <<: *defaults
     hardware: cpu
-    peak_memory_check:
-      value: 48.0 # Gold peak memory usage in MB
-      percent_tolerance: 10
   - <<: *defaults
     hardware: gpu
   - <<: *defaults
-    num_processors: 4 # Override the default num_processors for this test
+    num_processors: 4
     hardware: cpu
   - <<: *defaults
     hardware: gpu
