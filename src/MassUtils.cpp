@@ -22,7 +22,7 @@ struct ComputeMassFromElementVolumeKernel {
         Kokkos::deep_copy(m_density, density);
     }
 
-    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::View<stk::mesh::FastMeshIndex *> &nodes, size_t num_nodes) const {
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
         // Gather the element volume
         Eigen::Vector<double, 1> element_volume;
         m_element_volume_gather_kernel(elem_index, element_volume);
@@ -30,7 +30,7 @@ struct ComputeMassFromElementVolumeKernel {
         // Compute the mass of the element and scatter it to the nodes
         auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume(0) * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
-            m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes(i), node_mass_from_elements);
+            m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes[i], node_mass_from_elements);
         }
     }
 
@@ -88,11 +88,15 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
         value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
         node_processor.ParallelSumFieldData(1);
+        
+        // Sync the mass field back to the device
+        node_processor.MarkFieldModifiedOnHost(1);
+        node_processor.SyncFieldHostToDevice(1);
     } else {
         node_processor.CopyFieldData(0, 1);
+        node_processor.MarkFieldModifiedOnDevice(1);
+        node_processor.SyncFieldDeviceToHost(1);
     }
-    node_processor.MarkFieldModifiedOnDevice(1);
-    node_processor.SyncFieldDeviceToHost(1);
 
     // Total mass after the mass from this element block is added
     double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs

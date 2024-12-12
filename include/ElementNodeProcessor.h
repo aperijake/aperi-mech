@@ -49,8 +49,7 @@ class ElementNodeProcessor {
     void for_each_element_and_nodes(ActionFunc action_func) {
         auto ngp_mesh = m_ngp_mesh;
 
-        // Allocate for the node indices
-        Kokkos::View<stk::mesh::FastMeshIndex *, Kokkos::DefaultExecutionSpace> node_indices("node_indices", 8);
+        auto func = action_func;
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
@@ -59,18 +58,19 @@ class ElementNodeProcessor {
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 size_t num_nodes = nodes.size();
 
-                // Assert num_nodes is less than or equal to the extent of node_indices
-                if (num_nodes > node_indices.extent(0)) {
-                    Kokkos::abort("Error: num_nodes > node_indices.extent(0)");
+                // Allocate for the node indices
+                Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> node_indices;
+                if (num_nodes > HEX8_NUM_NODES) {
+                    Kokkos::abort("Error: num_nodes > HEX8_NUM_NODES");
                 }
 
                 // Get the node indices
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    node_indices(i) = ngp_mesh.fast_mesh_index(nodes[i]);
+                    node_indices[i] = ngp_mesh.fast_mesh_index(nodes[i]);
                 }
 
                 // Call the action function
-                action_func(elem_index, node_indices, num_nodes);
+                func(elem_index, node_indices, num_nodes);
             });
     }
 
@@ -105,7 +105,7 @@ struct GatherKernel {
     }
 
    private:
-    const stk::mesh::NgpField<T> &field;
+    stk::mesh::NgpField<T> field;
 };
 
 // Define a scatter kernel
@@ -128,7 +128,7 @@ struct ScatterKernel {
     }
 
    private:
-    stk::mesh::NgpField<T> &field;
+    stk::mesh::NgpField<T> field;
 };
 
 }  // namespace aperi

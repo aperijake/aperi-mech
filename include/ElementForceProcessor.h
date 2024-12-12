@@ -126,6 +126,9 @@ class ElementForceProcessor {
                 // Store the computed volume to the field
                 ngp_element_volume(elem_index)[0] = element_volume;
             });
+        // Sync the element volume field to the host
+        m_ngp_element_volume->modify_on_device();
+        m_ngp_element_volume->sync_to_host();
     }
 
     // Loop over each element and apply the function

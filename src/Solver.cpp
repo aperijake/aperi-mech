@@ -205,7 +205,7 @@ void ExplicitSolver::WriteOutput(double time) {
         UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
-    m_node_processor_all->SyncAllFieldsDeviceToHost();
+    m_node_processor_output->SyncAllFieldsDeviceToHost();
     m_io_mesh->WriteFieldResults(time);
 }
 

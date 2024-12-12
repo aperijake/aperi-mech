@@ -121,6 +121,9 @@ class MassMatrixTest : public CaptureOutputTest {
             std::array<aperi::FieldQueryData<double>, 1> volume_field_query_data;
             volume_field_query_data[0] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT, 1};
             aperi::ElementProcessor<1> element_processor(volume_field_query_data, mesh_data, {part.mesh_labeler_parameters.set});
+            // Sync the field to the host
+            element_processor.MarkFieldModifiedOnDevice(0);
+            element_processor.SyncFieldDeviceToHost(0);
             double part_volume = element_processor.GetFieldSumHost(0);
 
             EXPECT_NEAR(part_volume, expected_part_volume, tolerance);
