@@ -67,8 +67,9 @@ class TimerManager : public TimerManagerBase {
         return total_time;
     }
 
-    void AddChild(std::shared_ptr<TimerManagerBase> child) {
-        m_children.push_back(child);
+    template <typename T>
+    void AddChild(std::shared_ptr<T> child) {
+        m_children.push_back(std::static_pointer_cast<TimerManagerBase>(child));
     }
 
     void PrintTimers() const override {

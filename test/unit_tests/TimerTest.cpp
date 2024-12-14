@@ -60,7 +60,7 @@ TEST_F(TimerTest, NestedTimerManagerAccumulatesTimeCorrectly) {
 
     // Create a nested timer
     auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
-    m_timer_manager.AddChild(std::static_pointer_cast<aperi::TimerManagerBase>(child_timer_manager));
+    m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -108,7 +108,7 @@ TEST_F(TimerTest, NestedTimerManagerPrintsTimers) {
     }
     // Create a nested timer
     auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
-    m_timer_manager.AddChild(std::static_pointer_cast<aperi::TimerManagerBase>(child_timer_manager));
+    m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -196,7 +196,7 @@ TEST_F(TimerTest, NestedTimerManagerWriteCSV) {
     }
     // Create a nested timer
     auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
-    m_timer_manager.AddChild(std::static_pointer_cast<aperi::TimerManagerBase>(child_timer_manager));
+    m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
