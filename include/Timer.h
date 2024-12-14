@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -28,10 +29,22 @@ class ScopedTimer {
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
 };
 
-template <typename TimerType>
-class TimerManager {
+class TimerManagerBase {
    public:
-    TimerManager(const std::string& group_name, const std::vector<std::string>& timer_names) : m_timer_group_name(group_name), m_timer_names(timer_names) {
+    virtual ~TimerManagerBase() = default;
+
+    virtual double GetTotalTime() const = 0;
+    virtual std::string GetGroupName() const = 0;
+    virtual void PrintTimers() const = 0;
+    virtual void AppendToCSV(std::ofstream& csv_file) const = 0;
+    virtual void WriteCSV(const std::string& filename) const = 0;
+};
+
+template <typename TimerType>
+class TimerManager : public TimerManagerBase {
+   public:
+    TimerManager(const std::string& group_name, const std::vector<std::string>& timer_names)
+        : m_timer_group_name(group_name), m_timer_names(timer_names) {
         m_timers.resize(static_cast<size_t>(TimerType::NONE), 0.0);
     }
 
@@ -43,19 +56,29 @@ class TimerManager {
         return m_timers[static_cast<size_t>(type)];
     }
 
-    double GetTotalTime() const {
+    double GetTotalTime() const override {
         double total_time = 0.0;
         for (const auto& time : m_timers) {
             total_time += time;
         }
+        for (const auto& child : m_children) {
+            total_time += child->GetTotalTime();
+        }
         return total_time;
     }
 
-    void PrintTimers() const {
+    void AddChild(std::shared_ptr<TimerManagerBase> child) {
+        m_children.push_back(child);
+    }
+
+    void PrintTimers() const override {
         // Print the timers in tabular format
         size_t max_name_length = 0;  // Find the maximum length of the timer names to align the columns in the output
         for (const auto& name : m_timer_names) {
             max_name_length = std::max(max_name_length, name.size());
+        }
+        for (const auto& child : m_children) {
+            max_name_length = std::max(max_name_length, child->GetGroupName().size());
         }
         max_name_length = std::max(max_name_length, std::string("Timer Name").size());
         size_t time_width = 16;
@@ -83,10 +106,36 @@ class TimerManager {
             aperi::CoutP0() << std::scientific << std::setprecision(6);
             aperi::CoutP0() << std::setw(max_name_length) << m_timer_names[i] << " | " << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat << std::setw(percent_width) << m_timers[i] / total_time * 100 << "%" << std::endl;
         }
+
+        // Print child timers as if they were additional timers
+        for (const auto& child : m_children) {
+            double child_time = child->GetTotalTime();
+            aperi::CoutP0() << std::scientific << std::setprecision(6);
+            aperi::CoutP0() << std::setw(max_name_length) << child->GetGroupName() << " | " << std::setw(time_width) << child_time << " | " << std::defaultfloat << std::setw(percent_width) << child_time / total_time * 100 << "%" << std::endl;
+        }
+
         PrintLine(header_width);
+
+        // Recursively print child timers
+        for (const auto& child : m_children) {
+            child->PrintTimers();
+        }
     }
 
-    void WriteCSV(const std::string& filename) const {
+    void AppendToCSV(std::ofstream& csv_file) const override {
+        // Append the timers to the CSV file
+        for (size_t i = 0; i < m_timers.size(); ++i) {
+            std::string timer_name = m_timer_group_name + "_" + m_timer_names[i];
+            csv_file << timer_name << ", " << m_timers[i] << std::endl;
+        }
+
+        // Recursively append child timers
+        for (const auto& child : m_children) {
+            child->AppendToCSV(csv_file);
+        }
+    }
+
+    void WriteCSV(const std::string& filename) const override {
         // Only write the CSV file on the rank 0 processor
         int rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -94,6 +143,7 @@ class TimerManager {
             return;
         }
 
+        // Open the file
         std::ofstream csv_file(filename);
         if (!csv_file.is_open()) {
             aperi::CoutP0() << "Failed to open file " << filename << " for writing." << std::endl;
@@ -101,15 +151,17 @@ class TimerManager {
         }
 
         // Write the header
-        csv_file << "Timer Name, Time (seconds), Percent of Total Time" << std::endl;
+        csv_file << "Timer Name, Time (seconds)" << std::endl;
 
-        double total_time = GetTotalTime();
-        for (size_t i = 0; i < m_timers.size(); ++i) {
-            std::string timer_name = m_timer_group_name + "_" + m_timer_names[i];
-            csv_file << timer_name << ", " << m_timers[i] << ", " << m_timers[i] / total_time * 100 << std::endl;
-        }
+        // Append the timers to the CSV file
+        AppendToCSV(csv_file);
 
+        // Close the file
         csv_file.close();
+    }
+
+    std::string GetGroupName() const override {
+        return m_timer_group_name;
     }
 
    private:
@@ -120,9 +172,10 @@ class TimerManager {
         aperi::CoutP0() << std::endl;
     }
 
-    std::vector<double> m_timers;
-    std::string m_timer_group_name;
-    std::vector<std::string> m_timer_names;
+    std::vector<double> m_timers;                               // The scoped timers
+    std::string m_timer_group_name;                             // The name of the group of timers
+    std::vector<std::string> m_timer_names;                     // The names of the scoped timers
+    std::vector<std::shared_ptr<TimerManagerBase>> m_children;  // Child TimerManagers
 };
 
 }  // namespace aperi
