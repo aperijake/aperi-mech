@@ -82,8 +82,9 @@ class Application {
      * This takes in a solver object and runs it.
      *
      * @param solver The solver object.
+     * @return The average compute time per step.
      */
-    void Run(std::shared_ptr<aperi::Solver> solver);
+    double Run(std::shared_ptr<aperi::Solver> solver);
 
     /**
      * @brief Finalizes the application.
@@ -93,13 +94,9 @@ class Application {
     void Finalize();
 
    private:
-    MPI_Comm m_comm;                                                                                ///< The MPI_Comm object for managing the parallel computation.
-    std::shared_ptr<aperi::IoInputFile> m_io_input_file;                                            ///< The input file.
-    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                       ///< The IO mesh object.
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;  ///< The internal force contributions.
-    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;  ///< The external force contributions.
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                   ///< The boundary conditions.
-    std::shared_ptr<aperi::Solver> m_solver;                                                        ///< The solver.
+    MPI_Comm m_comm;                                      ///< The MPI_Comm object for managing the parallel computation.
+    std::shared_ptr<aperi::IoInputFile> m_io_input_file;  ///< The input file.
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;             ///< The IO mesh object.
 };
 
 }  // namespace aperi

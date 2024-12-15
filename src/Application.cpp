@@ -98,12 +98,13 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Loop over parts, create materials, and add parts to force contributions
     aperi::CoutP0() << "   - Adding parts to force contributions: " << std::endl;
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions;
     for (const auto& part : parts) {
         // Create InternalForceContributionParameters
         std::string part_name = part["set"].as<std::string>();
         aperi::CoutP0() << "      " << part_name << std::endl;
         InternalForceContributionParameters internal_force_contribution_parameters(part, m_io_input_file, m_io_mesh->GetMeshData());
-        m_internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
+        internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         uses_generalized_fields = internal_force_contribution_parameters.approximation_space_parameters->UsesGeneralizedFields() || uses_generalized_fields;
         // Add field data from the material. TODO(jake) Change this to just add the field on this part.
         std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
@@ -147,11 +148,12 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<YAML::Node> loads = m_io_input_file->GetLoads(procedure_id);
 
     // Loop over loads and add them to force contributions
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions;
     aperi::CoutP0() << "   - Adding loads to force contributions: " << std::endl;
     for (auto load : loads) {
         auto name = load.begin()->first.as<std::string>();
         aperi::CoutP0() << "     " << name << std::endl;
-        m_external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMeshData()));
+        external_force_contributions.push_back(CreateExternalForceContribution(load, m_io_mesh->GetMeshData()));
     }
 
     // Set initial conditions
@@ -159,21 +161,22 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     aperi::AddInitialConditions(initial_conditions, m_io_mesh->GetMeshData());
 
     // Get boundary conditions
-    std::vector<YAML::Node> boundary_conditions = m_io_input_file->GetBoundaryConditions(procedure_id);
+    std::vector<YAML::Node> boundary_condition_nodes = m_io_input_file->GetBoundaryConditions(procedure_id);
 
     // Loop over boundary conditions and add them to the vector of boundary conditions
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions;
     aperi::CoutP0() << "   - Adding boundary conditions: " << std::endl;
-    for (auto boundary_condition : boundary_conditions) {
-        auto name = boundary_condition.begin()->first.as<std::string>();
+    for (auto boundary_condition_node : boundary_condition_nodes) {
+        auto name = boundary_condition_node.begin()->first.as<std::string>();
         aperi::CoutP0() << "      " << name << std::endl;
-        m_boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition, m_io_mesh->GetMeshData()));
+        boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition_node, m_io_mesh->GetMeshData()));
     }
 
     // Get the output scheduler
     std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateTimeIncrementScheduler(m_io_input_file->GetOutputScheduler(procedure_id));
 
     // Run pre-processing
-    aperi::DoPreprocessing(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions);
+    aperi::DoPreprocessing(m_io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {
@@ -181,24 +184,25 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(m_io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
     auto end_solver_setup = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "   Finished Setting up for the Solver. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver_setup - start_solver_setup).count() << " ms" << std::endl;
 
     return solver;
 }
 
-void Application::Run(std::shared_ptr<aperi::Solver> solver) {
-    m_solver = solver;
+double Application::Run(std::shared_ptr<aperi::Solver> solver) {
     // Run solver
     aperi::CoutP0() << " - Starting Solver" << std::endl;
     auto start_solver = std::chrono::high_resolution_clock::now();
-    m_solver->Solve();
+    double time_per_step = solver->Solve();
     auto end_solver = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "   Finished Solver. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver - start_solver).count() << " ms" << std::endl;
 
     // Finalize
     Finalize();
+
+    return time_per_step;
 }
 
 void Application::Finalize() {
