@@ -88,15 +88,11 @@ class Application {
 
     /**
      * @brief Finalizes the application.
-     *
-     * This method should be called at the end of the application to clean up resources.
      */
     void Finalize();
 
    private:
-    MPI_Comm m_comm;                                      ///< The MPI_Comm object for managing the parallel computation.
-    std::shared_ptr<aperi::IoInputFile> m_io_input_file;  ///< The input file.
-    std::shared_ptr<aperi::IoMesh> m_io_mesh;             ///< The IO mesh object.
+    MPI_Comm m_comm;  ///< The MPI_Comm object for managing the parallel computation.
 };
 
 }  // namespace aperi

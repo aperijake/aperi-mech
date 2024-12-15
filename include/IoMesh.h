@@ -29,7 +29,7 @@ class IoMesh {
    public:
     IoMesh(const stk::ParallelMachine &comm, const aperi::IoMeshParameters &io_mesh_parameters);
 
-    void Finalize();
+    ~IoMesh();
 
     void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names);
 
