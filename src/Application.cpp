@@ -67,10 +67,40 @@ bool HasStrainSmoothing(const std::vector<YAML::Node>& parts) {
     return false;
 }
 
+std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+    // Create a scoped timer
+    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::ReadInputMesh);
+
+    // Print reading mesh
+    aperi::CoutP0() << " - Reading Mesh: '" << mesh_file << "'" << std::endl;
+
+    // Create an IO mesh object
+    IoMeshParameters io_mesh_parameters;  // Default parameters
+    io_mesh_parameters.compose_output = true;
+    std::shared_ptr<aperi::IoMesh> io_mesh = aperi::CreateIoMesh(comm, io_mesh_parameters);
+
+    // Read the mesh
+    io_mesh->ReadMesh(mesh_file, part_names);
+
+    return io_mesh;
+}
+
+void CreateFieldResultsFile(std::shared_ptr<aperi::IoMesh> io_mesh, const std::string& output_file, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+    // Create a scoped timer
+    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateFieldResultsFile);
+
+    // Print creating field results file
+    aperi::CoutP0() << " - Creating Field Results File: '" << output_file << "'" << std::endl;
+
+    // Create the field results file
+    io_mesh->CreateFieldResultsFile(output_file);
+}
+
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
     aperi::CoutP0() << "############################################" << std::endl;
     aperi::CoutP0() << "Starting Application: Creating Solver" << std::endl;
-    aperi::CoutP0() << " - Reading Mesh" << std::endl;
+
+    auto timer_manager = std::make_shared<aperi::TimerManager<ApplicationTimerType>>("Application Setup", application_timer_names);
 
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     auto start_mesh_read = std::chrono::high_resolution_clock::now();
@@ -82,24 +112,41 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Get part names
     std::vector<std::string> part_names = GetPartNames(parts);
 
-    // Create an IO mesh object
-    IoMeshParameters io_mesh_parameters;  // Default parameters
-    io_mesh_parameters.compose_output = true;
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
+    // Get the mesh file
+    std::string mesh_file = io_input_file->GetMeshFile(procedure_id);
 
-    // Read the mesh
-    io_mesh->ReadMesh(io_input_file->GetMeshFile(procedure_id), part_names);
-    auto end_mesh_read = std::chrono::high_resolution_clock::now();
-    aperi::CoutP0() << "   Finished Reading Input and Mesh. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mesh_read - start_mesh_read).count() << " ms" << std::endl;
-    aperi::CoutP0() << " - Setting up for the Solver" << std::endl;
+    // Get the output file
+    std::string output_file = io_input_file->GetOutputFile(procedure_id);
 
-    auto start_solver_setup = std::chrono::high_resolution_clock::now();
+    // Get boundary conditions
+    std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
+
+    // Get loads
+    std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);
+
+    // Get initial conditions
+    std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
+
+    // Get the time stepper node
+    YAML::Node time_stepper_node = io_input_file->GetTimeStepper(procedure_id);
+
+    // Get the output scheduler node
+    YAML::Node output_scheduler_node = io_input_file->GetOutputScheduler(procedure_id);
+
+    // Create the IO mesh object and read the mesh
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, part_names, m_comm, timer_manager);
 
     // Create the field results file
-    io_mesh->CreateFieldResultsFile(io_input_file->GetOutputFile(procedure_id));
+    CreateFieldResultsFile(io_mesh, output_file, timer_manager);
+
+    // Print the performance summary, percent of time spent in each step
+    timer_manager->PrintTimers();
+
+    aperi::CoutP0() << " - Setting up for the Solver" << std::endl;
+    auto start_solver_setup = std::chrono::high_resolution_clock::now();
 
     // Get the time stepper
-    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(io_input_file->GetTimeStepper(procedure_id));
+    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(time_stepper_node);
 
     bool uses_generalized_fields = false;
 
@@ -154,9 +201,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     auto end_labeling = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "     Finished labeling the mesh. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_labeling - start_labeling).count() << " ms" << std::endl;
 
-    // Get loads
-    std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);
-
     // Loop over loads and add them to force contributions
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions;
     aperi::CoutP0() << "   - Adding loads to force contributions: " << std::endl;
@@ -167,11 +211,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Set initial conditions
-    std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
     aperi::AddInitialConditions(initial_conditions, io_mesh->GetMeshData());
-
-    // Get boundary conditions
-    std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
 
     // Loop over boundary conditions and add them to the vector of boundary conditions
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions;
@@ -183,7 +223,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Get the output scheduler
-    std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateTimeIncrementScheduler(io_input_file->GetOutputScheduler(procedure_id));
+    std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateTimeIncrementScheduler(output_scheduler_node);
 
     // Run pre-processing
     aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions);

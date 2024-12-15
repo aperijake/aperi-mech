@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "Timer.h"
+
 namespace YAML {
 class Node;
 }
@@ -17,6 +19,14 @@ class IoMesh;
 class InternalForceContribution;
 class ExternalForceContribution;
 class Solver;
+
+enum class ApplicationTimerType {
+    ReadInputMesh,
+    CreateFieldResultsFile,
+    NONE
+};
+
+inline std::vector<std::string> application_timer_names = {"ReadInputMesh", "CreateFieldResultsFile"};
 
 /**
  * @class Application
