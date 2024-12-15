@@ -6,6 +6,10 @@
 #include <string>
 #include <vector>
 
+namespace YAML {
+class Node;
+}
+
 namespace aperi {
 class BoundaryCondition;
 class IoInputFile;
@@ -36,14 +40,50 @@ class Application {
     ~Application() {}
 
     /**
-     * @brief The main driver for the application.
+     * @brief A method to create and run the application.
      *
-     * This method reads the input file, gets the field data and initial conditions,
-     * creates the IO mesh object, reads the mesh, and creates the field results file.
+     * This method reads the input file, creates the IO mesh object, and calls the Run method that
+     * takes an IoInputFile object.
      *
      * @param input_filename The name of the input file.
      */
-    void Run(const std::string& input_filename);
+    void CreateSolverAndRun(const std::string& input_filename);
+
+    /**
+     * @brief A method to create the solver.
+     *
+     * This method reads the input yaml data, creates the IoInputFile object, and calls the Run method that
+     * takes an IoInputFile object.
+     *
+     * @param input_filename The name of the input file.
+     */
+    std::shared_ptr<aperi::Solver> CreateSolver(const std::string& input_filename);
+
+    /**
+     * @brief A method to create the solver.
+     *
+     * This method reads the input yaml data, creates the IoInputFile object, and calls the Run method that
+     * takes an IoInputFile object.
+     *
+     * @param yaml_data The YAML node representing the input data.
+     */
+    std::shared_ptr<aperi::Solver> CreateSolver(const YAML::Node& yaml_data);
+
+    /**
+     * @brief A method to create the solver.
+     *
+     * This method takes an IoInputFile object and creates the solver.
+     */
+    std::shared_ptr<aperi::Solver> CreateSolver(std::shared_ptr<aperi::IoInputFile> io_input_file);
+
+    /**
+     * @brief Runs the application.
+     *
+     * This takes in a solver object and runs it.
+     *
+     * @param solver The solver object.
+     */
+    void Run(std::shared_ptr<aperi::Solver> solver);
 
     /**
      * @brief Finalizes the application.

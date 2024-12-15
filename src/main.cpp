@@ -15,7 +15,7 @@ void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     aperi::Application application(comm);
 
     // Run the application
-    application.Run(input_filename);
+    application.CreateSolverAndRun(input_filename);
 }
 
 void PrintVersion() {

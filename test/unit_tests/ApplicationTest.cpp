@@ -17,7 +17,7 @@ TEST_F(ApplicationTest, RunValidInputFile) {
     CreateTestMesh();
 
     // Run application
-    app.Run(m_filename);
+    app.CreateSolverAndRun(m_filename);
 
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
@@ -35,5 +35,5 @@ TEST_F(ApplicationTest, RunInvalidInputFile) {
 
     // Run application
     std::string invalid_filename = "invalid_filename.yaml";
-    EXPECT_THROW(app.Run(invalid_filename), std::runtime_error);
+    EXPECT_THROW(app.CreateSolverAndRun(invalid_filename), std::runtime_error);
 }

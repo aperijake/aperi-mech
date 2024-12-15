@@ -21,16 +21,45 @@
 
 namespace aperi {
 
-void Application::Run(const std::string& input_filename) {
-    aperi::CoutP0() << "############################################" << std::endl;
-    aperi::CoutP0() << "Starting Application" << std::endl;
-    aperi::CoutP0() << " - Reading Input File and Mesh" << std::endl;
-    auto start_mesh_read = std::chrono::high_resolution_clock::now();
-    // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
-    int procedure_id = 0;
+void Application::CreateSolverAndRun(const std::string& input_filename) {
+    // Create the solver
+    std::shared_ptr<Solver> solver = CreateSolver(input_filename);
+
+    // Run the solver
+    Run(solver);
+}
+
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_data) {
+    aperi::CoutP0() << "Reading Input YAML Data" << std::endl;
 
     // Create an IO input file object and read the input file
-    m_io_input_file = CreateIoInputFile(input_filename);
+    std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(yaml_data);
+
+    // Create the solver
+    return CreateSolver(io_input_file);
+}
+
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename) {
+    aperi::CoutP0() << "Reading Input File '" << input_filename << "'" << std::endl;
+
+    // Create an IO input file object and read the input file
+    std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(input_filename);
+
+    // Create the solver
+    return CreateSolver(io_input_file);
+}
+
+std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
+    aperi::CoutP0() << "############################################" << std::endl;
+    aperi::CoutP0() << "Starting Application: Creating Solver" << std::endl;
+    aperi::CoutP0() << " - Reading Mesh" << std::endl;
+
+    // Put io_input_file in member variable
+    m_io_input_file = io_input_file;
+
+    // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
+    auto start_mesh_read = std::chrono::high_resolution_clock::now();
+    int procedure_id = 0;
 
     // Get parts
     std::vector<YAML::Node> parts = m_io_input_file->GetParts(procedure_id);
@@ -152,10 +181,15 @@ void Application::Run(const std::string& input_filename) {
     }
 
     // Create solver
-    m_solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(m_io_mesh, m_internal_force_contributions, m_external_force_contributions, m_boundary_conditions, time_stepper, output_scheduler);
     auto end_solver_setup = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << "   Finished Setting up for the Solver. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver_setup - start_solver_setup).count() << " ms" << std::endl;
 
+    return solver;
+}
+
+void Application::Run(std::shared_ptr<aperi::Solver> solver) {
+    m_solver = solver;
     // Run solver
     aperi::CoutP0() << " - Starting Solver" << std::endl;
     auto start_solver = std::chrono::high_resolution_clock::now();
