@@ -21,7 +21,8 @@ enum class NestedTestTimerType {
 class TimerTest : public ::testing::Test {
    public:
     TimerTest() : m_timer_manager("", {}) {
-        m_timer_manager = TimerManager<TestTimerType>("group", {std::string("Timer1"), std::string("Timer2")});
+        std::map<TestTimerType, std::string> timer_names = {{TestTimerType::TIMER1, "Timer1"}, {TestTimerType::TIMER2, "Timer2"}};
+        m_timer_manager = TimerManager<TestTimerType>("group", timer_names);
     }
 
    protected:
@@ -59,7 +60,8 @@ TEST_F(TimerTest, NestedTimerManagerAccumulatesTimeCorrectly) {
     }
 
     // Create a nested timer
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
+    std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
@@ -107,7 +109,8 @@ TEST_F(TimerTest, NestedTimerManagerPrintsTimers) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     // Create a nested timer
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
+    std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
@@ -195,7 +198,8 @@ TEST_F(TimerTest, NestedTimerManagerWriteCSV) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     // Create a nested timer
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", std::vector<std::string>{"ChildTimer1", "ChildTimer2"});
+    std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);

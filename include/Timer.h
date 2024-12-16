@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -43,7 +44,7 @@ class TimerManagerBase {
 template <typename TimerType>
 class TimerManager : public TimerManagerBase {
    public:
-    TimerManager(const std::string& group_name, const std::vector<std::string>& timer_names)
+    TimerManager(const std::string& group_name, const std::map<TimerType, std::string>& timer_names)
         : m_timer_group_name(group_name), m_timer_names(timer_names) {
         m_timers.resize(static_cast<size_t>(TimerType::NONE), 0.0);
     }
@@ -76,7 +77,7 @@ class TimerManager : public TimerManagerBase {
         // Print the timers in tabular format
         size_t max_name_length = 0;  // Find the maximum length of the timer names to align the columns in the output
         for (const auto& name : m_timer_names) {
-            max_name_length = std::max(max_name_length, name.size());
+            max_name_length = std::max(max_name_length, name.second.size());
         }
         for (const auto& child : m_children) {
             max_name_length = std::max(max_name_length, child->GetGroupName().size());
@@ -105,7 +106,7 @@ class TimerManager : public TimerManagerBase {
         // Print the timers
         for (size_t i = 0; i < m_timers.size(); ++i) {
             aperi::CoutP0() << std::scientific << std::setprecision(6);
-            aperi::CoutP0() << std::setw(max_name_length) << m_timer_names[i] << " | " << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat << std::setw(percent_width) << m_timers[i] / total_time * 100 << "%" << std::endl;
+            aperi::CoutP0() << std::setw(max_name_length) << m_timer_names.at(static_cast<TimerType>(i)) << " | " << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat << std::setw(percent_width) << m_timers[i] / total_time * 100 << "%" << std::endl;
         }
 
         // Print child timers as if they were additional timers
@@ -126,7 +127,7 @@ class TimerManager : public TimerManagerBase {
     void AppendToCSV(std::ofstream& csv_file) const override {
         // Append the timers to the CSV file
         for (size_t i = 0; i < m_timers.size(); ++i) {
-            std::string timer_name = m_timer_group_name + "_" + m_timer_names[i];
+            std::string timer_name = m_timer_group_name + "_" + m_timer_names.at(static_cast<TimerType>(i));
             csv_file << timer_name << ", " << m_timers[i] << std::endl;
         }
 
@@ -175,7 +176,7 @@ class TimerManager : public TimerManagerBase {
 
     std::vector<double> m_timers;                               // The scoped timers
     std::string m_timer_group_name;                             // The name of the group of timers
-    std::vector<std::string> m_timer_names;                     // The names of the scoped timers
+    std::map<TimerType, std::string> m_timer_names;             // The names of the timers
     std::vector<std::shared_ptr<TimerManagerBase>> m_children;  // Child TimerManagers
 };
 

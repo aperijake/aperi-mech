@@ -23,10 +23,31 @@ class Solver;
 enum class ApplicationTimerType {
     ReadInputMesh,
     CreateFieldResultsFile,
+    CreateTimeStepper,
+    CreateInternalForceContribution,
+    AddFieldsToMesh,
+    LabelMesh,
+    CreateExternalForceContribution,
+    AddInitialConditions,
+    CreateBoundaryConditions,
+    CreateOutputScheduler,
+    Preprocessing,
     NONE
 };
 
-inline std::vector<std::string> application_timer_names = {"ReadInputMesh", "CreateFieldResultsFile"};
+inline const std::map<ApplicationTimerType, std::string> application_timer_map = {
+    {ApplicationTimerType::ReadInputMesh, "ReadInputMesh"},
+    {ApplicationTimerType::CreateFieldResultsFile, "CreateFieldResultsFile"},
+    {ApplicationTimerType::CreateTimeStepper, "CreateTimeStepper"},
+    {ApplicationTimerType::CreateInternalForceContribution, "CreateInternalForceContribution"},
+    {ApplicationTimerType::AddFieldsToMesh, "AddFieldsToMesh"},
+    {ApplicationTimerType::LabelMesh, "LabelMesh"},
+    {ApplicationTimerType::CreateExternalForceContribution, "CreateExternalForceContribution"},
+    {ApplicationTimerType::AddInitialConditions, "AddInitialConditions"},
+    {ApplicationTimerType::CreateBoundaryConditions, "CreateBoundaryConditions"},
+    {ApplicationTimerType::CreateOutputScheduler, "CreateOutputScheduler"},
+    {ApplicationTimerType::Preprocessing, "Preprocessing"},
+    {ApplicationTimerType::NONE, "NONE"}};
 
 /**
  * @class Application

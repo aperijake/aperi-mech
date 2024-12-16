@@ -157,7 +157,15 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
 };
 
-inline std::vector<std::string> explicit_solver_timer_names = {"UpdateFieldStates", "ApplyBoundaryConditions", "ComputeForce", "TimeIntegrationNodalUpdates", "CommunicateDisplacements", "CommunicateForce", "TimeStepCompute", "TimeStepCommunicate"};
+inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_map = {
+    {SolverTimerType::UpdateFieldStates, "UpdateFieldStates"},
+    {SolverTimerType::ApplyBoundaryConditions, "ApplyBoundaryConditions"},
+    {SolverTimerType::ComputeForce, "ComputeForce"},
+    {SolverTimerType::TimeIntegrationNodalUpdates, "TimeIntegrationNodalUpdates"},
+    {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
+    {SolverTimerType::CommunicateForce, "CommunicateForce"},
+    {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
+    {SolverTimerType::NONE, "NONE"}};
 
 /**
  * @class ExplicitSolver
@@ -179,7 +187,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      */
     ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
         : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
-        m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names);
+        m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names_map);
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         m_node_processor_output = CreateNodeProcessorOutput();

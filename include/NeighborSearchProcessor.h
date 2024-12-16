@@ -65,10 +65,19 @@ class NeighborSearchProcessor {
         ComputeKernelRadius,
         NONE
     };
-    const std::vector<std::string> neighbor_search_processor_timer_names = {"Instantiate", "KokkosDeepCopy", "CoarseSearch", "UnpackSearchResultsIntoField", "GhostNodeNeighbors", "CreateNodeSpheres", "CreateNodePoints", "ComputeKernelRadius"};
+    const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_search_processor_timer_names_map = {
+        {NeighborSearchProcessorTimerType::Instantiate, "Instantiate"},
+        {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},
+        {NeighborSearchProcessorTimerType::CoarseSearch, "CoarseSearch"},
+        {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "UnpackSearchResultsIntoField"},
+        {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "GhostNodeNeighbors"},
+        {NeighborSearchProcessorTimerType::CreateNodeSpheres, "CreateNodeSpheres"},
+        {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
+        {NeighborSearchProcessorTimerType::ComputeKernelRadius, "ComputeKernelRadius"},
+        {NeighborSearchProcessorTimerType::NONE, "NONE"}};
 
    public:
-    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names) {
+    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
