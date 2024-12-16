@@ -69,10 +69,7 @@ bool HasStrainSmoothing(const std::vector<YAML::Node>& parts) {
 
 std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::ReadInputMesh);
-
-    // Print reading mesh
-    aperi::CoutP0() << " - Reading Mesh: '" << mesh_file << "'" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::ReadInputMesh, "Reading Mesh: '" + mesh_file + "'");
 
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
@@ -87,10 +84,7 @@ std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_f
 
 void CreateFieldResultsFile(std::shared_ptr<aperi::IoMesh> io_mesh, const std::string& output_file, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateFieldResultsFile);
-
-    // Print creating field results file
-    aperi::CoutP0() << " - Creating Field Results File: '" << output_file << "'" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateFieldResultsFile, "Creating Field Results File: '" + output_file + "'");
 
     // Create the field results file
     io_mesh->CreateFieldResultsFile(output_file);
@@ -109,10 +103,7 @@ bool UsesGeneralizedFields(const std::vector<std::shared_ptr<aperi::InternalForc
 
 std::shared_ptr<aperi::TimeStepper> CreateTimeStepper(const YAML::Node& time_stepper_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateTimeStepper);
-
-    // Print creating time stepper
-    aperi::CoutP0() << " - Creating Time Stepper" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateTimeStepper, "Creating Time Stepper");
 
     // Create the time stepper
     return aperi::CreateTimeStepper(time_stepper_node);
@@ -120,10 +111,7 @@ std::shared_ptr<aperi::TimeStepper> CreateTimeStepper(const YAML::Node& time_ste
 
 std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalForceContribution(const std::vector<YAML::Node>& parts, std::shared_ptr<IoInputFile> io_input_file, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateInternalForceContribution);
-
-    // Print adding parts to force contributions
-    aperi::CoutP0() << " - Adding parts to force contributions: " << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateInternalForceContribution, "Creating Internal Force Contributions");
 
     // Create a vector of internal force contributions
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions;
@@ -145,10 +133,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
 
 void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::AddFieldsToMesh);
-
-    // Print adding fields to the mesh and completing initialization
-    aperi::CoutP0() << " - Adding fields to the mesh and completing initialization" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::AddFieldsToMesh, "Adding Fields to Mesh");
 
     // Get general field data
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
@@ -170,10 +155,7 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
 
 void LabelMesh(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<YAML::Node>& parts, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::LabelMesh);
-
-    // Print labeling mesh
-    aperi::CoutP0() << " - Labeling Mesh" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::LabelMesh, "Labeling Mesh");
 
     // Create a mesh labeler
     std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
@@ -187,11 +169,10 @@ void LabelMesh(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<YAML::N
 
 std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalForceContribution(const std::vector<YAML::Node>& loads, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateExternalForceContribution);
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateExternalForceContribution, "Creating External Force Contributions");
 
     // Loop over loads and add them to force contributions
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions;
-    aperi::CoutP0() << " - Adding loads to force contributions: " << std::endl;
     for (auto load : loads) {
         auto name = load.begin()->first.as<std::string>();
         aperi::CoutP0() << "    " << name << std::endl;
@@ -203,10 +184,7 @@ std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalFor
 
 void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::AddInitialConditions);
-
-    // Print adding initial conditions
-    aperi::CoutP0() << " - Adding initial conditions: " << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::AddInitialConditions, "Adding Initial Conditions");
 
     // Loop over initial conditions and add them to the mesh
     for (auto initial_condition : initial_conditions) {
@@ -218,10 +196,7 @@ void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std
 
 std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateBoundaryConditions);
-
-    // Print adding boundary conditions
-    aperi::CoutP0() << " - Adding boundary conditions: " << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateBoundaryConditions, "Creating Boundary Conditions");
 
     // Loop over boundary conditions and add them to the vector of boundary conditions
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions;
@@ -236,10 +211,7 @@ std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(
 
 std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node& output_scheduler_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::CreateOutputScheduler);
-
-    // Print creating output scheduler
-    aperi::CoutP0() << " - Creating Output Scheduler" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateOutputScheduler, "Creating Output Scheduler");
 
     // Create the output scheduler
     return aperi::CreateTimeIncrementScheduler(output_scheduler_node);
@@ -247,10 +219,7 @@ std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node
 
 void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimer(ApplicationTimerType::Preprocessing);
-
-    // Print pre-processing
-    aperi::CoutP0() << " - Pre-processing" << std::endl;
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::Preprocessing, "Pre-processing");
 
     // Run pre-processing
     aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions);

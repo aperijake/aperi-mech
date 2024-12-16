@@ -18,15 +18,24 @@ namespace aperi {
 class ScopedTimer {
    public:
     ScopedTimer(double& result) : m_result(result), m_start(std::chrono::high_resolution_clock::now()) {}
+    ScopedTimer(double& result, const std::string& message) : m_result(result), m_print_message(true), m_start(std::chrono::high_resolution_clock::now()) {
+        aperi::CoutP0() << "----------------------------------------" << std::endl;
+        aperi::CoutP0() << message << std::endl;
+    }
 
     ~ScopedTimer() {
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - m_start;
         m_result += duration.count();
+        if (m_print_message) {
+            aperi::CoutP0() << "Finished in " << std::scientific << std::setprecision(3) << duration.count() << " seconds" << std::endl;
+            aperi::CoutP0() << "----------------------------------------" << std::endl;
+        }
     }
 
    private:
     double& m_result;
+    bool m_print_message = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
 };
 
@@ -51,6 +60,10 @@ class TimerManager : public TimerManagerBase {
 
     ScopedTimer CreateScopedTimer(TimerType type) {
         return ScopedTimer(m_timers[static_cast<size_t>(type)]);
+    }
+
+    ScopedTimer CreateScopedTimerWithInlineLogging(TimerType type, const std::string& message) {
+        return ScopedTimer(m_timers[static_cast<size_t>(type)], message);
     }
 
     double GetTotalTime(TimerType type) const {
