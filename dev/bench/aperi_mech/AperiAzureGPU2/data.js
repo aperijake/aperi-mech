@@ -4,7 +4,6 @@ window.BENCHMARK_DATA = {
   "entries": {
     "Benchmark": [
       {
-      {
         "commit": {
           "author": {
             "name": "Jake Koester",
