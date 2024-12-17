@@ -20,7 +20,7 @@ class ScopedTimer {
     ScopedTimer(double& result) : m_result(result), m_start(std::chrono::high_resolution_clock::now()) {}
     ScopedTimer(double& result, const std::string& message) : m_result(result), m_print_message(true), m_start(std::chrono::high_resolution_clock::now()) {
         aperi::CoutP0() << "----------------------------------------" << std::endl;
-        aperi::CoutP0() << message << std::endl;
+        aperi::CoutP0() << "  " << message << std::endl;
     }
 
     ~ScopedTimer() {
@@ -28,7 +28,7 @@ class ScopedTimer {
         std::chrono::duration<double> duration = end - m_start;
         m_result += duration.count();
         if (m_print_message) {
-            aperi::CoutP0() << "Finished in " << std::scientific << std::setprecision(3) << duration.count() << " seconds" << std::endl;
+            aperi::CoutP0() << "  Finished in " << std::scientific << std::setprecision(3) << duration.count() << " seconds" << std::endl;
             aperi::CoutP0() << "----------------------------------------" << std::endl;
         }
     }

@@ -82,7 +82,7 @@ class NeighborSearchProcessor {
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::Instantiate);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::Instantiate, "Neighbor Search Processor Instantiation");
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
@@ -262,7 +262,7 @@ class NeighborSearchProcessor {
     }
 
     void SetKernelRadius(double kernel_radius) {
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::ComputeKernelRadius);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
@@ -281,7 +281,7 @@ class NeighborSearchProcessor {
     void ComputeKernelRadius(double scale_factor) {
         // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
         // If the in/out check can flip one way or the other if a neighbor is right on the edge.
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::ComputeKernelRadius);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Compute Kernel Radius");
         if (scale_factor == 1.0) {
             scale_factor += 1.0e-6;
         }
@@ -305,7 +305,7 @@ class NeighborSearchProcessor {
     // The domain will be the nodes. Search will find the nodes within the spheres from below.
     // The identifiers will be the global node ids.
     DomainViewType CreateNodePoints() {
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::CreateNodePoints);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
         const stk::mesh::MetaData &meta = m_bulk_data->mesh_meta_data();
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
         DomainViewType node_points("node_points", num_local_nodes);
@@ -330,7 +330,7 @@ class NeighborSearchProcessor {
     // Sphere range. Will be used to find the nodes within a ball defined by the sphere.
     // The identifiers will be the global node ids.
     RangeViewType CreateNodeSpheres() {
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::CreateNodeSpheres);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodeSpheres, "Create Node Spheres");
         const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_and_active_selector);
         RangeViewType node_spheres("node_spheres", num_local_nodes);
 
@@ -356,7 +356,7 @@ class NeighborSearchProcessor {
 
     // Ghost the neighbors to the nodes processor
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::GhostNodeNeighbors);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
         m_bulk_data->modification_begin();
         stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
         std::vector<stk::mesh::EntityProc> nodes_to_ghost;
@@ -381,7 +381,7 @@ class NeighborSearchProcessor {
 
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
-        auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField);
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
         const int my_rank = m_bulk_data->parallel_rank();
 
         for (size_t i = 0; i < host_search_results.size(); ++i) {
@@ -467,7 +467,6 @@ class NeighborSearchProcessor {
     }
 
     void DoBallSearch(bool populate_debug_fields = false) {
-        auto start_search_time = std::chrono::high_resolution_clock::now();
         DomainViewType node_points = CreateNodePoints();
         RangeViewType node_spheres = CreateNodeSpheres();
 
@@ -478,27 +477,19 @@ class NeighborSearchProcessor {
         const bool results_parallel_symmetry = true;
 
         {
-            auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::CoarseSearch);
+            auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CoarseSearch, "Coarse Search");
             stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
-            auto end_search_time = std::chrono::high_resolution_clock::now();
-            aperi::CoutP0() << "     - Time to search: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_search_time - start_search_time).count() << " ms" << std::endl;
         }
 
-        auto start_copy_and_ghost_time = std::chrono::high_resolution_clock::now();
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
         {
-            auto timer = m_timer_manager.CreateScopedTimer(NeighborSearchProcessorTimerType::KokkosDeepCopy);
+            auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::KokkosDeepCopy, "Kokkos DeepCopy");
             Kokkos::deep_copy(host_search_results, search_results);
         }
 
         GhostNodeNeighbors(host_search_results);
-        auto end_copy_and_ghost_time = std::chrono::high_resolution_clock::now();
-        aperi::CoutP0() << "     - Time to copy and ghost: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_copy_and_ghost_time - start_copy_and_ghost_time).count() << " ms" << std::endl;
-        auto start_unpack_time = std::chrono::high_resolution_clock::now();
 
         UnpackSearchResultsIntoField(host_search_results);
-        auto end_unpack_time = std::chrono::high_resolution_clock::now();
-        aperi::CoutP0() << "     - Time to unpack: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_unpack_time - start_unpack_time).count() << " ms" << std::endl;
 
         // Check the validity of the neighbors field
         assert(CheckAllNeighborsAreWithinKernelRadius());
@@ -511,12 +502,8 @@ class NeighborSearchProcessor {
     }
 
     void add_nodes_neighbors_within_variable_ball(double scale_factor, bool populate_debug_fields = false) {
-        aperi::CoutP0() << "   - Finding Neighbors." << std::endl;
-        auto start_time = std::chrono::high_resolution_clock::now();
         ComputeKernelRadius(scale_factor);
         DoBallSearch(populate_debug_fields);
-        auto end_time = std::chrono::high_resolution_clock::now();
-        aperi::CoutP0() << "   - Time to find neighbors: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() << " ms" << std::endl;
     }
 
     void add_nodes_neighbors_within_constant_ball(double ball_radius, bool populate_debug_fields = false) {
@@ -620,6 +607,9 @@ class NeighborSearchProcessor {
     void WriteTimerCSV(const std::string &output_file) {
         m_timer_manager.WriteCSV(output_file);
     }
+
+    // Get the TimerManager
+    std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager() { return std::make_shared<aperi::TimerManager<NeighborSearchProcessorTimerType>>(m_timer_manager); }
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.

@@ -52,6 +52,9 @@ class ElementReproducingKernel : public ElementBase {
     virtual void ComputeSmoothedQuadrature() = 0;
 
     void CreateElementForceProcessor() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+
         // Create the element processor
         std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
         const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
@@ -69,6 +72,8 @@ class ElementReproducingKernel : public ElementBase {
 
         search_processor.SyncFieldsToHost();  // Just needed for output
         search_processor.PrintNumNeighborsStats();
+
+        m_timer_manager->AddChild(search_processor.GetTimerManager());
     }
 
     // TODO(jake): Get rid of this wrapper class. It is only here because of some strange compiling issues that lead to a segfault.

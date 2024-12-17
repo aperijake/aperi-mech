@@ -3,10 +3,22 @@
 #include <memory>
 
 #include "Material.h"
+#include "Timer.h"
 
 namespace aperi {
 
 class SmoothedCellData;
+
+enum class ElementTimerType {
+    CreateElementForceProcessor,
+    Other,
+    NONE
+};
+
+inline const std::map<ElementTimerType, std::string> element_timer_map = {
+    {ElementTimerType::CreateElementForceProcessor, "CreateElementForceProcessor"},
+    {ElementTimerType::Other, "Other"},
+    {ElementTimerType::NONE, "NONE"}};
 
 /**
  * @brief Represents an element in a mesh.
@@ -24,7 +36,9 @@ class ElementBase {
      *
      * @param num_nodes The number of nodes in the element.
      */
-    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_material(material) {}
+    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_material(material) {
+        m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map);
+    }
 
     /**
      * @brief Gets the number of nodes in the element.
@@ -59,9 +73,19 @@ class ElementBase {
         return nullptr;
     }
 
+    /**
+     * @brief Gets the timer manager for the element.
+     *
+     * @return A shared pointer to the timer manager for the element.
+     */
+    std::shared_ptr<aperi::TimerManager<ElementTimerType>> GetTimerManager() const {
+        return m_timer_manager;
+    }
+
    protected:
-    size_t m_num_nodes;                    ///< The number of nodes in the element.
-    std::shared_ptr<Material> m_material;  ///< The material of the element.
+    size_t m_num_nodes;                                                      ///< The number of nodes in the element.
+    std::shared_ptr<Material> m_material;                                    ///< The material of the element.
+    std::shared_ptr<aperi::TimerManager<ElementTimerType>> m_timer_manager;  ///< The timer manager for the element.
 };
 
 }  // namespace aperi

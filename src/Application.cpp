@@ -226,8 +226,8 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
-    aperi::CoutP0() << "############################################" << std::endl;
-    aperi::CoutP0() << "Starting Application: Creating Solver" << std::endl;
+    aperi::CoutP0() << "\n\n############################################" << std::endl;
+    aperi::CoutP0() << " Creating Solver" << std::endl;
 
     auto timer_manager = std::make_shared<aperi::TimerManager<ApplicationTimerType>>("Application Setup", application_timer_map);
 
@@ -296,19 +296,28 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Print the performance summary, percent of time spent in each step
     timer_manager->PrintTimers();
 
+    // Get the element timer managers
+    for (const auto& internal_force_contribution : internal_force_contributions) {
+        internal_force_contribution->GetElementTimerManager()->PrintTimers();
+    }
+
     // Create solver
     std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
 
+    aperi::CoutP0() << " - Solver Created" << std::endl;
+    aperi::CoutP0() << "############################################" << std::endl;
     return solver;
 }
 
 double Application::Run(std::shared_ptr<aperi::Solver> solver) {
     // Run solver
-    aperi::CoutP0() << " - Starting Solver" << std::endl;
+    aperi::CoutP0() << "\n\n############################################" << std::endl;
+    aperi::CoutP0() << " Running Solver" << std::endl;
     auto start_solver = std::chrono::high_resolution_clock::now();
     double time_per_step = solver->Solve();
     auto end_solver = std::chrono::high_resolution_clock::now();
-    aperi::CoutP0() << "   Finished Solver. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver - start_solver).count() << " ms" << std::endl;
+    aperi::CoutP0() << " - Solver Finished. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver - start_solver).count() << " ms" << std::endl;
+    aperi::CoutP0() << "############################################" << std::endl;
 
     MPI_Barrier(m_comm);
 
@@ -318,9 +327,6 @@ double Application::Run(std::shared_ptr<aperi::Solver> solver) {
     return time_per_step;
 }
 
-void Application::Finalize() {
-    aperi::CoutP0() << "Application Finalized" << std::endl;
-    aperi::CoutP0() << "############################################" << std::endl;
-}
+void Application::Finalize() {}
 
 }  // namespace aperi
