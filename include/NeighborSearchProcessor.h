@@ -65,6 +65,7 @@ class NeighborSearchProcessor {
         ComputeKernelRadius,
         NONE
     };
+
     const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_search_processor_timer_names_map = {
         {NeighborSearchProcessorTimerType::Instantiate, "Instantiate"},
         {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},

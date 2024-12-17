@@ -89,9 +89,6 @@ class ElementReproducingKernel : public ElementBase {
     };
 
     void ComputeAndStoreFunctionValues() {
-        aperi::CoutP0() << "   - Computing and storing function values" << std::endl;
-        auto start_function_values = std::chrono::high_resolution_clock::now();
-
         // Create an instance of the functor
         FunctionFunctorWrapper<MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
@@ -102,8 +99,8 @@ class ElementReproducingKernel : public ElementBase {
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_mesh_data, m_part_names);
         function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 
-        auto end_function_values = std::chrono::high_resolution_clock::now();
-        aperi::CoutP0() << "     Finished Computing and Storing Function Values. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_function_values - start_function_values).count() << " ms" << std::endl;
+        // Add the timer manager
+        m_timer_manager->AddChild(function_value_storage_processor.GetTimerManager());
     }
 
     /**
