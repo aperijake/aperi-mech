@@ -43,6 +43,7 @@ enum class SmoothedCellDataTimerType {
     SyncFields,
     AddCellNumElements,
     SetCellLocalOffsets,
+    SetFunctionDerivatives,
     NONE
 };
 
@@ -51,6 +52,7 @@ inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data
     {SmoothedCellDataTimerType::SyncFields, "SyncFields"},
     {SmoothedCellDataTimerType::AddCellNumElements, "AddCellNumElements"},
     {SmoothedCellDataTimerType::SetCellLocalOffsets, "SetCellLocalOffsets"},
+    {SmoothedCellDataTimerType::SetFunctionDerivatives, "SetFunctionDerivatives"},
     {SmoothedCellDataTimerType::NONE, "NONE"}};
 
 class StrainSmoothingProcessor {
@@ -313,6 +315,150 @@ class StrainSmoothingProcessor {
         smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
+    void SetFunctionDerivatives(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, stk::mesh::BulkData &bulk_data, stk::mesh::Field<uint64_t> &num_neighbors_field, stk::mesh::Field<uint64_t> &neighbors_field, stk::mesh::Field<double> &function_values_field, stk::mesh::Field<double> &element_volume_field, Kokkos::Array<DoubleField *, 3> &element_function_derivatives_fields, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+        // Create a scoped timer
+        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
+
+        // #### Set the smoothed cell node ids from the smoothed cell elements ####
+        // Get host views of the node index lengths and starts
+        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
+        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
+        node_starts(0) = 0;
+
+        // Get host views of the node derivatives
+        auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+
+        // Get host views of the node local offsets
+        auto node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+
+        double average_num_neighbors = 0;
+        double average_num_nodes = 0;
+        // Loop over all the cells, set the derivative values for the nodes
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+
+            // Create a set of node entities to their indices
+            std::unordered_set<uint64_t> node_entities;           // Short list of all the nodes in the cell
+            std::unordered_set<uint64_t> node_neighbor_entities;  // Short list of all the node neighbors in the cell
+
+            // Loop over all elements in the cell to create the short list of nodes or node neighbors
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
+                    uint64_t node_local_offset = element_nodes[k].local_offset();
+                    if (node_entities.find(node_local_offset) == node_entities.end()) {
+                        node_entities.insert(node_local_offset);
+                        if (one_pass_method) {
+                            // Get the node neighbors
+                            uint64_t num_neighbors = stk::mesh::field_data(num_neighbors_field, element_nodes[k])[0];
+                            uint64_t *neighbors = stk::mesh::field_data(neighbors_field, element_nodes[k]);
+                            for (size_t l = 0; l < num_neighbors; ++l) {
+                                uint64_t neighbor = neighbors[l];
+                                if (node_neighbor_entities.find(neighbor) == node_neighbor_entities.end()) {
+                                    node_neighbor_entities.insert(neighbor);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
+            if (one_pass_method) {
+                node_lengths(i) = node_neighbor_entities.size();
+                average_num_neighbors += static_cast<double>(node_neighbor_entities.size());
+            } else {
+                node_lengths(i) = node_entities.size();
+            }
+            average_num_nodes += static_cast<double>(node_entities.size());
+
+            // Set the start to the start + length of the previous cell, if not the first cell
+            if (i > 0) {
+                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
+            }
+
+            // Resize the node views if necessary
+            size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
+            size_t current_node_local_offsets_size = node_local_offsets.extent(0);
+            if (node_local_offsets_size > current_node_local_offsets_size) {
+                // Calculate the percent done
+                double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
+
+                // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
+                auto expected_size = static_cast<size_t>(static_cast<double>(node_local_offsets_size) * 1.5 * (1.0 + percent_done));
+
+                // Double the size of the node local offsets
+                smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
+
+                // Get the new host views of the node local offsets
+                node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+                node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+            }
+
+            // Loop over the node entities, create a map of local offsets to node indices
+            std::unordered_map<uint64_t, size_t> node_local_offsets_to_index;
+            size_t node_index = node_starts(i);
+            std::unordered_set<uint64_t> &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
+            for (const auto &node_local_offset : node_entities_to_use) {
+                node_local_offsets(node_index) = node_local_offset;
+                node_local_offsets_to_index[node_local_offset] = node_index;
+                ++node_index;
+            }
+
+            // Cell volume
+            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+
+            // Loop over all the cell elements and add the function derivatives to the nodes
+            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
+                double element_volume = stk::mesh::field_data(element_volume_field, element)[0];
+                double cell_volume_fraction = element_volume / cell_volume;
+                std::vector<double *> element_function_derivatives_data(3);
+                for (size_t l = 0; l < 3; ++l) {
+                    element_function_derivatives_data[l] = stk::mesh::field_data(*element_function_derivatives_fields[l], element);
+                }
+                // Loop over all the nodes in the element
+                for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
+                    if (one_pass_method) {
+                        uint64_t num_neighbors = stk::mesh::field_data(num_neighbors_field, element_nodes[k])[0];
+                        // Loop over the nodes neighbors
+                        for (size_t l = 0; l < num_neighbors; ++l) {
+                            uint64_t neighbor = stk::mesh::field_data(neighbors_field, element_nodes[k])[l];
+                            double function_value = stk::mesh::field_data(function_values_field, element_nodes[k])[l];
+                            auto neighbor_iter = node_local_offsets_to_index.find(neighbor);
+                            assert(neighbor_iter != node_local_offsets_to_index.end());
+                            size_t neighbor_index = neighbor_iter->second;
+                            // Atomic add to the derivatives and set the node local offsets for the cell
+                            for (size_t m = 0; m < 3; ++m) {
+                                Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives_data[m][k] * cell_volume_fraction * function_value);
+                            }
+                        }
+                    } else {
+                        uint64_t node_local_offset = element_nodes[k].local_offset();
+                        size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
+                        // Atomic add to the derivatives and set the node local offsets for the cell
+                        for (size_t l = 0; l < 3; ++l) {
+                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k] * cell_volume_fraction);
+                        }
+                    }
+                }
+            }
+        }
+        double num_cells = static_cast<double>(smoothed_cell_data->NumCells());
+        average_num_nodes /= num_cells;
+        aperi::CoutP0() << "     - Average number of points defining a cell: " << average_num_nodes << std::endl;
+        if (one_pass_method) {
+            average_num_neighbors /= num_cells;
+            aperi::CoutP0() << "     - Average number of neighbors for a cell: " << average_num_neighbors << std::endl;
+        }
+    }
+
     std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method = true) {
         /* This needs a few things to be completed first:
            - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
@@ -374,149 +520,8 @@ class StrainSmoothingProcessor {
         // Set the cell local offsets
         SetCellLocalOffsets(smoothed_cell_data, ngp_mesh, *m_ngp_smoothed_cell_id_field, *m_ngp_element_volume_field, m_owned_selector, smoothed_cell_timer_manager);
 
-        // #### Set the smoothed cell node ids from the smoothed cell elements ####
-        // Get host views of the node index lengths and starts
-        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
-        node_starts(0) = 0;
-
-        // Get host views of the node derivatives
-        auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
-
-        // Get host views of the node local offsets
-        auto node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
-
-        double average_num_neighbors = 0;
-        double average_num_nodes = 0;
-        // Loop over all the cells
-        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
-
-            // Create a map of node entities to their indices
-            std::unordered_map<uint64_t, size_t> node_entities;           // Short list of all the nodes in the cell
-            std::unordered_map<uint64_t, size_t> node_neighbor_entities;  // Short list of all the node neighbors in the cell
-
-            // Loop over all elements in the cell
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
-                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
-                    uint64_t node_local_offset = element_nodes[k].local_offset();
-                    if (node_entities.find(node_local_offset) == node_entities.end()) {
-                        node_entities[node_local_offset] = node_entities.size();
-                        if (one_pass_method) {
-                            // Get the node neighbors
-                            uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
-                            uint64_t *neighbors = stk::mesh::field_data(*neighbors_field, element_nodes[k]);
-                            for (size_t l = 0; l < num_neighbors; ++l) {
-                                uint64_t neighbor = neighbors[l];
-                                if (node_neighbor_entities.find(neighbor) == node_neighbor_entities.end()) {
-                                    node_neighbor_entities[neighbor] = node_neighbor_entities.size();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
-            if (one_pass_method) {
-                node_lengths(i) = node_neighbor_entities.size();
-                average_num_neighbors += static_cast<double>(node_neighbor_entities.size());
-            } else {
-                node_lengths(i) = node_entities.size();
-            }
-            average_num_nodes += static_cast<double>(node_entities.size());
-
-            // Set the start to the start + length of the previous cell, if not the first cell
-            if (i > 0) {
-                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
-            }
-
-            // Resize the node views if necessary
-            size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
-            size_t current_node_local_offsets_size = node_local_offsets.extent(0);
-            if (node_local_offsets_size > current_node_local_offsets_size) {
-                // Calculate the percent done
-                double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
-
-                // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
-                auto expected_size = static_cast<size_t>(static_cast<double>(node_local_offsets_size) * 1.5 * (1.0 + percent_done));
-
-                // Double the size of the node local offsets
-                smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
-
-                // Get the new host views of the node local offsets
-                node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
-                node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
-            }
-
-            // Loop over the node entities, create a map of local offsets to node indices
-            std::unordered_map<uint64_t, size_t> node_local_offsets_to_index;
-            size_t node_index = node_starts(i);
-            std::unordered_map<uint64_t, size_t> &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
-            for (const auto &node_pair : node_entities_to_use) {
-                uint64_t node_local_offset = node_pair.first;
-                node_local_offsets(node_index) = node_local_offset;
-                node_local_offsets_to_index[node_local_offset] = node_index;
-                ++node_index;
-            }
-
-            // Cell volume
-            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
-
-            // Set the node function derivatives
-            // Loop over all the cell elements
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
-                stk::mesh::Entity const *element_nodes = m_bulk_data->begin_nodes(element);
-                double element_volume = stk::mesh::field_data(*m_element_volume_field, element)[0];
-                double cell_volume_fraction = element_volume / cell_volume;
-                std::vector<double *> element_function_derivatives_data(3);
-                for (size_t l = 0; l < 3; ++l) {
-                    element_function_derivatives_data[l] = stk::mesh::field_data(*m_element_function_derivatives_fields[l], element);
-                }
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = m_bulk_data->num_nodes(element); k < ke; ++k) {
-                    if (one_pass_method) {
-                        uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
-                        // Loop over the nodes neighbors
-                        for (size_t l = 0; l < num_neighbors; ++l) {
-                            uint64_t neighbor = stk::mesh::field_data(*neighbors_field, element_nodes[k])[l];
-                            double function_value = stk::mesh::field_data(*function_values_field, element_nodes[k])[l];
-                            auto neighbor_iter = node_local_offsets_to_index.find(neighbor);
-                            assert(neighbor_iter != node_local_offsets_to_index.end());
-                            if (neighbor_iter != node_local_offsets_to_index.end()) {
-                                size_t neighbor_index = neighbor_iter->second;
-                                // Atomic add to the derivatives and set the node local offsets for the cell
-                                for (size_t m = 0; m < 3; ++m) {
-                                    Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives_data[m][k] * cell_volume_fraction * function_value);
-                                }
-                            } else {
-                                aperi::CoutP0() << "Node " << neighbor << " not found in node local offsets." << std::endl;
-                            }
-                        }
-                    } else {
-                        uint64_t node_local_offset = element_nodes[k].local_offset();
-                        size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
-                        // Atomic add to the derivatives and set the node local offsets for the cell
-                        for (size_t l = 0; l < 3; ++l) {
-                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives_data[l][k] * cell_volume_fraction);
-                        }
-                    }
-                }
-            }
-        }
-        average_num_nodes /= static_cast<double>(num_cells);
-        aperi::CoutP0() << "     - Average number of points defining a cell: " << average_num_nodes << std::endl;
-        if (one_pass_method) {
-            average_num_neighbors /= static_cast<double>(num_cells);
-            aperi::CoutP0() << "     - Average number of neighbors for a cell: " << average_num_neighbors << std::endl;
-        }
+        // Set the function derivatives
+        SetFunctionDerivatives(smoothed_cell_data, *m_bulk_data, *num_neighbors_field, *neighbors_field, *function_values_field, *m_element_volume_field, m_element_function_derivatives_fields, one_pass_method, smoothed_cell_timer_manager);
 
         // ---- Diagnostic output
         // Collect the cell counts on each rank
