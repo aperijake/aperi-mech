@@ -170,6 +170,9 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, m_use_one_pass_method);
 
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
+
         // Destroy the functors
         Kokkos::parallel_for(
             "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
@@ -212,6 +215,9 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(HEX8_NUM_NODES, m_use_one_pass_method);
+
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
 
         // Destroy the functors
         Kokkos::parallel_for(

@@ -76,6 +76,9 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES);
 
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
+
         // Destroy the integration functor
         Kokkos::parallel_for(
             "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
