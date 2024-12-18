@@ -360,10 +360,10 @@ double ExplicitSolver::Solve() {
         // CommunicateDisplacements(node_processor_update_displacements);
 
         // Compute the force, f^{n+1}
-        ComputeForce();
+        ComputeForce(aperi::SolverTimerType::ComputeForce);
 
         // Communicate the force field data
-        CommunicateForce();
+        CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);

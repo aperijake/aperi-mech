@@ -39,14 +39,19 @@ TEST_F(TimerTest, ScopedTimerMeasuresTimeCorrectly) {
 }
 
 TEST_F(TimerTest, TimerManagerAccumulatesTimeCorrectly) {
-    {
-        auto timer = m_timer_manager.CreateScopedTimer(TestTimerType::TIMER1);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    for (int i = 0; i < 10; ++i) {
+        {
+            auto timer = m_timer_manager.CreateScopedTimer(TestTimerType::TIMER1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
-    {
-        auto timer = m_timer_manager.CreateScopedTimer(TestTimerType::TIMER1);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    for (int i = 0; i < 10; ++i) {
+        {
+            auto timer = m_timer_manager.CreateScopedTimer(TestTimerType::TIMER1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
     }
+
     double total_time = m_timer_manager.GetTotalTime();
     EXPECT_GE(total_time, 0.3);                                                  // Expect at least 300 milliseconds
     EXPECT_EQ(m_timer_manager.GetTotalTime(TestTimerType::TIMER1), total_time);  // Expect total time for TIMER1
