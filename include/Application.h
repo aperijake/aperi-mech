@@ -63,7 +63,8 @@ class Application {
      * @brief Constructor that takes an MPI_Comm object.
      * @param comm The MPI_Comm object for managing the parallel computation.
      */
-    Application(MPI_Comm& comm) : m_comm(comm) {}
+    Application(MPI_Comm comm, bool dump_performance_data = false, const std::string& performance_data_runstring = "")
+        : m_comm(comm), m_dump_performance_data(dump_performance_data), m_performance_data_runstring(performance_data_runstring) {}
 
     /**
      * @brief Destructor.
@@ -123,7 +124,9 @@ class Application {
     void Finalize();
 
    private:
-    MPI_Comm m_comm;  ///< The MPI_Comm object for managing the parallel computation.
+    MPI_Comm m_comm;                                      ///< The MPI_Comm object for managing the parallel computation.
+    const bool m_dump_performance_data;                   ///< A flag to determine if performance data should be dumped to a CSV file.
+    const std::string m_performance_data_runstring = "";  ///< The runstring for the performance data.
 };
 
 }  // namespace aperi

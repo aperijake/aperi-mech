@@ -403,9 +403,6 @@ double ExplicitSolver::Solve() {
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogLine();
 
-    // Print the performance summary, percent of time spent in each step
-    m_timer_manager->PrintTimers();
-
     return average_runtime;
 }
 

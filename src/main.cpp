@@ -5,14 +5,15 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 #include "Application.h"
 #include "LogUtils.h"
 #include "git_commit.h"
 
-void RunApplication(const std::string& input_filename, MPI_Comm comm) {
+void RunApplication(const std::string& input_filename, MPI_Comm comm, bool dump_performance_data, const std::string& performance_data_runstring) {
     // Create an application object
-    aperi::Application application(comm);
+    aperi::Application application(comm, dump_performance_data, performance_data_runstring);
 
     // Run the application
     application.CreateSolverAndRun(input_filename);
@@ -47,18 +48,59 @@ void PrintHeader() {
                     << std::endl;
 }
 
+void PrintUsage(const char* argv0) {
+    aperi::CoutP0() << "Usage: " << argv0 << " <input_filename>" << std::endl;
+    aperi::CoutP0() << "       " << argv0 << " <input_filename> --dump-performance-data [runstring]" << std::endl;
+    aperi::CoutP0() << "       " << argv0 << " --version" << std::endl;
+    aperi::CoutP0() << "       " << argv0 << " --help" << std::endl;
+    Kokkos::finalize();
+    MPI_Finalize();
+}
+
 int main(int argc, char* argv[]) {
     // Initialize Kokkos and MPI and get communicator for the current process
     Kokkos::initialize(argc, argv);
     MPI_Init(&argc, &argv);
     MPI_Comm p_comm = MPI_COMM_WORLD;
 
+    // Create csv files of timing data or not
+    bool dump_performance_data = false;
+    std::string performance_data_runstring = "";
+
     // Check if the first command-line argument is "--version"
-    if (argc > 1 && std::string(argv[1]) == "--version") {
-        PrintVersion();
-        Kokkos::finalize();
-        MPI_Finalize();
-        return 0;
+    if (argc > 1) {
+        if (std::string(argv[1]) == "--version") {
+            PrintVersion();
+            Kokkos::finalize();
+            MPI_Finalize();
+            return 0;
+        }
+        if (std::string(argv[1]) == "--help") {
+            PrintUsage(argv[0]);
+            return 0;
+        }
+    }
+    if (argc == 1) {
+        aperi::CerrP0() << "ERROR: No command-line arguments provided." << std::endl;
+        PrintUsage(argv[0]);
+        return 1;
+    }
+    if (argc > 2) {
+        if (std::string(argv[2]) == "--dump-performance-data") {
+            dump_performance_data = true;
+            if (argc > 3) {
+                performance_data_runstring = std::string(argv[3]);
+            }
+        } else {
+            aperi::CerrP0() << "ERROR: Invalid command-line argument provided." << std::endl;
+            PrintUsage(argv[0]);
+            return 1;
+        }
+    }
+    if (argc > 4) {
+        aperi::CerrP0() << "ERROR: Too many command-line arguments provided." << std::endl;
+        PrintUsage(argv[0]);
+        return 1;
     }
 
     // Get size of the current process
@@ -85,7 +127,7 @@ int main(int argc, char* argv[]) {
     std::string input_filename = argv[1];
 
     // Run the application
-    RunApplication(input_filename, p_comm);
+    RunApplication(input_filename, p_comm, dump_performance_data, performance_data_runstring);
 
     // Print footer
     auto end_time = std::chrono::system_clock::now();

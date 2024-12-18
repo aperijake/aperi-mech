@@ -136,8 +136,9 @@ TEST_F(TimerTest, TimerManagerWriteCSV) {
     std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
     std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     std::string full_test_name = test_suite_name + "_" + test_name;
-    std::string filename = full_test_name + ".csv";
-    m_timer_manager.WriteCSV(filename);
+    std::string filename_base = full_test_name;
+    std::string filename = filename_base + ".csv";
+    m_timer_manager.WriteCSV(filename_base);
 
     // Only check the file on rank 0
     int rank;
@@ -213,8 +214,9 @@ TEST_F(TimerTest, NestedTimerManagerWriteCSV) {
     std::string test_suite_name = ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
     std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     std::string full_test_name = test_suite_name + "_" + test_name;
-    std::string filename = full_test_name + ".csv";
-    m_timer_manager.WriteCSV(filename);
+    std::string filename_base = full_test_name;
+    std::string filename = filename_base + ".csv";
+    m_timer_manager.WriteCSV(filename_base);
 
     // Only check the file on rank 0
     int rank;

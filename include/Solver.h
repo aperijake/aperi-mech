@@ -30,6 +30,16 @@ enum class SolverTimerType {
     NONE
 };
 
+inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_map = {
+    {SolverTimerType::UpdateFieldStates, "UpdateFieldStates"},
+    {SolverTimerType::ApplyBoundaryConditions, "ApplyBoundaryConditions"},
+    {SolverTimerType::ComputeForce, "ComputeForce"},
+    {SolverTimerType::TimeIntegrationNodalUpdates, "TimeIntegrationNodalUpdates"},
+    {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
+    {SolverTimerType::CommunicateForce, "CommunicateForce"},
+    {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
+    {SolverTimerType::NONE, "NONE"}};
+
 /**
  * @class Solver
  * @brief Abstract base class for solving mechanical problems.
@@ -141,6 +151,12 @@ class Solver {
     virtual void CommunicateForce() = 0;
     virtual void CommunicateForce(const SolverTimerType &timer_type) = 0;
 
+    /**
+     * @brief Get the timer manager object.
+     * @return A shared pointer to the timer manager object.
+     */
+    std::shared_ptr<aperi::TimerManager<SolverTimerType>> GetTimerManager() { return m_timer_manager; }
+
    protected:
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                       ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                  ///< The vector of internal force contributions.
@@ -149,6 +165,7 @@ class Solver {
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                             ///< The time stepper object.
     std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                                   ///< The output scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
+    std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;                                          ///< The timer manager object.
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
     bool m_uses_one_pass_method;                                                                                    ///< Whether the solver uses the one-pass method.
@@ -156,16 +173,6 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
 };
-
-inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_map = {
-    {SolverTimerType::UpdateFieldStates, "UpdateFieldStates"},
-    {SolverTimerType::ApplyBoundaryConditions, "ApplyBoundaryConditions"},
-    {SolverTimerType::ComputeForce, "ComputeForce"},
-    {SolverTimerType::TimeIntegrationNodalUpdates, "TimeIntegrationNodalUpdates"},
-    {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
-    {SolverTimerType::CommunicateForce, "CommunicateForce"},
-    {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
-    {SolverTimerType::NONE, "NONE"}};
 
 /**
  * @class ExplicitSolver
@@ -343,7 +350,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::shared_ptr<ActiveNodeProcessor<4>> m_node_processor_output;
-    std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;
 
     /**
      * @brief Writes the output.

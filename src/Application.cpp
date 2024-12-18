@@ -295,10 +295,16 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Print the performance summary, percent of time spent in each step
     timer_manager->PrintTimers();
+    if (m_dump_performance_data) {
+        timer_manager->WriteCSV("create_solver_performance_data", m_performance_data_runstring);
+    }
 
     // Get the element timer managers
     for (const auto& internal_force_contribution : internal_force_contributions) {
         internal_force_contribution->GetElementTimerManager()->PrintTimers();
+        if (m_dump_performance_data) {
+            internal_force_contribution->GetElementTimerManager()->WriteCSV("create_element_" + internal_force_contribution->GetPartName() + "_performance_data", m_performance_data_runstring);
+        }
     }
 
     // Create solver
@@ -315,6 +321,11 @@ double Application::Run(std::shared_ptr<aperi::Solver> solver) {
     aperi::CoutP0() << " Running Solver" << std::endl;
     auto start_solver = std::chrono::high_resolution_clock::now();
     double time_per_step = solver->Solve();
+    auto solver_timer_manager = solver->GetTimerManager();
+    solver_timer_manager->PrintTimers();
+    if (m_dump_performance_data) {
+        solver_timer_manager->WriteCSV("solver_performance_data", m_performance_data_runstring);
+    }
     auto end_solver = std::chrono::high_resolution_clock::now();
     aperi::CoutP0() << " - Solver Finished. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver - start_solver).count() << " ms" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;

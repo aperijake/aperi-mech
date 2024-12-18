@@ -46,8 +46,8 @@ class TimerManagerBase {
     virtual double GetTotalTime() const = 0;
     virtual std::string GetGroupName() const = 0;
     virtual void PrintTimers() const = 0;
-    virtual void AppendToCSV(std::ofstream& csv_file) const = 0;
-    virtual void WriteCSV(const std::string& filename) const = 0;
+    virtual void AppendToCSV(std::ofstream& csv_file, const std::string& runstring = "") const = 0;
+    virtual void WriteCSV(const std::string& filename_base, const std::string& runstring = "") const = 0;
 };
 
 template <typename TimerType>
@@ -137,26 +137,40 @@ class TimerManager : public TimerManagerBase {
         }
     }
 
-    void AppendToCSV(std::ofstream& csv_file) const override {
+    void AppendToCSV(std::ofstream& csv_file, const std::string& runstring = "") const override {
         // Append the timers to the CSV file
         for (size_t i = 0; i < m_timers.size(); ++i) {
             std::string timer_name = m_timer_group_name + "_" + m_timer_names.at(static_cast<TimerType>(i));
-            csv_file << timer_name << ", " << m_timers[i] << std::endl;
+            // Replace spaces with underscores
+            std::replace(timer_name.begin(), timer_name.end(), ' ', '_');
+            csv_file << timer_name << ", " << m_timers[i];
+            if (!runstring.empty()) {
+                csv_file << ", " << runstring;
+            }
+            csv_file << std::endl;
         }
 
         // Recursively append child timers
         for (const auto& child : m_children) {
-            child->AppendToCSV(csv_file);
+            child->AppendToCSV(csv_file, runstring);
         }
     }
 
-    void WriteCSV(const std::string& filename) const override {
+    void WriteCSV(const std::string& filename_base, const std::string& runstring = "") const override {
         // Only write the CSV file on the rank 0 processor
         int rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         if (rank != 0) {
             return;
         }
+
+        // Create the filename
+        std::string runstring_filename = runstring.empty() ? "" : "_" + runstring;
+        // Replace spaces with underscores
+        std::replace(runstring_filename.begin(), runstring_filename.end(), ' ', '_');
+        // All lowercase
+        std::transform(runstring_filename.begin(), runstring_filename.end(), runstring_filename.begin(), ::tolower);
+        std::string filename = filename_base + runstring_filename + ".csv";
 
         // Open the file
         std::ofstream csv_file(filename);
@@ -166,10 +180,14 @@ class TimerManager : public TimerManagerBase {
         }
 
         // Write the header
-        csv_file << "Timer Name, Time (seconds)" << std::endl;
+        std::string header = "Timer Name, Time (seconds)";
+        if (!runstring.empty()) {
+            header += ", Run";
+        }
+        csv_file << header << std::endl;
 
         // Append the timers to the CSV file
-        AppendToCSV(csv_file);
+        AppendToCSV(csv_file, runstring);
 
         // Close the file
         csv_file.close();
