@@ -16,7 +16,7 @@ services:
       dockerfile: Dockerfile_Nvidia_T4_GPU
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
-      - /mnt/aperifileshare1:/mnt/aperifileshare1
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
     working_dir: /home/aperi-mech_docker/aperi-mech
     runtime: nvidia
     deploy:
