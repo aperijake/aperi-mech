@@ -99,11 +99,11 @@ std::string FindFileInDirectories(const std::string& file, const std::vector<std
 }
 
 std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
-    // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::ReadInputMesh, "Reading Mesh: '" + mesh_file + "'");
-
     // Find the mesh file in the search directories
     std::string mesh_file_path = aperi::FindFileInDirectories(mesh_file, mesh_search_directories);
+
+    // Create a scoped timer
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::ReadInputMesh, "Reading Mesh: '" + mesh_file_path + "'");
 
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
