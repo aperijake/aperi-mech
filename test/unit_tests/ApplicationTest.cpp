@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -34,16 +35,16 @@ TEST_F(ApplicationTest, RunValidInputFile) {
 // Test Run function with valid input file and mesh search directories
 TEST_F(ApplicationTest, RunValidInputFileWithMeshSearchDirectories) {
     // Get the current working directory
-    char cwd[1024];
-    getcwd(cwd, sizeof(cwd));
-    std::string current_working_directory(cwd);
+    std::filesystem::path current_path = std::filesystem::current_path();
+    std::string current_working_directory = current_path.string();
     EXPECT_FALSE(current_working_directory.empty());
 
     // Get the last directory in the path
-    std::string last_directory = current_working_directory.substr(current_working_directory.find_last_of("/\\") + 1);
+    std::string last_directory = current_path.filename().string();
 
     // Strip the last directory from the path
-    std::string all_but_last_directory = current_working_directory.substr(0, current_working_directory.find_last_of("/\\"));
+    std::filesystem::path parent_path = current_path.parent_path();
+    std::string all_but_last_directory = parent_path.string();
 
     // Create the yaml data
     m_yaml_data = CreateTestYaml();
@@ -70,16 +71,16 @@ TEST_F(ApplicationTest, RunValidInputFileWithMeshSearchDirectories) {
 // Test Run function with bad mesh search directories
 TEST_F(ApplicationTest, RunWithBadMeshSearchDirectories) {
     // Get the current working directory
-    char cwd[1024];
-    getcwd(cwd, sizeof(cwd));
-    std::string current_working_directory(cwd);
+    std::filesystem::path current_path = std::filesystem::current_path();
+    std::string current_working_directory = current_path.string();
     EXPECT_FALSE(current_working_directory.empty());
 
     // Get the last directory in the path
-    std::string last_directory = current_working_directory.substr(current_working_directory.find_last_of("/\\") + 1);
+    std::string last_directory = current_path.filename().string();
 
     // Strip the last directory from the path
-    std::string all_but_last_directory = current_working_directory.substr(0, current_working_directory.find_last_of("/\\"));
+    std::filesystem::path parent_path = current_path.parent_path();
+    std::string all_but_last_directory = parent_path.string();
 
     // Create the yaml data
     m_yaml_data = CreateTestYaml();
