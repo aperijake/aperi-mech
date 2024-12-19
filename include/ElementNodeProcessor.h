@@ -56,7 +56,6 @@ class ElementNodeProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Allocate for the node indices
-                Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> node_indices;
                 if (num_nodes > HEX8_NUM_NODES) {
                     Kokkos::abort("Error: num_nodes > max_allowed_nodes");
                 }
