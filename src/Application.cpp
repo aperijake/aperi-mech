@@ -3,6 +3,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <chrono>
+#include <filesystem>
 
 #include "BoundaryCondition.h"
 #include "ExternalForceContribution.h"
@@ -67,9 +68,42 @@ bool HasStrainSmoothing(const std::vector<YAML::Node>& parts) {
     return false;
 }
 
-std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+// Find a file in a list of directories, including the current working directory. TODO(jake): Move this to a utility function
+std::string FindFileInDirectories(const std::string& file, const std::vector<std::string>& directories) {
+    // Get the current working directory
+    std::filesystem::path current_path = std::filesystem::current_path();
+
+    // Check if the file exists in the current working directory if directories is empty
+    if (directories.empty()) {
+        std::filesystem::path file_path = current_path / file;
+        if (std::filesystem::exists(file_path)) {
+            return file_path.string();
+        }
+        throw std::runtime_error("File '" + file + "' not found in the current working directory: " + current_path.string() + " and no search directories provided");
+    }
+
+    // Check if the file exists in the provided directories relative to the current working directory
+    for (const auto& directory : directories) {
+        std::filesystem::path relative_path = current_path / directory / file;
+        if (std::filesystem::exists(relative_path)) {
+            return relative_path.string();
+        }
+    }
+
+    // If the file is not found, throw an exception
+    std::string search_directories;
+    for (const auto& directory : directories) {
+        search_directories += (current_path / directory).string() + ", ";
+    }
+    throw std::runtime_error("File '" + file + "' not found in directories: " + search_directories);
+}
+
+std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::ReadInputMesh, "Reading Mesh: '" + mesh_file + "'");
+
+    // Find the mesh file in the search directories
+    std::string mesh_file_path = aperi::FindFileInDirectories(mesh_file, mesh_search_directories);
 
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
@@ -77,7 +111,7 @@ std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_f
     std::shared_ptr<aperi::IoMesh> io_mesh = aperi::CreateIoMesh(comm, io_mesh_parameters);
 
     // Read the mesh
-    io_mesh->ReadMesh(mesh_file, part_names);
+    io_mesh->ReadMesh(mesh_file_path, part_names);
 
     return io_mesh;
 }
@@ -243,8 +277,11 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Get the mesh file
     std::string mesh_file = io_input_file->GetMeshFile(procedure_id);
 
+    // Get the mesh search directories
+    std::vector<std::string> mesh_search_directories = io_input_file->GetMeshSearchDirectories(procedure_id);
+
     // Create the IO mesh object and read the mesh
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, part_names, m_comm, timer_manager);
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, m_comm, timer_manager);
 
     // Create the field results file
     std::string output_file = io_input_file->GetOutputFile(procedure_id);

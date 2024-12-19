@@ -436,10 +436,15 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema mesh_schema("mesh", "string", "the file containing the mesh");
     YAML::Node mesh_node = mesh_schema.GetInputSchema();
 
+    // Mesh search directories node
+    aperi::InputSchema mesh_search_directories_schema("mesh_search_directories", "sequence", "the list of directories to search for the mesh");
+    YAML::Node mesh_search_directories_node = mesh_search_directories_schema.GetInputSchema();
+
     // Geometry node
     aperi::InputSchema geometry_schema("geometry", "map", "the section describing the geometry");
     geometry_schema.AddAllOf(mesh_node);
     geometry_schema.AddAllOf(parts_node);
+    geometry_schema.AddOptional(mesh_search_directories_node);
     YAML::Node geometry_node = geometry_schema.GetInputSchema();
 
     // Explicit dynamics procedure node

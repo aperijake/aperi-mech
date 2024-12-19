@@ -46,6 +46,22 @@ class IoInputFile {
         return string_pair.first;
     }
 
+    // Get the mesh search directories for a specific procedure id
+    std::vector<std::string> GetMeshSearchDirectories(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node geometry_node = procedures_node_pair.first[procedure_id].begin()->second["geometry"];
+        // Check if mesh_search_directories are defined, if not return empty vector
+        // TODO(jake): this is a hack, fix this. Should use schema to check if mesh_search_directories are optional
+        if (!geometry_node["mesh_search_directories"].IsDefined()) {
+            return std::vector<std::string>();
+        }
+        std::pair<std::vector<std::string>, int> string_pair = GetValueSequence<std::string>(geometry_node, "mesh_search_directories");
+        if (exit_on_error && string_pair.second != 0) throw std::runtime_error("Error getting mesh search directories");
+        return string_pair.first;
+    }
+
     // Get output file for a specific procedure id
     std::string GetOutputFile(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
