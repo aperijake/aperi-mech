@@ -11,27 +11,27 @@ tests:
     hardware: cpu
     args: [--dump-performance-data, rkpm_nodal_taylor_bar_cpu_np_1]
     peak_memory_check:
-      value: 11500.0 # Gold peak memory usage in MB
+      value: 10500.0 # Gold peak memory usage in MB
       percent_tolerance: 10
     run_time_check:
-      value: 661.0 # Gold run time in seconds
+      value: 220.0 # Gold run time in seconds
       percent_tolerance: 10
   - <<: *defaults
     hardware: gpu
     args: [--dump-performance-data, rkpm_nodal_taylor_bar_gpu_np_1]
     peak_memory_check:
-      value: 14200.0 # Gold peak memory usage in MB
+      value: 7500.0 # Gold peak memory usage in MB
       percent_tolerance: 10
     run_time_check:
-      value: 336.0 # Gold run time in seconds
+      value: 90.0 # Gold run time in seconds
       percent_tolerance: 10
   - <<: *defaults
     num_processors: 4 # Override the default num_processors for this test
     args: [--dump-performance-data, rkpm_nodal_taylor_bar_cpu_np_4]
     hardware: cpu
     peak_memory_check:
-      value: 12230.0 # Gold peak memory usage in MB
+      value: 11500.0 # Gold peak memory usage in MB
       percent_tolerance: 10
     run_time_check:
-      value: 400.0 # Gold run time in seconds
+      value: 85.0 # Gold run time in seconds
       percent_tolerance: 10
