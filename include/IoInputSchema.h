@@ -214,12 +214,17 @@ YAML::Node GetInputSchema() {
     time_stepper_schema.AddOneOf(power_method_time_stepper_node);
     YAML::Node time_stepper_node = time_stepper_schema.GetInputSchema();
 
+    // Output coefficients
+    aperi::InputSchema output_coefficients_schema("output_coefficients", "bool", "indicates whether to output coefficients");
+    YAML::Node output_coefficients_node = output_coefficients_schema.GetInputSchema();
+
     // Output node
     aperi::InputSchema output_schema("output", "map", "the output");
     output_schema.AddAllOf(file_node);
     output_schema.AddAllOf(time_end_node);
     output_schema.AddAllOf(time_increment_node);
     output_schema.AddOptional(time_start_node);
+    output_schema.AddOptional(output_coefficients_node);
     YAML::Node output_node = output_schema.GetInputSchema();
 
     // Gravity load node

@@ -40,7 +40,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         bool use_strain_smoothing = true;
 
         // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing);
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, true /* output_coefficients*/);
 
         // Add field data from mesh labeler
         aperi::MeshLabeler mesh_labeler;

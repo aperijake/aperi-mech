@@ -96,7 +96,7 @@ class Solver {
 
                 // Create a value from generalized field processor for the force field
                 std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_force;
-                src_field_query_data_force[0] = {"force_local", FieldQueryState::None};
+                src_field_query_data_force[0] = {"force", FieldQueryState::None};
 
                 std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
                 dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
@@ -225,7 +225,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
     // Create a node processor for local force
     std::shared_ptr<NodeProcessor<1>> CreateNodeProcessorForceLocal() {
         std::array<FieldQueryData<double>, 1> field_query_data_vec;
-        field_query_data_vec[0] = {"force_local", FieldQueryState::None};
+        field_query_data_vec[0] = {"force", FieldQueryState::None};
         return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
     }
 

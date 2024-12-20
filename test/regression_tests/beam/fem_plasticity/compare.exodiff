@@ -38,9 +38,9 @@ NODAL VARIABLES relative 1.e-6 floor 0.0
 	ESSENTIAL_BOUNDARY_X        # min:               0 @ t1,n1	max:               1 @ t1,n3
 	ESSENTIAL_BOUNDARY_Y        # min:               0 @ t1,n2	max:               1 @ t1,n1
 	ESSENTIAL_BOUNDARY_Z        # min:               0 @ t1,n9	max:               1 @ t1,n1
-	FORCE_COEFFICIENTS_X        # min:               0 @ t1,n1	max:   5.1746074e-05 @ t2,n3
-	FORCE_COEFFICIENTS_Y        # min:               0 @ t1,n1	max:   4.2691205e-05 @ t2,n19
-	FORCE_COEFFICIENTS_Z        # min:               0 @ t1,n1	max:   0.00047589752 @ t2,n1
+	FORCE_X        # min:               0 @ t1,n1	max:   5.1746074e-05 @ t2,n3
+	FORCE_Y        # min:               0 @ t1,n1	max:   4.2691205e-05 @ t2,n19
+	FORCE_Z        # min:               0 @ t1,n1	max:   0.00047589752 @ t2,n1
 	MASS_X                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
 	MASS_Y                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
 	MASS_Z                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9

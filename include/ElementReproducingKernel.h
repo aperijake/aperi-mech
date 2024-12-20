@@ -56,7 +56,7 @@ class ElementReproducingKernel : public ElementBase {
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
 
         // Create the element processor
-        std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
+        std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force";
         const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
         bool has_state = false;
         if (m_material) {

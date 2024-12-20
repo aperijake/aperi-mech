@@ -34,9 +34,9 @@ NODAL VARIABLES relative 1.e-6 floor 0.0
 	acceleration_x         # min:               0 @ t1,n1	max:        21336627 @ t2,n229
 	acceleration_y         # min:               0 @ t1,n1	max:        33554769 @ t2,n29
 	acceleration_z         # min:               0 @ t1,n1	max:        10711345 @ t2,n48
-	force_coefficients_x   # min:               0 @ t1,n1	max:       226751.51 @ t2,n276
-	force_coefficients_y   # min:               0 @ t1,n1	max:       233764.41 @ t2,n259
-	force_coefficients_z   # min:               0 @ t1,n1	max:       351701.62 @ t2,n233
+	force_x   # min:               0 @ t1,n1	max:       226751.51 @ t2,n276
+	force_y   # min:               0 @ t1,n1	max:       233764.41 @ t2,n259
+	force_z   # min:               0 @ t1,n1	max:       351701.62 @ t2,n233
 	mass_x                 # min:     0.001125266 @ t1,n3	max:     0.041543172 @ t1,n259
 	mass_y                 # min:     0.001125266 @ t1,n3	max:     0.041543172 @ t1,n259
 	mass_z                 # min:     0.001125266 @ t1,n3	max:     0.041543172 @ t1,n259

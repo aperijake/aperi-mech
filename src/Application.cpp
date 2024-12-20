@@ -165,12 +165,12 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
     return internal_force_contributions;
 }
 
-void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, bool output_coefficients, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::AddFieldsToMesh, "Adding Fields to Mesh");
 
     // Get general field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, false /* add_debug_fields */);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, output_coefficients, false /* add_debug_fields */);
 
     // Add time stepper field data
     std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
@@ -300,8 +300,15 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Check if generalized fields are used
     bool uses_generalized_fields = UsesGeneralizedFields(internal_force_contributions);
 
+    // Get flag for outputting coefficients
+    YAML::Node output_scheduler_node = io_input_file->GetOutputScheduler(procedure_id);
+    bool output_coefficients = false;
+    if (output_scheduler_node["output_coefficients"]) {
+        output_coefficients = output_scheduler_node["output_coefficients"].as<bool>();
+    }
+
     // Add fields to the mesh
-    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, timer_manager);
+    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, output_coefficients, timer_manager);
 
     // Label the mesh
     LabelMesh(io_mesh, parts, timer_manager);
@@ -319,7 +326,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh, timer_manager);
 
     // Get the output scheduler
-    YAML::Node output_scheduler_node = io_input_file->GetOutputScheduler(procedure_id);
     std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateOutputScheduler(output_scheduler_node, timer_manager);
 
     // Pre-processing
