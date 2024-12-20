@@ -49,6 +49,9 @@ class ElementTetrahedron4 : public ElementBase {
      * @brief Creates the element processor associated with the element.
      */
     void CreateElementForceProcessor() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+
         // Create the element processor
         if (!m_mesh_data) {
             // Allowing for testing
@@ -65,6 +68,9 @@ class ElementTetrahedron4 : public ElementBase {
 
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+
         // Functor for computing shape function derivatives
         size_t compute_shape_function_derivatives_functor_size = sizeof(ShapeFunctionsFunctorTet4);
         auto compute_shape_function_derivatives_functor = (ShapeFunctionsFunctorTet4 *)Kokkos::kokkos_malloc(compute_shape_function_derivatives_functor_size);
@@ -112,6 +118,9 @@ class ElementTetrahedron4 : public ElementBase {
      *
      */
     void ComputeElementVolume() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+
         assert(m_element_processor != nullptr);
         assert(m_integration_functor != nullptr);
 

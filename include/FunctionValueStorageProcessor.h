@@ -24,6 +24,20 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Timer.h"
+
+namespace aperi {
+enum class FunctionValueStorageProcessorTimerType {
+    Instantiate,
+    ComputeFunctionValues,
+    NONE
+};
+
+inline const std::map<FunctionValueStorageProcessorTimerType, std::string> function_value_storage_processor_timer_map = {
+    {FunctionValueStorageProcessorTimerType::Instantiate, "Instantiate"},
+    {FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "ComputeFunctionValues"},
+    {FunctionValueStorageProcessorTimerType::NONE, "NONE"}};
+}  // namespace aperi
 
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoFunctionValueStorageProcessor.h"
@@ -40,11 +54,12 @@ class FunctionValueStorageProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
+    FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
+        auto timer = m_timer_manager.CreateScopedTimer(FunctionValueStorageProcessorTimerType::Instantiate);
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
@@ -81,6 +96,8 @@ class FunctionValueStorageProcessor {
     // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
     template <size_t NumNodes, typename FunctionFunctor, typename Bases>
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
+
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
@@ -140,23 +157,28 @@ class FunctionValueStorageProcessor {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_function_values_field});
     }
 
+    // Get the TimerManager
+    std::shared_ptr<aperi::TimerManager<FunctionValueStorageProcessorTimerType>> GetTimerManager() { return std::make_shared<aperi::TimerManager<FunctionValueStorageProcessorTimerType>>(m_timer_manager); }
+
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::vector<std::string> m_sets;               // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_owned_selector;          // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;          // The number of neighbors field
-    UnsignedField *m_neighbors_field;              // The neighbors field
-    DoubleField *m_coordinates_field;              // The coordinates field
-    DoubleField *m_function_values_field;          // The function values field
-    DoubleField *m_kernel_radius_field;            // The kernel radius field
-    NgpUnsignedField *m_ngp_num_neighbors_field;   // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;       // The ngp neighbors field
-    NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
-    NgpDoubleField *m_ngp_function_values_field;   // The ngp function values field
-    NgpDoubleField *m_ngp_kernel_radius_field;     // The ngp kernel radius field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                                 // The mesh data object.
+    std::vector<std::string> m_sets;                                              // The sets to process.
+    aperi::TimerManager<FunctionValueStorageProcessorTimerType> m_timer_manager;  // The timer manager.
+
+    stk::mesh::BulkData *m_bulk_data;             // The bulk data object.
+    stk::mesh::Selector m_selector;               // The selector
+    stk::mesh::Selector m_owned_selector;         // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
+    UnsignedField *m_num_neighbors_field;         // The number of neighbors field
+    UnsignedField *m_neighbors_field;             // The neighbors field
+    DoubleField *m_coordinates_field;             // The coordinates field
+    DoubleField *m_function_values_field;         // The function values field
+    DoubleField *m_kernel_radius_field;           // The kernel radius field
+    NgpUnsignedField *m_ngp_num_neighbors_field;  // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;      // The ngp neighbors field
+    NgpDoubleField *m_ngp_coordinates_field;      // The ngp coordinates field
+    NgpDoubleField *m_ngp_function_values_field;  // The ngp function values field
+    NgpDoubleField *m_ngp_kernel_radius_field;    // The ngp kernel radius field
 };
 
 #else  // USE_PROTEGO_MECH

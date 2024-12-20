@@ -99,6 +99,15 @@ class InternalForceContribution : public ForceContribution {
      */
     void Preprocess() override;
 
+    /**
+     * @brief Get element TimerManager.
+     *
+     * @return A shared pointer to the TimerManager object.
+     */
+    std::shared_ptr<TimerManager<ElementTimerType>> GetElementTimerManager() const {
+        return m_element->GetTimerManager();
+    }
+
    protected:
     InternalForceContributionParameters m_internal_force_contribution_parameters;  ///< The parameters associated with the force contribution.
     std::shared_ptr<aperi::ElementBase> m_element;                                 ///< The element associated with the force contribution.

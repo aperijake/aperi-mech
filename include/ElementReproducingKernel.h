@@ -52,8 +52,11 @@ class ElementReproducingKernel : public ElementBase {
     virtual void ComputeSmoothedQuadrature() = 0;
 
     void CreateElementForceProcessor() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+
         // Create the element processor
-        std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force_local";
+        std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force";
         const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
         bool has_state = false;
         if (m_material) {
@@ -69,6 +72,8 @@ class ElementReproducingKernel : public ElementBase {
 
         search_processor.SyncFieldsToHost();  // Just needed for output
         search_processor.PrintNumNeighborsStats();
+
+        m_timer_manager->AddChild(search_processor.GetTimerManager());
     }
 
     // TODO(jake): Get rid of this wrapper class. It is only here because of some strange compiling issues that lead to a segfault.
@@ -84,9 +89,6 @@ class ElementReproducingKernel : public ElementBase {
     };
 
     void ComputeAndStoreFunctionValues() {
-        aperi::CoutP0() << "   - Computing and storing function values" << std::endl;
-        auto start_function_values = std::chrono::high_resolution_clock::now();
-
         // Create an instance of the functor
         FunctionFunctorWrapper<MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
@@ -97,8 +99,8 @@ class ElementReproducingKernel : public ElementBase {
         aperi::FunctionValueStorageProcessor function_value_storage_processor(m_mesh_data, m_part_names);
         function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 
-        auto end_function_values = std::chrono::high_resolution_clock::now();
-        aperi::CoutP0() << "     Finished Computing and Storing Function Values. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_function_values - start_function_values).count() << " ms" << std::endl;
+        // Add the timer manager
+        m_timer_manager->AddChild(function_value_storage_processor.GetTimerManager());
     }
 
     /**
@@ -168,6 +170,9 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, m_use_one_pass_method);
 
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
+
         // Destroy the functors
         Kokkos::parallel_for(
             "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
@@ -210,6 +215,9 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<aperi::HEX8_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(HEX8_NUM_NODES, m_use_one_pass_method);
+
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
 
         // Destroy the functors
         Kokkos::parallel_for(

@@ -38,29 +38,24 @@ void SetInitialFieldValues(std::shared_ptr<aperi::MeshData> mesh_data, const std
     node_processor.MarkAllFieldsModifiedOnDevice();
 }
 
-void AddInitialConditions(std::vector<YAML::Node>& initial_conditions, const std::shared_ptr<aperi::MeshData>& mesh_data) {
-    // Loop over initial conditions
-    for (const auto& initial_condition : initial_conditions) {
-        // Get this initial condition node
-        const YAML::Node initial_condition_node = initial_condition.begin()->second;
+void AddInitialConditions(const YAML::Node& initial_condition, const std::shared_ptr<aperi::MeshData>& mesh_data) {
+    // Get this initial condition node
+    const YAML::Node initial_condition_node = initial_condition.begin()->second;
 
-        // Get the components and values
-        std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
+    // Get the components and values
+    std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(initial_condition_node);
 
-        // Get the type of initial condition
-        const auto field = initial_condition.begin()->first.as<std::string>() + "_coefficients";
+    // Get the type of initial condition
+    const auto field = initial_condition.begin()->first.as<std::string>() + "_coefficients";
 
-        // Loop over sets from initial condition
-        aperi::CoutP0() << "   - Adding initial condition for sets:" << std::endl;
-        std::vector<std::string> sets;
-        if (initial_condition_node["sets"]) {
-            sets = initial_condition_node["sets"].as<std::vector<std::string>>();
-            aperi::CoutP0() << "      " << sets.back() << std::endl;
-        }
-
-        // Set the initial field values
-        SetInitialFieldValues(mesh_data, sets, field, components_and_values);
+    // Loop over sets from initial condition
+    std::vector<std::string> sets;
+    if (initial_condition_node["sets"]) {
+        sets = initial_condition_node["sets"].as<std::vector<std::string>>();
     }
+
+    // Set the initial field values
+    SetInitialFieldValues(mesh_data, sets, field, components_and_values);
 }
 
 }  // namespace aperi

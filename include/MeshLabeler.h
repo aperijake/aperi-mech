@@ -27,7 +27,7 @@ class MeshLabeler {
         }
     }
 
-    std::vector<FieldData> GetFieldData() {
+    static std::vector<FieldData> GetFieldData() {
         std::vector<FieldData> field_data;
 
         // Node data

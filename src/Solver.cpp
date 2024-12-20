@@ -360,10 +360,10 @@ double ExplicitSolver::Solve() {
         // CommunicateDisplacements(node_processor_update_displacements);
 
         // Compute the force, f^{n+1}
-        ComputeForce();
+        ComputeForce(aperi::SolverTimerType::ComputeForce);
 
         // Communicate the force field data
-        CommunicateForce();
+        CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         ComputeAcceleration(node_processor_acceleration);
@@ -402,9 +402,6 @@ double ExplicitSolver::Solve() {
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogLine();
-
-    // Print the performance summary, percent of time spent in each step
-    m_timer_manager->PrintTimers();
 
     return average_runtime;
 }

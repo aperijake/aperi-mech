@@ -39,7 +39,9 @@ class InitialConditionUtilTest : public ApplicationTest {
         // Set initial conditions
         // Should set on device for state NP1, and mark the initial conditions NP1 fields as modified on device
         std::vector<YAML::Node> initial_conditions = m_io_input_file->GetInitialConditions(0);
-        AddInitialConditions(initial_conditions, m_io_mesh->GetMeshData());
+        for (auto& initial_condition : initial_conditions) {
+            aperi::AddInitialConditions(initial_condition, m_io_mesh->GetMeshData());
+        }
 
         // Create node processors for syncing field data
         std::vector<aperi::NodeProcessor<2>> node_processors;

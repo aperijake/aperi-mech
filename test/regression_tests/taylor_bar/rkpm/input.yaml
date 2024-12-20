@@ -34,6 +34,7 @@ procedures:
         time_start: 0
         time_end: 1
         time_increment: 0.0001
+        output_coefficients: true
       boundary_conditions:
         - displacement:
             sets:

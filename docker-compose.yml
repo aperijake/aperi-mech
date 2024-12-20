@@ -15,5 +15,5 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
-      - ~/aperi-mech_test:/home/aperi-mech_docker/aperi-mech_test
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
     working_dir: /home/aperi-mech_docker/aperi-mech

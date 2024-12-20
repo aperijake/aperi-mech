@@ -60,10 +60,10 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
     mp_mesh_data = std::make_shared<MeshData>(&mp_io_broker->bulk_data());
 }
 
-void IoMesh::Finalize() {
-    // TODO(jake): I don't think these are necessary, but leaving them commented out here for now.
-    // mp_io_broker->remove_mesh_database(m_input_index);
-    // mp_io_broker->close_output_mesh(m_results_index);
+// Destructor
+IoMesh::~IoMesh() {
+    mp_io_broker->remove_mesh_database(m_input_index);
+    mp_io_broker->close_output_mesh(m_results_index);
 }
 
 void IoMesh::SetIoProperties() const {

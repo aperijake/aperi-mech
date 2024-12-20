@@ -9,14 +9,14 @@ version: "3.8"
 services:
   aperi-mech-gpu-development:
     image: aperi-mech-gpu:latest
-    shm_size: '2gb' # Shared memory size
+    shm_size: 2gb # Shared memory size
     network_mode: host
     build:
       context: .
       dockerfile: Dockerfile_Nvidia_T4_GPU
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
-      - ~/aperi-mech_test:/home/aperi-mech_docker/aperi-mech_test
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
     working_dir: /home/aperi-mech_docker/aperi-mech
     runtime: nvidia
     deploy:

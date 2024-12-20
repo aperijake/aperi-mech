@@ -1,0 +1,4 @@
+Timer Name, Time (seconds), Run
+Application_Setup_ReadInputMesh, 0.00263367, fem_taylor_bar_cpu_np_1
+Application_Setup_CreateFieldResultsFile, 0.00362571, fem_taylor_bar_cpu_np_1
+Application_Setup_CreateTimeStepper, 4.917e-06, fem_taylor_bar_cpu_np_1

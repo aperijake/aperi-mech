@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Explicit_Solver_UpdateFieldStates",
+    "unit": "seconds",
+    "value": 2.154e-5
+  },
+  {
+    "name": "Explicit_Solver_ApplyBoundaryConditions",
+    "unit": "seconds",
+    "value": 0.00017726
+  },
+  {
+    "name": "Application_Setup_ReadInputMesh_fem_taylor_bar_cpu_np_1",
+    "unit": "seconds",
+    "value": 0.00263367
+  },
+  {
+    "name": "Application_Setup_CreateFieldResultsFile_fem_taylor_bar_cpu_np_1",
+    "unit": "seconds",
+    "value": 0.00362571
+  },
+  {
+    "name": "Application_Setup_CreateTimeStepper_fem_taylor_bar_cpu_np_1",
+    "unit": "seconds",
+    "value": 4.917e-6
+  }
+]

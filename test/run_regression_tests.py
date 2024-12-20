@@ -72,6 +72,7 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
         "exodiff": [],
         "executable_path": None,
         "num_processors": yaml_node["num_processors"],
+        "args": yaml_node.get("args", []),
     }
 
     # Set the executable path
@@ -142,7 +143,7 @@ def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
         inputs["test_name"],
         inputs["executable_path"],
         inputs["num_processors"],
-        [inputs["input_file"]],
+        [inputs["input_file"]] + inputs["args"],
     )
     return_code, stats = regression_test.run()
 
