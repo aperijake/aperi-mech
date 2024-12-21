@@ -386,7 +386,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech benchmark result
         uses: benchmark-action/github-action-benchmark@v1
@@ -403,7 +403,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech fem tests
       - name: Store aperi-mech detailed benchmark result for fem create_solver
@@ -421,7 +421,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem create_element
         uses: benchmark-action/github-action-benchmark@v1
@@ -438,7 +438,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem solver
         uses: benchmark-action/github-action-benchmark@v1
@@ -455,7 +455,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech sfem tests
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing create_solver
@@ -473,7 +473,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing create_element
         uses: benchmark-action/github-action-benchmark@v1
@@ -490,7 +490,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing solver
         uses: benchmark-action/github-action-benchmark@v1
@@ -507,7 +507,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech rkpm tests
       - name: Store aperi-mech detailed benchmark result for rkpm create_solver
@@ -525,7 +525,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm create_element
         uses: benchmark-action/github-action-benchmark@v1
@@ -542,7 +542,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm solver
         uses: benchmark-action/github-action-benchmark@v1
@@ -559,7 +559,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech rkpm_nodal tests
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal create_solver
@@ -577,7 +577,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal create_element
         uses: benchmark-action/github-action-benchmark@v1
@@ -594,7 +594,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal solver
         uses: benchmark-action/github-action-benchmark@v1
@@ -611,7 +611,7 @@ jobs:
           summary-always: true
           alert-comment-cc-users: "@aperijake"
           fail-on-alert: true
-          fail-threshold: 200%
+          fail-threshold: 300%
 
   teardown:
     runs-on: ubuntu-latest

@@ -14,7 +14,7 @@ struct BasesLinear {
     KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
-        basis_vector.segment(1, 3) = coordinates;
+        basis_vector.template segment<3>(1) = coordinates;
     }
 };
 
@@ -25,7 +25,7 @@ struct BasesQuadratic {
     KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
-        basis_vector.segment(1, 3) = coordinates;
+        basis_vector.template segment<3>(1) = coordinates;
         basis_vector(4) = coordinates(0) * coordinates(0);
         basis_vector(5) = coordinates(1) * coordinates(1);
         basis_vector(6) = coordinates(2) * coordinates(2);
@@ -42,7 +42,7 @@ struct BasesCubic {
     KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
-        basis_vector.segment(1, 3) = coordinates;
+        basis_vector.template segment<3>(1) = coordinates;
         basis_vector(4) = coordinates(0) * coordinates(0);
         basis_vector(5) = coordinates(1) * coordinates(1);
         basis_vector(6) = coordinates(2) * coordinates(2);
@@ -69,7 +69,7 @@ struct BasesQuartic {
     KOKKOS_INLINE_FUNCTION
     void BuildBasisVector(const Eigen::Matrix<double, 3, 1>& coordinates, Eigen::Matrix<double, size, 1>& basis_vector) const {
         basis_vector(0) = 1.0;
-        basis_vector.segment(1, 3) = coordinates;
+        basis_vector.template segment<3>(1) = coordinates;
         basis_vector(4) = coordinates(0) * coordinates(0);
         basis_vector(5) = coordinates(1) * coordinates(1);
         basis_vector(6) = coordinates(2) * coordinates(2);
@@ -132,7 +132,7 @@ struct ShapeFunctionsFunctorReproducingKernel {
         Eigen::Matrix<double, Bases::size, Bases::size> M = Eigen::Matrix<double, Bases::size, Bases::size>::Zero();
 
         // Allocate basis vector (H)
-        Eigen::Vector<double, Bases::size> H = Eigen::Vector<double, Bases::size>::Zero();
+        Eigen::Matrix<double, Bases::size, 1> H = Eigen::Matrix<double, Bases::size, 1>::Zero();
 
         // Loop over neighbor nodes
         for (size_t i = 0; i < actual_num_neighbors; i++) {
