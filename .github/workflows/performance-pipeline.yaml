@@ -354,8 +354,8 @@ jobs:
                   for type in "${types[@]}"; do
                       echo "Running: python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py $type*.csv performance_$subdir_$type.json"
                       python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py $type*.csv performance_$subdir_$type.json
-                      echo "Running: mv $subdir_$type_performance.json ~/aperi-mech/build/performance_$subdir_$type.json"
-                      mv $subdir_$type_performance.json ~/aperi-mech/build/performance_$subdir_$type.json
+                      echo "Running: mv performance_$subdir_$type.json ~/aperi-mech/build/performance_$subdir_$type.json"
+                      mv performance_$subdir_$type.json ~/aperi-mech/build/performance_$subdir_$type.json
                   done
                   cd ..
               done
