@@ -352,10 +352,11 @@ jobs:
                   echo "Converting CSV to JSON for $subdir and copying to build directory..."
                   cd $subdir
                   for type in "${types[@]}"; do
-                      echo "Running: python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py $type*.csv performance_$subdir_$type.json"
-                      python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py $type*.csv performance_$subdir_$type.json
-                      echo "Running: mv performance_$subdir_$type.json ~/aperi-mech/build/performance_$subdir_$type.json"
-                      mv performance_$subdir_$type.json ~/aperi-mech/build/performance_$subdir_$type.json
+                      this_filename=performance_${subdir}_${type}.json
+                      echo "Running: python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py ${type}*.csv ${this_filename}"
+                      python3 ~/aperi-mech/test/utils/scripts/convert_csv_performance_data_to_json.py ${type}*.csv ${this_filename}
+                      echo "Running: mv ${this_filename} ~/aperi-mech/build/${this_filename}"
+                      mv ${this_filename} ~/aperi-mech/build/${this_filename}
                   done
                   cd ..
               done
