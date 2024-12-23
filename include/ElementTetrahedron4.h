@@ -95,6 +95,14 @@ class ElementTetrahedron4 : public ElementBase {
         // Set the functors
         m_shape_functions_functor = compute_shape_function_derivatives_functor;
         m_integration_functor = integration_functor;
+
+        // Create the compute force functor
+        assert(this->m_material != nullptr);
+        assert(m_element_processor != nullptr);
+        assert(m_integration_functor != nullptr);
+
+        // Create the compute force functor
+        m_compute_force_functor = std::make_shared<ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
     }
 
     void DestroyFunctors() {
@@ -136,20 +144,15 @@ class ElementTetrahedron4 : public ElementBase {
      *
      */
     void ComputeInternalForceAllElements() override {
-        assert(this->m_material != nullptr);
-        assert(m_element_processor != nullptr);
-        assert(m_integration_functor != nullptr);
-
-        // Create the compute force functor
-        ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
-
+        assert(this->m_compute_force_functor != nullptr);
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
+        m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(*m_compute_force_functor);
     }
 
    private:
     ShapeFunctionsFunctorTet4 *m_shape_functions_functor;
     Quadrature<1, TET4_NUM_NODES> *m_integration_functor;
+    std::shared_ptr<ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>> m_compute_force_functor;
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
