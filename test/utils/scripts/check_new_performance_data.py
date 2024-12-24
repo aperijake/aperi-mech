@@ -1,5 +1,7 @@
 import json
 import os
+
+# trunk-ignore(bandit/B404)
 import subprocess
 
 import pandas as pd
@@ -193,6 +195,8 @@ def check_new_performance_data(
     # Use git to find the project root
     if root_input_dir is None:
         project_root = (
+            # trunk-ignore(bandit/B603)
+            # trunk-ignore(bandit/B607)
             subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
             .strip()
             .decode("utf-8")
