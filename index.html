@@ -17,50 +17,44 @@
     <h1>Interactive Plots</h1>
     <div id="plot"></div>
     <script>
-        // Load the JSON data
+	            // Load the JSON data
         fetch('performance_comparison_results.json')
             .then(response => response.json())
             .then(data => {
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_last = data.map(d => d.value_last);
-                const value_new = data.map(d => d.value_new);
                 const percent_total_difference = data.map(d => d.percent_total_difference);
 
                 // Create the plot
-                const trace1 = {
-                    x: names,
-                    y: value_last,
-                    name: 'Last Value',
-                    type: 'bar'
-                };
-
-                const trace2 = {
-                    x: names,
-                    y: value_new,
-                    name: 'New Value',
-                    type: 'bar'
-                };
-
-                const trace3 = {
-                    x: names,
+                const trace = {
+                    x: value_last,
                     y: percent_total_difference,
-                    name: 'Percent Difference in Timer Total Time',
-                    type: 'scatter',
-                    yaxis: 'y2'
+                    text: names,
+                    mode: 'markers',
+                    marker: {
+                        size: 10,
+                        color: 'rgba(156, 165, 196, 0.95)',
+                        line: {
+                            width: 1,
+                            color: 'rgba(156, 165, 196, 1.0)'
+                        }
+                    },
+                    type: 'scatter'
                 };
 
-                const data_plot = [trace1, trace2, trace3];
+                const data_plot = [trace];
 
                 const layout = {
                     title: 'Performance Comparison',
-                    yaxis: { title: 'Value' },
-                    yaxis2: {
-                        title: 'Percent Difference in Timer Total Time',
-                        overlaying: 'y',
-                        side: 'right'
+                    xaxis: {
+                        title: 'Last Value (log scale)',
+                        type: 'log'
                     },
-                    barmode: 'group'
+                    yaxis: {
+                        title: 'Percent Difference in Total Time of Timer Group'
+                    },
+                    hovermode: 'closest'
                 };
 
                 Plotly.newPlot('plot', data_plot, layout);
