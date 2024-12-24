@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>aperi-mech</title>
+    <meta charset="UTF-8">
+    <title>aperi-mech: Performance Comparison Results</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
-    <h1>Welcome to aperi-mech</h1>
+    <h1>Performance Comparison Results</h1>
     <h2>Benchmarks</h2>
     <h3>System: AperiAzureGPU2</h3>
     <ul>
@@ -12,5 +14,57 @@
         <li><a href="dev/bench/aperi_mech/AperiAzureGPU2/index.html">Executable Benchmarks</a></li>
         <li><a href="dev/bench/aperi_mech_detailed/AperiAzureGPU2/index.html">Detailed Executable Benchmarks</a></li>
     </ul>
+    <h1>Interactive Plots</h1>
+    <div id="plot"></div>
+    <script>
+        // Load the JSON data
+        fetch('performance_comparison_results.json')
+            .then(response => response.json())
+            .then(data => {
+                // Process the data for Plotly
+                const names = data.map(d => d.name);
+                const value_last = data.map(d => d.value_last);
+                const value_new = data.map(d => d.value_new);
+                const percent_total_difference = data.map(d => d.percent_total_difference);
+
+                // Create the plot
+                const trace1 = {
+                    x: names,
+                    y: value_last,
+                    name: 'Last Value',
+                    type: 'bar'
+                };
+
+                const trace2 = {
+                    x: names,
+                    y: value_new,
+                    name: 'New Value',
+                    type: 'bar'
+                };
+
+                const trace3 = {
+                    x: names,
+                    y: percent_total_difference,
+                    name: 'Percent Difference in Timer Total Time',
+                    type: 'scatter',
+                    yaxis: 'y2'
+                };
+
+                const data_plot = [trace1, trace2, trace3];
+
+                const layout = {
+                    title: 'Performance Comparison',
+                    yaxis: { title: 'Value' },
+                    yaxis2: {
+                        title: 'Percent Difference in Timer Total Time',
+                        overlaying: 'y',
+                        side: 'right'
+                    },
+                    barmode: 'group'
+                };
+
+                Plotly.newPlot('plot', data_plot, layout);
+            });
+    </script>
 </body>
 </html>
