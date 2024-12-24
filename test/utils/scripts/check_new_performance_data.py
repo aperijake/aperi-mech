@@ -1,12 +1,17 @@
 import json
+import os
 import subprocess
 
 import pandas as pd
 
 
 # Load data from data.js
-def load_data_js(file):
-    with open(file, "r") as file:
+def load_data_js(filename):
+    # Check if the file exists
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"File {filename} does not exist")
+    with open(filename, "r") as file:
+        print(f"Reading {filename}")
         data_js_content = file.read()
         data_js_content = data_js_content.replace("window.BENCHMARK_DATA = ", "")
         data_js = json.loads(data_js_content)
@@ -14,8 +19,12 @@ def load_data_js(file):
 
 
 # Load new performance data
-def load_new_data(file):
-    with open(file, "r") as file:
+def load_new_data(filename):
+    # Check if the file exists
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"File {filename} does not exist")
+    with open(filename, "r") as file:
+        print(f"Reading {filename}")
         new_data = json.load(file)
     return new_data
 
@@ -171,13 +180,28 @@ def print_best_and_worst(
     return best_df, worst_df
 
 
-def run_comparison_for_file_pairs(data_file_pairs):
+def check_new_performance_data(
+    data_file_pairs,
+    root_input_dir=None,
+    root_output_dir=None,
+    timing_output_file=None,
+    memory_output_file=None,
+):
+    """
+    Compare the new performance data to the last data in data.js and print the best and worst performing benchmarks.
+    """
     # Use git to find the project root
-    project_root = (
-        subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
-        .strip()
-        .decode("utf-8")
-    )
+    if root_input_dir is None:
+        project_root = (
+            subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
+            .strip()
+            .decode("utf-8")
+        )
+    else:
+        project_root = root_input_dir
+
+    if root_output_dir is None:
+        root_output_dir = project_root
 
     full_df = pd.DataFrame()
 
@@ -220,13 +244,17 @@ def run_comparison_for_file_pairs(data_file_pairs):
         )
 
     # Save the seconds and mb DataFrames to JSON files
+    if timing_output_file is None:
+        timing_output_file = "gh-pages/performance_comparison_timing_results.json"
     seconds_df.to_json(
-        f"{project_root}/gh-pages/performance_comparison_timing_results.json",
+        f"{root_output_dir}/{timing_output_file}",
         orient="records",
     )
 
+    if memory_output_file is None:
+        memory_output_file = "gh-pages/performance_comparison_memory_results.json"
     mb_df.to_json(
-        f"{project_root}/gh-pages/performance_comparison_memory_results.json",
+        f"{root_output_dir}/{memory_output_file}",
         orient="records",
     )
 
@@ -249,9 +277,4 @@ if __name__ == "__main__":
         "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
     }
 
-    run_comparison_for_file_pairs(data_file_pairs)
-
-    # Test data_file_pairs
-    # data_file_pairs = {
-    #     'test_files/new_gh_pages_data.json': 'test_files/gh_pages_data.js'
-    # }
+    check_new_performance_data(data_file_pairs)
