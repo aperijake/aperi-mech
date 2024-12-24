@@ -16,14 +16,14 @@ gpu=true
 parallel=false
 
 # Clean old performance results
-bash "${github_path}/workflows/clean_old_performance_results.sh" ${machine_ip} ${machine_username}
+bash "${github_path}/workflows/clean_old_performance_results.sh" "${machine_ip}" "${machine_username}"
 
 # Build the code (TODO: Add the build script). This assumes that the current state of the code is what we want to test.
 
 # Run the performance tests
-bash "${github_path}/actions/run-aperi-mech-performance-tests/run_performance_tests.sh" ${machine_ip} ${machine_username} ${gpu} ${parallel}
+bash "${github_path}/actions/run-aperi-mech-performance-tests/run_performance_tests.sh" "${machine_ip}" "${machine_username}" "${gpu}" "${parallel}"
 
 # Collect the performance test results
-bash "${github_path}/workflows/collect_performance_test_results.sh" ${machine_ip} ${machine_username}
+bash "${github_path}/workflows/collect_performance_test_results.sh" "${machine_ip}" "${machine_username}"
 
 # Generate the performance test report (TODO: Add the report generation script)

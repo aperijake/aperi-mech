@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Element_CreateElementForceProcessor_fem_taylor_bar_cpu_np_1",
+    "unit": "seconds",
+    "value": 0.000350099
+  },
+  {
+    "name": "Element_Other_fem_taylor_bar_cpu_np_1",
+    "unit": "seconds",
+    "value": 0.351738
+  }
+]
