@@ -28,19 +28,35 @@ def compare_new_data(data_js, new_data, new_data_file, print_results=False):
     last_df = pd.DataFrame(last_benchmark)
     new_df = pd.DataFrame(new_data)
 
+    # Convert the 'unit' columns to be consistent. 's' and 'seconds' are equivalent
+    last_df["unit"] = last_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
+    new_df["unit"] = new_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
+
     # Find the rows that are in the last data but not in the new data and remove them
     last_df = last_df[last_df["name"].isin(new_df["name"])]
 
-    # Find all the rows that have a 'unit' of 's' or 'seconds' and add a new_data_file_Total row
+    # Find all the rows that have a 'unit' of 'seconds' and add a new_data_file_Total row
     total_last_value = last_df[last_df["unit"].isin(["s", "seconds"])]["value"].sum()
     total_last = pd.DataFrame(
-        [{"name": new_data_file + "_Total", "value": total_last_value, "unit": "s"}]
+        [
+            {
+                "name": new_data_file + "_Total",
+                "value": total_last_value,
+                "unit": "seconds",
+            }
+        ]
     )
     last_df = pd.concat([last_df, total_last], ignore_index=True)
 
     total_new_value = new_df[new_df["unit"].isin(["s", "seconds"])]["value"].sum()
     total_new = pd.DataFrame(
-        [{"name": new_data_file + "_Total", "value": total_new_value, "unit": "s"}]
+        [
+            {
+                "name": new_data_file + "_Total",
+                "value": total_new_value,
+                "unit": "seconds",
+            }
+        ]
     )
     new_df = pd.concat([new_df, total_new], ignore_index=True)
 
@@ -77,7 +93,7 @@ def compare_new_data(data_js, new_data, new_data_file, print_results=False):
 
     # Print the comparison, sorted by the percent difference
     if print_results:
-        print(f"{data_file} vs {new_data_file}")
+        print(f"{new_data_file} vs Previous Data")
         print(merged_df.sort_values("percent_difference", ascending=False))
         print("\n")
 
@@ -155,27 +171,7 @@ def print_best_and_worst(
     return best_df, worst_df
 
 
-# with open('test_files/gh_pages_data.js', 'r') as file:
-# with open('test_files/new_gh_pages_data.json', 'r') as file:
-
-if __name__ == "__main__":
-    # data.js to new data file mapping, paths are relative to the project root
-    data_file_pairs = {
-        "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
-        "build/performance_fem_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_element/data.js",
-        "build/performance_fem_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_solver/data.js",
-        "build/performance_fem_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/solver/data.js",
-        "build/performance_fem_strain_smoothing_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_element/data.js",
-        "build/performance_fem_strain_smoothing_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_solver/data.js",
-        "build/performance_fem_strain_smoothing_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/solver/data.js",
-        "build/performance_rkpm_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_element/data.js",
-        "build/performance_rkpm_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_solver/data.js",
-        "build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
-        "build/performance_rkpm_nodal_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_element/data.js",
-        "build/performance_rkpm_nodal_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_solver/data.js",
-        "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
-    }
-
+def run_comparison_for_file_pairs(data_file_pairs):
     # Use git to find the project root
     project_root = (
         subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
@@ -213,7 +209,49 @@ if __name__ == "__main__":
         full_df, "performance_quality", smaller_is_better=False
     )
 
-    # Save the full DataFrame to a JSON file
-    full_df.to_json(
-        f"{project_root}/gh-pages/performance_comparison_results.json", orient="records"
+    # Split the dataframe into units of "seconds" and "MB"
+    seconds_df = full_df[full_df["unit"] == "seconds"]
+    mb_df = full_df[full_df["unit"] == "MB"]
+
+    # Check that the number of items in the full_df is the same as the sum of the seconds_df and mb_df
+    if len(full_df) != len(seconds_df) + len(mb_df):
+        raise ValueError(
+            "The sum of the seconds and mb DataFrames does not equal the full DataFrame"
+        )
+
+    # Save the seconds and mb DataFrames to JSON files
+    seconds_df.to_json(
+        f"{project_root}/gh-pages/performance_comparison_timing_results.json",
+        orient="records",
     )
+
+    mb_df.to_json(
+        f"{project_root}/gh-pages/performance_comparison_memory_results.json",
+        orient="records",
+    )
+
+
+if __name__ == "__main__":
+    # data.js to new data file mapping, paths are relative to the project root
+    data_file_pairs = {
+        "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
+        "build/performance_fem_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_element/data.js",
+        "build/performance_fem_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_solver/data.js",
+        "build/performance_fem_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/solver/data.js",
+        "build/performance_fem_strain_smoothing_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_element/data.js",
+        "build/performance_fem_strain_smoothing_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_solver/data.js",
+        "build/performance_fem_strain_smoothing_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/solver/data.js",
+        "build/performance_rkpm_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_element/data.js",
+        "build/performance_rkpm_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_solver/data.js",
+        "build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
+        "build/performance_rkpm_nodal_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_element/data.js",
+        "build/performance_rkpm_nodal_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_solver/data.js",
+        "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
+    }
+
+    run_comparison_for_file_pairs(data_file_pairs)
+
+    # Test data_file_pairs
+    # data_file_pairs = {
+    #     'test_files/new_gh_pages_data.json': 'test_files/gh_pages_data.js'
+    # }
