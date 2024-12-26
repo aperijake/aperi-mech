@@ -43,6 +43,30 @@ def compare_new_data(data_js, new_data, new_data_file, print_results=False):
     last_df["unit"] = last_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
     new_df["unit"] = new_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
 
+    # Convert any values with units of miliseconds to seconds
+    last_df["value"] = last_df.apply(
+        lambda x: (
+            x["value"] / 1000.0
+            if x["unit"] == "ms" or x["unit"] == "milliseconds"
+            else x["value"]
+        ),
+        axis=1,
+    )
+    new_df["value"] = new_df.apply(
+        lambda x: (
+            x["value"] / 1000.0
+            if x["unit"] == "ms" or x["unit"] == "milliseconds"
+            else x["value"]
+        ),
+        axis=1,
+    )
+    last_df["unit"] = last_df["unit"].apply(
+        lambda x: "seconds" if x == "ms" or x == "milliseconds" else x
+    )
+    new_df["unit"] = new_df["unit"].apply(
+        lambda x: "seconds" if x == "ms" or x == "milliseconds" else x
+    )
+
     # Find the rows that are in the last data but not in the new data and remove them
     last_df = last_df[last_df["name"].isin(new_df["name"])]
 
@@ -170,6 +194,10 @@ def print_best_and_worst(
         num_worst
     )
 
+    # Set display options to avoid truncation
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.max_colwidth", None)
+
     # Print the best and worst performing benchmarks
     print(f"Best {num_best} performing {column} benchmarks:")
     print(best_df)
@@ -192,6 +220,7 @@ def check_new_performance_data(
     """
     Compare the new performance data to the last data in data.js and print the best and worst performing benchmarks.
     """
+    print("Checking new performance data")
     # Use git to find the project root
     if root_input_dir is None:
         project_root = (
@@ -206,6 +235,9 @@ def check_new_performance_data(
 
     if root_output_dir is None:
         root_output_dir = project_root
+
+    print(f"Project root: {project_root}")
+    print(f"Root output directory: {root_output_dir}")
 
     full_df = pd.DataFrame()
 
@@ -224,22 +256,18 @@ def check_new_performance_data(
         merged_df = compare_new_data(data_js, new_data, new_data_file_base)
         full_df = pd.concat([full_df, merged_df], ignore_index=True)
 
-    # Print the best and worst performing benchmarks
-    # best_percent_df, worst_percent_df = print_best_and_worst(full_df, 'percent_difference')
-    # best_absolute_df, worst_absolute_df = print_best_and_worst(full_df, 'absolute_difference')
-    best_total_percent_df, worst_total_percent_df = print_best_and_worst(
-        full_df, "percent_total_difference"
-    )
-
     # Label the benchmarks as good or bad based on the metric (positive is good, negative is bad)
-    full_df = label_good_bad(full_df)
-    best_quality_df, worst_quality_df = print_best_and_worst(
-        full_df, "performance_quality", smaller_is_better=False
-    )
+    # full_df = label_good_bad(full_df)
 
     # Split the dataframe into units of "seconds" and "MB"
     seconds_df = full_df[full_df["unit"] == "seconds"]
     mb_df = full_df[full_df["unit"] == "MB"]
+
+    # Print the best and worst performing benchmarks
+    print("Best and worst performing benchmarks, timing:")
+    print_best_and_worst(seconds_df, "percent_total_difference")
+    print("Best and worst performing benchmarks, memory:")
+    print_best_and_worst(mb_df, "percent_difference")
 
     # Check that the number of items in the full_df is the same as the sum of the seconds_df and mb_df
     if len(full_df) != len(seconds_df) + len(mb_df):
@@ -266,6 +294,7 @@ def check_new_performance_data(
 if __name__ == "__main__":
     # data.js to new data file mapping, paths are relative to the project root
     data_file_pairs = {
+        "build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
         "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
         "build/performance_fem_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_element/data.js",
         "build/performance_fem_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_solver/data.js",

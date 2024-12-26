@@ -19,8 +19,9 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
 
   echo "Clean existing detailed performance test results..."
   to_remove=($(find test/performance_tests/aperi-mech/ -type f -name "*.csv"))
+  echo "Removing: "
   for file in "${to_remove[@]}"; do
-      echo "Removing: $file"
+      echo "$file"
       rm -f "$file"
   done
 EOF

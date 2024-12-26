@@ -24,4 +24,4 @@ runs:
 
     - name: Run aperi-mech performance tests
       shell: bash
-      run: ./run_performance_tests.sh ${{ inputs.VM_IP }} ${{ inputs.VM_USERNAME }} ${{ inputs.gpu }} ${{ inputs.parallel }}
+      run: python3 ./.github/actions/run-aperi-mech-performance-tests/run_aperi-mech_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --parallel ${{ inputs.parallel }}

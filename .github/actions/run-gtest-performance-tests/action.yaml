@@ -24,4 +24,4 @@ runs:
 
     - name: Run gtest performance tests
       shell: bash
-      run: ./run_gtest_performance_tests.sh ${{ inputs.VM_IP }} ${{ inputs.VM_USERNAME }} ${{ inputs.gpu }} ${{ inputs.build-type }}
+      run: python3 ./.github/actions/run-gtest-performance-tests/run_gtest_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --build-type ${{ inputs.build-type }}
