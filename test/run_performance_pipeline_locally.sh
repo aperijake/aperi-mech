@@ -21,7 +21,9 @@ parallel=false
 # Clean old performance results
 bash "${github_path}/workflows/clean_old_performance_results.sh" "${machine_ip}" "${machine_username}"
 
-# Build the code (TODO: Add the build script). This assumes that the current state of the code is what we want to test.
+# Build the code. This assumes that the current state of the code is what we want to test.
+# ${github_path}/actions/build-action/build.sh ip username gpu build_type code_coverage with_protego
+bash "${github_path}/actions/build-action/build.sh" "${machine_ip}" "${machine_username}" "${gpu}" "Release" "false" "false"
 
 # Run the performance tests
 bash "${github_path}/actions/run-aperi-mech-performance-tests/run_performance_tests.sh" "${machine_ip}" "${machine_username}" "${gpu}" "${parallel}"
@@ -30,5 +32,5 @@ bash "${github_path}/actions/run-gtest-performance-tests/run_gtest_performance_t
 # Collect the performance test results
 bash "${github_path}/workflows/collect_performance_test_results.sh" "${machine_ip}" "${machine_username}"
 
-# Generate the performance test report (TODO: Add the report generation script)
+# Generate the performance test report
 python3 "${project_root}/test/utils/scripts/check_new_performance_data.py"
