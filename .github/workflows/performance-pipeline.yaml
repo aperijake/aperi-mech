@@ -291,12 +291,25 @@ jobs:
         shell: bash
         run: ./collect_performance_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
 
+      - name: Run performance comparison script
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+              set -e # Exit on error
+
+              cd ~/aperi-mech
+              python3 test/utils/scripts/check_new_performance_results.py
+            EOF
+
       - name: Transfer benchmark data from VM to GitHub Actions runner
         shell: bash
         run: |
           build_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech/build
           # Copy all performance test results to the runner
           scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${build_path}/*.json .
+
+          gh-pages_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech/gh-pages
+          # Copy all performance test results to the runner
+          scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${gh-pages_path}/*.json .
 
       - name: Store gtest benchmark result
         uses: benchmark-action/github-action-benchmark@v1

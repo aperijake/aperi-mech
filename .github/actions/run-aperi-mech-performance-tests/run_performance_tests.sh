@@ -8,36 +8,46 @@ PARALLEL=$4
 echo "gpu: ${GPU}"
 echo "parallel: ${PARALLEL}"
 
-ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
+# trunk-ignore(shellcheck/SC2087)
+ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<EOF
   set -e # Exit on error
   cd ~/aperi-mech
 
+  GPU=${GPU}
+  PARALLEL=${PARALLEL}
+
+  # Debugging
+  echo "On VM, GPU: ${GPU}, and \GPU: ${GPU}"
+  echo "On VM, Parallel: ${PARALLEL}, and \PARALLEL: ${PARALLEL}"
+
   compose_file=docker-compose.yml
   service_name=aperi-mech-development
-  if [ "$GPU" == 'true' ]; then
+  if [ "\${GPU}" == "true" ]; then
     compose_file=docker-compose_nvidia_t4_gpu.yml
     service_name=aperi-mech-gpu-development
   fi
   # Debugging
-  echo "On VM, Compose file: $compose_file"
-  echo "On VM, Service name: $service_name"
+  echo "On VM, Compose file: \${compose_file}"
+  echo "On VM, Service name: \${service_name}"
 
-  docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
+  docker-compose -f \${compose_file} run --rm -e GPU=\${GPU} -e PARALLEL=\${PARALLEL} \${service_name} /bin/bash -c '
+    # Debugging
+    echo "In container, gpu: \${GPU}"
+    echo "In container, parallel: \${PARALLEL}"
+
     test_flags="--release"
-    if [ "$GPU" == "true" ]; then
-      test_flags="$test_flags --gpu"
+    if [ "\${GPU}" == "true" ]; then
+      test_flags="\${test_flags} --gpu"
     else
-      test_flags="$test_flags --cpu"
+      test_flags="\${test_flags} --cpu"
     fi
-    if [ "$PARALLEL" == "true" ]; then
-      test_flags="$test_flags --parallel"
+    if [ "\${PARALLEL}" == "true" ]; then
+      test_flags="\${test_flags} --parallel"
     else
-      test_flags="$test_flags --serial"
+      test_flags="\${test_flags} --serial"
     fi
     # Debugging
-    echo "In container, inputs.gpu: $GPU"
-    echo "In container, inputs.parallel: $PARALLEL"
-    echo "In container, test_flags: $test_flags"
+    echo "In container, test_flags: \${test_flags}"
 
     echo "Setting up Spack environment..."
     . ~/spack/share/spack/setup-env.sh
@@ -45,8 +55,8 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
 
     echo "Running aperi-mech performance tests..."
     cd ~/aperi-mech/test/
-    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --write-json --no-preclean
-    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --clean-logs
-    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ $test_flags --clean-results
+    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ \${test_flags} --write-json --no-preclean
+    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ \${test_flags} --clean-logs
+    ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ \${test_flags} --clean-results
   '  || { echo "Performance test step failed"; exit 1; }
 EOF
