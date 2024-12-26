@@ -44,4 +44,4 @@ runs:
 
     - name: Build project
       shell: bash
-      run: ./build.sh ${{ inputs.VM_IP }} ${{ inputs.VM_USERNAME }} ${{ inputs.gpu }} ${{ inputs.build-type }} ${{ inputs.code-coverage }} ${{ inputs.with-protego }}
+      run: python3 ./.github/actions/build-action/build.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --build-type ${{ inputs.build-type }} --gpu ${{ inputs.gpu }} --code-coverage ${{ inputs.code-coverage }} --protego ${{ inputs.with-protego }}

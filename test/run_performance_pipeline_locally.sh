@@ -23,7 +23,7 @@ bash "${github_path}/workflows/clean_old_performance_results.sh" "${machine_ip}"
 
 # Build the code. This assumes that the current state of the code is what we want to test.
 # ${github_path}/actions/build-action/build.sh ip username gpu build_type code_coverage with_protego
-bash "${github_path}/actions/build-action/build.sh" "${machine_ip}" "${machine_username}" "${gpu}" "Release" "false" "false"
+python3 "${github_path}/actions/build-action/build.py" "--ip" "${machine_ip}" "--username" "${machine_username}" "--gpu" "${gpu}" "--build-type" "Release" "--code-coverage" "false" "--protego" "false"
 
 # Run the performance tests
 bash "${github_path}/actions/run-aperi-mech-performance-tests/run_performance_tests.sh" "${machine_ip}" "${machine_username}" "${gpu}" "${parallel}"
