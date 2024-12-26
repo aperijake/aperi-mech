@@ -29,7 +29,7 @@ runs:
   using: composite
   steps:
     - name: Common SSH and Azure CLI Setup
-      uses: ./.github/actions/common-steps
+      uses: ./.github/actions/common-ssh-and-azure-steps
       with:
         VM_IP: ${{ inputs.VM_IP }}
         SSH_PRIVATE_KEY: ${{ inputs.SSH_PRIVATE_KEY }}

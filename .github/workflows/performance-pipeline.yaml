@@ -30,16 +30,6 @@ jobs:
         with:
           lfs: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install paramiko
-
       - name: Access Azure VM
         id: vm-status
         uses: azure/CLI@v2
@@ -74,7 +64,7 @@ jobs:
             fi
 
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -147,11 +137,11 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' }}
         run: echo "Skipping build-release. Assuming code is already built from CI/CD pipeline run."
 
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Common Runner Config Steps
         # Only run if the workflow was triggered manually, assumes that the code is already built otherwise
         # Also, want the job to run and just skip the steps. otherwise following steps might hang
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/checkout@v4
+        uses: ./.github/actions/common-runner-config-steps
         with:
           lfs: false
 
@@ -177,9 +167,11 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' }}
         run: echo "Skipping build-release-gpu. Assuming code is already built from CI/CD pipeline run."
 
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Common Runner Config Steps
+        # Only run if the workflow was triggered manually, assumes that the code is already built otherwise
+        # Also, want the job to run and just skip the steps. otherwise following steps might hang
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/checkout@v4
+        uses: ./.github/actions/common-runner-config-steps
         with:
           lfs: false
 
@@ -204,13 +196,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: false
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
-        uses: actions/checkout@v4
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
         with:
           lfs: false
 
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -252,13 +244,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: true
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
-        uses: actions/checkout@v4
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
         with:
           lfs: false
 
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -292,7 +284,7 @@ jobs:
           lfs: false
 
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
