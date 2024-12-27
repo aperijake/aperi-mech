@@ -315,7 +315,7 @@ jobs:
               set -e # Exit on error
 
               cd ~/aperi-mech
-              python3 test/utils/scripts/check_new_performance_results.py
+              python3 test/utils/scripts/check_new_performance_data.py
             EOF
 
       - name: Transfer benchmark data from VM to GitHub Actions runner
