@@ -123,7 +123,7 @@ jobs:
 
       - name: Clean old JSON and CSV files
         shell: bash
-        run: ./clean_old_performance_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
+        run: ./.github/workflows/clean_old_performance_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
 
   build-release:
     name: Build Release
@@ -307,7 +307,7 @@ jobs:
 
       - name: Collect performance test results
         shell: bash
-        run: ./collect_performance_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
+        run: ./.github/workflows/collect_performance_test_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
 
       - name: Run performance comparison script
         run: |
