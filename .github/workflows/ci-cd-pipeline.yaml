@@ -127,10 +127,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: false
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Release
         uses: ./.github/actions/build-action
@@ -162,10 +165,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: false
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug
         uses: ./.github/actions/build-action
@@ -197,10 +203,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: true
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Release, GPU
         uses: ./.github/actions/build-action
@@ -232,10 +241,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: true
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug, GPU
         uses: ./.github/actions/build-action
@@ -267,10 +279,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: false
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -349,10 +364,13 @@ jobs:
       GPU: false
       BUILD: release
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -413,10 +431,13 @@ jobs:
       GPU: false
       BUILD: debug
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -477,10 +498,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: false
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -559,10 +583,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: true
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -620,10 +647,13 @@ jobs:
       GPU: true
       BUILD: release
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -663,10 +693,13 @@ jobs:
       GPU: true
       BUILD: debug
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -706,10 +739,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: true
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Common SSH and Azure CLI Setup
         uses: ./.github/actions/common-ssh-and-azure-steps
@@ -764,10 +800,13 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     steps:
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug, Code Coverage
         uses: ./.github/actions/build-action

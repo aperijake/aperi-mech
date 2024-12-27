@@ -1,18 +1,8 @@
 name: Common Runner Config Steps
-description: Checkout code and set up python on the runner
-inputs:
-  lfs:
-    description: Whether to fetch Git LFS files
-    required: false
-    default: "false"
+description: Setup python on the runner and install dependencies
 runs:
   using: composite
   steps:
-    - name: Checkout Code on Runner
-      uses: actions/checkout@v4
-      with:
-        lfs: ${{ inputs.lfs }}
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
