@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734833003073,
+  "lastUpdate": 1735324277790,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -2035,6 +2035,148 @@ window.BENCHMARK_DATA = {
           {
             "name": "rkpm_nodal_gpu_np_1_run_time",
             "value": 88.23730084500039,
+            "unit": "s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "48a0eecc0db73d1a2bb7dc3af68ea67abae5dcdf",
+          "message": "pipeline fix WIP [skip ci]",
+          "timestamp": "2024-12-27T18:01:28Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/48a0eecc0db73d1a2bb7dc3af68ea67abae5dcdf"
+        },
+        "date": 1735324277190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rkpm_cpu_np_1_run_time",
+            "value": 147.91576962100226,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_4_run_time",
+            "value": 39.89990267099347,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_cpu_np_1_peak_memory",
+            "value": 3142.671875,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_cpu_np_4_peak_memory",
+            "value": 3604.5625,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_gpu_np_1_run_time",
+            "value": 54.98275181300414,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_gpu_np_1_peak_memory",
+            "value": 3460.45703125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_strain_smoothing_cpu_np_1_peak_memory",
+            "value": 2476.22265625,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_strain_smoothing_gpu_np_1_run_time",
+            "value": 51.83070099599718,
+            "unit": "s"
+          },
+          {
+            "name": "fem_strain_smoothing_gpu_np_1_peak_memory",
+            "value": 2917.64453125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_strain_smoothing_cpu_np_4_peak_memory",
+            "value": 2746.29296875,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_strain_smoothing_cpu_np_1_run_time",
+            "value": 221.97822690100293,
+            "unit": "s"
+          },
+          {
+            "name": "fem_strain_smoothing_cpu_np_4_run_time",
+            "value": 60.163805358999525,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_4_peak_memory",
+            "value": 1711.9453125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_cpu_np_4_run_time",
+            "value": 59.48113604899845,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_run_time",
+            "value": 206.8227328829962,
+            "unit": "s"
+          },
+          {
+            "name": "fem_cpu_np_1_peak_memory",
+            "value": 1359.73828125,
+            "unit": "MB"
+          },
+          {
+            "name": "fem_gpu_np_1_run_time",
+            "value": 48.15666221998981,
+            "unit": "s"
+          },
+          {
+            "name": "fem_gpu_np_1_peak_memory",
+            "value": 2200.40234375,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_nodal_cpu_np_1_peak_memory",
+            "value": 10514.3046875,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_nodal_gpu_np_1_peak_memory",
+            "value": 7014.671875,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_nodal_cpu_np_1_run_time",
+            "value": 219.54357992100995,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_nodal_cpu_np_4_run_time",
+            "value": 74.87911682900449,
+            "unit": "s"
+          },
+          {
+            "name": "rkpm_nodal_cpu_np_4_peak_memory",
+            "value": 11100.546875,
+            "unit": "MB"
+          },
+          {
+            "name": "rkpm_nodal_gpu_np_1_run_time",
+            "value": 89.82444516199757,
             "unit": "s"
           }
         ]
