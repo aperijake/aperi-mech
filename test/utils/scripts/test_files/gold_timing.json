@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Element_CreateElementForceProcessor_fem_taylor_bar_cpu_np_1",
+    "value_last": 0.000363754,
+    "value_new": 0.000350099,
+    "unit": "seconds",
+    "percent_difference": -3.7539106099,
+    "absolute_difference": -0.000013655,
+    "percent_total_difference": -0.0037637531,
+    "performance_quality": 0.0037637531
+  },
+  {
+    "name": "Element_Other_fem_taylor_bar_cpu_np_1",
+    "value_last": 0.362439,
+    "value_new": 0.351738,
+    "unit": "seconds",
+    "percent_difference": -2.9524968339,
+    "absolute_difference": -0.010701,
+    "percent_total_difference": -2.9495365959,
+    "performance_quality": 2.9495365959
+  },
+  {
+    "name": "new_gh_pages_data_Total",
+    "value_last": 0.362802754,
+    "value_new": 0.352088099,
+    "unit": "seconds",
+    "percent_difference": -2.953300349,
+    "absolute_difference": -0.010714655,
+    "percent_total_difference": -2.953300349,
+    "performance_quality": 2.953300349
+  }
+]

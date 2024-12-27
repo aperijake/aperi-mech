@@ -31,11 +31,19 @@ execute_process(
 
 # Get the latest tag
 execute_process(
-	COMMAND git describe --tags --abbrev=0
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-	OUTPUT_VARIABLE GIT_TAG
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND git describe --tags
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_DESCRIBE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE GIT_DESCRIBE_ERROR
+    RESULT_VARIABLE GIT_DESCRIBE_RESULT
 )
+
+if(GIT_DESCRIBE_RESULT EQUAL 0)
+    set(GIT_TAG ${GIT_DESCRIBE})
+else()
+    set(GIT_TAG "")
+endif()
 
 # Set the build type and the date and time of the build
 set(BUILD_TYPE ${CMAKE_BUILD_TYPE})

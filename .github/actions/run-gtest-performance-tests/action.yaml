@@ -24,38 +24,4 @@ runs:
 
     - name: Run gtest performance tests
       shell: bash
-      run: |
-        ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
-          set -e # Exit on error
-          cd ~/aperi-mech
-
-          compose_file=docker-compose.yml
-          service_name=aperi-mech-development
-          if [ ${{ inputs.gpu }} == 'true' ]; then
-            compose_file=docker-compose_nvidia_t4_gpu.yml
-            service_name=aperi-mech-gpu-development
-          fi
-          # Debugging
-          echo "On VM, Compose file: $compose_file"
-          echo "On VM, Service name: $service_name"
-
-          docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            build_path=~/aperi-mech/build/${{ inputs.build-type }}
-            if [ ${{ inputs.gpu }} == "true" ]; then
-              build_path=~/aperi-mech/build/${{ inputs.build-type }}_gpu
-            fi
-            # Debugging
-            echo "In container, inputs.build-type: ${{ inputs.build-type }}"
-            echo "In container, inputs.gpu: ${{ inputs.gpu }}"
-            echo "In container, build_path: $build_path"
-
-            cd $build_path
-            echo "Setting up Spack environment..."
-            . ~/spack/share/spack/setup-env.sh
-            spack env activate aperi-mech
-
-            echo "Running gtest performance tests..."
-            ./performance_tests
-
-          '  || { echo "Gtest performance test step failed"; exit 1; }
-        EOF
+      run: python3 ./.github/actions/run-gtest-performance-tests/run_gtest_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --build-type ${{ inputs.build-type }}

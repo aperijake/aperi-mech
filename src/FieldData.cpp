@@ -59,6 +59,8 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));  // Indicator for essential boundary conditions
 
     // Element data
+    // field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+    // field_data.push_back(FieldData("pk1_stress", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
     field_data.push_back(FieldData("cell_volume_fraction", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 

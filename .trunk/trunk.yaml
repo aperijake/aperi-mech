@@ -22,20 +22,20 @@ lint:
     - bandit@1.8.0
     - black@24.10.0
     - isort@5.13.2
-    - ruff@0.8.2
+    - ruff@0.8.4
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
     #    - include-what-you-use@0.20
     - clang-tidy@16.0.3
     - clang-format@16.0.3
-    - trivy@0.58.0
+    - trivy@0.58.1
     - yamllint@1.35.1
-    - checkov@3.2.334
+    - checkov@3.2.344
     - git-diff-check
     - markdownlint@0.43.0
     - prettier@3.4.2
-    - trufflehog@3.86.0
+    - trufflehog@3.88.0
   disabled:
     - include-what-you-use
   ignore:
@@ -44,6 +44,7 @@ lint:
         - .vscode/settings.json
         - build/**
         - LICENSE.md
+        - test/utils/scripts/test_files/gh_pages_data.js
   skip_missing_compile_command: true
 actions:
   disabled:

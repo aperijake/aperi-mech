@@ -130,6 +130,7 @@ RUN pip3 install --no-input --no-cache-dir \
     meshio==5.3.5 \
     gmsh==4.13.1 \
     netCDF4==1.7.1.post1 \
+    pandas==2.2.3 \
     && rm -rf ~/.cache/pip
 
 # Add environment to Jupyter

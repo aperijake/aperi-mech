@@ -64,7 +64,7 @@ jobs:
             fi
 
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -127,10 +127,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: false
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Release
         uses: ./.github/actions/build-action
@@ -162,10 +165,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: false
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug
         uses: ./.github/actions/build-action
@@ -197,10 +203,13 @@ jobs:
       BUILD_TYPE: Release
       GPU: true
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Release, GPU
         uses: ./.github/actions/build-action
@@ -232,10 +241,13 @@ jobs:
       BUILD_TYPE: Debug
       GPU: true
     steps:
-      - name: Checkout code # Just to get required actions in .github/
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug, GPU
         uses: ./.github/actions/build-action
@@ -267,13 +279,16 @@ jobs:
       BUILD_TYPE: Release
       GPU: false
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -349,13 +364,16 @@ jobs:
       GPU: false
       BUILD: release
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -413,13 +431,16 @@ jobs:
       GPU: false
       BUILD: debug
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -477,13 +498,16 @@ jobs:
       BUILD_TYPE: Debug
       GPU: false
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -559,13 +583,16 @@ jobs:
       BUILD_TYPE: Release
       GPU: true
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -620,13 +647,16 @@ jobs:
       GPU: true
       BUILD: release
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -663,13 +693,16 @@ jobs:
       GPU: true
       BUILD: debug
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -706,13 +739,16 @@ jobs:
       BUILD_TYPE: Debug
       GPU: true
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
 
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
       - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-steps
+        uses: ./.github/actions/common-ssh-and-azure-steps
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -764,10 +800,13 @@ jobs:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
     steps:
-      - name: Checkout Code on Runner # Just to get required actions in .github/. The actual code checkout is done on the VM
+      - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
 
       - name: Build Debug, Code Coverage
         uses: ./.github/actions/build-action
