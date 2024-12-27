@@ -12,7 +12,11 @@ def str_to_bool(value):
 def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(vm_ip, username=vm_username)
+
+    # Establish the SSH connection with increased timeout and keepalive options
+    ssh.connect(vm_ip, username=vm_username, timeout=60)
+    transport = ssh.get_transport()
+    transport.set_keepalive(30)  # Send keepalive messages every 30 seconds
 
     # Construct the compose file and service name
     compose_file = "docker-compose.yml"
@@ -61,7 +65,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     print("Executing the following commands on the VM:")
     print(commands)
 
-    stdin, stdout, stderr = ssh.exec_command(commands)
+    stdin, stdout, stderr = ssh.exec_command(commands, get_pty=True)
     for line in stdout:
         print(line.strip())
     for line in stderr:
