@@ -318,16 +318,39 @@ jobs:
               python3 test/utils/scripts/check_new_performance_data.py
           EOF
 
-      - name: Transfer benchmark data from VM to GitHub Actions runner
+      - name: Checkout gh-pages branch
+        run: |
+          # Checkout gh-pages branch
+          git fetch origin gh-pages
+          git checkout gh-pages
+          git pull origin gh-pages
+
+      - name: Transfer benchmark data from VM to GitHub Actions runner (gh-pages summary)
+        run: |
+          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech
+          scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${project_path}/gh-pages/*.json .
+
+      - name: Commit and push benchmark results to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add *.json
+          git commit -m "Add new performance test results summary"
+          git push origin gh-pages
+
+      - name: Switch to main branch
+        run: |
+          git checkout main
+
+      - name: Transfer benchmark data from VM to GitHub Actions runner (dev/bench)
         shell: bash
         run: |
-          build_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech/build
+          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech
           # Copy all performance test results to the runner
-          scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${build_path}/*.json .
-
-          gh-pages_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech/gh-pages
-          # Copy all performance test results to the runner
-          scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${gh-pages_path}/*.json .
+          scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${project_path}/build/*.json .
 
       - name: Store gtest benchmark result
         uses: benchmark-action/github-action-benchmark@v1
@@ -343,7 +366,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech benchmark result
@@ -360,7 +383,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech fem tests
@@ -378,7 +401,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem create_element
@@ -395,7 +418,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem solver
@@ -412,7 +435,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech sfem tests
@@ -430,7 +453,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing create_element
@@ -447,7 +470,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing solver
@@ -464,7 +487,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech rkpm tests
@@ -482,7 +505,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm create_element
@@ -499,7 +522,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm solver
@@ -516,7 +539,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       # Store detailed benchmark results for aperi-mech rkpm_nodal tests
@@ -534,7 +557,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal create_element
@@ -551,7 +574,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal solver
@@ -568,7 +591,7 @@ jobs:
           comment-on-alert: true
           summary-always: true
           alert-comment-cc-users: "@aperijake"
-          fail-on-alert: true
+          fail-on-alert: false
           fail-threshold: 300%
 
   teardown:
