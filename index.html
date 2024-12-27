@@ -15,7 +15,8 @@
         <li><a href="dev/bench/aperi_mech_detailed/AperiAzureGPU2/index.html">Detailed Executable Benchmarks</a></li>
     </ul>
     <h2>Timing Performance Summary</h2>
-    <div id="timing_plot"></div>
+    <h3>Percent Difference in Total Time of Timer Group vs. New Value</h3>
+    <div id="timing_plot_total"></div>
     <script>
 	    // Load the JSON data
         fetch('performance_comparison_timing_results.json')
@@ -53,6 +54,52 @@
                     },
                     yaxis: {
                         title: 'Percent Difference in Total Time of Timer Group'
+                    },
+                    hovermode: 'closest'
+                };
+
+                Plotly.newPlot('timing_plot_total', data_plot, layout);
+            });
+    </script>
+    <h3>Percent Difference vs. New Value</h3>
+    <div id="timing_plot"></div>
+    <script>
+	    // Load the JSON data
+        fetch('performance_comparison_timing_results.json')
+            .then(response => response.json())
+            .then(data => {
+                // Process the data for Plotly
+                const names = data.map(d => d.name);
+                const value_new = data.map(d => d.value_new);
+                const percent_difference = data.map(d => d.percent_difference);
+
+                // Create the plot
+                const trace = {
+                    x: value_new,
+                    y: percent_difference,
+                    text: names,
+                    mode: 'markers',
+                    marker: {
+                        size: 10,
+                        color: 'rgba(156, 165, 196, 0.95)',
+                        line: {
+                            width: 1,
+                            color: 'rgba(156, 165, 196, 1.0)'
+                        }
+                    },
+                    type: 'scatter'
+                };
+
+                const data_plot = [trace];
+
+                const layout = {
+                    title: 'Performance Comparison',
+                    xaxis: {
+                        title: 'New Value (log scale)',
+                        type: 'log'
+                    },
+                    yaxis: {
+                        title: 'Percent Difference'
                     },
                     hovermode: 'closest'
                 };
