@@ -316,7 +316,7 @@ jobs:
 
               cd ~/aperi-mech
               python3 test/utils/scripts/check_new_performance_data.py
-            EOF
+          EOF
 
       - name: Transfer benchmark data from VM to GitHub Actions runner
         shell: bash
