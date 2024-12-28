@@ -73,8 +73,8 @@ class StkFieldTestFixture : public ::testing::Test {
     }
 
    public:
-    template <stk::mesh::EntityRank Rank>
-    void SubtractFieldValues(stk::mesh::Field<double> *field) {
+    template <stk::mesh::EntityRank Rank, size_t NumRows, size_t NumColumns>
+    void SubtractFieldValuesFromRawPointer(stk::mesh::Field<double> *field) {
         // Get the selector
         stk::mesh::Selector selector = m_bulk_data->mesh_meta_data().locally_owned_part();
 
@@ -88,12 +88,52 @@ class StkFieldTestFixture : public ::testing::Test {
         stk::mesh::for_each_entity_run(
             ngp_mesh, Rank, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                const size_t num_components = ngp_field.get_num_components_per_entity(entity);
+                KOKKOS_ASSERT(ngp_field.get_num_components_per_entity(entity) == NumRows * NumColumns);
                 double *values = &ngp_field(entity, 0);
-                unsigned component_stride = ngp_field.get_component_stride();
-                for (size_t j = 0; j < num_components; j++) {
-                    double value = ngp_field(entity, j);
-                    values[j * component_stride] -= value;
+                const unsigned component_stride = ngp_field.get_component_stride();
+
+                size_t component = 0;
+                // Loop over the rows and columns
+                for (size_t i = 0; i < NumRows; i++) {
+                    for (size_t j = 0; j < NumColumns; j++) {
+                        double value = ngp_field(entity, component);
+                        values[component * component_stride] -= value;
+                        component++;
+                    }
+                }
+            });
+    }
+    template <stk::mesh::EntityRank Rank, size_t NumRows, size_t NumColumns>
+    void SubtractFieldValuesFromEigenMap(stk::mesh::Field<double> *field) {
+        // Get the selector
+        stk::mesh::Selector selector = m_bulk_data->mesh_meta_data().locally_owned_part();
+
+        // Get the ngp mesh
+        stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
+        // Get the ngp field
+        stk::mesh::NgpField<double> ngp_field = stk::mesh::get_updated_ngp_field<double>(*field);
+
+        // Loop over all the entities, access values using a pointer and the stk accessor, subtract the values and check that the difference is zero (later)
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, Rank, selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+                KOKKOS_ASSERT(ngp_field.get_num_components_per_entity(entity) == NumRows * NumColumns);
+                double *values = &ngp_field(entity, 0);
+                const unsigned component_stride = ngp_field.get_component_stride();
+
+                // Create an Eigen::Map to the values
+                Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, NumColumns * component_stride);
+                Eigen::Map<Eigen::Matrix<double, NumRows, NumColumns>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> eigen_data(values, stride);
+
+                size_t component = 0;
+                // Loop over the rows and columns
+                for (size_t i = 0; i < NumRows; i++) {
+                    for (size_t j = 0; j < NumColumns; j++) {
+                        double value = ngp_field(entity, component);
+                        eigen_data(i, j) -= value;
+                        component++;
+                    }
                 }
             });
     }
@@ -107,8 +147,8 @@ class StkFieldTestFixture : public ::testing::Test {
     std::shared_ptr<aperi::ElementProcessor<1>> m_element_processor;
 };
 
-// Test Nodal Field Access
-TEST_F(StkFieldTestFixture, NodalFieldAccess) {
+// Test node field access using raw pointers
+TEST_F(StkFieldTestFixture, NodalFieldAccessRawPointer) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     double min = 0.0;
     double max = 1.0;
@@ -125,7 +165,7 @@ TEST_F(StkFieldTestFixture, NodalFieldAccess) {
 
     // Subtract the field values
     stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"velocity", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
-    SubtractFieldValues<stk::topology::NODE_RANK>(field);
+    SubtractFieldValuesFromRawPointer<stk::topology::NODE_RANK, 3, 1>(field);
 
     // Get the norm
     double new_norm = m_node_processor->CalculateFieldNorm(0);
@@ -134,8 +174,8 @@ TEST_F(StkFieldTestFixture, NodalFieldAccess) {
     EXPECT_NEAR(new_norm, 0.0, 1.0e-8) << "Original norm: " << norm << ", New norm: " << new_norm;
 }
 
-// Test Element Field Access
-TEST_F(StkFieldTestFixture, ElementFieldAccess) {
+// Test element field access using raw pointers
+TEST_F(StkFieldTestFixture, ElementFieldAccessRawPointer) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     double min = 0.0;
     double max = 1.0;
@@ -152,7 +192,61 @@ TEST_F(StkFieldTestFixture, ElementFieldAccess) {
 
     // Subtract the field values
     stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"pk1_stress", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
-    SubtractFieldValues<stk::topology::ELEMENT_RANK>(field);
+    SubtractFieldValuesFromRawPointer<stk::topology::ELEMENT_RANK, 3, 3>(field);
+
+    // Get the norm
+    double new_norm = m_element_processor->CalculateFieldNorm(0);
+
+    // Make sure the norm is zero
+    EXPECT_NEAR(new_norm, 0.0, 1.0e-8) << "Original norm: " << norm << ", New norm: " << new_norm;
+}
+
+// Test node field access using Eigen maps
+TEST_F(StkFieldTestFixture, NodalFieldAccessEigenMap) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    double min = 0.0;
+    double max = 1.0;
+    size_t seed = 3;
+
+    // Randomize the field
+    m_node_processor->RandomizeField(0, min, max, seed);
+
+    // Get the norm
+    double norm = m_node_processor->CalculateFieldNorm(0);
+
+    // Make sure the norm is not zero
+    EXPECT_NE(norm, 0.0);
+
+    // Subtract the field values
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"velocity", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
+    SubtractFieldValuesFromEigenMap<stk::topology::NODE_RANK, 3, 1>(field);
+
+    // Get the norm
+    double new_norm = m_node_processor->CalculateFieldNorm(0);
+
+    // Make sure the norm is zero
+    EXPECT_NEAR(new_norm, 0.0, 1.0e-8) << "Original norm: " << norm << ", New norm: " << new_norm;
+}
+
+// Test element field access using Eigen maps
+TEST_F(StkFieldTestFixture, ElementFieldAccessEigenMap) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    double min = 0.0;
+    double max = 1.0;
+    size_t seed = 3;
+
+    // Randomize the field
+    m_element_processor->RandomizeField(0, min, max, seed);
+
+    // Get the norm
+    double norm = m_element_processor->CalculateFieldNorm(0);
+
+    // Make sure the norm is not zero
+    EXPECT_NE(norm, 0.0);
+
+    // Subtract the field values
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"pk1_stress", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+    SubtractFieldValuesFromEigenMap<stk::topology::ELEMENT_RANK, 3, 3>(field);
 
     // Get the norm
     double new_norm = m_element_processor->CalculateFieldNorm(0);
