@@ -84,7 +84,13 @@ class Material {
      */
     struct StressFunctor {
         KOKKOS_FUNCTION
-        virtual void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const = 0;
+        virtual void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1,
+                                const Eigen::Matrix<double, 3, 3>* displacement_gradient_n,
+                                const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot,
+                                const double* state_old,
+                                double* state_new,
+                                size_t state_bucket_size,
+                                Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const = 0;
 
         KOKKOS_INLINE_FUNCTION
         bool HasState() const {
@@ -181,7 +187,13 @@ class LinearElasticMaterial : public Material {
         LinearElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1,
+                        const Eigen::Matrix<double, 3, 3>* displacement_gradient_n,
+                        const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot,
+                        const double* state_old,
+                        double* state_new,
+                        size_t state_bucket_size,
+                        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
 
             // Compute the strain tensor
@@ -252,7 +264,13 @@ class ElasticMaterial : public Material {
         ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1,
+                        const Eigen::Matrix<double, 3, 3>* displacement_gradient_n,
+                        const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot,
+                        const double* state_old,
+                        double* state_new,
+                        size_t state_bucket_size,
+                        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             // Compute the Green Lagrange strain tensor. E = 0.5 * (H + H^T + H^T * H)
             const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient_np1 + displacement_gradient_np1.transpose() + displacement_gradient_np1.transpose() * displacement_gradient_np1);
 
@@ -324,7 +342,13 @@ class NeoHookeanMaterial : public Material {
         NeoHookeanGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_mu(two_mu / 2.0) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1,
+                        const Eigen::Matrix<double, 3, 3>* displacement_gradient_n,
+                        const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot,
+                        const double* state_old,
+                        double* state_new,
+                        size_t state_bucket_size,
+                        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             // Left Cauchy-Green tensor - I
             const Eigen::Matrix3d B_minus_I = displacement_gradient_np1 * displacement_gradient_np1.transpose() + displacement_gradient_np1.transpose() + displacement_gradient_np1;
             const double J_minus_1 = aperi::DetApIm1(displacement_gradient_np1);
@@ -416,7 +440,13 @@ class PlasticMaterial : public Material {
         PlasticGetStressFunctor(double lambda, double two_mu, double yield_stress, double hardening_modulus) : m_lambda(lambda), m_mu(two_mu / 2.0), m_yield_stress(yield_stress), m_hardening_modulus(hardening_modulus) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+        void operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient_np1,
+                        const Eigen::Matrix<double, 3, 3>* displacement_gradient_n,
+                        const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot,
+                        const double* state_old,
+                        double* state_new,
+                        size_t state_bucket_size,
+                        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             // in "Computational Methods for Plasticity", page 260, box 7.5
 
             // Get the plastic strain state
