@@ -85,6 +85,26 @@ class Material {
     struct StressFunctor {
         KOKKOS_FUNCTION
         virtual Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* state_old = nullptr, double* state_new = nullptr, size_t state_bucket_size = 1) const = 0;
+
+        KOKKOS_FUNCTION
+        virtual void operator()(const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const {
+            pk1_stress = this->operator()(*displacement_gradient_np1, state_old, state_new, state_bucket_size);
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        bool HasState() const {
+            return false;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        bool NeedsDeformationGradientDot() const {
+            return false;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        bool NeedsDisplacementGradientOld() const {
+            return false;
+        }
     };
 
     /**
@@ -104,7 +124,7 @@ class Material {
     }
 
     virtual bool HasState() {
-        return false;
+        return m_stress_functor->HasState();
     }
 
    protected:
@@ -177,6 +197,18 @@ class LinearElasticMaterial : public Material {
             const Eigen::Matrix<double, 3, 3> stress = m_lambda * tr_epsilon * I + m_two_mu * epsilon;
 
             return stress;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        void operator()(const Eigen::Matrix<double, 3, 3>* displacement_gradient_n, const Eigen::Matrix<double, 3, 3>* displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+            const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
+
+            // Compute the strain tensor
+            const Eigen::Matrix<double, 3, 3> epsilon = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose());
+            const double tr_epsilon = epsilon.trace();
+
+            // Compute the Cauchy stress tensor (same as PK1 for small strains)
+            pk1_stress = m_lambda * tr_epsilon * I + m_two_mu * epsilon;
         }
 
        private:
@@ -263,6 +295,19 @@ class ElasticMaterial : public Material {
             // Compute the 1st Piola-Kirchhoff stress, P = F * S = (I + displacement_gradient) * pk2_stress
             const Eigen::Matrix3d pk1_stress = (Eigen::Matrix3d::Identity() + displacement_gradient) * pk2_stress;
             return pk1_stress;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        void operator()(const Eigen::Matrix<double, 3, 3>* displacement_gradient_np1, const Eigen::Matrix<double, 3, 3>* displacement_gradient, const Eigen::Matrix<double, 3, 3>* deformation_gradient_dot, const double* state_old, double* state_new, size_t state_bucket_size, Eigen::Map<Eigen::Matrix<double, 3, 3>>& pk1_stress) const override {
+            // Compute the Green Lagrange strain tensor. E = 0.5 * (H + H^T + H^T * H)
+            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose() + displacement_gradient_np1->transpose() * *displacement_gradient_np1);
+
+            // Compute the second Piola-Kirchhoff stress
+            Eigen::Matrix3d pk2_stress = m_two_mu * green_lagrange_strain_tensor;
+            pk2_stress.diagonal().array() += m_lambda * green_lagrange_strain_tensor.trace();
+
+            // Compute the 1st Piola-Kirchhoff stress, P = F * S = (I + displacement_gradient) * pk2_stress
+            pk1_stress = (Eigen::Matrix3d::Identity() + *displacement_gradient_np1) * pk2_stress;
         }
 
        private:

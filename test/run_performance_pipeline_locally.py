@@ -118,23 +118,25 @@ def run_main(project_root, machine_ip, machine_username, gpu, parallel):
             parallel,
         ]
     )
-    run_command(
-        [
-            "python3",
-            os.path.join(
-                github_path,
-                "actions/run-gtest-performance-tests/run_gtest_performance_tests.py",
-            ),
-            "--ip",
-            machine_ip,
-            "--username",
-            machine_username,
-            "--gpu",
-            gpu,
-            "--build-type",
-            "Release",
-        ]
-    )
+
+    if parallel == "false":
+        run_command(
+            [
+                "python3",
+                os.path.join(
+                    github_path,
+                    "actions/run-gtest-performance-tests/run_gtest_performance_tests.py",
+                ),
+                "--ip",
+                machine_ip,
+                "--username",
+                machine_username,
+                "--gpu",
+                gpu,
+                "--build-type",
+                "Release",
+            ]
+        )
 
 
 if __name__ == "__main__":
