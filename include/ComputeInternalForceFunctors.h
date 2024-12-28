@@ -33,7 +33,7 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
             // Compute the 1st pk stress and internal force of the element.
             Eigen::Matrix<double, 3, 3> pk1_stress;
             auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>>(pk1_stress.data());
-            m_stress_functor(&displacement_gradient, nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
+            m_stress_functor(displacement_gradient, nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_neighbors; ++i) {
@@ -71,7 +71,7 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
         // Compute the stress and internal force of the element.
         Eigen::Matrix<double, 3, 3> pk1_stress;
         auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>>(pk1_stress.data());
-        m_stress_functor(&displacement_gradient, nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
+        m_stress_functor(displacement_gradient, nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
@@ -89,7 +89,7 @@ struct ComputeStressOnSmoothingCellFunctor {
     KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
         Eigen::Matrix<double, 3, 3> pk1_stress;
         auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>>(pk1_stress.data());
-        m_stress_functor(&gathered_node_data_gradient[0], nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
+        m_stress_functor(gathered_node_data_gradient[0], nullptr, nullptr, state_old, state_new, state_bucket_offset, pk1_stress_map);
         return pk1_stress;
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material

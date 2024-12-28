@@ -61,7 +61,9 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
         Eigen::Matrix<double, 3, 3> displacement_gradient = displacement_gradients(i);
 
         // Run the stress calculation
-        Eigen::Matrix<double, 3, 3> pk1_stress = stress_functor->operator()(displacement_gradient);  // First Piola-Kirchhoff stress
+        Eigen::Matrix<double, 3, 3> pk1_stress;
+        Eigen::Map<Eigen::Matrix<double, 3, 3>> pk1_stress_map(pk1_stress.data());
+        stress_functor->operator()(displacement_gradient, nullptr, nullptr, nullptr, nullptr, 1, pk1_stress_map);
 
         // Convert the stress to the desired output type
         if (stress_output_type == aperi::StressOutputType::SECOND_PIOLA_KIRCHHOFF) {

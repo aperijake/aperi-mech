@@ -6,7 +6,6 @@
 #include "EntityProcessor.h"
 #include "ForceContribution.h"
 #include "IoInputFile.h"
-#include "Material.h"
 #include "MeshData.h"
 
 namespace YAML {
