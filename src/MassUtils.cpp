@@ -1,11 +1,11 @@
 #include "MassUtils.h"
 
 #include <array>
-#include <stk_mesh/base/NgpMesh.hpp>
 
 #include "Constants.h"
 #include "ElementNodeProcessor.h"
 #include "EntityProcessor.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
@@ -16,28 +16,27 @@ namespace aperi {
 
 struct ComputeMassFromElementVolumeKernel {
     ComputeMassFromElementVolumeKernel(const aperi::MeshData &mesh_data, double density) : m_density("density", 1),
-                                                                                           m_element_volume_gather_kernel(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
-                                                                                           m_node_mass_from_elements_scatter_kernel(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
+                                                                                           m_element_volume(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+                                                                                           m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
     }
 
-    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
+    KOKKOS_FUNCTION void operator()(const aperi::Index &elem_index, const Kokkos::Array<aperi::Index, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
         // Gather the element volume
-        double element_volume[1];
-        m_element_volume_gather_kernel(elem_index, element_volume);
+        const double element_volume = m_element_volume(elem_index, 0);
 
         // Compute the mass of the element and scatter it to the nodes
-        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume[0] * m_density(0) / num_nodes);
+        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
-            m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes[i], node_mass_from_elements);
+            m_node_mass_from_elements.AtomicAdd(nodes[i], node_mass_from_elements);
         }
     }
 
    private:
-    Kokkos::View<double *> m_density;                                   // The density of the material
-    GatherKernel<double, 1> m_element_volume_gather_kernel;             // The gather kernel for the element volume
-    ScatterKernel<double, 3> m_node_mass_from_elements_scatter_kernel;  // The scatter kernel for the node mass from elements
+    Kokkos::View<double *> m_density;                   // The density of the material
+    aperi::Field<double, 1> m_element_volume;           // The gather kernel for the element volume
+    aperi::Field<double, 3> m_node_mass_from_elements;  // The scatter kernel for the node mass from elements
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
