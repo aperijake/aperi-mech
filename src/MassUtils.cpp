@@ -24,11 +24,11 @@ struct ComputeMassFromElementVolumeKernel {
 
     KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &elem_index, const Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
         // Gather the element volume
-        Eigen::Vector<double, 1> element_volume;
+        double element_volume[1];
         m_element_volume_gather_kernel(elem_index, element_volume);
 
         // Compute the mass of the element and scatter it to the nodes
-        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume(0) * m_density(0) / num_nodes);
+        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume[0] * m_density(0) / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
             m_node_mass_from_elements_scatter_kernel.AtomicAdd(nodes[i], node_mass_from_elements);
         }

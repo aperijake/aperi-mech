@@ -110,16 +110,43 @@ class ElementNodeProcessor {
 };
 
 // Define the gather kernel
-template <typename T, size_t N>
+template <typename T, size_t N, size_t M = 1>
 struct GatherKernel {
     GatherKernel(const aperi::MeshData &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
         : field(stk::mesh::get_updated_ngp_field<T>(*StkGetField(field_query_data, mesh_data.GetMetaData()))) {
     }
 
-    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &index, Eigen::Vector<T, N> &data) const {
+    /**
+     * @brief Gather the field data for the element and store it in an Eigen::Matrix.
+     * @param index The index of the element.
+     * @param data The data to gather.
+     */
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &index, Eigen::Matrix<T, N, M> &data) const {
         for (size_t i = 0; i < N; ++i) {
             data(i) = field(index, i);
         }
+    }
+
+    /**
+     * @brief Gather the field data for the element and store it in an array.
+     * @param index The index of the element.
+     * @param data The data to gather.
+     */
+    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &index, T *data) const {
+        for (size_t i = 0; i < N; ++i) {
+            data[i] = field(index, i);
+        }
+    }
+
+    /**
+     * @brief Gather the field data for the element and return it as a strided Eigen::Map.
+     * @param index The index of the element.
+     * @return An Eigen::Map to the field data.
+     */
+    KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, N, M>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> operator()(const stk::mesh::FastMeshIndex &index) const {
+        const unsigned component_stride = field.get_component_stride();
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, M * component_stride);
+        return Eigen::Map<Eigen::Matrix<T, N, M>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&field(index, 0), stride);
     }
 
    private:

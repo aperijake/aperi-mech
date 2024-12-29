@@ -39,17 +39,17 @@ class StkFieldTestFixture : public ::testing::Test {
         mesh_reader.add_all_mesh_fields_as_input_fields();
 
         // Create the fields
-        // Declare a velocity field, stated field
-        DoubleField *p_velocity_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "velocity", 2);
-        stk::mesh::put_field_on_entire_mesh(*p_velocity_field, 3);
-        stk::io::set_field_output_type(*p_velocity_field, stk::io::FieldOutputType::VECTOR_3D);
-        stk::io::set_field_role(*p_velocity_field, Ioss::Field::TRANSIENT);
+        // Declare a nodal field, stated field
+        DoubleField *p_nodal_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field", 2);
+        stk::mesh::put_field_on_entire_mesh(*p_nodal_field, 3);
+        stk::io::set_field_output_type(*p_nodal_field, stk::io::FieldOutputType::VECTOR_3D);
+        stk::io::set_field_role(*p_nodal_field, Ioss::Field::TRANSIENT);
 
-        // Declare a pk1_stress field, not stated field
-        DoubleField *p_pk1_stress_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "pk1_stress", 1);
-        stk::mesh::put_field_on_entire_mesh(*p_pk1_stress_field, 9);
-        stk::io::set_field_output_type(*p_pk1_stress_field, stk::io::FieldOutputType::FULL_TENSOR_36);
-        stk::io::set_field_role(*p_pk1_stress_field, Ioss::Field::TRANSIENT);
+        // Declare a element field, not stated field
+        DoubleField *p_element_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "element_field", 1);
+        stk::mesh::put_field_on_entire_mesh(*p_element_field, 9);
+        stk::io::set_field_output_type(*p_element_field, stk::io::FieldOutputType::FULL_TENSOR_36);
+        stk::io::set_field_role(*p_element_field, Ioss::Field::TRANSIENT);
 
         mesh_reader.populate_bulk_data();
 
@@ -58,15 +58,15 @@ class StkFieldTestFixture : public ::testing::Test {
 
         // Create the field query data for the node processor
         std::array<aperi::FieldQueryData<double>, 2> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity", aperi::FieldQueryState::NP1};
-        field_query_data_vec[1] = {"velocity", aperi::FieldQueryState::N};
+        field_query_data_vec[0] = {"nodal_field", aperi::FieldQueryState::NP1};
+        field_query_data_vec[1] = {"nodal_field", aperi::FieldQueryState::N};
 
         // Create the node processor
         m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data_vec, m_mesh_data);
 
         // Create the field query data for the element processor
         std::array<aperi::FieldQueryData<double>, 1> field_query_data_vec_element;
-        field_query_data_vec_element[0] = {"pk1_stress", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        field_query_data_vec_element[0] = {"element_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
 
         // Create the element processor
         m_element_processor = std::make_shared<aperi::ElementProcessor<1>>(field_query_data_vec_element, m_mesh_data);
@@ -103,6 +103,7 @@ class StkFieldTestFixture : public ::testing::Test {
                 }
             });
     }
+
     template <stk::mesh::EntityRank Rank, size_t NumRows, size_t NumColumns>
     void SubtractFieldValuesFromEigenMap(stk::mesh::Field<double> *field) {
         // Get the selector
@@ -164,7 +165,7 @@ TEST_F(StkFieldTestFixture, NodalFieldAccessRawPointer) {
     EXPECT_NE(norm, 0.0);
 
     // Subtract the field values
-    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"velocity", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"nodal_field", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
     SubtractFieldValuesFromRawPointer<stk::topology::NODE_RANK, 3, 1>(field);
 
     // Get the norm
@@ -191,7 +192,7 @@ TEST_F(StkFieldTestFixture, ElementFieldAccessRawPointer) {
     EXPECT_NE(norm, 0.0);
 
     // Subtract the field values
-    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"pk1_stress", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"element_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
     SubtractFieldValuesFromRawPointer<stk::topology::ELEMENT_RANK, 3, 3>(field);
 
     // Get the norm
@@ -218,7 +219,7 @@ TEST_F(StkFieldTestFixture, NodalFieldAccessEigenMap) {
     EXPECT_NE(norm, 0.0);
 
     // Subtract the field values
-    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"velocity", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"nodal_field", aperi::FieldQueryState::NP1}, &m_bulk_data->mesh_meta_data());
     SubtractFieldValuesFromEigenMap<stk::topology::NODE_RANK, 3, 1>(field);
 
     // Get the norm
@@ -245,7 +246,7 @@ TEST_F(StkFieldTestFixture, ElementFieldAccessEigenMap) {
     EXPECT_NE(norm, 0.0);
 
     // Subtract the field values
-    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"pk1_stress", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+    stk::mesh::Field<double> *field = StkGetField(aperi::FieldQueryData<double>{"element_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
     SubtractFieldValuesFromEigenMap<stk::topology::ELEMENT_RANK, 3, 3>(field);
 
     // Get the norm
