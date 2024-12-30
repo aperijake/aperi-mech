@@ -15,9 +15,9 @@
 namespace aperi {
 
 struct ComputeMassFromElementVolumeKernel {
-    ComputeMassFromElementVolumeKernel(const aperi::MeshData &mesh_data, double density) : m_density("density", 1),
-                                                                                           m_element_volume(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
-                                                                                           m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
+    ComputeMassFromElementVolumeKernel(const std::shared_ptr<aperi::MeshData> &mesh_data, double density) : m_density("density", 1),
+                                                                                                            m_element_volume(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+                                                                                                            m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
     }
@@ -53,7 +53,7 @@ void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data,
     aperi::ElementNodeProcessor processor(mesh_data, {part_name});
 
     // Define the action kernel
-    ComputeMassFromElementVolumeKernel action_kernel(*mesh_data, density);
+    ComputeMassFromElementVolumeKernel action_kernel(mesh_data, density);
 
     // Call the for_each_element_and_node function
     processor.for_each_element_and_nodes(action_kernel);

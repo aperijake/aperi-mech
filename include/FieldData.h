@@ -100,13 +100,15 @@ enum class FieldQueryState { None,
 /**
  * @struct FieldQueryData
  * @brief Represents the data of a field query.
+ * @tparam T The data type of the field.
+ * @todo Separate what is needed for creating fields and what is needed for querying fields.
  */
 template <typename T = double>
 struct FieldQueryData {
     std::string name;                                                   // The name of the field.
     FieldQueryState state;                                              // The state of the field.
     FieldDataTopologyRank topology_rank = FieldDataTopologyRank::NODE;  // The rank of the field.
-    size_t number_of_components = 3;                                    // The number of components of the field. Not relevant for most queries.
+    size_t number_of_components = 3;                                    // The number of components of the field. Not relevant for most queries, I think it is just for creating fields.
 };
 
 /**
