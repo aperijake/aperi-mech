@@ -93,17 +93,22 @@ class Material {
                                 Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const = 0;
 
         KOKKOS_INLINE_FUNCTION
-        bool HasState() const {
+        virtual bool HasState() const {
             return false;
         }
 
         KOKKOS_INLINE_FUNCTION
-        bool NeedsDeformationGradientDot() const {
+        virtual size_t NumberOfStateVariables() const {
+            return 0;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual bool NeedsDeformationGradientDot() const {
             return false;
         }
 
         KOKKOS_INLINE_FUNCTION
-        bool NeedsDisplacementGradientOld() const {
+        virtual bool NeedsDisplacementGradientOld() const {
             return false;
         }
     };
@@ -124,8 +129,9 @@ class Material {
         return {};
     }
 
-    virtual bool HasState() {
-        return m_stress_functor->HasState();
+    // TODO(jake): get rid of this in favor of the above HasState
+    virtual bool HasState() const {
+        return false;
     }
 
    protected:
@@ -397,10 +403,6 @@ class PlasticMaterial : public Material {
         return {FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2, 1, initial_state)};
     }
 
-    bool HasState() override {
-        return true;
-    }
-
     /**
      * @brief Create the stress functor for the plastic material. Potentially on the device.
      */
@@ -493,12 +495,27 @@ class PlasticMaterial : public Material {
             pk1_stress = (deviatoric_stress + pressure * I);
         }
 
+        KOKKOS_INLINE_FUNCTION
+        bool HasState() const override {
+            return true;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        size_t NumberOfStateVariables() const override {
+            return 1;
+        }
+
        private:
         double m_lambda;            /**< The lambda parameter */
         double m_mu;                /**< The mu parameter */
         double m_yield_stress;      /**< The yield stress */
         double m_hardening_modulus; /**< The hardening modulus */
     };
+
+    // TODO(jake): get rid of this in favor of the above HasState
+    bool HasState() const override {
+        return true;
+    }
 };
 
 /**
