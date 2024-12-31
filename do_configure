@@ -60,7 +60,14 @@ cmake_command+=" -D USE_PROTEGO_MECH:BOOL=${USE_PROTEGO_MECH}"
 cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
-cmake_command+=" -D EIGEN_PATH:FILEPATH=$(spack location -i eigen)"
+# Try setting EIGEN_PATH using spack, fallback to a different path if it fails
+spack uninstall -y eigen || true
+if spack location -i eigen &>/dev/null; then
+	eigen_path=$(spack location -i eigen)
+else
+	eigen_path="/home/aperi-mech_docker/eigen_install"
+fi
+cmake_command+=" -D EIGEN_PATH:FILEPATH=${eigen_path}"
 cmake_command+=" -D GTEST_PATH:FILEPATH=$(spack location -i googletest)"
 cmake_command+=" -D YAML-CPP_PATH:FILEPATH=$(spack location -i yaml-cpp)"
 cmake_command+=" -D OPENMPI_PATH:FILEPATH=$(spack location -i openmpi)"

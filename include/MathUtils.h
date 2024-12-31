@@ -251,7 +251,7 @@ KOKKOS_INLINE_FUNCTION double ComputeKernel(const Eigen::Vector<double, 3> &vect
 }
 
 template <typename T>
-KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::Matrix<T, 3, 3> &A) {
+KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::MatrixBase<T> &A) {
     // From the Cayley-Hamilton theorem, we get that for any N by N matrix A,
     // det(A - I) - 1 = I1(A) + I2(A) + ... + IN(A),
     // where the In are the principal invariants of A.

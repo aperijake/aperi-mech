@@ -16,6 +16,7 @@
 #include <stk_topology/topology.hpp>
 
 #include "AperiStkUtils.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
@@ -80,15 +81,15 @@ class ElementNodeProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Allocate for the node indices
-                Kokkos::Array<stk::mesh::FastMeshIndex, HEX8_NUM_NODES> node_indices;
+                Kokkos::Array<aperi::Index, HEX8_NUM_NODES> node_indices;
 
                 // Get the node indices
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    node_indices[i] = ngp_mesh.fast_mesh_index(nodes[i]);
+                    node_indices[i] = aperi::Index(ngp_mesh.fast_mesh_index(nodes[i]));
                 }
 
                 // Call the action function
-                func(elem_index, node_indices, num_nodes);
+                func(aperi::Index(elem_index), node_indices, num_nodes);
             });
     }
 
@@ -107,46 +108,6 @@ class ElementNodeProcessor {
     stk::mesh::Selector m_selector;                // The selector
     stk::mesh::Selector m_owned_selector;          // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-};
-
-// Define the gather kernel
-template <typename T, size_t N>
-struct GatherKernel {
-    GatherKernel(const aperi::MeshData &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
-        : field(stk::mesh::get_updated_ngp_field<T>(*StkGetField(field_query_data, mesh_data.GetMetaData()))) {
-    }
-
-    KOKKOS_FUNCTION void operator()(const stk::mesh::FastMeshIndex &index, Eigen::Vector<T, N> &data) const {
-        for (size_t i = 0; i < N; ++i) {
-            data(i) = field(index, i);
-        }
-    }
-
-   private:
-    stk::mesh::NgpField<T> field;
-};
-
-// Define a scatter kernel
-template <typename T, size_t N>
-struct ScatterKernel {
-    ScatterKernel(const aperi::MeshData &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
-        : field(stk::mesh::get_updated_ngp_field<T>(*StkGetField(field_query_data, mesh_data.GetMetaData()))) {
-    }
-
-    KOKKOS_FUNCTION void AtomicAdd(const stk::mesh::FastMeshIndex &index, const Eigen::Vector<T, N> &data) const {
-        for (size_t i = 0; i < N; ++i) {
-            Kokkos::atomic_add(&field(index, i), data(i));
-        }
-    }
-
-    KOKKOS_FUNCTION void Overwrite(const stk::mesh::FastMeshIndex &index, const Eigen::Vector<T, N> &data) const {
-        for (size_t i = 0; i < N; ++i) {
-            field(index, i) = data(i);
-        }
-    }
-
-   private:
-    stk::mesh::NgpField<T> field;
 };
 
 }  // namespace aperi

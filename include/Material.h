@@ -14,20 +14,6 @@
 
 namespace aperi {
 
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 6, 1> ComputeGreenLagrangeStrainTensorVoigt(const Eigen::Matrix3d& displacement_gradient) {
-    // Compute the Green Lagrange strain tensor, Voigt Notation.
-    // E = 0.5 * (H + H^T + H^T * H)
-    Eigen::Matrix<double, 6, 1> green_lagrange_strain_tensor_voigt;
-    green_lagrange_strain_tensor_voigt << displacement_gradient(0, 0) + 0.5 * displacement_gradient.col(0).dot(displacement_gradient.col(0)),
-        displacement_gradient(1, 1) + 0.5 * displacement_gradient.col(1).dot(displacement_gradient.col(1)),
-        displacement_gradient(2, 2) + 0.5 * displacement_gradient.col(2).dot(displacement_gradient.col(2)),
-        0.5 * (displacement_gradient(1, 2) + displacement_gradient(2, 1) + displacement_gradient.col(1).dot(displacement_gradient.col(2))),
-        0.5 * (displacement_gradient(0, 2) + displacement_gradient(2, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(2))),
-        0.5 * (displacement_gradient(0, 1) + displacement_gradient(1, 0) + displacement_gradient.col(0).dot(displacement_gradient.col(1)));
-
-    return green_lagrange_strain_tensor_voigt;
-}
-
 /**
  * @brief Enum representing the type of material.
  */
@@ -84,7 +70,32 @@ class Material {
      */
     struct StressFunctor {
         KOKKOS_FUNCTION
-        virtual Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* state_old = nullptr, double* state_new = nullptr, size_t state_bucket_size = 1) const = 0;
+        virtual void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+                               const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+                               const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
+                               Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                               const double& timestep,
+                               Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const = 0;
+
+        KOKKOS_INLINE_FUNCTION
+        virtual bool HasState() const {
+            return false;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual size_t NumberOfStateVariables() const {
+            return 0;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual bool NeedsDisplacementGradient() const {
+            return true;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual bool NeedsVelocityGradient() const {
+            return false;
+        }
     };
 
     /**
@@ -103,7 +114,8 @@ class Material {
         return {};
     }
 
-    virtual bool HasState() {
+    // TODO(jake): get rid of this in favor of the above HasState
+    virtual bool HasState() const {
         return false;
     }
 
@@ -166,17 +178,24 @@ class LinearElasticMaterial : public Material {
         LinearElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
-        Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* /*state_old*/, double* /*state_new*/, size_t /*state_bucket_size*/) const override {
+        void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+                       const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const double& timestep,
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
+            // Assert that the displacement gradient is not null
+            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+
+            // Identity matrix
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
 
             // Compute the strain tensor
-            const Eigen::Matrix<double, 3, 3> epsilon = 0.5 * (displacement_gradient + displacement_gradient.transpose());
+            const Eigen::Matrix<double, 3, 3> epsilon = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose());
             const double tr_epsilon = epsilon.trace();
 
             // Compute the Cauchy stress tensor (same as PK1 for small strains)
-            const Eigen::Matrix<double, 3, 3> stress = m_lambda * tr_epsilon * I + m_two_mu * epsilon;
-
-            return stress;
+            pk1_stress = m_lambda * tr_epsilon * I + m_two_mu * epsilon;
         }
 
        private:
@@ -239,30 +258,24 @@ class ElasticMaterial : public Material {
         ElasticGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_two_mu(two_mu) {}
 
         KOKKOS_INLINE_FUNCTION
-        Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* /*state_old*/, double* /*state_new*/, size_t /*state_bucket_size*/) const override {
-            // Compute the Green Lagrange strain tensor, Voigt Notation.
-            // const Eigen::Matrix<double, 6, 1> green_lagrange_strain = ComputeGreenLagrangeStrainTensorVoigt(displacement_gradient);
-
-            // Compute the 2nd Piola-Kirchhoff stress
-            // Eigen::Matrix<double, 3, 3> pk2_stress;
-            // const double lambda_trace_strain = m_lambda * (green_lagrange_strain(0) + green_lagrange_strain(1) + green_lagrange_strain(2));
-            // pk2_stress(0, 0) = lambda_trace_strain + m_two_mu * green_lagrange_strain(0);
-            // pk2_stress(1, 1) = lambda_trace_strain + m_two_mu * green_lagrange_strain(1);
-            // pk2_stress(2, 2) = lambda_trace_strain + m_two_mu * green_lagrange_strain(2);
-            // pk2_stress(1, 2) = pk2_stress(2, 1) = m_two_mu * green_lagrange_strain(3);
-            // pk2_stress(0, 2) = pk2_stress(2, 0) = m_two_mu * green_lagrange_strain(4);
-            // pk2_stress(0, 1) = pk2_stress(1, 0) = m_two_mu * green_lagrange_strain(5);
+        void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+                       const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const double& timestep,
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
+            // Assert that the displacement gradient is not null
+            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
 
             // Compute the Green Lagrange strain tensor. E = 0.5 * (H + H^T + H^T * H)
-            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (displacement_gradient + displacement_gradient.transpose() + displacement_gradient.transpose() * displacement_gradient);
+            const Eigen::Matrix3d green_lagrange_strain_tensor = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose() + displacement_gradient_np1->transpose() * *displacement_gradient_np1);
 
             // Compute the second Piola-Kirchhoff stress
             Eigen::Matrix3d pk2_stress = m_two_mu * green_lagrange_strain_tensor;
             pk2_stress.diagonal().array() += m_lambda * green_lagrange_strain_tensor.trace();
 
             // Compute the 1st Piola-Kirchhoff stress, P = F * S = (I + displacement_gradient) * pk2_stress
-            const Eigen::Matrix3d pk1_stress = (Eigen::Matrix3d::Identity() + displacement_gradient) * pk2_stress;
-            return pk1_stress;
+            pk1_stress = (Eigen::Matrix3d::Identity() + *displacement_gradient_np1) * pk2_stress;
         }
 
        private:
@@ -325,21 +338,28 @@ class NeoHookeanMaterial : public Material {
         NeoHookeanGetStressFunctor(double lambda, double two_mu) : m_lambda(lambda), m_mu(two_mu / 2.0) {}
 
         KOKKOS_INLINE_FUNCTION
-        Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* /*state_old*/, double* /*state_new*/, size_t /*state_bucket_size*/) const override {
+        void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+                       const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const double& timestep,
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
+            // Assert that the displacement gradient is not null
+            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+
             // Left Cauchy-Green tensor - I
-            const Eigen::Matrix3d B_minus_I = displacement_gradient * displacement_gradient.transpose() + displacement_gradient.transpose() + displacement_gradient;
-            const double J_minus_1 = aperi::DetApIm1(displacement_gradient);
+            const Eigen::Matrix3d B_minus_I = *displacement_gradient_np1 * displacement_gradient_np1->transpose() + displacement_gradient_np1->transpose() + *displacement_gradient_np1;
+            const double J_minus_1 = aperi::DetApIm1(*displacement_gradient_np1);
             const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
             // Kirchhoff stress
             const Eigen::Matrix3d tau = m_lambda * std::log1p(J_minus_1) * I + m_mu * B_minus_I;
 
             // Deformation gradient
-            const Eigen::Matrix3d F = displacement_gradient + I;
+            const Eigen::Matrix3d F = *displacement_gradient_np1 + I;
 
             // First Piola-Kirchhoff stress
-            Eigen::Matrix<double, 3, 3> pk1_stress = tau * InvertMatrix(F).transpose();
-            return pk1_stress;
+            pk1_stress = tau * InvertMatrix(F).transpose();
         }
 
        private:
@@ -372,11 +392,9 @@ class PlasticMaterial : public Material {
      */
     std::vector<aperi::FieldData> GetFieldData() override {
         std::vector<double> initial_state(1, 0.0);
-        return {FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2, 1, initial_state)};
-    }
-
-    bool HasState() override {
-        return true;
+        auto displacement_gradient = aperi::FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2 /*number of states*/, std::vector<double>{});
+        auto state = aperi::FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2 /*number of states*/, 1 /*state size*/, initial_state);
+        return {displacement_gradient, state};
     }
 
     /**
@@ -414,21 +432,33 @@ class PlasticMaterial : public Material {
      * @return The 1st Piola-Kirchhoff stress.
      */
     struct PlasticGetStressFunctor : public StressFunctor {
+        enum StateVariables {
+            PLASTIC_STRAIN = 0, /**< The plastic strain */
+        };
+
         KOKKOS_FUNCTION
         PlasticGetStressFunctor(double lambda, double two_mu, double yield_stress, double hardening_modulus) : m_lambda(lambda), m_mu(two_mu / 2.0), m_yield_stress(yield_stress), m_hardening_modulus(hardening_modulus) {}
 
         KOKKOS_INLINE_FUNCTION
-        Eigen::Matrix<double, 3, 3> operator()(const Eigen::Matrix<double, 3, 3>& displacement_gradient, const double* state_old = nullptr, double* state_new = nullptr, size_t state_bucket_size = 1) const override {
+        void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+                       const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const double& timestep,
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             // in "Computational Methods for Plasticity", page 260, box 7.5
 
+            // Assert that the displacement gradient is not null
+            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+
             // Get the plastic strain state
-            double plastic_strain = state_old[0];
+            double plastic_strain = state_old->coeff(PLASTIC_STRAIN);
 
             // Identity matrix
             const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
 
             // Compute the small strain tensor
-            const Eigen::Matrix<double, 3, 3> strain_elastic = 0.5 * (displacement_gradient + displacement_gradient.transpose());
+            const Eigen::Matrix<double, 3, 3> strain_elastic = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose());
             const double trace_strain_elastic = strain_elastic.trace();
 
             // Bulk modulus
@@ -454,20 +484,25 @@ class PlasticMaterial : public Material {
                 deviatoric_stress -= (sqrt(6.0) * m_mu * plastic_strain_inc / eta_norm) * eta;
 
                 plastic_strain += plastic_strain_inc;
-                // aperi::CoutP0() << "plastic_strain_old: " << state_old[0] << ", plastic_strain_inc: " << plastic_strain_inc << ", plastic_strain: " << plastic_strain << std::endl;
-                // aperi::CoutP0() << "    eta_norm: " << eta_norm << ", q: " << q << ", phi: " << phi << std::endl;
-                // aperi::CoutP0() << "    deviatoric stress:\n      " << deviatoric_stress << std::endl;
-                // aperi::CoutP0() << "    elastic strain:\n      " << strain_elastic << std::endl;
-                // aperi::CoutP0() << "    eta:\n      " << eta << std::endl;
 
                 // If kinematic hardening is present, would have
                 // beta += sqrt(2.0 / 3.0) * m_kinematic_hardening_modulus * plastic_strain_inc * eta;
             }
 
             // Update the state
-            state_new[0] = plastic_strain;
+            state_new->coeffRef(PLASTIC_STRAIN) = plastic_strain;
 
-            return (deviatoric_stress + pressure * I);
+            pk1_stress = (deviatoric_stress + pressure * I);
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        bool HasState() const override {
+            return true;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        size_t NumberOfStateVariables() const override {
+            return 1;
         }
 
        private:
@@ -476,6 +511,11 @@ class PlasticMaterial : public Material {
         double m_yield_stress;      /**< The yield stress */
         double m_hardening_modulus; /**< The hardening modulus */
     };
+
+    // TODO(jake): get rid of this in favor of the above HasState
+    bool HasState() const override {
+        return true;
+    }
 };
 
 /**

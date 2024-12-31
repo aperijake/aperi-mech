@@ -117,11 +117,9 @@ class InternalForceContribution : public ForceContribution {
  * @brief Creates an internal force contribution object.
  *
  * This function creates and returns a shared pointer to an InternalForceContribution object.
- * The InternalForceContribution object is initialized with the given material and part.
+ * The InternalForceContribution object is initialized with the given parameters.
  *
- * @param material A shared pointer to the Material object.
- * @param mesh_data A shared pointer to the MeshData object.
- * @param part_name The name of the part associated with the force contribution.
+ * @param internal_force_contribution_parameters A reference to the InternalForceContributionParameters object containing the initialization parameters.
  * @return A shared pointer to the created InternalForceContribution object.
  */
 inline std::shared_ptr<InternalForceContribution> CreateInternalForceContribution(const InternalForceContributionParameters& internal_force_contribution_parameters) {

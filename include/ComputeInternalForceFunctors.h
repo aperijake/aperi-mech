@@ -30,12 +30,22 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
             // Compute displacement gradient
             const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
 
+            // Create a map around the state_old and state_new pointers
+            Eigen::InnerStride<Eigen::Dynamic> state_stride(state_bucket_offset);
+            auto state_old_map = Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_old, m_stress_functor.NumberOfStateVariables(), state_stride);
+            auto state_new_map = Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_new, m_stress_functor.NumberOfStateVariables(), state_stride);
+
             // Compute the 1st pk stress and internal force of the element.
-            const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset).transpose() * b_matrix_and_weight.second;
+            Eigen::Matrix<double, 3, 3> pk1_stress;
+            Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
+            auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
+            auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
+            double timestep = 1.0;  // TODO(jake): This should be passed in
+            m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_neighbors; ++i) {
-                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress_transpose_volume;
+                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress.transpose() * b_matrix_and_weight.second;
             }
         }
     }
@@ -66,12 +76,22 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
     KOKKOS_INLINE_FUNCTION void operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, Eigen::Matrix<double, MaxNumNodes, 3> &force, const Eigen::Matrix<double, MaxNumNodes, 3> &b_matrix, double volume, size_t actual_num_neighbors, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
         const Eigen::Matrix3d &displacement_gradient = gathered_node_data_gradient[0];
 
+        // Create a map around the state_old and state_new pointers
+        Eigen::InnerStride<Eigen::Dynamic> state_stride(state_bucket_offset);
+        auto state_old_map = Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_old, m_stress_functor.NumberOfStateVariables(), state_stride);
+        auto state_new_map = Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_new, m_stress_functor.NumberOfStateVariables(), state_stride);
+
         // Compute the stress and internal force of the element.
-        const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_neg_volume = m_stress_functor(displacement_gradient, state_old, state_new, state_bucket_offset).transpose() * -volume;
+        Eigen::Matrix<double, 3, 3> pk1_stress;
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
+        auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
+        auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
+        double timestep = 1.0;  // TODO(jake): This should be passed in
+        m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
-            force.row(i).noalias() = b_matrix.row(i) * pk1_stress_transpose_neg_volume;
+            force.row(i).noalias() = -volume * b_matrix.row(i) * pk1_stress.transpose();
         }
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
@@ -83,7 +103,24 @@ struct ComputeStressOnSmoothingCellFunctor {
         : m_stress_functor(stress_functor) {}
 
     KOKKOS_INLINE_FUNCTION const Eigen::Matrix<double, 3, 3> operator()(const Kokkos::Array<Eigen::Matrix<double, 3, 3>, 1> &gathered_node_data_gradient, const double *state_old = nullptr, double *state_new = nullptr, size_t state_bucket_offset = 1) const {
-        return m_stress_functor(gathered_node_data_gradient[0], state_old, state_new, state_bucket_offset);  // Compute the stress of the element
+        // PK1 stress
+        Eigen::Matrix<double, 3, 3> pk1_stress;
+
+        // Create a map around the state_old and state_new pointers
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
+        auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
+        auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(gathered_node_data_gradient[0].data(), stride);
+
+        // Create a map around the state_old and state_new pointers
+        Eigen::InnerStride<Eigen::Dynamic> state_stride(state_bucket_offset);
+        auto state_old_map = Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_old, m_stress_functor.NumberOfStateVariables(), state_stride);
+        auto state_new_map = Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_new, m_stress_functor.NumberOfStateVariables(), state_stride);
+
+        // Compute the stress of the element.
+        double timestep = 1.0;  // TODO(jake): This should be passed in
+        m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
+
+        return pk1_stress;
     }
     StressFunctor &m_stress_functor;  ///< Functor for computing the stress of the material
 };
