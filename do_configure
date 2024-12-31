@@ -61,6 +61,7 @@ cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
 # Try setting EIGEN_PATH using spack, fallback to a different path if it fails
+spack uninstall -y eigen || true
 if spack location -i eigen &>/dev/null; then
 	eigen_path=$(spack location -i eigen)
 else
