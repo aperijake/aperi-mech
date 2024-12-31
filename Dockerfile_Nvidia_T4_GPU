@@ -163,7 +163,8 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
-    spack -e aperi-mech add eigen@3.4.0
+    spack -e aperi-mech add eigen@master
+# eigen@master is used as eigen@4.3 has a lot of GPU related warnings
 
 # Install Packages, aperi-mech
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \

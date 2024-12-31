@@ -37,7 +37,6 @@ double TrueSolution(double x, double y, double z, int order, int /*dimension*/) 
     return ans;
 }
 
-KOKKOS_INLINE_FUNCTION
 void SamplingManufacturedSolution(const Kokkos::View<double**, Kokkos::DefaultExecutionSpace>& source_coords_device,
                                   const Kokkos::View<double*, Kokkos::DefaultExecutionSpace>& sampling_data_device, int source_coords_extent, int order, int dimension) {
     Kokkos::parallel_for(

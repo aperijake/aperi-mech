@@ -15,6 +15,8 @@ services:
       dockerfile: Dockerfile_Nvidia_H100_GPU
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
+      - /home/azureuser/eigen:/home/aperi-mech_docker/eigen
+      - /home/azureuser/eigen_install:/home/aperi-mech_docker/eigen_install
     working_dir: /home/aperi-mech_docker/aperi-mech
     runtime: nvidia
     deploy:

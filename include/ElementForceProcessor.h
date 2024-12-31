@@ -110,7 +110,7 @@ class ElementForceProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Set up the field data to gather
-                Eigen::Matrix<double, NumNodes, 3> coordinate_field_data;
+                Eigen::Matrix<double, NumNodes, 3> coordinate_field_data = Eigen::Matrix<double, NumNodes, 3>::Zero();
 
                 // Gather the field data for each node
                 for (size_t i = 0; i < num_nodes; ++i) {
@@ -162,7 +162,7 @@ class ElementForceProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather;
+                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather = {};
 
                 // Set up the results matrix
                 Eigen::Matrix<double, NumNodes, 3> results_to_scatter;

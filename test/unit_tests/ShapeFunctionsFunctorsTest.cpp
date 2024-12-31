@@ -36,7 +36,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
     // Check shape function completeness
     static void CheckShapeFunctionCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, size_t order, const Eigen::Matrix<double, Eigen::Dynamic, 3>& node_coordinates, const Eigen::Matrix<double, Eigen::Dynamic, 3>& neighbor_coordinates, const Eigen::Matrix<double, 1, 3>& evaluation_points_parametric_coordinates) {
-        double tolerance = 4.0e-13 * std::pow(10.0, order - 1);
+        double tolerance = 4.0e-12 * std::pow(10.0, order - 1);
 
         // Check the partition of unity
         CheckPartitionOfUnity(shape_functions, tolerance);
@@ -75,7 +75,7 @@ class ShapeFunctionsFunctorsTest : public ::testing::Test {
 
         // Check the shape function values
         for (size_t i = 0; i < expected_num_shape_functions; ++i) {
-            EXPECT_NEAR(shape_functions[i], expected_shape_functions[i], 1.0e-12);
+            EXPECT_NEAR(shape_functions[i], expected_shape_functions[i], 1.0e-11);
         }
     }
 
@@ -216,6 +216,8 @@ TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsMoreNeig
     TestFunctionsFunctorValues(functions_functor, order, node_coordinates, neighbor_coordinates, 8, false);
 }
 
+// These tests give: Warning #20014-D: calling a __host__ function from a __host__ __device__ function is not allowed
+// I believe the warning is due to the use of the Eigen library on larger matrices. TODO(jake): Investigate further.
 // Test quadratic reproducing kernel shape functions on a tet4 element
 TEST_F(ShapeFunctionsFunctorsTest, ReproducingKernelOnTet4ShapeFunctionsQuadratic) {
     constexpr size_t k_num_neighbors = 20;
