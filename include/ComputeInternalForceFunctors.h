@@ -41,7 +41,7 @@ struct ComputeInternalForceFromIntegrationPointFunctor {
             auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
             auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
             double timestep = 1.0;  // TODO(jake): This should be passed in
-            m_stress_functor(displacement_gradient_map, nullptr, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
+            m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_neighbors; ++i) {
@@ -87,7 +87,7 @@ struct ComputeInternalForceFromSmoothingCellFunctor {
         auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
         auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
         double timestep = 1.0;  // TODO(jake): This should be passed in
-        m_stress_functor(displacement_gradient_map, nullptr, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
+        m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
 
         // Compute the internal force
         for (size_t i = 0; i < actual_num_neighbors; ++i) {
@@ -117,7 +117,8 @@ struct ComputeStressOnSmoothingCellFunctor {
         auto state_new_map = Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_new, m_stress_functor.NumberOfStateVariables(), state_stride);
 
         // Compute the stress of the element.
-        m_stress_functor(displacement_gradient_map, nullptr, nullptr, &state_old_map, &state_new_map, 1.0, pk1_stress_map);
+        double timestep = 1.0;  // TODO(jake): This should be passed in
+        m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
 
         return pk1_stress;
     }
