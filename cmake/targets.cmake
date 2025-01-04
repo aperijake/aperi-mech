@@ -7,7 +7,7 @@ list(REMOVE_ITEM LIB_SOURCES "${CMAKE_SOURCE_DIR}/src/material_driver_main.cpp")
 # Add the library
 add_library(aperimech ${LIB_SOURCES})
 target_link_libraries(aperimech
-    yaml-cpp
+    yaml-cpp::yaml-cpp
     Eigen3::Eigen
     ${Trilinos_LIBRARIES}
     ${Trilinos_TPL_LIBRARIES}
@@ -58,3 +58,5 @@ target_include_directories(material_driver PRIVATE
     "${CMAKE_SOURCE_DIR}/include/"
     ${MPI_INCLUDE_PATH}
 )
+
+install(TARGETS aperi-mech)
