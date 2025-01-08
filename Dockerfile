@@ -122,9 +122,9 @@ RUN spack env create aperi-mech
 # Compadre should be version 1.5.9 (need to update the spack package to get that version as of July 2024)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels@4.3.01 ~cuda ~shared && \
-    spack -e aperi-mech add kokkos@4.3.01 ~cuda ~shared cxxstd=17 && \
-    spack -e aperi-mech add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
+    spack -e aperi-mech add kokkos-kernels@4.5.01 ~cuda ~shared && \
+    spack -e aperi-mech add kokkos@4.5.01 ~cuda ~shared cxxstd=17 && \
+    spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master

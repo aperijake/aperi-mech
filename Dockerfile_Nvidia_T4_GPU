@@ -158,9 +158,9 @@ RUN spack env create aperi-mech
 # Add packages to the Spack environment, aperi-mech
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels@4.3.01 +cuda ~shared cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add kokkos@4.3.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos-kernels@4.5.01 +cuda ~shared cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos@4.5.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master
