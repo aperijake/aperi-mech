@@ -179,15 +179,15 @@ TEST_F(FieldTestFixture, DataMethod) {
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    double* data_ptr = field.data(index);
+    double* p_data_ptr = field.data(index);
 
     // Check that the data pointer is not null
-    EXPECT_NE(data_ptr, nullptr);
+    EXPECT_NE(p_data_ptr, nullptr);
 
     // Assign some values and check
-    data_ptr[0] = 1.0;
-    data_ptr[1] = 2.0;
-    data_ptr[2] = 3.0;
+    p_data_ptr[0] = 1.0;
+    p_data_ptr[1] = 2.0;
+    p_data_ptr[2] = 3.0;
 
     Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
     EXPECT_EQ(result, Eigen::Vector3d(1.0, 2.0, 3.0));
@@ -219,10 +219,10 @@ TEST_F(FieldTestFixture, GetEigenMap) {
     aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
 
     // Assign some values using the data method
-    double* data_ptr = field.data(index);
-    data_ptr[0] = 1.0;
-    data_ptr[1] = 2.0;
-    data_ptr[2] = 3.0;
+    double* p_data_ptr = field.data(index);
+    p_data_ptr[0] = 1.0;
+    p_data_ptr[1] = 2.0;
+    p_data_ptr[2] = 3.0;
 
     // Get the Eigen map and check the values
     auto eigen_map = field.GetEigenMap<3, 1>(index);

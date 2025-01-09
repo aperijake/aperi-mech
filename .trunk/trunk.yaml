@@ -16,13 +16,13 @@ runtimes:
 lint:
   enabled:
     - oxipng@9.1.3
-    - actionlint@1.7.4
+    - actionlint@1.7.6
     - hadolint@2.12.1-beta
     - taplo@0.9.3
     - bandit@1.8.0
     - black@24.10.0
     - isort@5.13.2
-    - ruff@0.8.4
+    - ruff@0.8.6
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - pragma-once
@@ -31,11 +31,11 @@ lint:
     - clang-format@16.0.3
     - trivy@0.58.1
     - yamllint@1.35.1
-    - checkov@3.2.344
+    - checkov@3.2.350
     - git-diff-check
     - markdownlint@0.43.0
     - prettier@3.4.2
-    - trufflehog@3.88.0
+    - trufflehog@3.88.1
   disabled:
     - include-what-you-use
   ignore:
