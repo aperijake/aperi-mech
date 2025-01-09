@@ -18,79 +18,13 @@
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
+#include "ForEachEntity.h"
+#include "Index.h"
 #include "LogUtils.h"
 #include "MeshData.h"
+#include "Selector.h"
 
 namespace aperi {
-
-/**
- * @brief A structure representing an index in a mesh.
- *
- * This structure encapsulates an index of type `stk::mesh::FastMeshIndex` and provides
- * constructors and an operator to access the encapsulated index.
- */
-struct Index {
-    /**
-     * @brief Constructor that initializes the index with a given value.
-     *
-     * @param index The index to initialize with.
-     */
-    KOKKOS_FUNCTION
-    Index(const stk::mesh::FastMeshIndex &index) : m_index(index) {}
-
-    /**
-     * @brief Default constructor that initializes the index with a default value.
-     */
-    KOKKOS_FUNCTION
-    Index() : m_index(stk::mesh::FastMeshIndex()) {}
-
-    /**
-     * @brief Operator to access the encapsulated index.
-     *
-     * @return The encapsulated `stk::mesh::FastMeshIndex`.
-     */
-    KOKKOS_FUNCTION
-    stk::mesh::FastMeshIndex operator()() const {
-        return m_index;
-    }
-
-   private:
-    stk::mesh::FastMeshIndex m_index;  ///< The encapsulated index.
-};
-
-/**
- * @brief A structure representing a selector in a mesh.
- *
- * This structure encapsulates a selector of type `stk::mesh::Selector` and provides
- * constructors and an operator to access the encapsulated selector.
- */
-struct Selector {
-    /**
-     * @brief Constructor that initializes the selector with a given value.
-     *
-     * @param selector The selector to initialize with.
-     */
-    Selector(const stk::mesh::Selector &selector) : m_selector(selector) {}
-
-    /**
-     * @brief Default constructor that initializes the selector with a default value.
-     */
-    Selector(const std::vector<std::string> &sets, stk::mesh::MetaData *meta_data) {
-        m_selector = StkGetSelector(sets, meta_data);
-    }
-
-    /**
-     * @brief Operator to access the encapsulated selector.
-     *
-     * @return The encapsulated `stk::mesh::Selector`.
-     */
-    stk::mesh::Selector operator()() const {
-        return m_selector;
-    }
-
-   private:
-    stk::mesh::Selector m_selector;  ///< The encapsulated selector.
-};
 
 template <typename T>
 class Field {
@@ -125,6 +59,7 @@ class Field {
      * @return Reference to the value of the field data at the given index
      */
     KOKKOS_FUNCTION T &operator()(const aperi::Index &index, size_t i) {
+        KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
 
@@ -135,6 +70,7 @@ class Field {
      * @return Const reference to the value of the field data at the given index
      */
     KOKKOS_FUNCTION const T &operator()(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
 
@@ -145,7 +81,17 @@ class Field {
      * @return The value of the field data at the given index
      */
     KOKKOS_FUNCTION T GetValue(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
+    }
+
+    /**
+     * @brief Get the number of components per entity.
+     * @param index The index of the entity.
+     * @return The number of components per entity.
+     */
+    KOKKOS_FUNCTION size_t GetNumComponentsPerEntity(const aperi::Index &index) const {
+        return m_ngp_field.get_num_components_per_entity(index());
     }
 
     /**
@@ -261,49 +207,54 @@ class Field {
         }
     }
 
+    // Get the sum of a field
+    T GetSumHost() const {
+        return stk::mesh::field_asum(*m_field);
+    }
+
     // Marking modified
-    void MarkFieldModifiedOnDevice() {
+    void MarkModifiedOnDevice() {
         // STK QUESTION: Should I always clear sync state before marking modified?
         m_ngp_field.clear_sync_state();
         m_ngp_field.modify_on_device();
     }
 
-    void MarkFieldModifiedOnHost() {
+    void MarkModifiedOnHost() {
         // STK QUESTION: Should I always clear sync state before marking modified?
         m_ngp_field.clear_sync_state();
         m_ngp_field.modify_on_host();
     }
 
     // Syncing
-    void SyncFieldHostToDevice() {
+    void SyncHostToDevice() {
         m_ngp_field.sync_to_device();
     }
 
-    void SyncFieldDeviceToHost() {
+    void SyncDeviceToHost() {
         m_ngp_field.sync_to_host();
     }
 
     // Parallel communication
-    void CommunicateFieldData(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+    void Communicate(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
         }
         std::vector<const stk::mesh::FieldBase *> fields = {m_field};
         stk::mesh::communicate_field_data(*m_mesh_data->GetBulkData(), fields);
-        MarkFieldModifiedOnHost();
+        MarkModifiedOnHost();
         if (post_sync_from_host_to_device) {
             m_ngp_field.sync_to_device();
         }
     }
 
     // Parallel sum including ghosted values
-    void ParallelSumFieldData(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+    void ParallelSum(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
         }
         std::vector<const stk::mesh::FieldBase *> fields = {m_field};
         stk::mesh::parallel_sum_including_ghosts(*m_mesh_data->GetBulkData(), fields);
-        MarkFieldModifiedOnHost();
+        MarkModifiedOnHost();
         if (post_sync_from_host_to_device) {
             m_ngp_field.sync_to_device();
         }
@@ -313,7 +264,7 @@ class Field {
      * @brief Get the mesh data object.
      * @return The mesh data object.
      */
-    std::shared_ptr<aperi::MeshData> GetMeshData() {
+    std::shared_ptr<aperi::MeshData> GetMeshData() const {
         return m_mesh_data;
     }
 
