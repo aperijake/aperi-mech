@@ -34,9 +34,9 @@ struct ComputeMassFromElementVolumeKernel {
     }
 
    private:
-    Kokkos::View<double *> m_density;                   // The density of the material
-    aperi::Field<double, 1> m_element_volume;           // The gather kernel for the element volume
-    aperi::Field<double, 3> m_node_mass_from_elements;  // The scatter kernel for the node mass from elements
+    Kokkos::View<double *> m_density;                        // The density of the material
+    aperi::Field<double> m_element_volume;                   // The gather kernel for the element volume
+    mutable aperi::Field<double> m_node_mass_from_elements;  // The scatter kernel for the node mass from elements
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
