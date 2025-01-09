@@ -4,9 +4,9 @@
 
 #include "Constants.h"
 #include "ElementNodeProcessor.h"
-#include "EntityProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
+#include "FieldUtils.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
@@ -64,15 +64,9 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
     // Sum the mass at the nodes
     std::string mass_from_elements_name = "mass_from_elements";
     std::string mass_name = "mass";
-    std::array<aperi::FieldQueryData<double>, 2> mass_field_query_data;
-    mass_field_query_data[0] = {mass_from_elements_name, FieldQueryState::None};
-    mass_field_query_data[1] = {mass_name, FieldQueryState::None};
-    NodeProcessor<2> node_processor(mass_field_query_data, mesh_data);
-    node_processor.MarkFieldModifiedOnDevice(0);
-    node_processor.SyncFieldDeviceToHost(0);
-    node_processor.ParallelSumFieldData(0);
-    node_processor.MarkFieldModifiedOnHost(0);
-    node_processor.SyncFieldHostToDevice(0);
+    aperi::Field mass_from_elements = aperi::Field(mesh_data, FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
+    aperi::Field mass = aperi::Field(mesh_data, FieldQueryData<double>{mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
+    mass_from_elements.ParallelSum();
 
     // Pass mass_from_elements through the approximation functions to get mass
     if (uses_generalized_fields) {
@@ -84,22 +78,17 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
 
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
         value_from_generalized_field_processor->ScatterOwnedLocalValues();
-        value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-        value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
-        node_processor.ParallelSumFieldData(1);
-
-        // Sync the mass field back to the device
-        node_processor.MarkFieldModifiedOnHost(1);
-        node_processor.SyncFieldHostToDevice(1);
+        mass.ParallelSum();
     } else {
-        node_processor.CopyFieldData(0, 1);
-        node_processor.MarkFieldModifiedOnDevice(1);
-        node_processor.SyncFieldDeviceToHost(1);
+        aperi::CopyField(mass_from_elements, mass);
+
+        mass.MarkModifiedOnDevice();
+        mass.SyncDeviceToHost();
     }
 
     // Total mass after the mass from this element block is added
-    double mass_sum_global = node_processor.GetFieldSumHost(0) / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
-    assert(CheckMassSumsAreEqual(mass_sum_global, node_processor.GetFieldSumHost(1) / 3.0));
+    double mass_sum_global = mass_from_elements.GetSumHost() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
+    assert(CheckMassSumsAreEqual(mass_sum_global, mass.GetSumHost() / 3.0));
 
     return mass_sum_global;
 }
