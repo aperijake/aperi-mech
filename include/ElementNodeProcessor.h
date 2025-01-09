@@ -66,7 +66,7 @@ class ElementNodeProcessor {
     }
 
     template <typename ActionFunc>
-    void for_each_element_and_nodes(ActionFunc action_func) {
+    void for_each_element_and_nodes(ActionFunc &action_func) {
         auto ngp_mesh = m_ngp_mesh;
 
         auto func = action_func;
