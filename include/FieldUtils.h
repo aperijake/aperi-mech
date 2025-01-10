@@ -1,7 +1,11 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "Field.h"
 #include "ForEachEntity.h"
+#include "Selector.h"
 
 namespace aperi {
 
