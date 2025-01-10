@@ -17,6 +17,11 @@ namespace aperi {
  */
 struct Selector {
     /**
+     * @brief Default constructor that initializes the selector with a default value.
+     */
+    Selector() : m_selector() {}
+
+    /**
      * @brief Constructor that initializes the selector with a given value.
      *
      * @param selector The selector to initialize with.
