@@ -116,125 +116,178 @@ TEST_F(FieldTestFixture, ElementFieldAccessEigenMap) {
     EXPECT_NEAR(new_norm, 0.0, 1.0e-8) << "Original norm: " << norm << ", New norm: " << new_norm;
 }
 
+// Test Field operations
+template <typename Operation>
+struct TestFieldOperationsFunctor {
+    TestFieldOperationsFunctor(aperi::Field<double> &field, const Eigen::Vector3d &data, Operation op)
+        : m_field(field), m_data(data), m_op(op), m_result_device("result_device", 1), m_result(Kokkos::ViewAllocateWithoutInitializing("result")) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(const int i) const {
+        aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
+        m_op(m_field, index, m_data);
+        m_result_device() = m_field.GetEigenMap<3, 1>(index);
+    }
+
+    Eigen::Vector3d GetHostResult() {
+        Kokkos::deep_copy(m_result, m_result_device);
+        return m_result();
+    }
+
+    mutable aperi::Field<double> m_field;
+    Eigen::Vector3d m_data;
+    Operation m_op;
+    Kokkos::View<Eigen::Vector3d> m_result_device;
+    Kokkos::View<Eigen::Vector3d>::HostMirror m_result;
+};
+
 // Test AtomicAdd method
+struct AtomicAddOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        field.AtomicAdd(index, data);
+    }
+};
+
 TEST_F(FieldTestFixture, AtomicAdd) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     Eigen::Vector3d data(1.0, 2.0, 3.0);
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    field.AtomicAdd(index, data);
+    TestFieldOperationsFunctor<AtomicAddOperation> functor(field, data, AtomicAddOperation());
+    Kokkos::parallel_for("AtomicAdd", 1, functor);
 
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
+    Eigen::Vector3d result = functor.GetHostResult();
     EXPECT_EQ(result, data);
 }
 
 // Test Add method
+struct AddOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        field.Add(index, data);
+    }
+};
+
 TEST_F(FieldTestFixture, Add) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     Eigen::Vector3d data(1.0, 2.0, 3.0);
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    field.Add(index, data);
+    TestFieldOperationsFunctor<AddOperation> functor(field, data, AddOperation());
+    Kokkos::parallel_for("Add", 1, functor);
 
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
+    Eigen::Vector3d result = functor.GetHostResult();
     EXPECT_EQ(result, data);
 }
 
 // Test AtomicAssign method
+struct AtomicAssignOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        field.AtomicAssign(index, data);
+    }
+};
+
 TEST_F(FieldTestFixture, AtomicAssign) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     Eigen::Vector3d data(1.0, 2.0, 3.0);
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    field.AtomicAssign(index, data);
+    TestFieldOperationsFunctor<AtomicAssignOperation> functor(field, data, AtomicAssignOperation());
+    Kokkos::parallel_for("AtomicAssign", 1, functor);
 
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
+    Eigen::Vector3d result = functor.GetHostResult();
     EXPECT_EQ(result, data);
 }
 
 // Test Assign method
+struct AssignOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        field.Assign(index, data);
+    }
+};
+
 TEST_F(FieldTestFixture, Assign) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     Eigen::Vector3d data(1.0, 2.0, 3.0);
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    field.Assign(index, data);
+    TestFieldOperationsFunctor<AssignOperation> functor(field, data, AssignOperation());
+    Kokkos::parallel_for("Assign", 1, functor);
 
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
+    Eigen::Vector3d result = functor.GetHostResult();
     EXPECT_EQ(result, data);
 }
 
 // Test data method
+struct DataOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        double *p_data_ptr = field.data(index);
+        KOKKOS_ASSERT(p_data_ptr != nullptr);
+
+        unsigned stride = field.GetStride();
+
+        p_data_ptr[0] = data(0);
+        p_data_ptr[stride] = data(1);
+        p_data_ptr[2 * stride] = data(2);
+    }
+};
+
 TEST_F(FieldTestFixture, DataMethod) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
-    double* p_data_ptr = field.data(index);
+    Eigen::Vector3d data(1.0, 2.0, 3.0);
+    TestFieldOperationsFunctor<DataOperation> functor(field, data, DataOperation());
+    Kokkos::parallel_for("Data", 1, functor);
 
-    // Check that the data pointer is not null
-    EXPECT_NE(p_data_ptr, nullptr);
-
-    // Assign some values and check
-    p_data_ptr[0] = 1.0;
-    p_data_ptr[1] = 2.0;
-    p_data_ptr[2] = 3.0;
-
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
-    EXPECT_EQ(result, Eigen::Vector3d(1.0, 2.0, 3.0));
+    Eigen::Vector3d result = functor.GetHostResult();
+    EXPECT_EQ(result, data);
 }
 
 // Test operator() method
+struct OperatorOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        field(index, 0) = data(0);
+        field(index, 1) = data(1);
+        field(index, 2) = data(2);
+    }
+};
+
 TEST_F(FieldTestFixture, OperatorMethod) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
+    Eigen::Vector3d data(1.0, 2.0, 3.0);
+    TestFieldOperationsFunctor<OperatorOperation> functor(field, data, OperatorOperation());
+    Kokkos::parallel_for("Operator", 1, functor);
 
-    // Assign some values using the operator() method
-    field(index, 0) = 1.0;
-    field(index, 1) = 2.0;
-    field(index, 2) = 3.0;
-
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
-    EXPECT_EQ(result, Eigen::Vector3d(1.0, 2.0, 3.0));
+    Eigen::Vector3d result = functor.GetHostResult();
+    EXPECT_EQ(result, data);
 }
 
 // Test GetEigenMap method
+struct GetEigenMapOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        auto eigen_map = field.GetEigenMap<3, 1>(index);
+        eigen_map(0, 0) = data(0);
+        eigen_map(1, 0) = data(1);
+        eigen_map(2, 0) = data(2);
+    }
+};
+
 TEST_F(FieldTestFixture, GetEigenMap) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
-    aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
+    Eigen::Vector3d data(1.0, 2.0, 3.0);
+    TestFieldOperationsFunctor<GetEigenMapOperation> functor(field, data, GetEigenMapOperation());
+    Kokkos::parallel_for("GetEigenMap", 1, functor);
 
-    // Assign some values using the data method
-    double* p_data_ptr = field.data(index);
-    p_data_ptr[0] = 1.0;
-    p_data_ptr[1] = 2.0;
-    p_data_ptr[2] = 3.0;
-
-    // Get the Eigen map and check the values
-    auto eigen_map = field.GetEigenMap<3, 1>(index);
-    EXPECT_EQ(eigen_map(0, 0), 1.0);
-    EXPECT_EQ(eigen_map(1, 0), 2.0);
-    EXPECT_EQ(eigen_map(2, 0), 3.0);
-
-    // Modify the values using the Eigen map and check again
-    eigen_map(0, 0) = 4.0;
-    eigen_map(1, 0) = 5.0;
-    eigen_map(2, 0) = 6.0;
-
-    Eigen::Vector3d result = field.GetEigenMatrix<3, 1>(index);
-    EXPECT_EQ(result, Eigen::Vector3d(4.0, 5.0, 6.0));
+    Eigen::Vector3d result = functor.GetHostResult();
+    EXPECT_EQ(result, data);
 }

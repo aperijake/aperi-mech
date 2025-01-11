@@ -53,6 +53,14 @@ class Field {
     }
 
     /**
+     * @brief Get the stride of the field data.
+     * @return The stride of the field data.
+     */
+    KOKKOS_FUNCTION unsigned GetStride() const {
+        return m_ngp_field.get_component_stride();
+    }
+
+    /**
      * @brief Gather the field data for the entity and component and return it.
      * @param index The index of the entity.
      * @param i The component index.
@@ -184,7 +192,7 @@ class Field {
         stk::mesh::FastMeshIndex fast_index = index();
         for (size_t i = 0; i < N; ++i) {
             for (size_t j = 0; j < M; ++j) {
-                Kokkos::atomic_assign(&m_ngp_field(fast_index, i * M + j), data(i, j));
+                Kokkos::atomic_store(&m_ngp_field(fast_index, i * M + j), data(i, j));
             }
         }
     }
