@@ -57,6 +57,11 @@ void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data,
 
     // Call the for_each_element_and_node function
     processor.for_each_element_and_nodes(action_kernel);
+
+    // Mark the mass_from_elements field as modified
+    std::string mass_from_elements_name = "mass_from_elements";
+    aperi::Field mass_from_elements = aperi::Field(mesh_data, FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
+    mass_from_elements.MarkModifiedOnDevice();
 }
 
 // Compute the diagonal mass matrix
@@ -78,13 +83,13 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
 
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
         value_from_generalized_field_processor->ScatterOwnedLocalValues();
+        mass.MarkModifiedOnDevice();
         mass.ParallelSum();
     } else {
         aperi::CopyField(mass_from_elements, mass);
-
-        mass.MarkModifiedOnDevice();
-        mass.SyncDeviceToHost();
     }
+    mass.MarkModifiedOnDevice();
+    mass.SyncDeviceToHost();
 
     // Total mass after the mass from this element block is added
     double mass_sum_global = mass_from_elements.GetSumHost() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
