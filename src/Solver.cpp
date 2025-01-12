@@ -203,7 +203,10 @@ double ExplicitSolver::Solve() {
     CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
-    explicit_time_integrator->ComputeAcceleration();
+    {
+        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+        explicit_time_integrator->ComputeAcceleration();
+    }
 
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
@@ -261,7 +264,10 @@ double ExplicitSolver::Solve() {
         UpdateFieldStates();
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        explicit_time_integrator->ComputeFirstPartialUpdate();
+        {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            explicit_time_integrator->ComputeFirstPartialUpdate();
+        }
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         {
@@ -272,7 +278,10 @@ double ExplicitSolver::Solve() {
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        explicit_time_integrator->UpdateDisplacements();
+        {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            explicit_time_integrator->UpdateDisplacements();
+        }
 
         // Compute the force, f^{n+1}
         ComputeForce(aperi::SolverTimerType::ComputeForce);
@@ -281,7 +290,10 @@ double ExplicitSolver::Solve() {
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
-        explicit_time_integrator->ComputeAcceleration();
+        {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            explicit_time_integrator->ComputeAcceleration();
+        }
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         {
@@ -292,7 +304,10 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        explicit_time_integrator->ComputeSecondPartialUpdate();
+        {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            explicit_time_integrator->ComputeSecondPartialUpdate();
+        }
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
