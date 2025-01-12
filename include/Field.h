@@ -34,6 +34,10 @@ class Field {
           m_field(StkGetField(field_query_data, mesh_data->GetMetaData())),
           m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)) {}
 
+    void UpdateField() {
+        m_ngp_field = stk::mesh::get_updated_ngp_field<T>(*m_field);
+    }
+
     /**
      * @brief Gather the field data for the entity and store it in an array.
      * @param index The index of the entity.

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "EntityProcessor.h"
+#include "ExplicitTimeIntegrator.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "InternalForceContribution.h"
@@ -42,93 +43,6 @@ inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_
     {SolverTimerType::CommunicateForce, "CommunicateForce"},
     {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
     {SolverTimerType::NONE, "NONE"}};
-
-struct ExplicitTimeIntegrationFields {
-    // Delete the default constructor
-    ExplicitTimeIntegrationFields() = delete;
-
-    ExplicitTimeIntegrationFields(std::shared_ptr<aperi::MeshData> mesh_data) : mass_field(mesh_data, {"mass", FieldQueryState::None}),
-                                                                                force_coefficients_field(mesh_data, {"force_coefficients", FieldQueryState::None}),
-                                                                                acceleration_coefficients_n_field(mesh_data, {"acceleration_coefficients", FieldQueryState::N}),
-                                                                                velocity_coefficients_n_field(mesh_data, {"velocity_coefficients", FieldQueryState::N}),
-                                                                                displacement_coefficients_n_field(mesh_data, {"displacement_coefficients", FieldQueryState::N}),
-                                                                                acceleration_coefficients_np1_field(mesh_data, {"acceleration_coefficients", FieldQueryState::NP1}),
-                                                                                velocity_coefficients_np1_field(mesh_data, {"velocity_coefficients", FieldQueryState::NP1}),
-                                                                                displacement_coefficients_np1_field(mesh_data, {"displacement_coefficients", FieldQueryState::NP1}) {}
-
-    aperi::Field<double> mass_field;
-    aperi::Field<double> force_coefficients_field;
-    aperi::Field<double> acceleration_coefficients_n_field;
-    aperi::Field<double> velocity_coefficients_n_field;
-    aperi::Field<double> displacement_coefficients_n_field;
-    aperi::Field<double> acceleration_coefficients_np1_field;
-    aperi::Field<double> velocity_coefficients_np1_field;
-    aperi::Field<double> displacement_coefficients_np1_field;
-};
-
-struct ExplicitTimeIntegrator {
-    explicit ExplicitTimeIntegrator(const ExplicitTimeIntegrationFields &fields) : m_mass_field(fields.mass_field),
-                                                                                   m_force_coefficients_field(fields.force_coefficients_field),
-                                                                                   m_acceleration_coefficients_n_field(fields.acceleration_coefficients_n_field),
-                                                                                   m_velocity_coefficients_n_field(fields.velocity_coefficients_n_field),
-                                                                                   m_displacement_coefficients_n_field(fields.displacement_coefficients_n_field),
-                                                                                   m_acceleration_coefficients_np1_field(fields.acceleration_coefficients_np1_field),
-                                                                                   m_velocity_coefficients_np1_field(fields.velocity_coefficients_np1_field),
-                                                                                   m_displacement_coefficients_np1_field(fields.displacement_coefficients_np1_field) {}
-
-    KOKKOS_INLINE_FUNCTION void ComputeAcceleration(const aperi::Index &index) const {
-        // Compute the acceleration: a^{n+1} = M^{–1}(f^{n+1})
-        KOKKOS_ASSERT(3 == m_force_coefficients_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_mass_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_acceleration_field.GetNumComponentsPerEntity(index));
-        // Loop over each component and copy the data
-        for (size_t i = 0; i < 3; ++i) {
-            m_acceleration_coefficients_np1_field(index, i) = m_force_coefficients_field(index, i) / m_mass_field(index, i);
-        }
-    }
-
-    KOKKOS_INLINE_FUNCTION void ComputeFirstPartialUpdate(const aperi::Index &index, double half_time_increment) const {
-        // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        KOKKOS_ASSERT(3 == m_velocity_coefficients_n_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_acceleration_coefficients_n_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_velocity_coefficients_np1_field.GetNumComponentsPerEntity(index));
-        // Loop over each component and copy the data
-        for (size_t i = 0; i < 3; ++i) {
-            m_velocity_coefficients_np1_field(index, i) = m_velocity_coefficients_n_field(index, i) + half_time_increment * m_acceleration_coefficients_n_field(index, i);
-        }
-    }
-
-    KOKKOS_INLINE_FUNCTION void UpdateDisplacements(const aperi::Index &index, double time_increment) const {
-        // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        KOKKOS_ASSERT(3 == m_displacement_coefficients_n_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_velocity_coefficients_np1_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_displacement_coefficients_np1_field.GetNumComponentsPerEntity(index));
-        // Loop over each component and copy the data
-        for (size_t i = 0; i < 3; ++i) {
-            m_displacement_coefficients_np1_field(index, i) = m_displacement_coefficients_n_field(index, i) + time_increment * m_velocity_coefficients_np1_field(index, i);
-        }
-    }
-
-    KOKKOS_INLINE_FUNCTION void ComputeSecondPartialUpdate(const aperi::Index &index, double half_time_increment) const {
-        // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        KOKKOS_ASSERT(3 == m_velocity_coefficients_np1_field.GetNumComponentsPerEntity(index));
-        KOKKOS_ASSERT(3 == m_acceleration_coefficients_np1_field.GetNumComponentsPerEntity(index));
-        // Loop over each component and copy the data
-        for (size_t i = 0; i < 3; ++i) {
-            m_velocity_coefficients_np1_field(index, i) += half_time_increment * m_acceleration_coefficients_np1_field(index, i);
-        }
-    }
-
-   private:
-    const aperi::Field<double> m_mass_field;
-    const aperi::Field<double> m_force_coefficients_field;
-    const aperi::Field<double> m_acceleration_coefficients_n_field;
-    const aperi::Field<double> m_velocity_coefficients_n_field;
-    const aperi::Field<double> m_displacement_coefficients_n_field;
-    mutable aperi::Field<double> m_acceleration_coefficients_np1_field;
-    mutable aperi::Field<double> m_velocity_coefficients_np1_field;
-    mutable aperi::Field<double> m_displacement_coefficients_np1_field;
-};
 
 /**
  * @class Solver
@@ -321,50 +235,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
     }
 
-    // Create a node processor for the first partial update
-    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorFirstUpdate() {
-        // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"velocity_coefficients", FieldQueryState::N};
-        field_query_data_vec[2] = {"acceleration_coefficients", FieldQueryState::N};
-        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
-    }
-
-    // Create a node processor for updating displacements
-    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorUpdateDisplacements() {
-        // Compute the second partial update nodal displacements: d^{n+1} = d^n + Δt^{n+½}v^{n+½}
-        std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"displacement_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::N};
-        field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
-        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
-    }
-
-    // Create a node processor for the second partial update
-    std::shared_ptr<ActiveNodeProcessor<2>> CreateNodeProcessorSecondUpdate() {
-        // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        std::array<FieldQueryData<double>, 2> field_query_data_vec;
-        field_query_data_vec[0] = {"velocity_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"acceleration_coefficients", FieldQueryState::NP1};
-        return std::make_shared<ActiveNodeProcessor<2>>(field_query_data_vec, mp_mesh_data);
-    }
-
-    // Create a node processor for the acceleration
-    std::shared_ptr<ActiveNodeProcessor<3>> CreateNodeProcessorAcceleration() {
-        // Compute the acceleration: a^{n+1} = f^{n+1}/m
-        std::array<FieldQueryData<double>, 3> field_query_data_vec;
-        field_query_data_vec[0] = {"acceleration_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[1] = {"force_coefficients", FieldQueryState::None};
-        field_query_data_vec[2] = {"mass", FieldQueryState::None};
-        return std::make_shared<ActiveNodeProcessor<3>>(field_query_data_vec, mp_mesh_data);
-    }
-
-    std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator() {
-        ExplicitTimeIntegrationFields fields(mp_mesh_data);
-        return std::make_shared<ExplicitTimeIntegrator>(fields);
-    }
-
     /**
      * @brief Build the mass matrix.
      *
@@ -403,46 +273,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      *
      */
     void UpdateFieldStates() override;
-
-    /**
-     * @brief Computes the acceleration.
-     *
-     * This function is responsible for calculating the acceleration.
-     *
-     * @param explicit_time_integrator The explicit time integrator object.
-     */
-    void ComputeAcceleration(const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
-
-    /**
-     * @brief Computes the first partial update for the solver.
-     *
-     * @param half_time_step The half time step size.
-     * @param explicit_time_integrator The explicit time integrator object.
-     */
-    void ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
-
-    /**
-     * @brief Computes the second partial update for the solver.
-     *
-     * @param half_time_step The half time step size.
-     * @param explicit_time_integrator The explicit time integrator object.
-     */
-    void ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
-
-    /**
-     * @brief Updates the displacements.
-     *
-     * @param time_increment The time increment.
-     * @param explicit_time_integrator The explicit time integrator object.
-     */
-    void UpdateDisplacements(double time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
-
-    /**
-     * @brief Communicates the displacements.
-     *
-     * @param node_processor_update_displacements The node processor for updating the nodal displacements.
-     */
-    void CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements);
 
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
