@@ -121,49 +121,6 @@ void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
     CommunicateForce();
 }
 
-void ExplicitSolver::ComputeAcceleration(const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
-    ForEachNode([explicit_time_integrator](const Index &index) {
-        explicit_time_integrator->ComputeAcceleration(index);
-    },
-                *mp_mesh_data, m_active_selector);
-}
-
-void ExplicitSolver::ComputeFirstPartialUpdate(double half_time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
-    ForEachNode([half_time_increment, explicit_time_integrator](const Index &index) {
-        explicit_time_integrator->ComputeFirstPartialUpdate(index, half_time_increment);
-    },
-                *mp_mesh_data, m_active_selector);
-}
-
-void ExplicitSolver::UpdateDisplacements(double time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
-    ForEachNode([time_increment, explicit_time_integrator](const Index &index) {
-        explicit_time_integrator->UpdateDisplacements(index, time_increment);
-    },
-                *mp_mesh_data, m_active_selector);
-}
-
-void ExplicitSolver::CommunicateDisplacements(const std::shared_ptr<ActiveNodeProcessor<3>> &node_processor_update_displacements) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::CommunicateDisplacements);
-    // If there is more than one processor, communicate the field data that other processors need
-    if (m_num_processors > 1) {
-        node_processor_update_displacements->SyncFieldDeviceToHost(0);
-        node_processor_update_displacements->CommunicateFieldData(0);
-        node_processor_update_displacements->MarkFieldModifiedOnHost(0);
-        node_processor_update_displacements->SyncFieldHostToDevice(0);
-    }
-}
-
-void ExplicitSolver::ComputeSecondPartialUpdate(double half_time_increment, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
-    ForEachNode([half_time_increment, explicit_time_integrator](const Index &index) {
-        explicit_time_integrator->ComputeSecondPartialUpdate(index, half_time_increment);
-    },
-                *mp_mesh_data, m_active_selector);
-}
-
 void ExplicitSolver::WriteOutput(double time) {
     if (m_uses_generalized_fields) {
         UpdateFieldsFromGeneralizedFields();
@@ -228,13 +185,9 @@ double ExplicitSolver::Solve() {
     // Build the mass matrix
     BuildMassMatrix();
 
-    // Create node processors for each step of the time integration algorithm
-    // The node processors are used to loop over the degrees of freedom (dofs) of the mesh and apply the time integration algorithm to each dof
-    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_first_update = CreateNodeProcessorFirstUpdate();
-    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_update_displacements = CreateNodeProcessorUpdateDisplacements();
-    std::shared_ptr<ActiveNodeProcessor<3>> node_processor_acceleration = CreateNodeProcessorAcceleration();
-    std::shared_ptr<ActiveNodeProcessor<2>> node_processor_second_update = CreateNodeProcessorSecondUpdate();
-    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = CreateExplicitTimeIntegrator();
+    // Create the explicit time integrator
+    aperi::ExplicitTimeIntegrationFields explicit_time_integration_fields(mp_mesh_data);
+    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = std::make_shared<ExplicitTimeIntegrator>(explicit_time_integration_fields, mp_mesh_data, m_active_selector);
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -250,8 +203,7 @@ double ExplicitSolver::Solve() {
     CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
-    // ComputeAcceleration(node_processor_acceleration);
-    ComputeAcceleration(explicit_time_integrator);
+    explicit_time_integrator->ComputeAcceleration();
 
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
@@ -301,15 +253,15 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the time increment, time midstep, and time next
-        double half_time_increment = 0.5 * time_increment;
-        double time_midstep = time + half_time_increment;
+        double time_midstep = time + 0.5 * time_increment;
         double time_next = time + time_increment;
+        explicit_time_integrator->SetTimeIncrement(time_increment);
 
         // Move state n+1 to state n
         UpdateFieldStates();
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        ComputeFirstPartialUpdate(half_time_increment, explicit_time_integrator);
+        explicit_time_integrator->ComputeFirstPartialUpdate();
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         {
@@ -320,10 +272,7 @@ double ExplicitSolver::Solve() {
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        UpdateDisplacements(time_increment, explicit_time_integrator);
-
-        // Communicate displacements
-        // CommunicateDisplacements(node_processor_update_displacements);
+        explicit_time_integrator->UpdateDisplacements();
 
         // Compute the force, f^{n+1}
         ComputeForce(aperi::SolverTimerType::ComputeForce);
@@ -332,8 +281,7 @@ double ExplicitSolver::Solve() {
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
-        // ComputeAcceleration(node_processor_acceleration);
-        ComputeAcceleration(explicit_time_integrator);
+        explicit_time_integrator->ComputeAcceleration();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         {
@@ -344,7 +292,7 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        ComputeSecondPartialUpdate(half_time_increment, explicit_time_integrator);
+        explicit_time_integrator->ComputeSecondPartialUpdate();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance
