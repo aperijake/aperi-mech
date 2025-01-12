@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736331761295,
+  "lastUpdate": 1736665605711,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -634,6 +634,133 @@ window.BENCHMARK_DATA = {
           {
             "name": "Explicit_Solver_TimeStepCompute_rkpm_taylor_bar_gpu_np_1",
             "value": 0.000005528,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "id": "c1398aee6a3443b2d16e95045643cac0d5c2f16d",
+          "message": "make new solver changes work on the GPU",
+          "timestamp": "2025-01-12T00:00:06Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/c1398aee6a3443b2d16e95045643cac0d5c2f16d"
+        },
+        "date": 1736665605164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Explicit_Solver_UpdateFieldStates_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000120171,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ApplyBoundaryConditions_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000755858,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ComputeForce_rkpm_taylor_bar_cpu_np_1",
+            "value": 56.5692,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeIntegrationNodalUpdates_rkpm_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateDisplacements_rkpm_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateForce_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000001072,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeStepCompute_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000014852,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_UpdateFieldStates_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000246389,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ApplyBoundaryConditions_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.00102785,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ComputeForce_rkpm_taylor_bar_cpu_np_4",
+            "value": 12.8917,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeIntegrationNodalUpdates_rkpm_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateDisplacements_rkpm_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateForce_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.427318,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeStepCompute_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.00002615,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_UpdateFieldStates_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000047683,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ApplyBoundaryConditions_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.0032799,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_ComputeForce_rkpm_taylor_bar_gpu_np_1",
+            "value": 2.68067,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeIntegrationNodalUpdates_rkpm_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateDisplacements_rkpm_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_CommunicateForce_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000001001,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_TimeStepCompute_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.00000682,
             "unit": "seconds"
           }
         ]
