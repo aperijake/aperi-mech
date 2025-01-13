@@ -125,7 +125,7 @@ struct TestFieldOperationsFunctor {
     KOKKOS_INLINE_FUNCTION void operator()(const int i) const {
         aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
         m_op(m_field, index, m_data);
-        m_result_device() = m_field.GetEigenMap<3, 1>(index);
+        m_result_device() = m_field.GetEigenMatrixMap(index, 3, 1);
     }
 
     Eigen::Vector3d GetHostResult() {
@@ -269,24 +269,47 @@ TEST_F(FieldTestFixture, OperatorMethod) {
     EXPECT_EQ(result, data);
 }
 
-// Test GetEigenMap method
-struct GetEigenMapOperation {
+// Test GetEigenMatrixMap method
+struct GetEigenMatrixMapOperation {
     KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
-        auto eigen_map = field.GetEigenMap<3, 1>(index);
+        auto eigen_map = field.GetEigenMatrixMap(index, 3, 1);
         eigen_map(0, 0) = data(0);
         eigen_map(1, 0) = data(1);
         eigen_map(2, 0) = data(2);
     }
 };
 
-TEST_F(FieldTestFixture, GetEigenMap) {
+TEST_F(FieldTestFixture, GetEigenMatrixMap) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
     aperi::Field<double> field(m_mesh_data, field_query_data);
 
     Eigen::Vector3d data(1.0, 2.0, 3.0);
-    TestFieldOperationsFunctor<GetEigenMapOperation> functor(field, data, GetEigenMapOperation());
-    Kokkos::parallel_for("GetEigenMap", 1, functor);
+    TestFieldOperationsFunctor<GetEigenMatrixMapOperation> functor(field, data, GetEigenMatrixMapOperation());
+    Kokkos::parallel_for("GetEigenMatrixMap", 1, functor);
+
+    Eigen::Vector3d result = functor.GetHostResult();
+    EXPECT_EQ(result, data);
+}
+
+// Test GetEigenVectorMap method
+struct GetEigenVectorMapOperation {
+    KOKKOS_INLINE_FUNCTION void operator()(aperi::Field<double> &field, const aperi::Index &index, const Eigen::Vector3d &data) const {
+        auto eigen_map = field.GetEigenVectorMap(index, 3);
+        eigen_map(0) = data(0);
+        eigen_map(1) = data(1);
+        eigen_map(2) = data(2);
+    }
+};
+
+TEST_F(FieldTestFixture, GetEigenVectorMap) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+    aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::Field<double> field(m_mesh_data, field_query_data);
+
+    Eigen::Vector3d data(1.0, 2.0, 3.0);
+    TestFieldOperationsFunctor<GetEigenVectorMapOperation> functor(field, data, GetEigenVectorMapOperation());
+    Kokkos::parallel_for("GetEigenVectorMap", 1, functor);
 
     Eigen::Vector3d result = functor.GetHostResult();
     EXPECT_EQ(result, data);
