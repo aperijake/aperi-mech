@@ -115,7 +115,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      * @brief Computes the internal force of all elements.
      *
      */
-    void ComputeInternalForceAllElements() override {
+    void ComputeInternalForceAllElements(double time_increment) override {
         assert(this->m_material != nullptr);
         assert(m_element_processor != nullptr);
 

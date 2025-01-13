@@ -319,7 +319,7 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement(size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
+    double ComputeStableTimeIncrement(double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
         /*
             Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
             The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
@@ -357,6 +357,9 @@ class PowerMethodProcessor {
         // Initialize the power method stats
         m_power_method_stats.Reset(num_iterations);
 
+        // Set the current stable time increment to the input time increment
+        double current_stable_time_increment = time_increment;
+
         bool converged = false;
         size_t num_iterations_required = num_iterations;
 
@@ -369,7 +372,7 @@ class PowerMethodProcessor {
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce();
+            m_solver->ComputeForce(current_stable_time_increment);
             m_solver->CommunicateForce();
 
             // Compute the next eigenvector
@@ -377,6 +380,9 @@ class PowerMethodProcessor {
 
             // Normalize the eigenvector
             lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
+
+            // Compute the stable time increment
+            current_stable_time_increment = 2.0 / std::sqrt(lambda_np1);
 
             // Add the eigenvalue to the stats
             m_power_method_stats.eigenvalues_for_iterations[k] = lambda_np1;

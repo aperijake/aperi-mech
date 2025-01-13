@@ -159,10 +159,11 @@ class ElementTetrahedron4 : public ElementBase {
      * @brief Computes the internal force of all elements.
      *
      */
-    void ComputeInternalForceAllElements() override {
+    void ComputeInternalForceAllElements(double time_increment) override {
         assert(m_element_node_processor != nullptr);
         assert(m_compute_force != nullptr);
         m_compute_force->UpdateFields();  // Updates the ngp fields
+        m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
         m_element_node_processor->for_each_element_and_nodes(*m_compute_force);
     }

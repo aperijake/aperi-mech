@@ -67,7 +67,7 @@ Reference:
     13. Output; if simulation not complete, go to 4.
 */
 
-void ExplicitSolver::ComputeForce() {
+void ExplicitSolver::ComputeForce(double time_increment) {
     // Set the force field to zero
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
@@ -82,7 +82,7 @@ void ExplicitSolver::ComputeForce() {
 
     // Compute internal force contributions
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeForce();
+        internal_force_contribution->ComputeForce(time_increment);
     }
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
@@ -97,13 +97,13 @@ void ExplicitSolver::ComputeForce() {
 
     // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
-        external_force_contribution->ComputeForce();
+        external_force_contribution->ComputeForce(time_increment);
     }
 }
 
-void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type) {
+void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time_increment) {
     auto timer = m_timer_manager->CreateScopedTimer(timer_type);
-    ComputeForce();
+    ComputeForce(time_increment);
 }
 
 void ExplicitSolver::CommunicateForce() {
@@ -198,8 +198,21 @@ double ExplicitSolver::Solve() {
     // Initialize the time stepper
     m_time_stepper->Initialize(mp_mesh_data, shared_from_this());
 
+    // Initialize total runtime, average runtime, for benchmarking
+    double total_runtime = 0.0;
+    double average_runtime = 0.0;
+
+    // Compute first time step
+    aperi::TimeStepperData time_increment_data;
+    {
+        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
+        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+    }
+    double time_increment = time_increment_data.time_increment;
+    LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
+
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
-    ComputeForce(aperi::SolverTimerType::ComputeForce);
+    ComputeForce(aperi::SolverTimerType::ComputeForce, time_increment);
     CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
@@ -207,10 +220,6 @@ double ExplicitSolver::Solve() {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
         explicit_time_integrator->ComputeAcceleration();
     }
-
-    // Initialize total runtime, average runtime, for benchmarking
-    double total_runtime = 0.0;
-    double average_runtime = 0.0;
 
     // Print the table header before the loop
     aperi::CoutP0() << std::endl
@@ -226,15 +235,6 @@ double ExplicitSolver::Solve() {
         LogEvent(n, time, 0.0, average_runtime, "Write Field Output");
         WriteOutput(time);
     }
-
-    // Compute first time step
-    aperi::TimeStepperData time_increment_data;
-    {
-        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
-        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
-    }
-    double time_increment = time_increment_data.time_increment;
-    LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
@@ -284,7 +284,7 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the force, f^{n+1}
-        ComputeForce(aperi::SolverTimerType::ComputeForce);
+        ComputeForce(aperi::SolverTimerType::ComputeForce, time_increment);
 
         // Communicate the force field data
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
