@@ -43,7 +43,9 @@ class PowerMethodProcessorTest : public SolverTest {
         // Create a PowerMethodProcessor object
         aperi::PowerMethodProcessor power_method_processor(m_solver->GetMeshData(), explicit_solver);
         // Run the power method processor
-        double stable_time_step = power_method_processor.ComputeStableTimeIncrement(500);
+        double time_increment = 0.1;  // Shouldn't matter for this material, just need to pass something in
+        size_t num_iterations = 500;
+        double stable_time_step = power_method_processor.ComputeStableTimeIncrement(time_increment, num_iterations);
         EXPECT_NEAR(stable_time_step, expected_stable_time_step, relative_tolerance * expected_stable_time_step);
 
         // Get and check the stats

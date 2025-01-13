@@ -24,9 +24,14 @@ struct ComputeForce {
                  StressFunctor &stress_functor,
                  bool uses_state)
         : m_uses_state(uses_state),
+          m_time_increment_device("TimeIncrementDevice"),
           m_functions_functor(functions_functor),
           m_integration_functor(integration_functor),
           m_stress_functor(stress_functor) {
+        // Set the initial time increment on the device to 0
+        Kokkos::deep_copy(m_time_increment_device, 0.0);
+
+        // Get the field data
         m_displacements_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
         m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
@@ -34,6 +39,11 @@ struct ComputeForce {
             m_state_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
             m_state_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         }
+    }
+
+    void SetTimeIncrement(double time_increment) {
+        // Set the time increment
+        Kokkos::deep_copy(m_time_increment_device, time_increment);
     }
 
     void UpdateFields() {
@@ -67,6 +77,9 @@ struct ComputeForce {
         // Get the component stride
         const size_t component_stride = m_uses_state ? num_state_variables : 0;
 
+        // Get the time increment
+        double time_increment = m_time_increment_device(0);
+
         // Loop over all gauss points and compute the internal force
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
             // Compute the B matrix and integration weight for a given gauss point
@@ -80,13 +93,12 @@ struct ComputeForce {
             Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
             auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
             auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
-            double timestep = 1.0;  // TODO(jake): This should be passed in
 
             Eigen::InnerStride<Eigen::Dynamic> state_stride(component_stride);
             const auto state_old_map = m_uses_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
             auto state_new_map = m_uses_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
-            m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, timestep, pk1_stress_map);
+            m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, time_increment, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
@@ -102,6 +114,8 @@ struct ComputeForce {
 
    private:
     bool m_uses_state;  // Whether the functor uses state
+
+    Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
     aperi::Field<double> m_displacements_field;      // The gather kernel for the node displacements
     mutable aperi::Field<double> m_force_field;      // The scatter kernel for the node mass from elements

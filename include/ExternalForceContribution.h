@@ -38,7 +38,7 @@ class ExternalForceContribution : public ForceContribution {
      *
      * This function overrides the ComputeForce() function from the base class.
      */
-    void ComputeForce() override {}
+    void ComputeForce(double time_increment) override = 0;
 
    protected:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                   /**< The mesh data object. */
@@ -71,7 +71,7 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
      *
      * This function overrides the ComputeForce function in the base class.
      */
-    void ComputeForce() override {}
+    void ComputeForce(double time_increment) override {}
 };
 
 struct ComputeGravityForceFunctor {
@@ -111,7 +111,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      *
      * @note The force field should be zeroed out before applying the gravity force.
      */
-    void ComputeForce() override {
+    void ComputeForce(double time_increment) override {
         // Loop over the nodes
         for (auto component_value : m_components_and_values) {
             // Create the functor to compute the gravity force
