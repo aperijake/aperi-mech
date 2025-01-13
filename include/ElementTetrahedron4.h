@@ -85,8 +85,9 @@ class ElementTetrahedron4 : public ElementBase {
         assert(m_shape_functions_functor != nullptr);
         assert(m_integration_functor != nullptr);
 
-        // Create the internal force processor
-        m_internal_force_processor = std::make_shared<InternalForceProcessor<2, TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, *m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+        // Create the internal force processor and the compute force functor
+        m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
+        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor(), m_material->HasState());
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -118,14 +119,6 @@ class ElementTetrahedron4 : public ElementBase {
         // Set the functors
         m_shape_functions_functor = compute_shape_function_derivatives_functor;
         m_integration_functor = integration_functor;
-
-        // Create the compute force functor
-        assert(this->m_material != nullptr);
-        assert(m_element_processor != nullptr);
-        assert(m_integration_functor != nullptr);
-
-        // Create the compute force functor
-        // m_compute_force_functor = std::make_shared<ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
     }
 
     void DestroyFunctors() {
@@ -167,18 +160,18 @@ class ElementTetrahedron4 : public ElementBase {
      *
      */
     void ComputeInternalForceAllElements() override {
-        // assert(this->m_compute_force_functor != nullptr);
-        //// Loop over all elements and compute the internal force
-        // m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(*m_compute_force_functor);
-        assert(m_internal_force_processor != nullptr);
-        m_internal_force_processor->ForEachElementComputeForceNotPrecomputed();
+        assert(m_element_node_processor != nullptr);
+        assert(m_compute_force != nullptr);
+        m_compute_force->UpdateFields();  // Updates the ngp fields
+        // Loop over all elements and compute the internal force
+        m_element_node_processor->for_each_element_and_nodes(*m_compute_force);
     }
 
    private:
     ShapeFunctionsFunctorTet4 *m_shape_functions_functor;
     Quadrature<1, TET4_NUM_NODES> *m_integration_functor;
-    // std::shared_ptr<ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>> m_compute_force_functor;
-    std::shared_ptr<aperi::InternalForceProcessor<2, TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>> m_internal_force_processor;
+    std::shared_ptr<aperi::ElementNodeProcessor<TET4_NUM_NODES>> m_element_node_processor;                                                                    // The element node processor.
+    std::shared_ptr<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>> m_compute_force;  // The compute force functor.
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
