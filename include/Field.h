@@ -29,12 +29,16 @@ namespace aperi {
 template <typename T>
 class Field {
    public:
+    // Default constructor
+    Field() : m_mesh_data(nullptr), m_field(nullptr) {}
+
     Field(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
         : m_mesh_data(mesh_data),
           m_field(StkGetField(field_query_data, mesh_data->GetMetaData())),
           m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)) {}
 
     void UpdateField() {
+        assert(m_field != nullptr);
         m_ngp_field = stk::mesh::get_updated_ngp_field<T>(*m_field);
     }
 
@@ -221,33 +225,39 @@ class Field {
 
     // Get the sum of a field
     T GetSumHost() const {
+        assert(m_field != nullptr);
         return stk::mesh::field_asum(*m_field);
     }
 
     // Marking modified
     void MarkModifiedOnDevice() {
         // STK QUESTION: Should I always clear sync state before marking modified?
+        assert(m_field != nullptr);
         m_ngp_field.clear_sync_state();
         m_ngp_field.modify_on_device();
     }
 
     void MarkModifiedOnHost() {
         // STK QUESTION: Should I always clear sync state before marking modified?
+        assert(m_field != nullptr);
         m_ngp_field.clear_sync_state();
         m_ngp_field.modify_on_host();
     }
 
     // Syncing
     void SyncHostToDevice() {
+        assert(m_field != nullptr);
         m_ngp_field.sync_to_device();
     }
 
     void SyncDeviceToHost() {
+        assert(m_field != nullptr);
         m_ngp_field.sync_to_host();
     }
 
     // Parallel communication
     void Communicate(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+        assert(m_field != nullptr);
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
         }
@@ -261,6 +271,7 @@ class Field {
 
     // Parallel sum including ghosted values
     void ParallelSum(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+        assert(m_field != nullptr);
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
         }

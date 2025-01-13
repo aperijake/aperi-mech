@@ -23,6 +23,7 @@
 
 namespace aperi {
 
+template <size_t NumNodes>
 class ElementNodeProcessor {
    public:
     /**
@@ -57,7 +58,7 @@ class ElementNodeProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Allocate for the node indices
-                if (num_nodes > HEX8_NUM_NODES) {
+                if (num_nodes > NumNodes) {
                     Kokkos::abort("Error: num_nodes > max_allowed_nodes");
                 }
             });
@@ -71,7 +72,7 @@ class ElementNodeProcessor {
 
         auto func = action_func;
 
-        assert(CheckNumNodes(HEX8_NUM_NODES));
+        assert(CheckNumNodes(NumNodes));
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
@@ -81,7 +82,7 @@ class ElementNodeProcessor {
                 size_t num_nodes = nodes.size();
 
                 // Allocate for the node indices
-                Kokkos::Array<aperi::Index, HEX8_NUM_NODES> node_indices;
+                Kokkos::Array<aperi::Index, NumNodes> node_indices;
 
                 // Get the node indices
                 for (size_t i = 0; i < num_nodes; ++i) {
