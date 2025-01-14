@@ -10,10 +10,28 @@
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "Material.h"
+#include "MathUtils.h"
 #include "MeshData.h"
 
 namespace aperi {
 
+/**
+ * @brief Functor for computing the internal force of an element using standard quadrature.
+ * @tparam NumNodes The max number of nodes in the element.
+ * @tparam FunctionsFunctor The functor for computing the shape functions.
+ * @tparam IntegrationFunctor The functor for computing the integration points and weights.
+ * @tparam StressFunctor The functor for computing the stress.
+ *
+ * @param mesh_data The mesh data.
+ * @param displacements_field_name The name of the displacements field.
+ * @param force_field_name The name of the force field.
+ * @param functions_functor The functor for computing the shape functions.
+ * @param integration_functor The functor for computing the integration points and weights.
+ * @param material The material.
+ *
+ * This functor computes the internal force of an element using standard quadrature. The internal force is computed by looping over all gauss points and computing the B matrix and integration weight for each gauss point. The displacement gradient is then computed and the 1st pk stress and internal force of the element are computed.
+ *
+ */
 template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor, typename StressFunctor>
 struct ComputeForce {
     ComputeForce(const std::shared_ptr<aperi::MeshData> &mesh_data,
@@ -63,6 +81,25 @@ struct ComputeForce {
         }
     }
 
+    /**
+     * @brief Compute the velocity gradient.
+     * @param elem_index The element index.
+     * @return The velocity gradient.
+     * @todo This should be moved to a separate functor.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3> ComputeVelocityGradient(const aperi::Index &elem_index) const {
+        // (F_n+1 - F_n) / dt * F_n_inv
+        const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        return (displacement_gradient_np1_map - displacement_gradient_n_map) / m_time_increment_device(0) * InvertMatrix<3>(displacement_gradient_n_map + Eigen::Matrix3d::Identity());
+    }
+
+    /**
+     * @brief Functor for computing the internal force of an element.
+     * @param elem_index The element index.
+     * @param nodes The nodes of the element.
+     * @param actual_num_nodes The actual number of nodes in the element.
+     */
     KOKKOS_FUNCTION void operator()(const aperi::Index &elem_index, const Kokkos::Array<aperi::Index, NumNodes> &nodes, size_t actual_num_nodes) const {
         // Set up the field data to gather
         Eigen::Matrix<double, NumNodes, 3> node_coordinates = Eigen::Matrix<double, NumNodes, 3>::Zero();
@@ -83,6 +120,9 @@ struct ComputeForce {
         // Get the component stride
         const size_t component_stride = m_has_state ? num_state_variables : 0;
 
+        // Default Stride for a 3x3 matrix
+        const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
+
         // Get the time increment
         double time_increment = m_time_increment_device(0);
 
@@ -91,18 +131,21 @@ struct ComputeForce {
             // Compute the B matrix and integration weight for a given gauss point
             const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
-            // Compute displacement gradient
+            // Compute displacement gradient, put it in the field, and get the map
             m_displacement_gradient_np1_field.Assign(elem_index, node_displacements_np1.transpose() * b_matrix_and_weight.first);
             const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
 
-            // Compute the 1st pk stress and internal force of the element.
+            // Compute the velocity gradient if needed
+            const auto velocity_gradient_map = m_needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
+
+            // Get the pk1 stress map
             auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
 
             Eigen::InnerStride<Eigen::Dynamic> state_stride(component_stride);
             const auto state_n_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
             auto state_np1_map = m_has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
-            m_stress_functor.GetStress(&displacement_gradient_np1_map, nullptr, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
+            m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {

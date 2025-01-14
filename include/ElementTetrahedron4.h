@@ -85,8 +85,12 @@ class ElementTetrahedron4 : public ElementBase {
         assert(m_shape_functions_functor != nullptr);
         assert(m_integration_functor != nullptr);
 
-        // Create the internal force processor and the compute force functor
+        // Create the element node processor
         m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
+
+        // Create the compute force functor
+        // TODO(jake) Passing in the base class StressFunctor. This likely causes polymorphism vtable lookups, but avoids bloating with all Material / Element classes.
+        // Leaving as is for now. My need to rethink how this is done in the Material class. Use a function pointer to get stress?
         m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
     }
 
