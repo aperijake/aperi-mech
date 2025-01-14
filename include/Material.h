@@ -102,7 +102,7 @@ class Material {
      * @brief Get the stress functor of the material.
      * @return The stress functor of the material.
      */
-    StressFunctor* GetStressFunctor() {
+    StressFunctor* GetStressFunctor() const {
         return m_stress_functor;
     }
 
@@ -114,8 +114,15 @@ class Material {
         return {};
     }
 
-    // TODO(jake): get rid of this in favor of the above HasState
+    // TODO(jake): Make this not virtual and call the StressFunctor directly to get its value. Need to create a host StressFunctor to do this.
+    // Or, put a member boolean that is set in the derived class constructor for this. That way we don't have to set values in both Material and StressFunctor.
     virtual bool HasState() const {
+        return false;
+    }
+
+    // TODO(jake): Make this not virtual and call the StressFunctor directly to get its value. Need to create a host StressFunctor to do this.
+    // Or, put a member boolean that is set in the derived class constructor for this. That way we don't have to set values in both Material and StressFunctor.
+    virtual bool NeedsVelocityGradient() const {
         return false;
     }
 
