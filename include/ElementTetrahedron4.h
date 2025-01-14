@@ -87,7 +87,7 @@ class ElementTetrahedron4 : public ElementBase {
 
         // Create the internal force processor and the compute force functor
         m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
-        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor(), m_material->HasState());
+        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
     }
 
     // Create and destroy functors. Must be public to run on device.
