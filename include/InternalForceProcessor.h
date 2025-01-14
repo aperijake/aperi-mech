@@ -32,7 +32,7 @@ struct ComputeForce {
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
         // Get the field data
-        m_displacements_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
+        m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
         m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
         if (m_has_state) {
@@ -48,7 +48,7 @@ struct ComputeForce {
 
     void UpdateFields() {
         // Update the ngp fields
-        m_displacements_field.UpdateField();
+        m_displacement_np1_field.UpdateField();
         m_force_field.UpdateField();
         m_coordinates_field.UpdateField();
         if (m_has_state) {
@@ -60,12 +60,12 @@ struct ComputeForce {
     KOKKOS_FUNCTION void operator()(const aperi::Index &elem_index, const Kokkos::Array<aperi::Index, NumNodes> &nodes, size_t actual_num_nodes) const {
         // Set up the field data to gather
         Eigen::Matrix<double, NumNodes, 3> node_coordinates = Eigen::Matrix<double, NumNodes, 3>::Zero();
-        Eigen::Matrix<double, NumNodes, 3> node_displacements = Eigen::Matrix<double, NumNodes, 3>::Zero();
+        Eigen::Matrix<double, NumNodes, 3> node_displacements_np1 = Eigen::Matrix<double, NumNodes, 3>::Zero();
 
         // Gather the field data for each node
         for (size_t i = 0; i < actual_num_nodes; ++i) {
             node_coordinates.row(i).noalias() = m_coordinates_field.GetEigenMatrix<1, 3>(nodes[i]);
-            node_displacements.row(i).noalias() = m_displacements_field.GetEigenMatrix<1, 3>(nodes[i]);
+            node_displacements_np1.row(i).noalias() = m_displacement_np1_field.GetEigenMatrix<1, 3>(nodes[i]);
         }
 
         // Set up the results matrix
@@ -86,19 +86,19 @@ struct ComputeForce {
             const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
             // Compute displacement gradient
-            const Eigen::Matrix3d displacement_gradient = node_displacements.transpose() * b_matrix_and_weight.first;
+            const Eigen::Matrix3d displacement_gradient_np1 = node_displacements_np1.transpose() * b_matrix_and_weight.first;
 
             // Compute the 1st pk stress and internal force of the element.
             Eigen::Matrix<double, 3, 3> pk1_stress;
             Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
             auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
-            auto displacement_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient.data(), stride);
+            auto displacement_gradient_np1_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient_np1.data(), stride);
 
             Eigen::InnerStride<Eigen::Dynamic> state_stride(component_stride);
-            const auto state_old_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
-            auto state_new_map = m_has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+            const auto state_n_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+            auto state_np1_map = m_has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
-            m_stress_functor.GetStress(&displacement_gradient_map, nullptr, &state_old_map, &state_new_map, time_increment, pk1_stress_map);
+            m_stress_functor.GetStress(&displacement_gradient_np1_map, nullptr, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
@@ -118,7 +118,7 @@ struct ComputeForce {
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
-    aperi::Field<double> m_displacements_field;      // The gather kernel for the node displacements
+    aperi::Field<double> m_displacement_np1_field;   // The gather kernel for the node displacements
     mutable aperi::Field<double> m_force_field;      // The scatter kernel for the node mass from elements
     aperi::Field<double> m_coordinates_field;        // The gather kernel for the node coordinates
     aperi::Field<double> m_state_n_field;            // The gather kernel for the node state at time n
