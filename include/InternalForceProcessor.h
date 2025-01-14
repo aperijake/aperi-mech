@@ -35,6 +35,9 @@ struct ComputeForce {
         m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
         m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
+        m_displacement_gradient_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+        m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+        m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         if (m_has_state) {
             m_state_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
             m_state_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
@@ -51,6 +54,9 @@ struct ComputeForce {
         m_displacement_np1_field.UpdateField();
         m_force_field.UpdateField();
         m_coordinates_field.UpdateField();
+        m_displacement_gradient_n_field.UpdateField();
+        m_displacement_gradient_np1_field.UpdateField();
+        m_pk1_stress_field.UpdateField();
         if (m_has_state) {
             m_state_n_field.UpdateField();
             m_state_np1_field.UpdateField();
@@ -86,13 +92,11 @@ struct ComputeForce {
             const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
             // Compute displacement gradient
-            const Eigen::Matrix3d displacement_gradient_np1 = node_displacements_np1.transpose() * b_matrix_and_weight.first;
+            m_displacement_gradient_np1_field.Assign(elem_index, node_displacements_np1.transpose() * b_matrix_and_weight.first);
+            const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
 
             // Compute the 1st pk stress and internal force of the element.
-            Eigen::Matrix<double, 3, 3> pk1_stress;
-            Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
-            auto pk1_stress_map = Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(pk1_stress.data(), stride);
-            auto displacement_gradient_np1_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(displacement_gradient_np1.data(), stride);
+            auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
 
             Eigen::InnerStride<Eigen::Dynamic> state_stride(component_stride);
             const auto state_n_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
@@ -102,7 +106,7 @@ struct ComputeForce {
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
-                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress.transpose() * b_matrix_and_weight.second;
+                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress_map.transpose() * b_matrix_and_weight.second;
             }
         }
 
@@ -118,11 +122,14 @@ struct ComputeForce {
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
-    aperi::Field<double> m_displacement_np1_field;   // The gather kernel for the node displacements
-    mutable aperi::Field<double> m_force_field;      // The scatter kernel for the node mass from elements
-    aperi::Field<double> m_coordinates_field;        // The gather kernel for the node coordinates
-    aperi::Field<double> m_state_n_field;            // The gather kernel for the node state at time n
-    mutable aperi::Field<double> m_state_np1_field;  // The gather kernel for the node state at time n+1
+    aperi::Field<double> m_displacement_np1_field;                   // The field for the node displacements
+    mutable aperi::Field<double> m_force_field;                      // The field for the node mass from elements
+    aperi::Field<double> m_coordinates_field;                        // The field for the node coordinates
+    aperi::Field<double> m_state_n_field;                            // The field for the node state at time n
+    mutable aperi::Field<double> m_state_np1_field;                  // The field for the node state at time n+1
+    aperi::Field<double> m_displacement_gradient_n_field;            // The field for the element displacement gradient
+    mutable aperi::Field<double> m_displacement_gradient_np1_field;  // The field for the element displacement gradient at time n+1
+    mutable aperi::Field<double> m_pk1_stress_field;                 // The field for the element pk1 stress
 
     const FunctionsFunctor &m_functions_functor;      // Functor for computing the shape function values and derivatives
     const IntegrationFunctor &m_integration_functor;  // Functor for computing the B matrix and integration weight

@@ -132,12 +132,13 @@ class Field {
      * @param index The index of the entity
      * @param num_rows The number of rows in the matrix
      * @param num_cols The number of columns in the matrix
-     * @return An Eigen::Map to the field data.
+     * @return An Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> to the field data.
      */
-    KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows, size_t num_cols) {
+    template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) {
         const unsigned component_stride = m_ngp_field.get_component_stride();
-        Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
-        return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
+        return Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
     }
 
     /**
@@ -145,12 +146,27 @@ class Field {
      * @param index The index of the entity
      * @param num_rows The number of rows in the matrix
      * @param num_cols The number of columns in the matrix
-     * @return An Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
+     * @return An Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> to the field data.
      */
-    KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows, size_t num_cols) const {
+    template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
         const unsigned component_stride = m_ngp_field.get_component_stride();
-        Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
-        return Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
+        return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
+    }
+
+    /**
+     * @brief Gather the field data for the entity and return it as a const strided Eigen::Map.
+     * @param index The index of the entity
+     * @param num_rows The number of rows in the matrix
+     * @param num_cols The number of columns in the matrix
+     * @return An Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> to the field data.
+     */
+    template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetConstEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
+        const unsigned component_stride = m_ngp_field.get_component_stride();
+        Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
+        return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
     }
 
     /**
