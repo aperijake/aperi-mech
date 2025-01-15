@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "ComputeElementVolumeFunctor.h"
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
 #include "ElementForceProcessor.h"
@@ -34,9 +35,8 @@ class ElementTetrahedron4 : public ElementBase {
      * @brief Constructs a ElementTetrahedron4 object.
      */
     ElementTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
-        CreateElementForceProcessor();
         CreateFunctors();
-        CreateInternalForceProcessor();
+        CreateElementForceProcessor();
         ComputeElementVolume();
     }
 
@@ -51,24 +51,6 @@ class ElementTetrahedron4 : public ElementBase {
      * @brief Creates the element processor associated with the element.
      */
     void CreateElementForceProcessor() {
-        // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
-
-        // Create the element processor
-        if (!m_mesh_data) {
-            // Allowing for testing
-            aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
-            return;
-        }
-        const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        bool has_state = false;
-        if (m_material) {
-            has_state = m_material->HasState();
-        }
-        m_element_processor = std::make_shared<aperi::ElementForceProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
-    }
-
-    void CreateInternalForceProcessor() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
 
@@ -149,14 +131,16 @@ class ElementTetrahedron4 : public ElementBase {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
 
-        assert(m_element_processor != nullptr);
+        // Check that the functors are created
+        assert(m_element_node_processor != nullptr);
+        assert(m_shape_functions_functor != nullptr);
         assert(m_integration_functor != nullptr);
 
-        // Create the compute force functor, no stress functor needed
-        ComputeInternalForceFromIntegrationPointFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
+        // Functor for computing the element volume
+        auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
 
         // Loop over all elements and compute the internal force
-        m_element_processor->ComputeElementVolume<TET4_NUM_NODES>(0, compute_force_functor);
+        m_element_node_processor->for_each_element_and_nodes(compute_volume_functor);
     }
 
     /**
@@ -180,7 +164,6 @@ class ElementTetrahedron4 : public ElementBase {
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementForceProcessor<2, false>> m_element_processor;
 };
 
 }  // namespace aperi
