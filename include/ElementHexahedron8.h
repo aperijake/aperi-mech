@@ -9,6 +9,7 @@
 #include "ComputeElementVolumeFunctor.h"
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "InternalForceProcessor.h"
 #include "Kokkos_Core.hpp"
@@ -148,8 +149,12 @@ class ElementHexahedron8 : public ElementBase {
         // Functor for computing the element volume
         auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
 
-        // Loop over all elements and compute the internal force
+        // Loop over all elements and compute the volume
         m_element_node_processor->for_each_element_and_nodes(compute_volume_functor);
+
+        auto element_volume_field = aperi::Field<double>(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        element_volume_field.MarkModifiedOnDevice();
+        element_volume_field.SyncDeviceToHost();
     }
 
     /**
