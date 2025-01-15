@@ -9,7 +9,6 @@
 #include "ComputeElementVolumeFunctor.h"
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
-#include "ElementForceProcessor.h"
 #include "FieldData.h"
 #include "InternalForceProcessor.h"
 #include "Kokkos_Core.hpp"

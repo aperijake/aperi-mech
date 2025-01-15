@@ -6,10 +6,11 @@
 #include <string>
 #include <vector>
 
+#include "ComputeElementVolumeFunctor.h"
 #include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
-#include "ElementForceProcessor.h"
 #include "FieldData.h"
+#include "InternalForceProcessor.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
 #include "Material.h"
@@ -33,8 +34,9 @@ class ElementHexahedron8 : public ElementBase {
      * @brief Constructs a ElementHexahedron8 object.
      */
     ElementHexahedron8(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(HEX8_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
-        CreateElementForceProcessor();
         CreateFunctors();
+        CreateElementForceProcessor();
+        ComputeElementVolume();
     }
 
     /**
@@ -48,6 +50,9 @@ class ElementHexahedron8 : public ElementBase {
      * @brief Creates the element processor associated with the element.
      */
     void CreateElementForceProcessor() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+
         // Create the element processor
         if (!m_mesh_data) {
             // Allowing for testing
@@ -55,15 +60,26 @@ class ElementHexahedron8 : public ElementBase {
             return;
         }
         const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        bool has_state = false;
-        if (m_material) {
-            has_state = m_material->HasState();
-        }
-        m_element_processor = std::make_shared<aperi::ElementForceProcessor<2, false>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
+
+        // Create the compute force functor
+        assert(this->m_material != nullptr);
+        assert(m_shape_functions_functor != nullptr);
+        assert(m_integration_functor != nullptr);
+
+        // Create the element node processor
+        m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<HEX8_NUM_NODES>>(m_mesh_data, m_part_names);
+
+        // Create the compute force functor
+        // TODO(jake) Passing in the base class StressFunctor. This likely causes polymorphism vtable lookups, but avoids bloating with all Material / Element classes.
+        // Leaving as is for now. My need to rethink how this is done in the Material class. Use a function pointer to get stress?
+        m_compute_force = std::make_shared<aperi::ComputeForce<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
     }
 
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+
         // Functor for computing shape function derivatives
         size_t compute_shape_function_derivatives_functor_size = sizeof(ShapeFunctionsFunctorHex8);
         auto compute_shape_function_derivatives_functor = (ShapeFunctionsFunctorHex8 *)Kokkos::kokkos_malloc(compute_shape_function_derivatives_functor_size);
@@ -117,28 +133,46 @@ class ElementHexahedron8 : public ElementBase {
     }
 
     /**
+     * @brief Computes the volume of all elements.
+     *
+     */
+    void ComputeElementVolume() {
+        // Create a scoped timer
+        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+
+        // Check that the functors are created
+        assert(m_element_node_processor != nullptr);
+        assert(m_shape_functions_functor != nullptr);
+        assert(m_integration_functor != nullptr);
+
+        // Functor for computing the element volume
+        auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
+
+        // Loop over all elements and compute the internal force
+        m_element_node_processor->for_each_element_and_nodes(compute_volume_functor);
+    }
+
+    /**
      * @brief Computes the internal force of all elements.
      *
      */
     void ComputeInternalForceAllElements(double time_increment) override {
-        assert(this->m_material != nullptr);
-        assert(m_element_processor != nullptr);
-        assert(m_integration_functor != nullptr);
-
-        // Create the compute force functor
-        ComputeInternalForceFromIntegrationPointFunctor<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor> compute_force_functor(*m_shape_functions_functor, *m_integration_functor, *this->m_material->GetStressFunctor());
-
+        assert(m_element_node_processor != nullptr);
+        assert(m_compute_force != nullptr);
+        m_compute_force->UpdateFields();  // Updates the ngp fields
+        m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_element_gather_scatter_nodal_data<HEX8_NUM_NODES>(compute_force_functor);
+        m_element_node_processor->for_each_element_and_nodes(*m_compute_force);
     }
 
    private:
     ShapeFunctionsFunctorHex8 *m_shape_functions_functor;
     Quadrature<8, HEX8_NUM_NODES> *m_integration_functor;
+    std::shared_ptr<aperi::ElementNodeProcessor<HEX8_NUM_NODES>> m_element_node_processor;                                                                    // The element node processor.
+    std::shared_ptr<aperi::ComputeForce<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>> m_compute_force;  // The compute force functor.
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementForceProcessor<2, false>> m_element_processor;
 };
 
 }  // namespace aperi

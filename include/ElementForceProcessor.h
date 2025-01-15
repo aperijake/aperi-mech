@@ -29,7 +29,7 @@ namespace aperi {
  * This class provides functionality to process elements in a mesh.
  * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
  */
-template <size_t NumFields, bool UsePrecomputedDerivatives = false>
+template <size_t NumFields>
 class ElementForceProcessor {
     typedef stk::mesh::Field<double> DoubleField;
     typedef stk::mesh::NgpField<double> NgpDoubleField;
@@ -77,125 +77,17 @@ class ElementForceProcessor {
         m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
 
-        if constexpr (UsePrecomputedDerivatives) {
-            // Get the function derivatives fields
-            std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
-            for (size_t i = 0; i < 3; ++i) {
-                m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-                m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
-            }
+        // Get the function derivatives fields
+        std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
+        for (size_t i = 0; i < 3; ++i) {
+            m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+            m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
         }
-    }
-
-    // Compute the element volume
-    template <size_t NumNodes, typename Func>
-    void ComputeElementVolume(size_t coordinate_field_index, Func func) {
-        // If using precomputed derivatives, the element volume is already computed
-        if (UsePrecomputedDerivatives) {
-            return;
-        }
-
-        auto ngp_mesh = m_ngp_mesh;
-        auto ngp_element_volume = *m_ngp_element_volume;
-
-        // Get the ngp fields
-        auto ngp_coordinates_field = *m_ngp_fields_to_gather[coordinate_field_index];
-
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the neighbors
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                size_t num_nodes = nodes.size();
-
-                // Set up the field data to gather
-                Eigen::Matrix<double, NumNodes, 3> coordinate_field_data = Eigen::Matrix<double, NumNodes, 3>::Zero();
-
-                // Gather the field data for each node
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
-                        coordinate_field_data(i, j) = ngp_coordinates_field(ngp_mesh.fast_mesh_index(nodes[i]), j);
-                    }
-                }
-
-                // Apply the function to compute the element volume
-                double element_volume;
-                func.ComputeElementVolume(coordinate_field_data, element_volume);
-
-                // Store the computed volume to the field
-                ngp_element_volume(elem_index)[0] = element_volume;
-            });
-        // Sync the element volume field to the host
-        m_ngp_element_volume->modify_on_device();
-        m_ngp_element_volume->sync_to_host();
     }
 
     // Loop over each element and apply the function
     template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data_not_precomputed(Func func) {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
-        for (size_t i = 0; i < NumFields; ++i) {
-            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
-        }
-        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
-
-        bool has_state = m_has_state;
-
-        // Get the state fields
-        NgpDoubleField ngp_state_old;
-        NgpDoubleField ngp_state_new;
-        if (has_state) {
-            ngp_state_old = *m_ngp_state_old;
-            ngp_state_new = *m_ngp_state_new;
-        }
-
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element's nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                // assert(nodes.size() == NumNodes);
-                size_t num_nodes = nodes.size();
-
-                // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, NumNodes, 3>, NumFields> field_data_to_gather = {};
-
-                // Set up the results matrix
-                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
-
-                // Gather the field data for each node
-                for (size_t f = 0; f < NumFields; ++f) {
-                    for (size_t i = 0; i < num_nodes; ++i) {
-                        for (size_t j = 0; j < 3; ++j) {
-                            field_data_to_gather[f](i, j) = ngp_fields_to_gather[f](ngp_mesh.fast_mesh_index(nodes[i]), j);
-                        }
-                    }
-                }
-
-                // Get the state fields
-                const double *state_old = has_state ? &ngp_state_old(elem_index, 0) : nullptr;
-                double *state_new = has_state ? &ngp_state_new(elem_index, 0) : nullptr;
-                size_t state_bucket_size = 1;
-
-                // Apply the function to the gathered data
-                func(field_data_to_gather, results_to_scatter, num_nodes, state_old, state_new, state_bucket_size);
-
-                // Scatter the force to the nodes
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    for (size_t j = 0; j < 3; ++j) {
-                        Kokkos::atomic_add(&ngp_field_to_scatter(ngp_mesh.fast_mesh_index(nodes[i]), j), results_to_scatter(i, j));
-                    }
-                }
-            });
-    }
-
-    // Loop over each element and apply the function
-    template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data_precomputed(Func func) {
+    void for_each_element_gather_scatter_nodal_data(Func func) {
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
@@ -227,23 +119,18 @@ class ElementForceProcessor {
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the neighbors
-                // Kokkos::Profiling::pushRegion("get_neighbors");
                 stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
                 size_t num_nodes = nodes.size();
-                // Kokkos::Profiling::popRegion();
 
                 // Build the B matrix
-                // Kokkos::Profiling::pushRegion("build_B");
                 Eigen::Matrix<double, NumNodes, 3> B;
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
                         B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, i);
                     }
                 }
-                // Kokkos::Profiling::popRegion();
 
                 // Set up the field data to gather
-                // Kokkos::Profiling::pushRegion("gather_data");
                 Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
 
                 // Set up the results matrix
@@ -260,12 +147,9 @@ class ElementForceProcessor {
                         }
                     }
                 }
-                // Kokkos::Profiling::popRegion();
 
                 // Get the element volume
-                // Kokkos::Profiling::pushRegion("get_volume");
                 double element_volume = ngp_element_volume(elem_index, 0);
-                // Kokkos::Profiling::popRegion();
 
                 // Get the state fields
                 const double *state_old = has_state ? &ngp_state_old(elem_index, 0) : nullptr;
@@ -273,30 +157,16 @@ class ElementForceProcessor {
                 size_t state_bucket_size = 1;
 
                 // Apply the function to the gathered data
-                // Kokkos::Profiling::pushRegion("apply_function");
                 func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes, state_old, state_new, state_bucket_size);
-                // Kokkos::Profiling::popRegion();
 
                 // Scatter the force to the nodes
-                // Kokkos::Profiling::pushRegion("scatter_data");
                 for (size_t j = 0; j < 3; ++j) {
                     for (size_t i = 0; i < num_nodes; ++i) {
                         stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
                         Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), results_to_scatter(i, j));
                     }
                 }
-                // Kokkos::Profiling::popRegion();
             });
-    }
-
-    // Loop over each element and apply the function
-    template <size_t NumCellNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data(Func func) {
-        if constexpr (UsePrecomputedDerivatives) {
-            for_each_element_gather_scatter_nodal_data_precomputed<NumCellNodes, Func>(func);
-        } else {
-            for_each_element_gather_scatter_nodal_data_not_precomputed<NumCellNodes, Func>(func);
-        }
     }
 
     template <typename StressFunctor>
