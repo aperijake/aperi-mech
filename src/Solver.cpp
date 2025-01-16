@@ -126,7 +126,9 @@ void ExplicitSolver::WriteOutput(double time) {
         UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
-    m_node_processor_output->SyncAllFieldsDeviceToHost();
+    for (auto &field : m_temporal_varying_output_fields) {
+        field.SyncDeviceToHost();
+    }
     m_io_mesh->WriteFieldResults(time);
 }
 

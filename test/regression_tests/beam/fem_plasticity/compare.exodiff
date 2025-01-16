@@ -3,14 +3,14 @@
 #             EXODIFF	(Version: 3.33) Modified: 2024-03-13
 #             Authors:  Richard Drake, rrdrake@sandia.gov           
 #                       Greg Sjaardema, gdsjaar@sandia.gov          
-#             Run on    2024/11/17   20:46:53 MST
+#             Run on    2025/01/16   01:35:58 UTC
 #  *****************************************************************
 
-#  FILE 1: /Users/jake/projects/aperi-mech/test/regression_tests/beam/fem_plasticity/gold_results.exo
+#  FILE 1: /home/aperi-mech_docker/aperi-mech/test/regression_tests/beam/fem_plasticity/gold_results.exo
 #   Title: IOSS Default Output Title
 #          Dim = 3, Nodes = 20, Elements = 24, Faces = 0, Edges = 0
 #          Element Blocks = 1, Face Blocks = 0, Edge Blocks = 0, Nodesets = 6, Sidesets = 0, Assemblies = 0
-#    Vars: Global = 0, Nodal = 32, Element = 6, Face = 0, Edge = 0, Nodeset = 0, Sideset = 0, Times = 2
+#    Vars: Global = 0, Nodal = 23, Element = 24, Face = 0, Edge = 0, Nodeset = 0, Sideset = 0, Times = 2
 
 
 # ==============================================================
@@ -28,32 +28,51 @@ TIME STEPS relative 1.e-6 floor 0.0     # min:               0 @ t1 max:        
 # No GLOBAL VARIABLES
 
 NODAL VARIABLES relative 1.e-6 floor 0.0
-	DISPLACEMENT_X              # min:               0 @ t1,n1	max:      0.35139749 @ t2,n2
-	DISPLACEMENT_Y              # min:               0 @ t1,n1	max:      0.27529558 @ t2,n3
-	DISPLACEMENT_Z              # min:               0 @ t1,n1	max:        1.500044 @ t2,n1
-	ACCELERATION_X              # min:               0 @ t1,n1	max:       2.5068004 @ t2,n2
-	ACCELERATION_Y              # min:               0 @ t1,n1	max:       1.3525476 @ t2,n8
-	ACCELERATION_Z              # min:               0 @ t1,n1	max:        1.928875 @ t2,n12
-	ACTIVE                      # min:               1 @ t1,n1	max:               1 @ t1,n1
-	ESSENTIAL_BOUNDARY_X        # min:               0 @ t1,n1	max:               1 @ t1,n3
-	ESSENTIAL_BOUNDARY_Y        # min:               0 @ t1,n2	max:               1 @ t1,n1
-	ESSENTIAL_BOUNDARY_Z        # min:               0 @ t1,n9	max:               1 @ t1,n1
-	FORCE_X        # min:               0 @ t1,n1	max:   5.1746074e-05 @ t2,n3
-	FORCE_Y        # min:               0 @ t1,n1	max:   4.2691205e-05 @ t2,n19
-	FORCE_Z        # min:               0 @ t1,n1	max:   0.00047589752 @ t2,n1
-	MASS_X                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MASS_Y                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MASS_Z                      # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MASS_FROM_ELEMENTS_X        # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MASS_FROM_ELEMENTS_Y        # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MASS_FROM_ELEMENTS_Z        # min:   4.1666667e-06 @ t1,n4	max:   4.1666667e-05 @ t1,n9
-	MAX_EDGE_LENGTH             # min:               1 @ t1,n4	max:       1.7320508 @ t1,n1
-	VELOCITY_X                  # min:               0 @ t1,n1	max:      0.63134461 @ t2,n2
-	VELOCITY_Y                  # min:               0 @ t1,n1	max:      0.61634031 @ t2,n3
-	VELOCITY_Z                  # min:               0 @ t1,n1	max:       2.8123891 @ t2,n1
+	DISPLACEMENT_X            # min:               0 @ t1,n5	max:      0.35139749 @ t2,n2
+	DISPLACEMENT_Y            # min:               0 @ t1,n5	max:      0.27529558 @ t2,n3
+	DISPLACEMENT_Z            # min:               0 @ t1,n5	max:        1.500044 @ t2,n1
+	ACCELERATION_X            # min:               0 @ t1,n5	max:       2.5068004 @ t2,n2
+	ACCELERATION_Y            # min:               0 @ t1,n5	max:       1.3525476 @ t2,n8
+	ACCELERATION_Z            # min:               0 @ t1,n5	max:        1.928875 @ t2,n12
+	ACTIVE                    # min:               1 @ t1,n5	max:               1 @ t1,n5
+	ESSENTIAL_BOUNDARY_X      # min:               0 @ t1,n5	max:               1 @ t1,n7
+	ESSENTIAL_BOUNDARY_Y      # min:               0 @ t1,n5	max:               1 @ t1,n6
+	ESSENTIAL_BOUNDARY_Z      # min:               0 @ t1,n11	max:               1 @ t1,n5
+	FORCE_X                   # min:               0 @ t1,n5	max:   5.1746074e-05 @ t2,n3
+	FORCE_Y                   # min:               0 @ t1,n5	max:   4.2691205e-05 @ t2,n19
+	FORCE_Z                   # min:               0 @ t1,n5	max:   0.00047589752 @ t2,n1
+	MASS_X                    # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MASS_Y                    # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MASS_Z                    # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MASS_FROM_ELEMENTS_X      # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MASS_FROM_ELEMENTS_Y      # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MASS_FROM_ELEMENTS_Z      # min:   4.1666667e-06 @ t1,n8	max:   4.1666667e-05 @ t1,n9
+	MAX_EDGE_LENGTH           # min:               1 @ t1,n8	max:       1.7320508 @ t1,n5
+	VELOCITY_X                # min:               0 @ t1,n5	max:      0.63134461 @ t2,n2
+	VELOCITY_Y                # min:               0 @ t1,n5	max:      0.61634031 @ t2,n3
+	VELOCITY_Z                # min:               0 @ t1,n5	max:       2.8123891 @ t2,n1
 
-# ELEMENT VARIABLES relative 1.e-6 floor 0.0
-	# STATE                       # min:               0 @ t1,b1,e1	max:       3.5399549 @ t2,b1,e2
+ELEMENT VARIABLES relative 1.e-6 floor 0.0
+	DISPLACEMENT_GRADIENT_1   # min:               0 @ t1,b1,e19	max:      0.35139749 @ t2,b1,e6
+	DISPLACEMENT_GRADIENT_2   # min:               0 @ t1,b1,e19	max:     0.024510954 @ t2,b1,e5
+	DISPLACEMENT_GRADIENT_3   # min:               0 @ t1,b1,e19	max:      0.13437289 @ t2,b1,e11
+	DISPLACEMENT_GRADIENT_4   # min:               0 @ t1,b1,e19	max:     0.072518831 @ t2,b1,e6
+	DISPLACEMENT_GRADIENT_5   # min:               0 @ t1,b1,e19	max:      0.27529558 @ t2,b1,e2
+	DISPLACEMENT_GRADIENT_6   # min:               0 @ t1,b1,e19	max:      0.11404264 @ t2,b1,e10
+	DISPLACEMENT_GRADIENT_7   # min:               0 @ t1,b1,e19	max:      0.13301544 @ t2,b1,e9
+	DISPLACEMENT_GRADIENT_8   # min:               0 @ t1,b1,e19	max:     0.064659983 @ t2,b1,e12
+	DISPLACEMENT_GRADIENT_9   # min:               0 @ t1,b1,e19	max:      0.65719172 @ t2,b1,e2
+	PK1_STRESS_1              # min:               0 @ t1,b1,e19	max:   0.00015106218 @ t2,b1,e6
+	PK1_STRESS_2              # min:               0 @ t1,b1,e19	max:   3.5715027e-05 @ t2,b1,e1
+	PK1_STRESS_3              # min:               0 @ t1,b1,e19	max:   4.1531734e-05 @ t2,b1,e1
+	PK1_STRESS_4              # min:               0 @ t1,b1,e19	max:   3.5715027e-05 @ t2,b1,e1
+	PK1_STRESS_5              # min:               0 @ t1,b1,e19	max:   0.00026665497 @ t2,b1,e10
+	PK1_STRESS_6              # min:               0 @ t1,b1,e19	max:   6.1874881e-05 @ t2,b1,e10
+	PK1_STRESS_7              # min:               0 @ t1,b1,e19	max:   4.1531734e-05 @ t2,b1,e1
+	PK1_STRESS_8              # min:               0 @ t1,b1,e19	max:   6.1874881e-05 @ t2,b1,e10
+	PK1_STRESS_9              # min:               0 @ t1,b1,e19	max:    0.0014126326 @ t2,b1,e4
+	STATE                     # min:               0 @ t1,b1,e19	max:       3.5399549 @ t2,b1,e2
+	VOLUME                    # min:      0.16666667 @ t1,b1,e19	max:      0.16666667 @ t1,b1,e19
 
 # No NODESET VARIABLES
 

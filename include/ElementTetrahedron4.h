@@ -158,6 +158,7 @@ class ElementTetrahedron4 : public ElementBase {
         m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
         m_element_node_processor->for_each_element_and_nodes(*m_compute_force);
+        m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
    private:
