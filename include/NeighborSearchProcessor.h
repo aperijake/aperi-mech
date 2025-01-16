@@ -461,6 +461,8 @@ class NeighborSearchProcessor {
             });
         m_ngp_node_num_neighbors_field->clear_sync_state();
         m_ngp_node_num_neighbors_field->modify_on_device();
+        m_ngp_node_neighbors_field->clear_sync_state();
+        m_ngp_node_neighbors_field->modify_on_device();
         if (set_first_function_value_to_one) {
             m_ngp_node_function_values_field->clear_sync_state();
             m_ngp_node_function_values_field->modify_on_device();
