@@ -81,6 +81,16 @@ struct ComputeForce {
         }
     }
 
+    void MarkFieldsModifiedOnDevice() {
+        // Mark the fields as modified
+        m_force_field.MarkModifiedOnDevice();
+        m_displacement_gradient_np1_field.MarkModifiedOnDevice();
+        m_pk1_stress_field.MarkModifiedOnDevice();
+        if (m_has_state) {
+            m_state_np1_field.MarkModifiedOnDevice();
+        }
+    }
+
     /**
      * @brief Compute the velocity gradient.
      * @param elem_index The element index.

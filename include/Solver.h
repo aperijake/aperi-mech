@@ -203,7 +203,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names_map);
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
-        m_node_processor_output = CreateNodeProcessorOutput();
         if (m_uses_generalized_fields) {
             m_node_processor_force_local = CreateNodeProcessorForceLocal();
         }
@@ -211,14 +210,19 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
 
     ~ExplicitSolver() {}
 
-    // Create node processor for all fields to make syncing easier
-    std::shared_ptr<ActiveNodeProcessor<4>> CreateNodeProcessorOutput() {
-        std::array<FieldQueryData<double>, 4> field_query_data_vec;
-        field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
-        field_query_data_vec[1] = {"displacement_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[2] = {"velocity_coefficients", FieldQueryState::NP1};
-        field_query_data_vec[3] = {"acceleration_coefficients", FieldQueryState::NP1};
-        return std::make_shared<ActiveNodeProcessor<4>>(field_query_data_vec, mp_mesh_data);
+    // Set the temporal varying output fields
+    void SetTemporalVaryingOutputFields() {
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"force_coefficients", FieldQueryState::None, FieldDataTopologyRank::NODE}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"velocity_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"acceleration_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}));
+
+        std::shared_ptr<aperi::Field<double>> state_field_ptr = aperi::GetField<double>(mp_mesh_data, aperi::FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+        if (state_field_ptr != nullptr) {
+            m_temporal_varying_output_fields.push_back(*state_field_ptr);
+        }
     }
 
     // Create a node processor for force
@@ -276,7 +280,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
 
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
-    std::shared_ptr<ActiveNodeProcessor<4>> m_node_processor_output;
+    std::vector<aperi::Field<double>> m_temporal_varying_output_fields;
 
     /**
      * @brief Writes the output.

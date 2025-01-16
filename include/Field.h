@@ -339,4 +339,13 @@ class Field {
     stk::mesh::NgpField<T> m_ngp_field;            // The ngp field object.
 };
 
+// Get a field if it exists
+template <typename T>
+std::shared_ptr<aperi::Field<T>> GetField(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data) {
+    if (mesh_data == nullptr || !StkFieldExists(field_query_data, mesh_data->GetMetaData())) {
+        return nullptr;
+    }
+    return std::make_shared<aperi::Field<T>>(mesh_data, field_query_data);
+}
+
 }  // namespace aperi

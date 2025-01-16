@@ -62,7 +62,7 @@ class ElementReproducingKernel : public ElementBase {
         if (m_material) {
             has_state = m_material->HasState();
         }
-        m_element_processor = std::make_shared<ElementForceProcessor<1, true>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
+        m_element_processor = std::make_shared<ElementForceProcessor<1>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
     }
 
     void FindNeighbors() {
@@ -132,7 +132,7 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
-    std::shared_ptr<aperi::ElementForceProcessor<1, true>> m_element_processor;
+    std::shared_ptr<aperi::ElementForceProcessor<1>> m_element_processor;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     bool m_use_one_pass_method;
 };
