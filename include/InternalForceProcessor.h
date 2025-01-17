@@ -127,8 +127,8 @@ struct ComputeForce {
         // Get the number of state variables
         const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
 
-        // Get the component stride
-        const size_t component_stride = m_has_state ? m_state_np1_field.GetStride() : 0;
+        // Get the stride
+        const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
 
         // Default Stride for a 3x3 matrix
         const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
@@ -151,7 +151,7 @@ struct ComputeForce {
             // Get the pk1 stress map
             auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
 
-            Eigen::InnerStride<Eigen::Dynamic> state_stride(component_stride);
+            Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
             const auto state_n_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
             auto state_np1_map = m_has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 

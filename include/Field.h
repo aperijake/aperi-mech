@@ -173,7 +173,7 @@ class Field {
      * @brief Gather the field data for the entity and return it as a strided Eigen::Map.
      * @param index The index of the entity
      * @param size The size of the vector
-     * @return An Eigen::Map to the field data.
+     * @return An Eigen::Map<Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
      */
     KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size) {
         const unsigned component_stride = m_ngp_field.get_component_stride();
@@ -188,6 +188,18 @@ class Field {
      * @return An Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
      */
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size) const {
+        const unsigned component_stride = m_ngp_field.get_component_stride();
+        Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
+        return Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
+    }
+
+    /**
+     * @brief Gather the field data for the entity and return it as a const strided Eigen::Map.
+     * @param index The index of the entity
+     * @param size The size of the vector
+     * @return An Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
+     */
+    KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size) const {
         const unsigned component_stride = m_ngp_field.get_component_stride();
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);

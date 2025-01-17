@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "ComputeInternalForceFunctors.h"
 #include "Constants.h"
 #include "ElementBase.h"
 #include "ElementForceProcessor.h"
@@ -57,12 +56,11 @@ class ElementReproducingKernel : public ElementBase {
 
         // Create the element processor
         std::string force_field_name = m_use_one_pass_method ? "force_coefficients" : "force";
-        const FieldQueryData<double> field_query_data_scatter = {force_field_name, FieldQueryState::None};
         bool has_state = false;
         if (m_material) {
             has_state = m_material->HasState();
         }
-        m_element_processor = std::make_shared<ElementForceProcessor<1>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
+        m_element_processor = std::make_shared<ElementForceProcessor<1>>(m_mesh_data, m_field_query_data_gather[0].name, force_field_name, m_part_names, has_state);
     }
 
     void FindNeighbors() {
@@ -111,11 +109,9 @@ class ElementReproducingKernel : public ElementBase {
         assert(this->m_material != nullptr);
         assert(m_element_processor != nullptr);
 
-        // Create the compute stress functor
-        ComputeStressOnSmoothingCellFunctor<Material::StressFunctor> compute_stress_functor(*this->m_material->GetStressFunctor());
-
         // Loop over all elements and compute the internal force
-        m_element_processor->for_each_cell_gather_scatter_nodal_data(*m_smoothed_cell_data, compute_stress_functor);
+        m_element_processor->UpdateFields();  // Updates the ngp fields
+        m_element_processor->for_each_cell_gather_scatter_nodal_data<Material::StressFunctor>(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
     }
 
     /**

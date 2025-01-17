@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "ComputeElementVolumeFunctor.h"
-#include "ComputeInternalForceFunctors.h"
 #include "ElementBase.h"
 #include "Field.h"
 #include "FieldData.h"
