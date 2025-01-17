@@ -64,7 +64,8 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
 
     // Loop over the displacement gradients in a Kokkos parallel_for, but do it serially so the state history is correct
     Kokkos::parallel_for(
-        "CalculateStress", Kokkos::RangePolicy<Kokkos::Serial>(0, displacement_gradients.size()), KOKKOS_LAMBDA(const size_t i) {
+        "CalculateStress", Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(displacement_gradients.size(), 1, 1), KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
+        const int i = team.league_rank();
 
         auto stress_output_type = stress_output_type_view(0);
 
