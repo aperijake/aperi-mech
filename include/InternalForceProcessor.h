@@ -128,7 +128,7 @@ struct ComputeForce {
         const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
 
         // Get the component stride
-        const size_t component_stride = m_has_state ? num_state_variables : 0;
+        const size_t component_stride = m_has_state ? m_state_np1_field.GetStride() : 0;
 
         // Default Stride for a 3x3 matrix
         const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
