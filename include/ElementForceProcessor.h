@@ -72,101 +72,6 @@ class ElementForceProcessor {
             m_state_new = StkGetField(FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}, meta_data);
             m_ngp_state_new = &stk::mesh::get_updated_ngp_field<double>(*m_state_new);
         }
-
-        // Get the element volume field
-        m_element_volume = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_element_volume = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume);
-
-        // Get the function derivatives fields
-        std::vector<std::string> element_function_derivatives_field_names = {"function_derivatives_x", "function_derivatives_y", "function_derivatives_z"};
-        for (size_t i = 0; i < 3; ++i) {
-            m_element_function_derivatives_fields[i] = StkGetField(FieldQueryData<double>{element_function_derivatives_field_names[i], FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-            m_ngp_element_function_derivatives_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_element_function_derivatives_fields[i]);
-        }
-    }
-
-    // Loop over each element and apply the function
-    template <size_t NumNodes, typename Func>
-    void for_each_element_gather_scatter_nodal_data(Func func) {
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_fields_to_gather;
-        for (size_t i = 0; i < NumFields; ++i) {
-            ngp_fields_to_gather[i] = *m_ngp_fields_to_gather[i];
-        }
-
-        auto ngp_field_to_scatter = *m_ngp_field_to_scatter;
-
-        auto ngp_element_volume = *m_ngp_element_volume;
-
-        Kokkos::Array<NgpDoubleField, 3> ngp_element_function_derivatives_fields;
-        for (size_t i = 0; i < 3; ++i) {
-            ngp_element_function_derivatives_fields[i] = *m_ngp_element_function_derivatives_fields[i];
-        }
-
-        bool has_state = m_has_state;
-
-        // Get the state fields
-        NgpDoubleField ngp_state_old;
-        NgpDoubleField ngp_state_new;
-        if (has_state) {
-            ngp_state_old = *m_ngp_state_old;
-            ngp_state_new = *m_ngp_state_new;
-        }
-
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the neighbors
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                size_t num_nodes = nodes.size();
-
-                // Build the B matrix
-                Eigen::Matrix<double, NumNodes, 3> B;
-                for (size_t j = 0; j < 3; ++j) {
-                    for (size_t i = 0; i < num_nodes; ++i) {
-                        B(i, j) = ngp_element_function_derivatives_fields[j](elem_index, i);
-                    }
-                }
-
-                // Set up the field data to gather
-                Kokkos::Array<Eigen::Matrix<double, 3, 3>, NumFields> field_data_to_gather_gradient;
-
-                // Set up the results matrix
-                Eigen::Matrix<double, NumNodes, 3> results_to_scatter;
-
-                // Gather the field data for each node
-                for (size_t f = 0; f < NumFields; ++f) {
-                    field_data_to_gather_gradient[f].fill(0.0);
-                    for (size_t i = 0; i < 3; ++i) {
-                        for (size_t k = 0; k < num_nodes; ++k) {
-                            stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[k]);
-                            double field_data_ki = ngp_fields_to_gather[f](node_index, i);
-                            field_data_to_gather_gradient[f].row(i) += field_data_ki * B.row(k);
-                        }
-                    }
-                }
-
-                // Get the element volume
-                double element_volume = ngp_element_volume(elem_index, 0);
-
-                // Get the state fields
-                const double *state_old = has_state ? &ngp_state_old(elem_index, 0) : nullptr;
-                double *state_new = has_state ? &ngp_state_new(elem_index, 0) : nullptr;
-                size_t state_bucket_size = 1;
-
-                // Apply the function to the gathered data
-                func(field_data_to_gather_gradient, results_to_scatter, B, element_volume, num_nodes, state_old, state_new, state_bucket_size);
-
-                // Scatter the force to the nodes
-                for (size_t j = 0; j < 3; ++j) {
-                    for (size_t i = 0; i < num_nodes; ++i) {
-                        stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
-                        Kokkos::atomic_add(&ngp_field_to_scatter(node_index, j), results_to_scatter(i, j));
-                    }
-                }
-            });
     }
 
     template <typename StressFunctor>
@@ -267,45 +172,23 @@ class ElementForceProcessor {
             });
     }
 
-    // Get the sum of the field to scatter
-    double GetFieldToScatterSum() {
-        double field_to_scatter_sum = 0.0;
-        stk::mesh::field_asum(field_to_scatter_sum, *m_field_to_scatter, m_owned_selector, m_bulk_data->parallel());
-        return field_to_scatter_sum;
-    }
-
-    double GetNumElements() {
-        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
-    }
-
-    std::shared_ptr<aperi::MeshData> GetMeshData() {
-        return m_mesh_data;
-    }
-
-    std::vector<std::string> GetSets() {
-        return m_sets;
-    }
-
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                                  // The mesh data object.
-    std::vector<std::string> m_sets;                                               // The sets to process.
-    bool m_has_state;                                                              // Whether the material has state
-    stk::mesh::BulkData *m_bulk_data;                                              // The bulk data object.
-    stk::mesh::Selector m_selector;                                                // The selector
-    stk::mesh::Selector m_owned_selector;                                          // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
-    std::array<DoubleField *, NumFields> m_fields_to_gather;                       // The fields to gather
-    DoubleField *m_field_to_scatter;                                               // The field to scatter
-    DoubleField *m_element_volume;                                                 // The element volume field
-    DoubleField *m_state_new;                                                      // The state field
-    DoubleField *m_state_old;                                                      // The state field
-    std::array<DoubleField *, 3> m_element_function_derivatives_fields;            // The function derivatives fields
-    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;             // The ngp fields to gather
-    NgpDoubleField *m_ngp_field_to_scatter;                                        // The ngp field to scatter
-    NgpDoubleField *m_ngp_element_volume;                                          // The ngp element volume field
-    NgpDoubleField *m_ngp_state_new;                                               // The ngp state field
-    NgpDoubleField *m_ngp_state_old;                                               // The ngp state field
-    Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                        // The mesh data object.
+    std::vector<std::string> m_sets;                                     // The sets to process.
+    bool m_has_state;                                                    // Whether the material has state
+    stk::mesh::BulkData *m_bulk_data;                                    // The bulk data object.
+    stk::mesh::Selector m_selector;                                      // The selector
+    stk::mesh::Selector m_owned_selector;                                // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;                                       // The ngp mesh object.
+    std::array<DoubleField *, NumFields> m_fields_to_gather;             // The fields to gather
+    DoubleField *m_field_to_scatter;                                     // The field to scatter
+    DoubleField *m_state_new;                                            // The state field
+    DoubleField *m_state_old;                                            // The state field
+    std::array<DoubleField *, 3> m_element_function_derivatives_fields;  // The function derivatives fields
+    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_fields_to_gather;   // The ngp fields to gather
+    NgpDoubleField *m_ngp_field_to_scatter;                              // The ngp field to scatter
+    NgpDoubleField *m_ngp_state_new;                                     // The ngp state field
+    NgpDoubleField *m_ngp_state_old;                                     // The ngp state field
 };
 
 }  // namespace aperi

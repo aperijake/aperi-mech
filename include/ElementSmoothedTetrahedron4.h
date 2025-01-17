@@ -59,7 +59,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     void FindNeighbors() {
         assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names);
         bool set_first_function_value_to_one = true;
         search_processor.add_nodes_ring_0_nodes(set_first_function_value_to_one);
         search_processor.SyncFieldsToHost();  // Just needed for output
@@ -79,7 +79,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
             });
 
         // Build the smoothed cell data
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, true);
@@ -113,13 +113,9 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         assert(this->m_material != nullptr);
         assert(m_element_processor != nullptr);
 
-        // Create the compute force functor
-        // ComputeInternalForceFromSmoothingCellFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
         // Create the compute stress functor
         ComputeStressOnSmoothingCellFunctor<Material::StressFunctor> compute_stress_functor(*this->m_material->GetStressFunctor());
 
-        // Loop over all elements and compute the internal force
-        // m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
         // Loop over all elements and compute the internal force
         m_element_processor->for_each_cell_gather_scatter_nodal_data(*m_smoothed_cell_data, compute_stress_functor);
     }
