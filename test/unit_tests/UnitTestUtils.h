@@ -62,6 +62,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     bool found_at_least_one_entity = false;
 
@@ -92,6 +93,7 @@ Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     // Get the sum of the field values
     size_t num_components = 0;
@@ -126,6 +128,7 @@ void CheckEntityFieldValueCount(const aperi::MeshData& mesh_data, const std::vec
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     std::vector<int> actual_count(expected_values.size(), 0);
 
@@ -169,6 +172,7 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 2, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     bool found_at_least_one_entity = false;
 
@@ -195,6 +199,7 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     bool found_at_least_one_entity = false;
 
@@ -233,6 +238,7 @@ void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     // Get the sum of the field values
     size_t num_components = 0;
@@ -278,6 +284,7 @@ void CheckEntityFieldPatchValues(const aperi::MeshData& mesh_data, const std::st
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<Rank, 2, double> entity_processor(field_query_data_array, mesh_data_ptr);
+    entity_processor.SyncAllFieldsDeviceToHost();
 
     bool found_at_least_one_entity = false;
 

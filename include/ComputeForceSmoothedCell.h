@@ -107,9 +107,6 @@ class ComputeForceSmoothedCell {
         // Get the number of cells
         const size_t num_cells = scd.NumCells();
 
-        // Get the number of state variables
-        const size_t num_state_variables = m_has_state ? stress_functor->NumberOfStateVariables() : 0;
-
         // Get the stride
         const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
 
@@ -151,6 +148,9 @@ class ComputeForceSmoothedCell {
                 }
                 m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_np1);
                 const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+
+                // Get the number of state variables
+                const size_t num_state_variables = m_has_state ? stress_functor->NumberOfStateVariables() : 0;
 
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
                 const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
