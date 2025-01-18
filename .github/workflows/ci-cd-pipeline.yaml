@@ -104,8 +104,8 @@ jobs:
 
             echo "Checking out appropriate branch..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
-              git fetch origin ${{ github.sha }}
-              git checkout ${{ github.sha }}
+              git fetch origin pull/${{ github.event.pull_request.number }}/head:pr_branch
+              git checkout pr_branch
             elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
               git checkout main
             else
