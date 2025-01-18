@@ -116,11 +116,13 @@ class ComputeForceSmoothedCell {
         // Default Stride for a 3x3 matrix
         const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
 
+        // Get the boolean values
         bool has_state = m_has_state;
+        bool needs_velocity_gradient = m_needs_velocity_gradient;
 
         // Loop over all the cells
         Kokkos::parallel_for(
-            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                 // Create a map around the state_old and state_new pointers
                 const auto element_local_offsets = scd.GetCellElementLocalOffsets(cell_id);
                 const stk::mesh::Entity element(element_local_offsets[0]);
@@ -129,29 +131,23 @@ class ComputeForceSmoothedCell {
                 // Set up the field data to gather
                 Eigen::Matrix<double, 3, 3> displacement_gradient_np1 = Eigen::Matrix<double, 3, 3>::Zero();
 
+                // Get the node local offsets and function derivatives
                 const auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
                 const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
 
                 const size_t num_nodes = node_local_offsets.extent(0);
 
-                // Pre-allocation for the function derivatives
-                Eigen::Matrix<double, 1, 3> function_derivatives;
-
                 // Compute the field gradients
                 for (size_t k = 0; k < num_nodes; ++k) {
                     // Populate the function derivatives
-                    const size_t derivative_offset = k * 3;
-                    for (size_t j = 0; j < 3; ++j) {
-                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
-                    }
+                    Eigen::Map<const Eigen::Matrix<double, 1, 3>> function_derivatives_map(&node_function_derivatives(k * 3));
 
                     // Add the field gradient
                     const stk::mesh::Entity node(node_local_offsets[k]);
-                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    const aperi::Index ni(node_index);
-                    const auto displacement_np1 = m_displacement_np1_field.GetConstEigenVectorMap(ni, 3);
+                    const aperi::Index node_index(ngp_mesh.fast_mesh_index(node));
+                    const auto displacement_np1 = m_displacement_np1_field.GetConstEigenVectorMap<3>(node_index);
                     // Perform the matrix multiplication for field_data_to_gather_gradient
-                    displacement_gradient_np1 += displacement_np1 * function_derivatives;
+                    displacement_gradient_np1 += displacement_np1 * function_derivatives_map;
                 }
                 m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_np1);
                 const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
@@ -161,7 +157,7 @@ class ComputeForceSmoothedCell {
                 auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Compute the velocity gradient if needed
-                const auto velocity_gradient_map = m_needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
+                const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
                 // Compute the stress and internal force of the element.
                 double volume = scd.GetCellVolume(cell_id);
@@ -179,20 +175,16 @@ class ComputeForceSmoothedCell {
                 // Scatter the force to the nodes
                 for (size_t k = 0; k < num_nodes; ++k) {
                     // Populate the function derivatives
-                    const size_t derivative_offset = k * 3;
-                    for (size_t j = 0; j < 3; ++j) {
-                        function_derivatives(j) = node_function_derivatives(derivative_offset + j);
-                    }
+                    Eigen::Map<const Eigen::Matrix<double, 1, 3>> function_derivatives_map(&node_function_derivatives(k * 3));
 
                     // Calculate the force
-                    const Eigen::Matrix<double, 1, 3> force = function_derivatives * pk1_stress_transpose_neg_volume;
+                    const Eigen::Matrix<double, 1, 3> force = function_derivatives_map * pk1_stress_transpose_neg_volume;
 
                     // Add the force to the node
                     const stk::mesh::Entity node(node_local_offsets[k]);
-                    const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    const aperi::Index ni(node_index);
+                    const aperi::Index node_index(ngp_mesh.fast_mesh_index(node));
                     // Scatter the force to the nodes
-                    m_force_field.AtomicAdd(ni, force);
+                    m_force_field.AtomicAdd(node_index, force);
                 }
             });
     }

@@ -175,10 +175,11 @@ class Field {
      * @param size The size of the vector
      * @return An Eigen::Map<Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
      */
-    KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size) {
+    template <int Size = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) {
         const unsigned component_stride = m_ngp_field.get_component_stride();
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
-        return Eigen::Map<Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
+        return Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }
 
     /**
@@ -187,10 +188,11 @@ class Field {
      * @param size The size of the vector
      * @return An Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
      */
-    KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size) const {
+    template <int Size = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
         const unsigned component_stride = m_ngp_field.get_component_stride();
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
-        return Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
+        return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }
 
     /**
@@ -199,10 +201,11 @@ class Field {
      * @param size The size of the vector
      * @return An Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> to the field data.
      */
-    KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size) const {
+    template <int Size = Eigen::Dynamic>
+    KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
         const unsigned component_stride = m_ngp_field.get_component_stride();
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
-        return Eigen::Map<const Eigen::Vector<T, Eigen::Dynamic>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
+        return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }
 
     /**

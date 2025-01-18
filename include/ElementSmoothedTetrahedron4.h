@@ -8,9 +8,12 @@
 
 #include "ComputeForceSmoothedCell.h"
 #include "ElementBase.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
+#include "LogUtils.h"
 #include "Material.h"
+#include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
