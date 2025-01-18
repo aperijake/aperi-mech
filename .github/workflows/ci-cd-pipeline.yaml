@@ -5,7 +5,7 @@ on:
     branches:
       - main
   workflow_dispatch: ~ # Allows manual triggering of the workflow
-  pull_request_target: # Allows triggering with elevated permissions for pull requests from fork
+  pull_request: # Allows triggering with elevated permissions for pull requests from fork
     branches:
       - main # Only trigger for pull requests targeting the main branch
 
