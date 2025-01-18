@@ -116,6 +116,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
         m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
+        m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
    private:
