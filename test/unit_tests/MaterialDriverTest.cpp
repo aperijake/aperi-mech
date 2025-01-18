@@ -86,7 +86,46 @@ class MaterialDriverTest : public ::testing::Test {
     YAML::Node m_input_node;
 };
 
+// Run the material driver without optional parameters (timestep, initial_displacement_gradient, and initial_state)
 TEST_F(MaterialDriverTest, RunMaterialDriver) {
+    // Run the material driver
+    std::vector<Eigen::Matrix3d> cauchy_stresses = aperi::RunMaterialDriver(m_input_node);
+
+    // Check the stress values
+    ASSERT_EQ(cauchy_stresses.size(), 3);
+
+    // Expected stress values, uniaxial tension in x, then y, then z
+    double expected_stress_val = 5.24795e+06;
+    double tolerance = expected_stress_val * 1e-6;
+    for (size_t k = 0; k < 3; ++k) {
+        for (size_t i = 0; i < 3; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
+                if (i == j && i == k) {
+                    EXPECT_NEAR(cauchy_stresses[k](i, j), expected_stress_val, tolerance);
+                } else {
+                    EXPECT_NEAR(cauchy_stresses[k](i, j), 0.0, tolerance);
+                }
+            }
+        }
+    }
+}
+
+// Run the material driver with optional parameters (timestep, initial_displacement_gradient, and initial_state)
+TEST_F(MaterialDriverTest, RunMaterialDriverOptionalParameters) {
+    // Add the optional parameters
+    m_input_node["timestep"] = 0.1;
+
+    YAML::Node matrix3(YAML::NodeType::Sequence);
+    matrix3.push_back(YAML::Node(std::vector<double>{0.0, 0.0, 0.0}));
+    matrix3.push_back(YAML::Node(std::vector<double>{0.0, 0.0, 0.0}));
+    matrix3.push_back(YAML::Node(std::vector<double>{0.0, 0.0, 0.0}));
+    YAML::Node matrix_node3;
+    matrix_node3["matrix"] = matrix3;
+    m_input_node["initial_displacement_gradient"] = matrix_node3;
+
+    std::vector<double> initial_state = {0.0};
+    m_input_node["initial_state"] = initial_state;
+
     // Run the material driver
     std::vector<Eigen::Matrix3d> cauchy_stresses = aperi::RunMaterialDriver(m_input_node);
 

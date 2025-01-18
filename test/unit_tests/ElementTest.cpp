@@ -11,6 +11,7 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
+#include "Material.h"
 #include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
 #include "SmoothedCellData.h"
@@ -78,8 +79,18 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         // Strain smoothing parameters
         auto integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>(m_use_one_pass_method);
 
+        // Make a dummy material
+        auto material_properties = std::make_shared<aperi::MaterialProperties>();
+        material_properties->material_type = aperi::MaterialType::LINEAR_ELASTIC;
+        material_properties->density = 0.0;
+        material_properties->properties.emplace("poissons_ratio", 0.0);
+        material_properties->properties.emplace("youngs_modulus", 0.0);
+        material_properties->properties.emplace("two_mu", 0.0);
+        material_properties->properties.emplace("lambda", 0.0);
+        auto material = std::make_shared<aperi::Material>(material_properties);
+
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data, material);
 
         std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};

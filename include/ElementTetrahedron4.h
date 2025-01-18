@@ -7,11 +7,10 @@
 #include <vector>
 
 #include "ComputeElementVolumeFunctor.h"
-#include "ComputeInternalForceFunctors.h"
+#include "ComputeForceFunctor.h"
 #include "ElementBase.h"
 #include "Field.h"
 #include "FieldData.h"
-#include "InternalForceProcessor.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
 #include "Material.h"
@@ -60,7 +59,6 @@ class ElementTetrahedron4 : public ElementBase {
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
             return;
         }
-        const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
 
         // Create the compute force functor
         assert(this->m_material != nullptr);

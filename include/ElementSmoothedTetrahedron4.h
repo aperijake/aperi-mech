@@ -6,12 +6,14 @@
 #include <string>
 #include <vector>
 
-#include "ComputeInternalForceFunctors.h"
+#include "ComputeForceSmoothedCell.h"
 #include "ElementBase.h"
-#include "ElementForceProcessor.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
+#include "LogUtils.h"
 #include "Material.h"
+#include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
@@ -47,26 +49,26 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
 
-        // Create the element processor
-        const FieldQueryData<double> field_query_data_scatter = {"force_coefficients", FieldQueryState::None};
-        bool has_state = false;
-        if (m_material) {
-            has_state = m_material->HasState();
+        if (!m_mesh_data) {
+            // Allowing for testing
+            aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
+            return;
         }
-        m_element_processor = std::make_shared<ElementForceProcessor<1>>(m_field_query_data_gather, field_query_data_scatter, m_mesh_data, m_part_names, has_state);
+
+        // Create the element processor
+        assert(m_material != nullptr);
+        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, *this->m_material);
     }
 
     void FindNeighbors() {
-        assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names);
         bool set_first_function_value_to_one = true;
         search_processor.add_nodes_ring_0_nodes(set_first_function_value_to_one);
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
 
     void ComputeSmoothedQuadrature() {
-        assert(m_element_processor != nullptr);
         // Create the integration functor
         size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
         auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
@@ -79,7 +81,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
             });
 
         // Build the smoothed cell data
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_element_processor->GetMeshData(), this->m_element_processor->GetSets());
+        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(integration_functor);
         strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, true);
@@ -111,24 +113,20 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      */
     void ComputeInternalForceAllElements(double time_increment) override {
         assert(this->m_material != nullptr);
-        assert(m_element_processor != nullptr);
-
-        // Create the compute force functor
-        // ComputeInternalForceFromSmoothingCellFunctor<TET4_NUM_NODES, Material::StressFunctor> compute_force_functor(*this->m_material->GetStressFunctor());
-        // Create the compute stress functor
-        ComputeStressOnSmoothingCellFunctor<Material::StressFunctor> compute_stress_functor(*this->m_material->GetStressFunctor());
+        assert(m_compute_force != nullptr);
 
         // Loop over all elements and compute the internal force
-        // m_element_processor->for_each_element_gather_scatter_nodal_data<TET4_NUM_NODES>(compute_force_functor);
-        // Loop over all elements and compute the internal force
-        m_element_processor->for_each_cell_gather_scatter_nodal_data(*m_smoothed_cell_data, compute_stress_functor);
+        m_compute_force->UpdateFields();  // Updates the ngp fields
+        m_compute_force->SetTimeIncrement(time_increment);
+        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
+        m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
    private:
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementForceProcessor<1>> m_element_processor;
+    std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
 };
 
