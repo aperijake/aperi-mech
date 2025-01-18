@@ -15,27 +15,22 @@
 namespace aperi {
 
 /**
- * @brief A class for processing elements in a mesh.
- *
- * This class provides functionality to process elements in a mesh.
- * It can gather data from fields on the nodes of the elements, apply a function to the gathered data, and scatter the results back to the nodes.
+ * @brief Functor for computing the internal force of an element using strain smoothing.
  */
-template <size_t NumFields>
-class ElementForceProcessor {
+class ComputeForceSmoothedCell {
    public:
     /**
-     * @brief Constructs an ElementForceProcessor object.
-     * @param field_query_data_gather_vec An array of FieldQueryData objects representing the fields to gather.
-     * @param field_query_data_scatter A FieldQueryData object representing the field to scatter.
+     * @brief Constructs a ComputeForceSmoothedCell object.
      * @param mesh_data A shared pointer to the MeshData object.
+     * @param displacements_field_name The name of the displacements field.
+     * @param force_field_name The name of the force field.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementForceProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &displacements_field_name, const std::string &force_field_name, const std::vector<std::string> &sets, bool has_state = false) : m_mesh_data(mesh_data), m_sets(sets), m_has_state(has_state) {
+    ComputeForceSmoothedCell(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &displacements_field_name, const std::string &force_field_name, const std::vector<std::string> &sets, bool has_state = false) : m_mesh_data(mesh_data), m_sets(sets), m_has_state(has_state) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*mesh_data->GetBulkData());
 
         m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
@@ -75,9 +70,9 @@ class ElementForceProcessor {
     }
 
     template <typename StressFunctor>
-    void for_each_cell_gather_scatter_nodal_data(const SmoothedCellData &scd, const StressFunctor *stress_functor) {
+    void ForEachCellComputeForce(const SmoothedCellData &scd, const StressFunctor *stress_functor) {
         // Get th ngp mesh
-        auto ngp_mesh = m_ngp_mesh;
+        stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_mesh_data->GetBulkData());
 
         // Get the number of cells
         const size_t num_cells = scd.NumCells();
@@ -162,8 +157,8 @@ class ElementForceProcessor {
                     // Add the force to the node
                     const stk::mesh::Entity node(node_local_offsets[k]);
                     const stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(node);
-                    // Scatter the force to the nodes
                     const aperi::Index ni(node_index);
+                    // Scatter the force to the nodes
                     m_force_field.AtomicAdd(ni, force);
                 }
             });
@@ -173,8 +168,6 @@ class ElementForceProcessor {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::vector<std::string> m_sets;               // The sets to process.
     bool m_has_state;                              // Whether the material has state
-
-    stk::mesh::NgpMesh m_ngp_mesh;  // The ngp mesh object.
 
     aperi::Field<double> m_displacement_np1_field;                   // The field for the node displacements
     mutable aperi::Field<double> m_force_field;                      // The field for the node mass from elements

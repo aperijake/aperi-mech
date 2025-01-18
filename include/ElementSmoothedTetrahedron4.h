@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "ComputeForceSmoothedCell.h"
 #include "ElementBase.h"
-#include "ElementForceProcessor.h"
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
@@ -51,11 +51,10 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         if (m_material) {
             has_state = m_material->HasState();
         }
-        m_element_processor = std::make_shared<ElementForceProcessor<1>>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, has_state);
+        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, has_state);
     }
 
     void FindNeighbors() {
-        assert(m_element_processor != nullptr);
         // Loop over all elements and store the neighbors
         aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names);
         bool set_first_function_value_to_one = true;
@@ -64,7 +63,6 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
     void ComputeSmoothedQuadrature() {
-        assert(m_element_processor != nullptr);
         // Create the integration functor
         size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
         auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
@@ -109,18 +107,18 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      */
     void ComputeInternalForceAllElements(double time_increment) override {
         assert(this->m_material != nullptr);
-        assert(m_element_processor != nullptr);
+        assert(m_compute_force != nullptr);
 
         // Loop over all elements and compute the internal force
-        m_element_processor->UpdateFields();  // Updates the ngp fields
-        m_element_processor->for_each_cell_gather_scatter_nodal_data<Material::StressFunctor>(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
+        m_compute_force->UpdateFields();  // Updates the ngp fields
+        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
     }
 
    private:
     const std::vector<FieldQueryData<double>> m_field_query_data_gather;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ElementForceProcessor<1>> m_element_processor;
+    std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
 };
 

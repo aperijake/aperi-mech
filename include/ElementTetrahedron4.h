@@ -7,10 +7,10 @@
 #include <vector>
 
 #include "ComputeElementVolumeFunctor.h"
+#include "ComputeForceFunctor.h"
 #include "ElementBase.h"
 #include "Field.h"
 #include "FieldData.h"
-#include "InternalForceProcessor.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
 #include "Material.h"
