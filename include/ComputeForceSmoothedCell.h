@@ -26,11 +26,23 @@ class ComputeForceSmoothedCell {
      * @param force_field_name The name of the force field.
      * @param sets A vector of strings representing the sets to process.
      */
-    ComputeForceSmoothedCell(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &displacements_field_name, const std::string &force_field_name, const std::vector<std::string> &sets, bool has_state = false) : m_mesh_data(mesh_data), m_sets(sets), m_has_state(has_state) {
+    ComputeForceSmoothedCell(std::shared_ptr<aperi::MeshData> mesh_data,
+                             const std::string &displacements_field_name,
+                             const std::string &force_field_name,
+                             const std::vector<std::string> &sets,
+                             const Material &material)
+        : m_mesh_data(mesh_data),
+          m_sets(sets),
+          m_has_state(material.HasState()),
+          m_needs_velocity_gradient(material.NeedsVelocityGradient()),
+          m_time_increment_device("TimeIncrementDevice") {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
+
+        // Set the initial time increment on the device to 0
+        Kokkos::deep_copy(m_time_increment_device, 0.0);
 
         m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
@@ -44,6 +56,11 @@ class ComputeForceSmoothedCell {
             m_state_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
             m_state_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         }
+    }
+
+    void SetTimeIncrement(double time_increment) {
+        // Set the time increment
+        Kokkos::deep_copy(m_time_increment_device, time_increment);
     }
 
     void UpdateFields() {
@@ -69,6 +86,19 @@ class ComputeForceSmoothedCell {
         }
     }
 
+    /**
+     * @brief Compute the velocity gradient.
+     * @param elem_index The element index.
+     * @return The velocity gradient.
+     * @todo This should be moved to a separate functor.
+     */
+    KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3> ComputeVelocityGradient(const aperi::Index &elem_index) const {
+        // (F_n+1 - F_n) / dt * F_n_inv
+        const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        return (displacement_gradient_np1_map - displacement_gradient_n_map) / m_time_increment_device(0) * InvertMatrix<3>(displacement_gradient_n_map + Eigen::Matrix3d::Identity());
+    }
+
     template <typename StressFunctor>
     void ForEachCellComputeForce(const SmoothedCellData &scd, const StressFunctor *stress_functor) {
         // Get th ngp mesh
@@ -82,6 +112,9 @@ class ComputeForceSmoothedCell {
 
         // Get the stride
         const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
+
+        // Default Stride for a 3x3 matrix
+        const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
 
         bool has_state = m_has_state;
 
@@ -127,6 +160,9 @@ class ComputeForceSmoothedCell {
                 const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
                 auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
+                // Compute the velocity gradient if needed
+                const auto velocity_gradient_map = m_needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
+
                 // Compute the stress and internal force of the element.
                 double volume = scd.GetCellVolume(cell_id);
 
@@ -136,10 +172,7 @@ class ComputeForceSmoothedCell {
                 // Create a map around the state_old and state_new pointers
                 Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(3, 1);
 
-                // Compute the stress of the element.
-                double timestep = 1.0;  // TODO(jake): This should be passed in
-
-                stress_functor->GetStress(&displacement_gradient_np1_map, nullptr, &state_n_map, &state_np1_map, timestep, pk1_stress_map);
+                stress_functor->GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
 
                 const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_neg_volume = pk1_stress_map.transpose() * -volume;
 
@@ -168,6 +201,9 @@ class ComputeForceSmoothedCell {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::vector<std::string> m_sets;               // The sets to process.
     bool m_has_state;                              // Whether the material has state
+    bool m_needs_velocity_gradient;                // Whether the material needs the velocity gradient
+
+    Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
     aperi::Field<double> m_displacement_np1_field;                   // The field for the node displacements
     mutable aperi::Field<double> m_force_field;                      // The field for the node mass from elements

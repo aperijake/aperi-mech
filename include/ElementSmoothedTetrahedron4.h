@@ -46,12 +46,15 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
 
-        // Create the element processor
-        bool has_state = false;
-        if (m_material) {
-            has_state = m_material->HasState();
+        if (!m_mesh_data) {
+            // Allowing for testing
+            aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
+            return;
         }
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, has_state);
+
+        // Create the element processor
+        assert(m_material != nullptr);
+        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, *this->m_material);
     }
 
     void FindNeighbors() {
@@ -111,6 +114,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Loop over all elements and compute the internal force
         m_compute_force->UpdateFields();  // Updates the ngp fields
+        m_compute_force->SetTimeIncrement(time_increment);
         m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
     }
 
