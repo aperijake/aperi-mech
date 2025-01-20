@@ -33,7 +33,7 @@ class ElementHexahedron8 : public ElementBase {
     /**
      * @brief Constructs a ElementHexahedron8 object.
      */
-    ElementHexahedron8(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(HEX8_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementHexahedron8(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(HEX8_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data) {
         CreateFunctors();
         CreateElementForceProcessor();
         ComputeElementVolume();
@@ -71,7 +71,7 @@ class ElementHexahedron8 : public ElementBase {
         // Create the compute force functor
         // TODO(jake) Passing in the base class StressFunctor. This likely causes polymorphism vtable lookups, but avoids bloating with all Material / Element classes.
         // Leaving as is for now. My need to rethink how this is done in the Material class. Use a function pointer to get stress?
-        m_compute_force = std::make_shared<aperi::ComputeForce<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, "displacement_coefficients", "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeForce<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -174,7 +174,7 @@ class ElementHexahedron8 : public ElementBase {
     Quadrature<8, HEX8_NUM_NODES> *m_integration_functor;
     std::shared_ptr<aperi::ElementNodeProcessor<HEX8_NUM_NODES>> m_element_node_processor;                                                                    // The element node processor.
     std::shared_ptr<aperi::ComputeForce<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>> m_compute_force;  // The compute force functor.
-    const std::vector<FieldQueryData<double>> m_field_query_data_gather;
+    const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
 };

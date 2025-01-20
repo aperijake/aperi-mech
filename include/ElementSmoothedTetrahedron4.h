@@ -33,7 +33,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::vector<FieldQueryData<double>> &field_query_data_gather, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_field_query_data_gather(field_query_data_gather), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data) {
         // Find and store the element neighbors
         CreateElementForceProcessor();
         FindNeighbors();
@@ -57,7 +57,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_field_query_data_gather[0].name, "force_coefficients", m_part_names, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", m_part_names, *this->m_material);
     }
 
     void FindNeighbors() {
@@ -123,7 +123,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
    private:
-    const std::vector<FieldQueryData<double>> m_field_query_data_gather;
+    const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;

@@ -70,10 +70,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         max_edge_length_processor.ComputeMaxEdgeLength();
 
         // Make an element processor
-        std::vector<aperi::FieldQueryData<double>> field_query_data_gather_vec(3);  // not used, but needed for the ElementForceProcessor in CreateElement. TODO(jake) change this?
-        field_query_data_gather_vec[0] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-        field_query_data_gather_vec[1] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
-        field_query_data_gather_vec[2] = {mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None};
+        const std::string displacement_field_name = "displacement_coefficients";
         const std::vector<std::string> part_names = {"block_1"};
 
         // Strain smoothing parameters
@@ -90,7 +87,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto material = std::make_shared<aperi::Material>(material_properties);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, field_query_data_gather_vec, part_names, mesh_data, material);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, part_names, mesh_data, material);
 
         std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
