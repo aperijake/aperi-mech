@@ -103,7 +103,7 @@ struct ComputeForce {
      * @param elem_index The element index.
      * @todo This should be moved to a separate functor.
      */
-    void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, NumNodes, 3> &node_displacements_np1, const Eigen::Matrix<double, NumNodes, 3> &b_matrix) const {
+    KOKKOS_INLINE_FUNCTION void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, NumNodes, 3> &node_displacements_np1, const Eigen::Matrix<double, NumNodes, 3> &b_matrix) const {
         // Compute the displacement gradient
         if (m_incremental_formulation) {
             // Incremental formulation. Displacement is the increment. B matrix is in the current configuration.
@@ -194,11 +194,8 @@ struct ComputeForce {
 
             // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
             if (m_incremental_formulation) {
-                // Get the displacement gradient map at time n
-                const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
-
                 // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_n = displacement_gradient_n_map + Eigen::Matrix3d::Identity();
+                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
 
                 // Compute the deformation gradient determinant
                 const double j_n = F_n.determinant();
