@@ -92,6 +92,15 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
+     * @brief Gets whether the element uses an incremental formulation.
+     *
+     * @return True if the element uses an incremental formulation, false otherwise.
+     */
+    bool UsesIncrementalFormulation() const {
+        return m_internal_force_contribution_parameters.incremental_formulation;
+    }
+
+    /**
      * @brief Preprocesses the internal force contribution.
      *
      * This function overrides the Preprocess function from the base class.

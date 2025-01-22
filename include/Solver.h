@@ -67,6 +67,7 @@ class Solver {
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
         m_uses_generalized_fields = false;
         m_uses_one_pass_method = false;
+        m_uses_incremental_formulation = m_internal_force_contributions[0]->UsesIncrementalFormulation();
         m_active_selector = aperi::Selector({"universal_active_part"}, mp_mesh_data.get());
         for (const auto &force_contribution : m_internal_force_contributions) {
             if (force_contribution->UsesGeneralizedFields()) {
@@ -75,6 +76,7 @@ class Solver {
             if (force_contribution->UsesOnePassMethod()) {
                 m_uses_one_pass_method = true;
             }
+            assert(m_uses_incremental_formulation == force_contribution->UsesIncrementalFormulation());
         }
         if (m_uses_generalized_fields) {
             // Create a value from generalized field processor for all generalized fields
@@ -174,6 +176,7 @@ class Solver {
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
     bool m_uses_one_pass_method;                                                                                    ///< Whether the solver uses the one-pass method.
+    bool m_uses_incremental_formulation;                                                                            ///< Whether the solver uses the incremental formulation.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.

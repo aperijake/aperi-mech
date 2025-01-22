@@ -28,6 +28,10 @@ namespace aperi {
  * @param functions_functor The functor for computing the shape functions.
  * @param integration_functor The functor for computing the integration points and weights.
  * @param material The material.
+ * @param incremental_formulation Whether to use the incremental formulation.
+ *
+ * @todo This is setup with total Lagrangian being the primary formulation. The incremental formulation is not optimized.
+ * @todo The field indexing only is set up for a single gauss point. This needs to be updated to handle multiple gauss points.
  *
  * This functor computes the internal force of an element using standard quadrature. The internal force is computed by looping over all gauss points and computing the B matrix and integration weight for each gauss point. The displacement gradient is then computed and the 1st pk stress and internal force of the element are computed.
  *
@@ -35,13 +39,15 @@ namespace aperi {
 template <size_t NumNodes, typename FunctionsFunctor, typename IntegrationFunctor, typename StressFunctor>
 struct ComputeForce {
     ComputeForce(const std::shared_ptr<aperi::MeshData> &mesh_data,
-                 const std::string &displacements_field_name,
+                 std::string displacements_field_name,
                  const std::string &force_field_name,
                  const FunctionsFunctor &functions_functor,
                  const IntegrationFunctor &integration_functor,
-                 const Material &material)
+                 const Material &material,
+                 const bool incremental_formulation = false)
         : m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
+          m_incremental_formulation(incremental_formulation),
           m_time_increment_device("TimeIncrementDevice"),
           m_functions_functor(functions_functor),
           m_integration_functor(integration_functor),
@@ -49,17 +55,18 @@ struct ComputeForce {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
+        if (m_incremental_formulation) {
+            displacements_field_name += "_increment";
+        }
+
         // Get the field data
         m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
-        m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
         m_displacement_gradient_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
-        if (m_has_state) {
-            m_state_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
-            m_state_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
-        }
+        SetCoordinateField(mesh_data);
+        SetStateFields(mesh_data);
     }
 
     void SetTimeIncrement(double time_increment) {
@@ -88,6 +95,28 @@ struct ComputeForce {
         m_pk1_stress_field.MarkModifiedOnDevice();
         if (m_has_state) {
             m_state_np1_field.MarkModifiedOnDevice();
+        }
+    }
+
+    /**
+     * @brief Compute the displacement gradient and assign it to the field.
+     * @param elem_index The element index.
+     * @todo This should be moved to a separate functor.
+     */
+    void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, NumNodes, 3> &node_displacements_np1, const Eigen::Matrix<double, NumNodes, 3> &b_matrix) const {
+        // Compute the displacement gradient
+        if (m_incremental_formulation) {
+            // Incremental formulation. Displacement is the increment. B matrix is in the current configuration.
+            // Calculate the displacement gradient from the increment and previous displacement gradient.
+            //  - ΔH^{n+1} = B * Δd^{n+½}
+            //  - H^{n+1} = ΔH^{n+1} + H^{n} + ΔH^{n+1} * H^{n}
+            const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+            const Eigen::Matrix<double, 3, 3> displacement_gradient_increment = node_displacements_np1.transpose() * b_matrix;
+            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + displacement_gradient_n_map + displacement_gradient_increment * displacement_gradient_n_map);
+
+        } else {
+            // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration.
+            m_displacement_gradient_np1_field.Assign(elem_index, node_displacements_np1.transpose() * b_matrix);
         }
     }
 
@@ -136,30 +165,57 @@ struct ComputeForce {
         // Get the time increment
         double time_increment = m_time_increment_device(0);
 
-        // Loop over all gauss points and compute the internal force
+        // Loop over all gauss points and compute the internal force.
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
-            // Compute the B matrix and integration weight for a given gauss point
-            const Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
+            // Compute the B matrix and integration weight for a given gauss point.
+            // For total formulation, the values are with respect to the reference configuration. For incremental formulation, the values are with respect to the configuration at time n.
+            Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
+            Eigen::Matrix<double, NumNodes, 3> &b_matrix = b_matrix_and_weight.first;
+            double &weight = b_matrix_and_weight.second;
 
-            // Compute displacement gradient, put it in the field, and get the map
-            m_displacement_gradient_np1_field.Assign(elem_index, node_displacements_np1.transpose() * b_matrix_and_weight.first);
+            // Compute displacement gradient, put it in the field
+            ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
+
+            // Get the displacement gradient map
             const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
 
             // Compute the velocity gradient if needed
             const auto velocity_gradient_map = m_needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
-            // Get the pk1 stress map
-            auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
-
+            // Get the state maps
             Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
             const auto state_n_map = m_has_state ? m_state_n_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
             auto state_np1_map = m_has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
+            // Get the pk1 stress map
+            auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
+
             m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
+
+            // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
+            if (m_incremental_formulation) {
+                // Get the displacement gradient map at time n
+                const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+
+                // Compute the deformation gradient
+                const Eigen::Matrix<double, 3, 3> F_n = displacement_gradient_n_map + Eigen::Matrix3d::Identity();
+
+                // Compute the deformation gradient determinant
+                const double j_n = F_n.determinant();
+
+                // Compute the b matrix in the reference configuration
+                //   b_current matrix is (NumNodes x 3):      b_current_ij = dN_i/dx_j
+                //   F is (3 x 3):                                    F_jk = dx_j/dX_k
+                //   b_reference matrix is (NumNodes x 3):  b_reference_ik = b_current_ij * F_jk
+                b_matrix *= F_n;
+
+                // Compute the weight
+                weight /= j_n;
+            }
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
-                force.row(i).noalias() -= b_matrix_and_weight.first.row(i) * pk1_stress_map.transpose() * b_matrix_and_weight.second;
+                force.row(i).noalias() -= b_matrix.row(i) * pk1_stress_map.transpose() * weight;
             }
         }
 
@@ -170,8 +226,25 @@ struct ComputeForce {
     }
 
    private:
+    void SetCoordinateField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
+        // Get the coordinates field
+        if (m_incremental_formulation) {
+            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
+        } else {
+            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
+        }
+    }
+
+    void SetStateFields(const std::shared_ptr<aperi::MeshData> &mesh_data) {
+        if (m_has_state) {
+            m_state_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+            m_state_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+        }
+    }
+
     const bool m_has_state;                // Whether the functor uses state
     const bool m_needs_velocity_gradient;  // Whether the functor needs the velocity gradient
+    const bool m_incremental_formulation;  // Whether the functor uses the incremental formulation
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 

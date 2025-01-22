@@ -39,9 +39,10 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, *m_io_mesh_parameters);
         bool uses_generalized_fields = approximation_space_parameters->UsesGeneralizedFields();
         bool use_strain_smoothing = true;
+        bool uses_incremental_formulation = false;
 
         // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, true /* output_coefficients*/);
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, uses_incremental_formulation, true /* output_coefficients*/);
 
         // Add field data from mesh labeler
         aperi::MeshLabeler mesh_labeler;
@@ -87,7 +88,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto material = std::make_shared<aperi::Material>(material_properties);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, part_names, mesh_data, material);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, uses_incremental_formulation, part_names, mesh_data, material);
 
         std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};

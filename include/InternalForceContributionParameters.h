@@ -229,6 +229,7 @@ struct InternalForceContributionParameters {
     std::string part_name = "";
     std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters = nullptr;
     std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters = nullptr;
+    bool incremental_formulation = false;
 };
 
 }  // namespace aperi

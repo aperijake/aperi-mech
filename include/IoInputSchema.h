@@ -452,6 +452,10 @@ YAML::Node GetInputSchema() {
     geometry_schema.AddOptional(mesh_search_directories_node);
     YAML::Node geometry_node = geometry_schema.GetInputSchema();
 
+    // Incremental node
+    aperi::InputSchema incremental_schema("incremental_formulation", "bool", "indicates whether to use incremental formulation");
+    YAML::Node incremental_node = incremental_schema.GetInputSchema();
+
     // Explicit dynamics procedure node
     aperi::InputSchema explicit_dynamics_procedure_schema("explicit_dynamics_procedure", "map", "an explicit dynamics procedure");
     explicit_dynamics_procedure_schema.AddAllOf(geometry_node);
@@ -460,6 +464,7 @@ YAML::Node GetInputSchema() {
     explicit_dynamics_procedure_schema.AddOptional(initial_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(boundary_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(loads_node);
+    explicit_dynamics_procedure_schema.AddOptional(incremental_node);
     YAML::Node explicit_dynamics_procedure_node = explicit_dynamics_procedure_schema.GetInputSchema();
 
     // Procedures node

@@ -140,6 +140,21 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    // Get whether to use incremental formulation for a specific procedure id
+    bool GetIncremental(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        // If incremental is not defined, default to false
+        if (!procedure_node["incremental_formulation"].IsDefined()) {
+            return false;
+        }
+        std::pair<bool, int> bool_pair = GetScalarValue<bool>(procedure_node, "incremental_formulation");
+        if (exit_on_error && bool_pair.second != 0) throw std::runtime_error("Error getting incremental formulation");
+        return bool_pair.first;
+    }
+
     // Get the time stepper for a specific procedure id
     YAML::Node GetTimeStepper(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");

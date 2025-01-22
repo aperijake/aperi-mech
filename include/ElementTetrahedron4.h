@@ -33,7 +33,7 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementTetrahedron4 object.
      */
-    ElementTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, bool uses_incremental_formulation) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data), m_uses_incremental_formulation(uses_incremental_formulation) {
         CreateFunctors();
         CreateElementForceProcessor();
         ComputeElementVolume();
@@ -71,7 +71,7 @@ class ElementTetrahedron4 : public ElementBase {
         // Create the compute force functor
         // TODO(jake) Passing in the base class StressFunctor. This likely causes polymorphism vtable lookups, but avoids bloating with all Material / Element classes.
         // Leaving as is for now. My need to rethink how this is done in the Material class. Use a function pointer to get stress?
-        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material, m_uses_incremental_formulation);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -167,6 +167,7 @@ class ElementTetrahedron4 : public ElementBase {
     const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
+    bool m_uses_incremental_formulation;
 };
 
 }  // namespace aperi

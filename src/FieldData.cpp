@@ -29,16 +29,16 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank) {
  * @brief Function to get default field data.
  * @return A vector of default FieldData.
  */
-std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, bool output_coefficients, bool add_debug_fields) {
+std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, bool uses_incremental_formulation, bool output_coefficients, bool add_debug_fields) {
     std::vector<FieldData> field_data;
 
     // TODO(jake): Fields that are "*_coefficients" only need to be on the active part. Can rework this to only define them on the active part.
     // Node data
     if (uses_generalized_fields) {
         // Generalized fields, output as "_coefficients"
-        field_data.push_back(FieldData("displacement_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The displacement field
-        field_data.push_back(FieldData("velocity_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));      // The velocity field
-        field_data.push_back(FieldData("acceleration_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The acceleration field
+        field_data.push_back(FieldData("displacement_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The displacement field, generalized
+        field_data.push_back(FieldData("velocity_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));      // The velocity field, generalized
+        field_data.push_back(FieldData("acceleration_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The acceleration field, generalized
         field_data.push_back(FieldData("force_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}, output_coefficients));         // The force field
         // Actual field data at nodes, no state is needed as it is calculated from the coefficients which have states
         field_data.push_back(FieldData("displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement field
@@ -47,10 +47,14 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
     } else {
         // Field data at nodes is the same as generalized fields. Just output coefficients.
-        field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized
-        field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized
-        field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized
+        field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized / full
+        field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized / full
+        field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized / full
         field_data.push_back(FieldData("force_coefficients", "force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The force field
+        if (uses_incremental_formulation) {
+            field_data.push_back(FieldData("displacement_coefficients_increment", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field
+            field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));                  // The current coordinates field
+        }
     }
     field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements
     field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
