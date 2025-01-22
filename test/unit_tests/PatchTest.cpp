@@ -21,6 +21,24 @@ TEST_F(PatchTest, Tet4PatchTestsCompression) {
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(PatchTest, Tet4IncrementalPatchTestsTension) {
+    bool tets = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
+    bool reproducing_kernel = false;
+    bool incremental = true;
+    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel, incremental);
+}
+
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(PatchTest, Tet4IncrementalPatchTestsCompression) {
+    bool tets = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
+    bool reproducing_kernel = false;
+    bool incremental = true;
+    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel, incremental);
+}
+
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
 TEST_F(PatchTest, SmoothedTet4PatchTestsTension) {
     bool tets = true;
     PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING;
