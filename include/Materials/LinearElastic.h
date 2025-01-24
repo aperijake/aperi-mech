@@ -93,5 +93,4 @@ class LinearElasticMaterial : public Material {
     };
 };
 
-
 }  // namespace aperi
