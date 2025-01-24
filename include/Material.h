@@ -2,15 +2,14 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <Eigen/Dense>
-#include <cmath>
 #include <memory>
 #include <string>
 
-#include "FieldData.h"
-#include "Kokkos_Core.hpp"
-#include "LogUtils.h"
-#include "MathUtils.h"
+#include "Materials/Base.h"
+#include "Materials/Elastic.h"
+#include "Materials/LinearElastic.h"
+#include "Materials/NeoHooke.h"
+#include "Materials/Plastic.h"
 
 namespace aperi {
 
@@ -600,6 +599,7 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("lambda", youngs_modulus * poissons_ratio / ((1.0 + poissons_ratio) * (1.0 - 2.0 * poissons_ratio)));
 
         return std::make_shared<PlasticMaterial>(material_properties);
+
     } else {
         return nullptr;
     }
