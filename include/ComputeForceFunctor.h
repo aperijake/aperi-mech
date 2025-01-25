@@ -187,14 +187,31 @@ struct ComputeForce {
 
         // Loop over all gauss points and compute the internal force.
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
-            // Compute the B matrix and integration weight for a given gauss point.
             // For total formulation, the values are with respect to the reference configuration. For incremental formulation, the values are with respect to the configuration at time n.
-            Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> b_matrix_and_weight = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
-            Eigen::Matrix<double, NumNodes, 3> &b_matrix = b_matrix_and_weight.first;
-            double &weight = b_matrix_and_weight.second;
+
+            // Compute the B matrix and integration weight for a given gauss point.
+            auto [b_matrix, weight] = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
             // Compute displacement gradient, put it in the field
             ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
+
+            // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
+            if (m_incremental_formulation) {
+                // Compute the deformation gradient
+                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
+
+                // Compute the deformation gradient determinant
+                const double j_n = F_n.determinant();
+
+                // Compute the b matrix in the reference configuration
+                //   b_current matrix is (NumNodes x 3):      b_current_ij = dN_i/dx_j
+                //   F is (3 x 3):                                    F_jk = dx_j/dX_k
+                //   b_reference matrix is (NumNodes x 3):  b_reference_ik = b_current_ij * F_jk
+                b_matrix = b_matrix * F_n;
+
+                // Compute the weight
+                weight = weight / j_n;
+            }
 
             // Get the displacement gradient map
             const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
@@ -211,24 +228,6 @@ struct ComputeForce {
             auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
 
             m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
-
-            // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
-            if (m_incremental_formulation) {
-                // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
-
-                // Compute the deformation gradient determinant
-                const double j_n = F_n.determinant();
-
-                // Compute the b matrix in the reference configuration
-                //   b_current matrix is (NumNodes x 3):      b_current_ij = dN_i/dx_j
-                //   F is (3 x 3):                                    F_jk = dx_j/dX_k
-                //   b_reference matrix is (NumNodes x 3):  b_reference_ik = b_current_ij * F_jk
-                b_matrix *= F_n;
-
-                // Compute the weight
-                weight /= j_n;
-            }
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
