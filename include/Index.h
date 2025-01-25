@@ -35,6 +35,26 @@ struct Index {
         return m_index;
     }
 
+    /**
+     * @brief Get the bucket ID of the encapsulated index.
+     *
+     * @return The bucket ID.
+     */
+    KOKKOS_FUNCTION
+    unsigned bucket_id() const {
+        return m_index.bucket_id;
+    }
+
+    /**
+     * @brief Get the bucket ordinal of the encapsulated index.
+     *
+     * @return The bucket ordinal.
+     */
+    KOKKOS_FUNCTION
+    unsigned bucket_ord() const {
+        return m_index.bucket_ord;
+    }
+
    private:
     stk::mesh::FastMeshIndex m_index;  ///< The encapsulated index.
 };

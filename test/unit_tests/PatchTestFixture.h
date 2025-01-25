@@ -129,13 +129,7 @@ class PatchTest : public SolverTest {
         RunSolver();
     }
 
-    Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix3d& expected_displacement_gradient) {
-        // S = F^-1 P
-        // P = F S
-        // Force = /sum_ip B P J w = /sum_ip B F S J w // sum over integration points, ip
-        // Unit cube:
-        //  Force = B F S
-
+    Eigen::Matrix3d GetExpectedFirstPKStress(const Eigen::Matrix3d& expected_displacement_gradient) {
         // Calculate the expected deformation gradient
         const Eigen::Matrix3d expected_deformation_gradient = expected_displacement_gradient + Eigen::Matrix3d::Identity();
 
@@ -149,12 +143,22 @@ class PatchTest : public SolverTest {
         // Calculate the expected PK2 stress
         const Eigen::Matrix<double, 3, 3> expected_pk2_stress = lambda * expected_green_lagrange_strain.trace() * Eigen::Matrix3d::Identity() + 2.0 * mu * expected_green_lagrange_strain;
 
+        // Calculate the expected first PK stress
+        return expected_deformation_gradient * expected_pk2_stress;
+    }
+
+    Eigen::Vector3d GetExpectedPositiveForces(int face_direction, double cross_section_area, const Eigen::Matrix3d& expected_displacement_gradient) {
+        // P = F S
+        // Force = /sum_ip B P J w = /sum_ip B F S J w // sum over integration points, ip
+        // Unit cube:
+        //  Force = B F S
+
         // Set the normal vector for the face
         Eigen::Vector3d normal_vector = Eigen::Vector3d::Zero();
         normal_vector(face_direction) = 1.0;
 
         // Calculate the expected force in the reference configuration
-        Eigen::Vector3d expected_force = expected_deformation_gradient * expected_pk2_stress * normal_vector * cross_section_area;
+        Eigen::Vector3d expected_force = GetExpectedFirstPKStress(expected_displacement_gradient) * normal_vector * cross_section_area;
 
         return expected_force;
     }
@@ -197,6 +201,16 @@ class PatchTest : public SolverTest {
         CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, m_velocity_field_name, expected_velocity_negative, aperi::FieldQueryState::None, 1.0e-4);
         CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, m_velocity_field_name, expected_velocity_positive, aperi::FieldQueryState::None, 1.0e-4);
         CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_acceleration_field_name, expected_zero, aperi::FieldQueryState::None);
+
+        // Check the displacement gradient
+        std::array<double, 9> expected_displacement_gradient = {m_displacement_gradient(0, 0), m_displacement_gradient(0, 1), m_displacement_gradient(0, 2), m_displacement_gradient(1, 0), m_displacement_gradient(1, 1), m_displacement_gradient(1, 2), m_displacement_gradient(2, 0), m_displacement_gradient(2, 1), m_displacement_gradient(2, 2)};
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), {}, m_displacement_gradient_field_name, expected_displacement_gradient, aperi::FieldQueryState::None, 1.0e-9);
+
+        // Check the pk1 stress
+        Eigen::Matrix3d expected_pk1_stress = GetExpectedFirstPKStress(m_displacement_gradient);
+        // Put into an array for comparison, row major
+        std::array<double, 9> expected_pk1_stress_array = {expected_pk1_stress(0, 0), expected_pk1_stress(0, 1), expected_pk1_stress(0, 2), expected_pk1_stress(1, 0), expected_pk1_stress(1, 1), expected_pk1_stress(1, 2), expected_pk1_stress(2, 0), expected_pk1_stress(2, 1), expected_pk1_stress(2, 2)};
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), {}, m_pk1_stress_field_name, expected_pk1_stress_array, aperi::FieldQueryState::None, 1.0e-8);
     }
 
     void CheckPatchTestForces() {
@@ -422,6 +436,8 @@ class PatchTest : public SolverTest {
     std::string m_mesh_string;
     std::string m_force_field_name = "force_coefficients";
     std::string m_displacement_field_name = "displacement_coefficients";
+    std::string m_displacement_gradient_field_name = "displacement_gradient";
+    std::string m_pk1_stress_field_name = "pk1_stress";
     std::string m_velocity_field_name = "velocity_coefficients";
     std::string m_acceleration_field_name = "acceleration_coefficients";
     Eigen::Vector3d m_center_of_mass = Eigen::Vector3d::Zero();

@@ -45,7 +45,7 @@ struct ExplicitTimeIntegrationFieldsIncremental {
 
     // Constructor
     ExplicitTimeIntegrationFieldsIncremental(std::shared_ptr<aperi::MeshData> mesh_data)
-        : displacement_coefficients_increment_field(mesh_data, {"displacement_coefficients_increment", FieldQueryState::None}),
+        : displacement_coefficients_increment_field(mesh_data, {"displacement_coefficients_inc", FieldQueryState::None}),
           current_coordinates_n_field(mesh_data, {"current_coordinates", FieldQueryState::N}),
           current_coordinates_np1_field(mesh_data, {"current_coordinates", FieldQueryState::NP1}) {}
 
@@ -127,6 +127,9 @@ struct UpdateDisplacementsIncrementalFunctor {
         KOKKOS_ASSERT(3 == m_displacement_coefficients_n_field.GetNumComponentsPerEntity(index));
         KOKKOS_ASSERT(3 == m_velocity_coefficients_np1_field.GetNumComponentsPerEntity(index));
         KOKKOS_ASSERT(3 == m_displacement_coefficients_np1_field.GetNumComponentsPerEntity(index));
+        KOKKOS_ASSERT(3 == m_displacement_coefficients_increment_field.GetNumComponentsPerEntity(index));
+        KOKKOS_ASSERT(3 == m_current_coordinates_n_field.GetNumComponentsPerEntity(index));
+        KOKKOS_ASSERT(3 == m_current_coordinates_np1_field.GetNumComponentsPerEntity(index));
         double time_increment = m_time_increment_device();
         // Loop over each component and copy the data
         for (size_t i = 0; i < 3; ++i) {

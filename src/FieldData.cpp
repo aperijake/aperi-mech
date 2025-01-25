@@ -52,8 +52,8 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized / full
         field_data.push_back(FieldData("force_coefficients", "force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The force field
         if (uses_incremental_formulation) {
-            field_data.push_back(FieldData("displacement_coefficients_increment", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field
-            field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));                  // The current coordinates field
+            field_data.push_back(FieldData("displacement_coefficients_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field
+            field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));            // The current coordinates field
         }
     }
     field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements

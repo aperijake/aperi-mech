@@ -56,7 +56,7 @@ struct ComputeForce {
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
         if (m_incremental_formulation) {
-            displacements_field_name += "_increment";
+            displacements_field_name += "_inc";
         }
 
         // Get the field data
@@ -105,6 +105,26 @@ struct ComputeForce {
      */
     KOKKOS_INLINE_FUNCTION void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, NumNodes, 3> &node_displacements_np1, const Eigen::Matrix<double, NumNodes, 3> &b_matrix) const {
         // Compute the displacement gradient
+        /*
+          node_displacements_np1.transpose() for a 3D element with 4 nodes is a 3x4 matrix:
+            | u_x1 u_x2 u_x3 u_x4 |
+            | u_y1 u_y2 u_y3 u_y4 |
+            | u_z1 u_z2 u_z3 u_z4 |
+
+            b_matrix for a 3D element with 4 nodes is a 4x3 matrix:
+            | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |
+            | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z |
+            | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |
+            | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
+
+          H = node_displacements_np1.transpose() * b_matrix:
+            | u_x1 u_x2 u_x3 u_x4 |   | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |   | ∂u_x/∂X ∂u_x/∂Y ∂u_x/∂Z |
+            | u_y1 u_y2 u_y3 u_y4 | * | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z | = | ∂u_y/∂X ∂u_y/∂Y ∂u_y/∂Z |
+            | u_z1 u_z2 u_z3 u_z4 |   | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |   | ∂u_z/∂X ∂u_z/∂Y ∂u_z/∂Z |
+                                      | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
+
+           where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
+        */
         if (m_incremental_formulation) {
             // Incremental formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.

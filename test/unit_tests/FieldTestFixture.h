@@ -101,7 +101,7 @@ class FieldTestFixture : public ::testing::Test {
                 const unsigned component_stride = ngp_field.get_component_stride();
 
                 size_t component = 0;
-                // Loop over the rows and columns
+                // Loop over the rows and columns, row major
                 for (size_t i = 0; i < NumRows; i++) {
                     for (size_t j = 0; j < NumColumns; j++) {
                         T value = ngp_field(entity, component);
@@ -142,7 +142,7 @@ class FieldTestFixture : public ::testing::Test {
                 Eigen::Map<Eigen::Matrix<double, NumRows, NumColumns>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> eigen_data(values, stride);
 
                 size_t component = 0;
-                // Loop over the rows and columns
+                // Loop over the rows and columns, row major
                 for (size_t i = 0; i < NumRows; i++) {
                     for (size_t j = 0; j < NumColumns; j++) {
                         double value = ngp_field(entity, component);

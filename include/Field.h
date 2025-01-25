@@ -26,6 +26,15 @@
 
 namespace aperi {
 
+/**
+ * @brief A wrapper class for a field.
+ *
+ * This class provides a wrapper around a field and provides methods to access the field data.
+ *
+ * @tparam T The type of the field data.
+ * @todo STK NgpFields are layout right (row major) whereas Eigen matrices are layout left (column major). This may cause performance issues and should be investigated.
+ *
+ */
 template <typename T>
 class Field {
    public:
