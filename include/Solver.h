@@ -159,6 +159,13 @@ class Solver {
     virtual void CommunicateForce(const SolverTimerType &timer_type) = 0;
 
     /**
+     * @brief Get whether the solver uses an incremental formulation.
+     *
+     * @return True if the solver uses an incremental formulation, false otherwise.
+     */
+    bool UsesIncrementalFormulation() { return m_uses_incremental_formulation; }
+
+    /**
      * @brief Get the timer manager object.
      * @return A shared pointer to the timer manager object.
      */
