@@ -6,7 +6,9 @@
 #include "BoundaryCondition.h"
 #include "EntityProcessor.h"
 #include "ExternalForceContribution.h"
+#include "Field.h"
 #include "FieldData.h"
+#include "FieldUtils.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
@@ -184,12 +186,20 @@ double ExplicitSolver::Solve() {
     // Print the number of nodes
     mp_mesh_data->PrintNodeCounts();
 
+    // Copy the coordinates field to the current coordinates field, if using the incremental formulation
+    if (m_uses_incremental_formulation) {
+        aperi::Field<double> coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{mp_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
+        aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
+        aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::NP1});
+        aperi::CopyField(coordinates_field, current_coordinates_n_field);
+        aperi::CopyField(coordinates_field, current_coordinates_np1_field);
+    }
+
     // Build the mass matrix
     BuildMassMatrix();
 
     // Create the explicit time integrator
-    aperi::ExplicitTimeIntegrationFields explicit_time_integration_fields(mp_mesh_data);
-    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = std::make_shared<ExplicitTimeIntegrator>(explicit_time_integration_fields, mp_mesh_data, m_active_selector);
+    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_uses_incremental_formulation);
 
     // Set the initial time, t = 0
     double time = 0.0;

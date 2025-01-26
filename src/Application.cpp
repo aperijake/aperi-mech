@@ -143,7 +143,7 @@ std::shared_ptr<aperi::TimeStepper> CreateTimeStepper(const YAML::Node& time_ste
     return aperi::CreateTimeStepper(time_stepper_node);
 }
 
-std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalForceContribution(const std::vector<YAML::Node>& parts, std::shared_ptr<IoInputFile> io_input_file, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalForceContribution(const std::vector<YAML::Node>& parts, bool uses_incremental_formulation, std::shared_ptr<IoInputFile> io_input_file, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateInternalForceContribution, "Creating Internal Force Contributions");
 
@@ -156,6 +156,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
         std::string part_name = part["set"].as<std::string>();
         aperi::CoutP0() << "      " << part_name << std::endl;
         InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData());
+        internal_force_contribution_parameters.incremental_formulation = uses_incremental_formulation;
         internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
         io_mesh->AddFields(material_field_data, {part_name});
@@ -165,12 +166,12 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
     return internal_force_contributions;
 }
 
-void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, bool output_coefficients, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, bool uses_incremental_formulation, bool output_coefficients, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::AddFieldsToMesh, "Adding Fields to Mesh");
 
     // Get general field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, output_coefficients, false /* add_debug_fields */);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, uses_incremental_formulation, output_coefficients, false /* add_debug_fields */);
 
     // Add time stepper field data
     std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
@@ -291,8 +292,11 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     YAML::Node time_stepper_node = io_input_file->GetTimeStepper(procedure_id);
     std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(time_stepper_node, timer_manager);
 
+    // Get whether an incremental formulation is used
+    bool uses_incremental_formulation = io_input_file->GetIncremental(procedure_id);
+
     // Create internal force contributions
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions = CreateInternalForceContribution(parts, io_input_file, io_mesh, timer_manager);
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions = CreateInternalForceContribution(parts, uses_incremental_formulation, io_input_file, io_mesh, timer_manager);
 
     // Check if strain smoothing is used
     bool has_strain_smoothing = HasStrainSmoothing(parts);
@@ -308,7 +312,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Add fields to the mesh
-    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, output_coefficients, timer_manager);
+    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, uses_incremental_formulation, output_coefficients, timer_manager);
 
     // Label the mesh
     LabelMesh(io_mesh, parts, timer_manager);

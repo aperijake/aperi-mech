@@ -110,6 +110,10 @@ class PowerMethodProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
+        bool is_incremental = solver->UsesIncrementalFormulation();
+
+        std::string displacement_field_name = is_incremental ? "displacement_coefficients_inc" : "displacement_coefficients";
+
         // Get the selector
         std::vector<std::string> sets = {};
         m_selector = StkGetSelector(sets, meta_data);
@@ -124,7 +128,7 @@ class PowerMethodProcessor {
         m_ngp_displacement_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_in_field);
 
         // Get the displacement_coefficients field, field to store the displacement coefficients
-        m_displacement_field = StkGetField(FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}, meta_data);
+        m_displacement_field = StkGetField(FieldQueryData<double>{displacement_field_name, FieldQueryState::NP1, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_displacement_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_field);
 
         // Get the mass field
@@ -148,7 +152,7 @@ class PowerMethodProcessor {
         m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_essential_boundary_field);
 
         // Initialize the EntityProcessor
-        InitializeEntityProcessor();
+        InitializeEntityProcessor(displacement_field_name);
 
         // Check if all nodes are in the essential boundary set
         CheckEssentialBoundaries();
@@ -172,10 +176,10 @@ class PowerMethodProcessor {
         }
     }
 
-    void InitializeEntityProcessor() {
+    void InitializeEntityProcessor(const std::string &displacement_field_name) {
         // Order of the fields in the field_query_data_vec must match the FieldIndex enum
         std::array<FieldQueryData<double>, FieldIndex::NUM_FIELDS> field_query_data_vec = {
-            FieldQueryData<double>{"displacement_coefficients", FieldQueryState::NP1},
+            FieldQueryData<double>{displacement_field_name, FieldQueryState::NP1},
             FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
