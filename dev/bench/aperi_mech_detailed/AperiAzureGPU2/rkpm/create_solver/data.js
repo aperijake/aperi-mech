@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737292170823,
+  "lastUpdate": 1737866686786,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -2243,6 +2243,193 @@ window.BENCHMARK_DATA = {
           {
             "name": "Application_Setup_Preprocessing_rkpm_taylor_bar_gpu_np_1",
             "value": 8.62768,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fc93f32b1c6d38651ad93cb9bcbe2fa416fc93b2",
+          "message": "Merge pull request #61 from aperijake/incremental\n\nIncremental formulation for tet4 [skip ci]",
+          "timestamp": "2025-01-26T03:54:00Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/fc93f32b1c6d38651ad93cb9bcbe2fa416fc93b2"
+        },
+        "date": 1737866685929,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Application_Setup_ReadInputMesh_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.119373,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateFieldResultsFile_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000965176,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateTimeStepper_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000018705,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateInternalForceContribution_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000044775,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddFieldsToMesh_rkpm_taylor_bar_cpu_np_1",
+            "value": 25.401,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_LabelMesh_rkpm_taylor_bar_cpu_np_1",
+            "value": 7.72316,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateExternalForceContribution_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000007725,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddInitialConditions_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.00119705,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateBoundaryConditions_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000160885,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateOutputScheduler_rkpm_taylor_bar_cpu_np_1",
+            "value": 0.000016662,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Preprocessing_rkpm_taylor_bar_cpu_np_1",
+            "value": 12.8802,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_ReadInputMesh_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.529387,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateFieldResultsFile_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000060827,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateTimeStepper_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000022193,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateInternalForceContribution_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000050448,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddFieldsToMesh_rkpm_taylor_bar_cpu_np_4",
+            "value": 7.72603,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_LabelMesh_rkpm_taylor_bar_cpu_np_4",
+            "value": 2.18799,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateExternalForceContribution_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000258153,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddInitialConditions_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000385631,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateBoundaryConditions_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000879764,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateOutputScheduler_rkpm_taylor_bar_cpu_np_4",
+            "value": 0.000043795,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Preprocessing_rkpm_taylor_bar_cpu_np_4",
+            "value": 3.41568,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_ReadInputMesh_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.00931821,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateFieldResultsFile_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000905498,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateTimeStepper_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000020208,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateInternalForceContribution_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.00181356,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddFieldsToMesh_rkpm_taylor_bar_gpu_np_1",
+            "value": 25.951,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_LabelMesh_rkpm_taylor_bar_gpu_np_1",
+            "value": 9.27327,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateExternalForceContribution_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000007374,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_AddInitialConditions_rkpm_taylor_bar_gpu_np_1",
+            "value": 1.32797,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateBoundaryConditions_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.00510322,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_CreateOutputScheduler_rkpm_taylor_bar_gpu_np_1",
+            "value": 0.000020619,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Preprocessing_rkpm_taylor_bar_gpu_np_1",
+            "value": 8.74334,
             "unit": "seconds"
           }
         ]
