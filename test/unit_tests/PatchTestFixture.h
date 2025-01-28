@@ -163,54 +163,56 @@ class PatchTest : public SolverTest {
         return expected_force;
     }
 
-    void CheckForcesAndFields(const Eigen::Vector3d& expected_force_eig, double volume) {
-        // Convert the expected force to an array
-        std::array<double, 3> expected_force = {expected_force_eig(0), expected_force_eig(1), expected_force_eig(2)};
-
-        // Get the expected negative force
-        std::array<double, 3> expected_force_negative = {-expected_force[0], -expected_force[1], -expected_force[2]};
-
-        // Check the force balance
-        std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_force_field_name, expected_zero, aperi::FieldQueryState::None, 1.0e-8);
-
-        // Check the force on the first set
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, m_force_field_name, expected_force, aperi::FieldQueryState::None, 1.0e-8);
-
-        // Check the force on the second set
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, m_force_field_name, expected_force_negative, aperi::FieldQueryState::None, 1.0e-8);
-
+    void CheckMass(const double volume, const std::vector<std::string>& set_names = {}) {
         // Check the mass
         auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
+        // Check the mass
         CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
+    }
 
-        // Check the boundary conditions
-        const YAML::Node boundary_conditions = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["boundary_conditions"];
-        auto direction = boundary_conditions[1]["displacement"]["vector"]["direction"].as<std::array<double, 3>>();
-        double magnitude = boundary_conditions[1]["displacement"]["vector"]["magnitude"].as<double>() / 2.0;  // Only running half of smooth step so actual magnitude is half
-        std::array<double, 3> expected_displacement_positive = {magnitude * direction[0], magnitude * direction[1], magnitude * direction[2]};
-        // Peak velocity for a smooth step function (should be set to be the end of the simulation)
-        std::array<double, 3> expected_velocity_positive = {1.875 * expected_displacement_positive[0] / m_final_time, 1.875 * expected_displacement_positive[1] / m_final_time, 1.875 * expected_displacement_positive[2] / m_final_time};
-        std::array<double, 3> expected_displacement_negative = {-expected_displacement_positive[0], -expected_displacement_positive[1], -expected_displacement_positive[2]};
-        std::array<double, 3> expected_velocity_negative = {-expected_velocity_positive[0], -expected_velocity_positive[1], -expected_velocity_positive[2]};
-
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, m_displacement_field_name, expected_displacement_negative, aperi::FieldQueryState::None, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, m_displacement_field_name, expected_displacement_positive, aperi::FieldQueryState::None, 1.0e-9);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_1"}, m_velocity_field_name, expected_velocity_negative, aperi::FieldQueryState::None, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {"surface_2"}, m_velocity_field_name, expected_velocity_positive, aperi::FieldQueryState::None, 1.0e-4);
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_acceleration_field_name, expected_zero, aperi::FieldQueryState::None);
-
+    void CheckDisplacementGradient(const Eigen::Matrix3d& expected_displacement_gradient, const std::vector<std::string>& set_names = {}) {
+        // Convert the expected displacement gradient to an array
+        std::array<double, 9> expected_displacement_gradient_array = {expected_displacement_gradient(0, 0), expected_displacement_gradient(0, 1), expected_displacement_gradient(0, 2), expected_displacement_gradient(1, 0), expected_displacement_gradient(1, 1), expected_displacement_gradient(1, 2), expected_displacement_gradient(2, 0), expected_displacement_gradient(2, 1), expected_displacement_gradient(2, 2)};
         // Check the displacement gradient
-        std::array<double, 9> expected_displacement_gradient = {m_displacement_gradient(0, 0), m_displacement_gradient(0, 1), m_displacement_gradient(0, 2), m_displacement_gradient(1, 0), m_displacement_gradient(1, 1), m_displacement_gradient(1, 2), m_displacement_gradient(2, 0), m_displacement_gradient(2, 1), m_displacement_gradient(2, 2)};
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), {}, m_displacement_gradient_field_name, expected_displacement_gradient, aperi::FieldQueryState::None, 1.0e-9);
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), set_names, m_displacement_gradient_field_name, expected_displacement_gradient_array, aperi::FieldQueryState::None, 1.0e-9);
+    }
 
-        // Check the pk1 stress
-        Eigen::Matrix3d expected_pk1_stress = GetExpectedFirstPKStress(m_displacement_gradient);
+    void CheckStress(const Eigen::Matrix3d& expected_pk1_stress, const std::vector<std::string>& set_names = {}) {
         // Put into an array for comparison, row major
         std::array<double, 9> expected_pk1_stress_array = {expected_pk1_stress(0, 0), expected_pk1_stress(0, 1), expected_pk1_stress(0, 2), expected_pk1_stress(1, 0), expected_pk1_stress(1, 1), expected_pk1_stress(1, 2), expected_pk1_stress(2, 0), expected_pk1_stress(2, 1), expected_pk1_stress(2, 2)};
-        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), {}, m_pk1_stress_field_name, expected_pk1_stress_array, aperi::FieldQueryState::None, 1.0e-8);
+
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT>(*m_solver->GetMeshData(), set_names, m_pk1_stress_field_name, expected_pk1_stress_array, aperi::FieldQueryState::None, 1.0e-8);
+    }
+
+    void CheckForceSum(const Eigen::Vector3d& expected_force, const std::vector<std::string>& set_names = {}) {
+        // Convert the expected force to an array
+        std::array<double, 3> expected_force_array = {expected_force(0), expected_force(1), expected_force(2)};
+
+        // Check the force on the surface
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), set_names, m_force_field_name, expected_force_array, aperi::FieldQueryState::None, 1.0e-8);
+    }
+
+    void CheckDisplacement(const Eigen::Vector3d& expected_displacement, const std::vector<std::string>& set_names = {}) {
+        // Convert the expected displacement to an array
+        std::array<double, 3> expected_displacement_array = {expected_displacement(0), expected_displacement(1), expected_displacement(2)};
+
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), set_names, m_displacement_field_name, expected_displacement_array, aperi::FieldQueryState::None, 1.0e-9);
+    }
+
+    void CheckVelocity(const Eigen::Vector3d& expected_velocity, const std::vector<std::string>& set_names = {}) {
+        // Convert the expected velocity to an array
+        std::array<double, 3> expected_velocity_array = {expected_velocity(0), expected_velocity(1), expected_velocity(2)};
+
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), set_names, m_velocity_field_name, expected_velocity_array, aperi::FieldQueryState::None, 1.0e-4);
+    }
+
+    void CheckAcceleration(const Eigen::Vector3d& expected_acceleration, const std::vector<std::string>& set_names = {}) {
+        // Convert the expected acceleration to an array
+        std::array<double, 3> expected_acceleration_array = {expected_acceleration(0), expected_acceleration(1), expected_acceleration(2)};
+
+        CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), set_names, m_acceleration_field_name, expected_acceleration_array, aperi::FieldQueryState::None);
     }
 
     void CheckPatchTestForces() {

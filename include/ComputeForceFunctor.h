@@ -231,6 +231,9 @@ struct ComputeForce {
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
+                /* Note: In Box 4.6 on page 212 in [1], P is not the first Piola Kirchhoff stress. There, it is the nominal stress which is the transpose of the first Piola Kirchhoff stress. See Box 3.2 on page 106.
+                [1] Belytschko, Ted; Liu, Wing Kam; Moran, Brian; Elkhodary, Khalil. Nonlinear Finite Elements for Continua and Structures. Wiley. Kindle Edition.
+                */
                 force.row(i).noalias() -= b_matrix.row(i) * pk1_stress_map.transpose() * weight;
             }
         }
