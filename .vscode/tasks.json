@@ -4,131 +4,221 @@
     {
       "label": "make",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure && cd build/Release && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "CONFIGURE_ARGS": "",
+          "BUILD_PATH": "build/Release",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_gpu",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --gpu && cd build/Release_gpu && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "CONFIGURE_ARGS": "--gpu",
+          "BUILD_PATH": "build/Release_gpu",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_debug",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type Debug && cd build/Debug && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type Debug",
+          "BUILD_PATH": "build/Debug",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_debug_protego",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type Debug -p && cd protego-mech/build/Debug && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type Debug -p",
+          "BUILD_PATH": "protego-mech/build/Debug",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_debug_gpu",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type Debug --gpu",
+          "BUILD_PATH": "build/Debug_gpu",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_debug_protego_gpu",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu && ./do_configure --build-type Debug --gpu -p && cd protego-mech/build/Debug_gpu && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type Debug --gpu -p",
+          "BUILD_PATH": "protego-mech/build/Debug_gpu",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_full_debug_gpu",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech-gpu-debug && ./do_configure --build-type Debug --gpu && cd build/Debug_gpu && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_DEBUG_ENV}",
+          "CONFIGURE_ARGS": "--build-type Debug --gpu",
+          "BUILD_PATH": "build/Debug_gpu",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_relwithdebinfo",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo && cd build/RelWithDebInfo && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type RelWithDebInfo",
+          "BUILD_PATH": "build/RelWithDebInfo",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_relwithdebinfo_gpu",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --build-type RelWithDebInfo --gpu && cd build/RelWithDebInfo_gpu && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "CONFIGURE_ARGS": "--build-type RelWithDebInfo --gpu",
+          "BUILD_PATH": "build/RelWithDebInfo_gpu",
+          "MAKE_JOBS": ""
+        }
       }
     },
     {
       "label": "make_coverage",
       "type": "shell",
-      "command": "bash",
+      "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        ". $(dirname $(which spack))/../share/spack/setup-env.sh && spack env activate aperi-mech && ./do_configure --code-coverage && cd build/Debug_cov && make -j 4"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "CONFIGURE_ARGS": "--code-coverage",
+          "BUILD_PATH": "build/Debug_cov",
+          "MAKE_JOBS": ""
+        }
       }
     }
   ]

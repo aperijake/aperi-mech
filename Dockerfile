@@ -149,5 +149,7 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
 
+ENV APERI_MECH_CPU_ENV="aperi-mech"
+
 # HEALTHCHECK to verify Spack and Python availability
 HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"
