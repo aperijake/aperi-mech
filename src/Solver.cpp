@@ -186,8 +186,8 @@ double ExplicitSolver::Solve() {
     // Print the number of nodes
     mp_mesh_data->PrintNodeCounts();
 
-    // Copy the coordinates field to the current coordinates field, if using the incremental formulation
-    if (m_uses_incremental_formulation) {
+    // Copy the coordinates field to the current coordinates field, if using the updated formulation
+    if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
         aperi::Field<double> coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{mp_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
         aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
         aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::NP1});
@@ -199,7 +199,7 @@ double ExplicitSolver::Solve() {
     BuildMassMatrix();
 
     // Create the explicit time integrator
-    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_uses_incremental_formulation);
+    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_lagrangian_formulation_type);
 
     // Set the initial time, t = 0
     double time = 0.0;

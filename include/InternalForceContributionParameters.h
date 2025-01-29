@@ -4,17 +4,13 @@
 #include <stdexcept>
 #include <string>
 
+#include "Constants.h"
 #include "IoInputFile.h"
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
 
 namespace aperi {
-
-enum class ApproximationSpaceType { FiniteElement,
-                                    ReproducingKernel };
-enum class IntegrationSchemeType { GaussQuadrature,
-                                   StrainSmoothing };
 
 class ApproximationSpaceParameters {
    public:
@@ -229,7 +225,7 @@ struct InternalForceContributionParameters {
     std::string part_name = "";
     std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters = nullptr;
     std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters = nullptr;
-    bool incremental_formulation = false;
+    LagrangianFormulationType lagrangian_formulation_type = LagrangianFormulationType::Total;
 };
 
 }  // namespace aperi

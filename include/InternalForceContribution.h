@@ -92,12 +92,12 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
-     * @brief Gets whether the element uses an incremental formulation.
+     * @brief Gets the Lagrangian formulation type associated with the force contribution.
      *
-     * @return True if the element uses an incremental formulation, false otherwise.
+     * @return The LagrangianFormulationType object.
      */
-    bool UsesIncrementalFormulation() const {
-        return m_internal_force_contribution_parameters.incremental_formulation;
+    LagrangianFormulationType GetLagrangianFormulationType() const {
+        return m_internal_force_contribution_parameters.lagrangian_formulation_type;
     }
 
     /**

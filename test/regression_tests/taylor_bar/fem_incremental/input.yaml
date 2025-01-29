@@ -1,6 +1,7 @@
 procedures:
   - explicit_dynamics_procedure:
-      incremental_formulation: true
+      lagrangian_formulation:
+        updated: ~
       geometry:
         mesh: ../mesh/cylinder0p02.exo
         parts:

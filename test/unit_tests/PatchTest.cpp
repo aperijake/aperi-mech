@@ -25,8 +25,8 @@ TEST_F(PatchTest, Tet4IncrementalPatchTestsTension) {
     bool tets = true;
     PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
-    bool incremental = true;
-    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel, incremental);
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel, lagrangian_formulation_type);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
@@ -34,8 +34,8 @@ TEST_F(PatchTest, Tet4IncrementalPatchTestsCompression) {
     bool tets = true;
     PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
-    bool incremental = true;
-    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel, incremental);
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel, lagrangian_formulation_type);
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.

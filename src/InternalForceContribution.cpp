@@ -26,7 +26,7 @@ void InternalForceContribution::Preprocess() {
     aperi::ElementTopology element_topology = m_internal_force_contribution_parameters.mesh_data->GetElementTopology(m_internal_force_contribution_parameters.part_name);
 
     // Create the element.
-    m_element = CreateElement(element_topology, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, displacement_field_name, m_internal_force_contribution_parameters.incremental_formulation, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
+    m_element = CreateElement(element_topology, m_internal_force_contribution_parameters.approximation_space_parameters, m_internal_force_contribution_parameters.integration_scheme_parameters, displacement_field_name, m_internal_force_contribution_parameters.lagrangian_formulation_type, part_names, m_internal_force_contribution_parameters.mesh_data, m_internal_force_contribution_parameters.material);
 }
 
 }  // namespace aperi

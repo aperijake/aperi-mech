@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <string>
 
+#include "Constants.h"
 #include "PatchTestFixture.h"
 
 class ForceTest : public PatchTest {
@@ -15,7 +16,7 @@ class ForceTest : public PatchTest {
         PatchTest::TearDown();
     }
 
-    void RunShearTest(double magnitude, int load_direction, int load_surface, bool incremental = false) {
+    void RunShearTest(double magnitude, int load_direction, int load_surface, const aperi::LagrangianFormulationType& lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) {
         if (m_num_procs != 1 && load_direction == 2) {
             // Exit if the number of processors is not 1
             // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
@@ -59,7 +60,7 @@ class ForceTest : public PatchTest {
         double cross_section_area = m_num_procs * m_num_procs;
 
         // Run the problem, apply the displacement boundary conditions on the faces
-        RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, side_sets[0], side_sets[1], PatchTestIntegrationScheme::GAUSS_QUADRATURE, false, incremental, true);
+        RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, side_sets[0], side_sets[1], PatchTestIntegrationScheme::GAUSS_QUADRATURE, false, lagrangian_formulation_type, true);
 
         // Set the expected displacement gradient
         m_displacement_gradient(load_direction, load_surface) = 2.0 * magnitude;
@@ -134,31 +135,31 @@ TEST_F(ForceTest, ExplicitShearYZForce) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx.
-TEST_F(ForceTest, ExplicitShearYXForceIncremental) {
-    RunShearTest(0.1, 1, 0, true);
+TEST_F(ForceTest, ExplicitShearYXForceUpdated) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Updated);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zx.
-TEST_F(ForceTest, ExplicitShearZXForceIncremental) {
-    RunShearTest(0.1, 2, 0, true);
+TEST_F(ForceTest, ExplicitShearZXForceUpdated) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Updated);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xy.
-TEST_F(ForceTest, ExplicitShearXYForceIncremental) {
-    RunShearTest(0.1, 0, 1, true);
+TEST_F(ForceTest, ExplicitShearXYForceUpdated) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Updated);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zy.
-TEST_F(ForceTest, ExplicitShearZYForceIncremental) {
-    RunShearTest(0.1, 2, 1, true);
+TEST_F(ForceTest, ExplicitShearZYForceUpdated) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Updated);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xz.
-TEST_F(ForceTest, ExplicitShearXZForceIncremental) {
-    RunShearTest(0.1, 0, 2, true);
+TEST_F(ForceTest, ExplicitShearXZForceUpdated) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Updated);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yz.
-TEST_F(ForceTest, ExplicitShearYZForceIncremental) {
-    RunShearTest(0.1, 1, 2, true);
+TEST_F(ForceTest, ExplicitShearYZForceUpdated) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated);
 }

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <memory>
 
+#include "Constants.h"
 #include "ElementNodeProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -28,9 +29,9 @@ namespace aperi {
  * @param functions_functor The functor for computing the shape functions.
  * @param integration_functor The functor for computing the integration points and weights.
  * @param material The material.
- * @param incremental_formulation Whether to use the incremental formulation.
+ * @param lagrangian_formulation_type The Lagrangian formulation type.
  *
- * @todo This is setup with total Lagrangian being the primary formulation. The incremental formulation is not optimized.
+ * @todo This is setup with total Lagrangian being the primary formulation. The updated Lagrangian formulation is not optimized.
  * @todo The field indexing only is set up for a single gauss point. This needs to be updated to handle multiple gauss points.
  *
  * This functor computes the internal force of an element using standard quadrature. The internal force is computed by looping over all gauss points and computing the B matrix and integration weight for each gauss point. The displacement gradient is then computed and the 1st pk stress and internal force of the element are computed.
@@ -44,10 +45,10 @@ struct ComputeForce {
                  const FunctionsFunctor &functions_functor,
                  const IntegrationFunctor &integration_functor,
                  const Material &material,
-                 const bool incremental_formulation = false)
+                 const LagrangianFormulationType &lagrangian_formulation_type = LagrangianFormulationType::Total)
         : m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
-          m_incremental_formulation(incremental_formulation),
+          m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_time_increment_device("TimeIncrementDevice"),
           m_functions_functor(functions_functor),
           m_integration_functor(integration_functor),
@@ -55,7 +56,7 @@ struct ComputeForce {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
-        if (m_incremental_formulation) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
             displacements_field_name += "_inc";
         }
 
@@ -125,8 +126,8 @@ struct ComputeForce {
 
            where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
         */
-        if (m_incremental_formulation) {
-            // Incremental formulation. Displacement is the increment. B matrix is in the current configuration.
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+            // Updated Lagrangian formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.
             //  - ΔH^{n+1} = B * Δd^{n+½}
             //  - H^{n+1} = ΔH^{n+1} + H^{n} + ΔH^{n+1} * H^{n}
@@ -187,7 +188,7 @@ struct ComputeForce {
 
         // Loop over all gauss points and compute the internal force.
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
-            // For total formulation, the values are with respect to the reference configuration. For incremental formulation, the values are with respect to the configuration at time n.
+            // For total formulation, the values are with respect to the reference configuration. For updated Lagrangian formulation, the values are with respect to the configuration at time n.
 
             // Compute the B matrix and integration weight for a given gauss point.
             auto [b_matrix, weight] = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
@@ -195,8 +196,8 @@ struct ComputeForce {
             // Compute displacement gradient, put it in the field
             ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
 
-            // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
-            if (m_incremental_formulation) {
+            // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
+            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
                 // Compute the deformation gradient
                 const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
 
@@ -247,7 +248,7 @@ struct ComputeForce {
    private:
     void SetCoordinateField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
         // Get the coordinates field
-        if (m_incremental_formulation) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
         } else {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
@@ -261,9 +262,9 @@ struct ComputeForce {
         }
     }
 
-    const bool m_has_state;                // Whether the functor uses state
-    const bool m_needs_velocity_gradient;  // Whether the functor needs the velocity gradient
-    const bool m_incremental_formulation;  // Whether the functor uses the incremental formulation
+    const bool m_has_state;                                                // Whether the functor uses state
+    const bool m_needs_velocity_gradient;                                  // Whether the functor needs the velocity gradient
+    const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
