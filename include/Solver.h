@@ -236,6 +236,10 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         if (state_field_ptr != nullptr) {
             m_temporal_varying_output_fields.push_back(*state_field_ptr);
         }
+        std::shared_ptr<aperi::Field<double>> ref_disp_grad_field_ptr = aperi::GetField<double>(mp_mesh_data, aperi::FieldQueryData<double>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        if (ref_disp_grad_field_ptr != nullptr) {
+            m_temporal_varying_output_fields.push_back(*ref_disp_grad_field_ptr);
+        }
     }
 
     // Create a node processor for force

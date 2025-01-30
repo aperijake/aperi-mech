@@ -17,9 +17,6 @@ namespace aperi {
  */
 template <typename T>
 void CopyField(const Field<T> &src, Field<T> &dest, const aperi::Selector &selector) {
-    // Get the mesh data
-    std::shared_ptr<aperi::MeshData> mesh_data = src.GetMeshData();
-
     stk::mesh::field_copy(*src.GetField(), *dest.GetField(), selector(), stk::ngp::ExecSpace());
 }
 
@@ -49,9 +46,6 @@ void CopyField(const Field<T> &src, Field<T> &dest, std::vector<std::string> set
  */
 template <typename T>
 void Fill(Field<T> &field, const T &value, const aperi::Selector &selector) {
-    // Get the mesh data
-    std::shared_ptr<aperi::MeshData> mesh_data = field.GetMeshData();
-
     stk::mesh::field_fill(value, *field.GetField(), selector(), stk::ngp::ExecSpace());
 }
 

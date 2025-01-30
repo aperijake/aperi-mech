@@ -56,7 +56,7 @@ struct ComputeForce {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
-        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             displacements_field_name += "_inc";
         }
 
@@ -130,7 +130,7 @@ struct ComputeForce {
 
            where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
         */
-        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             // Updated Lagrangian formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.
             //  - ΔH^{n+1} = B * Δd^{n+½}
@@ -200,22 +200,20 @@ struct ComputeForce {
             // Compute displacement gradient, put it in the field
             ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
 
-            // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
-            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+            // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the original configuration
+            // If using the semi Lagrangian formulation, the b_matrix and weight are computed in the latest reference configuration, adjust the b_matrix and weight to the original configuration
+            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
                 // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
+                const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
 
-                // Compute the deformation gradient determinant
-                const double j_n = F_n.determinant();
-
-                // Compute the b matrix in the reference configuration
-                //   b_current matrix is (NumNodes x 3):      b_current_ij = dN_i/dx_j
+                // Compute the b matrix in the original configuration
+                //   b_reference matrix is (NumNodes x 3):      b_reference_ij = dN_i/dx_j
                 //   F is (3 x 3):                                    F_jk = dx_j/dX_k
-                //   b_reference matrix is (NumNodes x 3):  b_reference_ik = b_current_ij * F_jk
-                b_matrix = b_matrix * F_n;
+                //   b_original matrix is (NumNodes x 3):  b_original_ik = b_reference_ij * F_jk
+                b_matrix = b_matrix * F_reference;
 
                 // Compute the weight
-                weight = weight / j_n;
+                weight = weight / F_reference.determinant();
             }
 
             // Get the displacement gradient map

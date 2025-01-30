@@ -73,12 +73,12 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
             found_at_least_one_entity = true;
             if constexpr (std::is_floating_point_v<T>) {
                 if (std::fabs(expected_values[i]) < 1.0e-12) {
-                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
                 } else {
-                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], std::fabs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], std::fabs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
                 }
             } else {
-                EXPECT_EQ(field_data[0][i_entity_start[0] + i], expected_values[i]) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                EXPECT_EQ(field_data[0][i_entity_start[0] + i], expected_values[i]) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
             }
         }
     });
