@@ -67,6 +67,7 @@ struct ComputeForce {
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         SetCoordinateField(mesh_data);
+        SetReferenceDisplacementGradientField(mesh_data);
         SetStateFields(mesh_data);
     }
 
@@ -86,6 +87,9 @@ struct ComputeForce {
         if (m_has_state) {
             m_state_n_field.UpdateField();
             m_state_np1_field.UpdateField();
+        }
+        if (m_lagrangian_formulation_type != LagrangianFormulationType::Total) {
+            m_reference_displacement_gradient_field.UpdateField();
         }
     }
 
@@ -131,9 +135,9 @@ struct ComputeForce {
             // Calculate the displacement gradient from the increment and previous displacement gradient.
             //  - ΔH^{n+1} = B * Δd^{n+½}
             //  - H^{n+1} = ΔH^{n+1} + H^{n} + ΔH^{n+1} * H^{n}
-            const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+            const auto reference_displacement_gradient_map = m_reference_displacement_gradient_field.GetConstEigenMatrixMap<3, 3>(elem_index);
             const Eigen::Matrix<double, 3, 3> displacement_gradient_increment = node_displacements_np1.transpose() * b_matrix;
-            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + displacement_gradient_n_map + displacement_gradient_increment * displacement_gradient_n_map);
+            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + reference_displacement_gradient_map + displacement_gradient_increment * reference_displacement_gradient_map);
 
         } else {
             // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration.
@@ -199,7 +203,7 @@ struct ComputeForce {
             // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
             if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
                 // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
+                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
 
                 // Compute the deformation gradient determinant
                 const double j_n = F_n.determinant();
@@ -250,8 +254,19 @@ struct ComputeForce {
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
+        } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"reference_coordinates", FieldQueryState::None});
         } else {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
+        }
+    }
+
+    void SetReferenceDisplacementGradientField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
+        // Get the reference displacement gradient field
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+            m_reference_displacement_gradient_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+        } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            m_reference_displacement_gradient_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         }
     }
 
@@ -274,6 +289,7 @@ struct ComputeForce {
     aperi::Field<double> m_state_n_field;                            // The field for the node state at time n
     mutable aperi::Field<double> m_state_np1_field;                  // The field for the node state at time n+1
     aperi::Field<double> m_displacement_gradient_n_field;            // The field for the element displacement gradient
+    aperi::Field<double> m_reference_displacement_gradient_field;    // The field for the element reference displacement gradient
     mutable aperi::Field<double> m_displacement_gradient_np1_field;  // The field for the element displacement gradient at time n+1
     mutable aperi::Field<double> m_pk1_stress_field;                 // The field for the element pk1 stress
 

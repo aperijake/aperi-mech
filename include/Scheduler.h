@@ -127,4 +127,10 @@ inline std::shared_ptr<Scheduler<double>> CreateTimeIncrementScheduler(const YAM
     return std::make_shared<TimeIncrementScheduler>(time_start, time_end, time_increment);
 }
 
+inline std::shared_ptr<Scheduler<size_t>> CreateStepScheduler(const YAML::Node &update_interval_node) {
+    size_t start_point = 0;
+    size_t step_increment = update_interval_node["update_interval"].as<size_t>();
+    return std::make_shared<StepScheduler>(start_point, step_increment);
+}
+
 }  // namespace aperi

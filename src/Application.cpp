@@ -252,6 +252,14 @@ std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node
     return aperi::CreateTimeIncrementScheduler(output_scheduler_node);
 }
 
+std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateScheduler(const YAML::Node& reference_configuration_update_scheduler_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+    // Create a scoped timer. just labeling it as CreateOutputScheduler for now
+    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateOutputScheduler, "Creating Output Scheduler");
+
+    // Create the reference configuration update scheduler
+    return aperi::CreateStepScheduler(reference_configuration_update_scheduler_node);
+}
+
 void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::Preprocessing, "Pre-processing");
@@ -332,6 +340,13 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Get the output scheduler
     std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateOutputScheduler(output_scheduler_node, timer_manager);
 
+    // Get the reference configuration update scheduler
+    std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr;
+    if (formulation_type == LagrangianFormulationType::Semi) {
+        YAML::Node reference_configuration_update_scheduler_node = io_input_file->GetReferenceConfigurationUpdateScheduler(procedure_id);
+        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_scheduler_node, timer_manager);
+    }
+
     // Pre-processing
     Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, timer_manager);
 
@@ -355,7 +370,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;

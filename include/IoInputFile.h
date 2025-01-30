@@ -199,6 +199,27 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    // Get the reference configuration update scheduler for a specific procedure id
+    YAML::Node GetReferenceConfigurationUpdateScheduler(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        std::pair<YAML::Node, int> node_pair = GetNode(procedure_node, "lagrangian_formulation");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting lagrangian formulation");
+
+        // Check if the lagrangian_formulation has a "semi" key
+        if (node_pair.first["semi"]) {
+            // Get update_interval node
+            std::pair<YAML::Node, int> update_interval_pair = GetNode(node_pair.first["semi"], "update_interval");
+            if (exit_on_error && update_interval_pair.second != 0) throw std::runtime_error("Error getting update interval");
+            return update_interval_pair.first;
+        } else {
+            if (exit_on_error) throw std::runtime_error("Error getting reference configuration update scheduler. Must have 'semi' key.");
+            return YAML::Node();
+        }
+    }
+
     // Get material from a part
     static YAML::Node GetMaterialFromPart(const YAML::Node& part, bool exit_on_error = true) {
         std::pair<YAML::Node, int> node_pair = GetNode(part, "material");

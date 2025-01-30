@@ -462,6 +462,7 @@ YAML::Node GetInputSchema() {
 
     // Semi Lagrangian formulation node
     aperi::InputSchema semi_lagrangian_schema("semi_lagrangian", "map", "semi Lagrangian formulation");
+    semi_lagrangian_schema.AddAllOf(update_interval_node);
     YAML::Node semi_lagrangian_node = semi_lagrangian_schema.GetInputSchema();
 
     // Lagrangian formulation node
