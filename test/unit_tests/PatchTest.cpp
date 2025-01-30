@@ -21,7 +21,7 @@ TEST_F(PatchTest, Tet4PatchTestsCompression) {
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(PatchTest, Tet4IncrementalPatchTestsTension) {
+TEST_F(PatchTest, Tet4UpdatedPatchTestsTension) {
     bool tets = true;
     PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
@@ -30,11 +30,29 @@ TEST_F(PatchTest, Tet4IncrementalPatchTestsTension) {
 }
 
 // Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(PatchTest, Tet4IncrementalPatchTestsCompression) {
+TEST_F(PatchTest, Tet4UpdatedPatchTestsCompression) {
     bool tets = true;
     PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
     bool reproducing_kernel = false;
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel, lagrangian_formulation_type);
+}
+
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(PatchTest, Tet4SemiPatchTestsTension) {
+    bool tets = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
+    bool reproducing_kernel = false;
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Semi;
+    RunTensionPatchTests(tets, integration_scheme, reproducing_kernel, lagrangian_formulation_type);
+}
+
+// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
+TEST_F(PatchTest, Tet4SemiPatchTestsCompression) {
+    bool tets = true;
+    PatchTestIntegrationScheme integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE;
+    bool reproducing_kernel = false;
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Semi;
     RunCompressionPatchTests(tets, integration_scheme, reproducing_kernel, lagrangian_formulation_type);
 }
 

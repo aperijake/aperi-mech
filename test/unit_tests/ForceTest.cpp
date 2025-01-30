@@ -163,3 +163,33 @@ TEST_F(ForceTest, ExplicitShearXZForceUpdated) {
 TEST_F(ForceTest, ExplicitShearYZForceUpdated) {
     RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated);
 }
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceSemi) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Semi);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceSemi) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Semi);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceSemi) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Semi);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceSemi) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Semi);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceSemi) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Semi);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceSemi) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi);
+}

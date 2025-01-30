@@ -122,6 +122,8 @@ class PatchTest : public SolverTest {
         // Add formulation type
         if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
             m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["lagrangian_formulation"]["updated"] = YAML::Node();
+        } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+            m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["lagrangian_formulation"]["semi"]["update_interval"] = 2;
         }
 
         CreateInputFile();

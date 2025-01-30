@@ -200,7 +200,7 @@ class IoInputFile {
     }
 
     // Get the reference configuration update scheduler for a specific procedure id
-    YAML::Node GetReferenceConfigurationUpdateScheduler(int procedure_id, bool exit_on_error = true) const {
+    int GetSemiLagrangianConfigurationUpdateInterval(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
 
@@ -211,12 +211,12 @@ class IoInputFile {
         // Check if the lagrangian_formulation has a "semi" key
         if (node_pair.first["semi"]) {
             // Get update_interval node
-            std::pair<YAML::Node, int> update_interval_pair = GetNode(node_pair.first["semi"], "update_interval");
-            if (exit_on_error && update_interval_pair.second != 0) throw std::runtime_error("Error getting update interval");
+            std::pair<int, int> update_interval_pair = GetScalarValue<int>(node_pair.first["semi"], "update_interval");
+            if (exit_on_error && update_interval_pair.second != 0) throw std::runtime_error("Error getting update interval.");
             return update_interval_pair.first;
         } else {
             if (exit_on_error) throw std::runtime_error("Error getting reference configuration update scheduler. Must have 'semi' key.");
-            return YAML::Node();
+            return -1;
         }
     }
 

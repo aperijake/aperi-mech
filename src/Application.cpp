@@ -252,12 +252,13 @@ std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node
     return aperi::CreateTimeIncrementScheduler(output_scheduler_node);
 }
 
-std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateScheduler(const YAML::Node& reference_configuration_update_scheduler_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateScheduler(int reference_configuration_update_interval, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer. just labeling it as CreateOutputScheduler for now
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateOutputScheduler, "Creating Output Scheduler");
 
     // Create the reference configuration update scheduler
-    return aperi::CreateStepScheduler(reference_configuration_update_scheduler_node);
+    int start_n = reference_configuration_update_interval;  // Skip step 0 as it is the initial configuration and will be initialized in the pre-processing step
+    return aperi::CreateStepScheduler(start_n, reference_configuration_update_interval);
 }
 
 void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
@@ -343,8 +344,8 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     // Get the reference configuration update scheduler
     std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr;
     if (formulation_type == LagrangianFormulationType::Semi) {
-        YAML::Node reference_configuration_update_scheduler_node = io_input_file->GetReferenceConfigurationUpdateScheduler(procedure_id);
-        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_scheduler_node, timer_manager);
+        int reference_configuration_update_interval = io_input_file->GetSemiLagrangianConfigurationUpdateInterval(procedure_id);
+        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval, timer_manager);
     }
 
     // Pre-processing

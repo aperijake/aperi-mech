@@ -73,11 +73,13 @@ struct ExplicitTimeIntegrationFieldsSemi : public ExplicitTimeIntegrationFieldsU
     ExplicitTimeIntegrationFieldsSemi(std::shared_ptr<aperi::MeshData> mesh_data)
         : ExplicitTimeIntegrationFieldsUpdated(mesh_data),
           reference_coordinates_field(mesh_data, {"reference_coordinates", FieldQueryState::None}),
-          reference_displacement_gradient_field(mesh_data, {"reference_displacement_gradient", FieldQueryState::None}) {}
+          reference_displacement_gradient_field(mesh_data, {"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+          displacement_gradient_np1_field(mesh_data, {"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}) {}
 
     // Fields
     aperi::Field<double> reference_coordinates_field;
     aperi::Field<double> reference_displacement_gradient_field;
+    aperi::Field<double> displacement_gradient_np1_field;
 };
 
 /**
@@ -412,7 +414,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
    public:
     // Constructor
     explicit ExplicitTimeIntegratorSemi(const ExplicitTimeIntegrationFieldsSemi &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
-        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device, true), m_current_coordinates_np1_field(fields.current_coordinates_np1_field), m_reference_coordinates_field(fields.reference_coordinates_field), m_displacement_coefficients_increment_field(fields.displacement_coefficients_increment_field), m_displacement_gradient_np1_field(fields.displacement_coefficients_np1_field), m_reference_displacement_gradient_field(fields.reference_displacement_gradient_field) {}
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device, true), m_current_coordinates_np1_field(fields.current_coordinates_np1_field), m_reference_coordinates_field(fields.reference_coordinates_field), m_displacement_coefficients_increment_field(fields.displacement_coefficients_increment_field), m_displacement_gradient_np1_field(fields.displacement_gradient_np1_field), m_reference_displacement_gradient_field(fields.reference_displacement_gradient_field) {}
 
     // Update the displacements
     void UpdateDisplacements() override {
@@ -438,7 +440,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
         aperi::Zero(m_displacement_coefficients_increment_field, m_active_selector);
 
         // Copy the displacement gradient to the reference displacement gradient
-        aperi::CopyField(m_displacement_gradient_np1_field, m_reference_displacement_gradient_field, m_active_selector);
+        aperi::CopyField(m_displacement_gradient_np1_field, m_reference_displacement_gradient_field);
 
         // Mark the m_as modified
         m_reference_coordinates_field.MarkModifiedOnDevice();

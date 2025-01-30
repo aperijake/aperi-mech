@@ -72,7 +72,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("cell_volume_fraction", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-        field_data.push_back(FieldData("reference_displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+        field_data.push_back(FieldData("reference_displacement_gradient", "reference_disp_grad", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
     }
 
     // TODO(jake): Add ability to turn this on / off per part
