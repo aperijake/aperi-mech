@@ -7,7 +7,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -17,7 +17,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
-          "CONFIGURE_ARGS": "",
+          "BUILD_TYPE": "Release",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "",
           "BUILD_PATH": "build/Release",
           "MAKE_JOBS": ""
         }
@@ -29,7 +31,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -39,7 +41,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
-          "CONFIGURE_ARGS": "--gpu",
+          "BUILD_TYPE": "Release",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "--gpu",
           "BUILD_PATH": "build/Release_gpu",
           "MAKE_JOBS": ""
         }
@@ -51,7 +55,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -61,7 +65,7 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type Debug",
+          "BUILD_TYPE": "Debug",
           "BUILD_PATH": "build/Debug",
           "MAKE_JOBS": ""
         }
@@ -73,7 +77,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -83,7 +87,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type Debug -p",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "-p",
+          "GPU_FLAG": "",
           "BUILD_PATH": "protego-mech/build/Debug",
           "MAKE_JOBS": ""
         }
@@ -95,7 +101,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -105,7 +111,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type Debug --gpu",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "--gpu",
           "BUILD_PATH": "build/Debug_gpu",
           "MAKE_JOBS": ""
         }
@@ -117,7 +125,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -127,7 +135,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type Debug --gpu -p",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "-p",
+          "GPU_FLAG": "--gpu",
           "BUILD_PATH": "protego-mech/build/Debug_gpu",
           "MAKE_JOBS": ""
         }
@@ -139,7 +149,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -149,7 +159,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_DEBUG_ENV}",
-          "CONFIGURE_ARGS": "--build-type Debug --gpu",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "--gpu",
           "BUILD_PATH": "build/Debug_gpu",
           "MAKE_JOBS": ""
         }
@@ -161,7 +173,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -171,7 +183,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type RelWithDebInfo",
+          "BUILD_TYPE": "RelWithDebInfo",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "",
           "BUILD_PATH": "build/RelWithDebInfo",
           "MAKE_JOBS": ""
         }
@@ -183,7 +197,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -193,7 +207,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
-          "CONFIGURE_ARGS": "--build-type RelWithDebInfo --gpu",
+          "BUILD_TYPE": "RelWithDebInfo",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "--gpu",
           "BUILD_PATH": "build/RelWithDebInfo_gpu",
           "MAKE_JOBS": ""
         }
@@ -205,7 +221,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure ${CONFIGURE_ARGS} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "source $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} --code-coverage && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -215,7 +231,9 @@
         "env": {
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
-          "CONFIGURE_ARGS": "--code-coverage",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "",
           "BUILD_PATH": "build/Debug_cov",
           "MAKE_JOBS": ""
         }
