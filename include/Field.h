@@ -357,6 +357,14 @@ class Field {
         return m_mesh_data;
     }
 
+    /**
+     * @brief Get the field object.
+     * @return The field object.
+     */
+    stk::mesh::Field<T> *GetField() const {
+        return m_field;
+    }
+
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     stk::mesh::Field<T> *m_field;                  // The field object.
