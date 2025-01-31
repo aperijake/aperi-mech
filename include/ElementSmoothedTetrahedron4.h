@@ -62,7 +62,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", m_part_names, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell<Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type);
     }
 
     void FindNeighbors() {
@@ -123,7 +123,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         // Loop over all elements and compute the internal force
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
-        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
+        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
@@ -131,7 +131,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;
+    std::shared_ptr<aperi::ComputeForceSmoothedCell<Material::StressFunctor>> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
 };

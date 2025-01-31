@@ -1,15 +1,13 @@
 #pragma once
 
 #include <Eigen/Dense>
-#include <array>
-#include <chrono>
 #include <memory>
 
 #include "Constants.h"
 #include "ElementNodeProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
-#include "LogUtils.h"
+#include "Index.h"
 #include "Material.h"
 #include "MathUtils.h"
 #include "MeshData.h"
@@ -63,8 +61,10 @@ struct ComputeForce {
         // Get the field data
         m_displacement_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{displacements_field_name, FieldQueryState::NP1});
         m_force_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{force_field_name, FieldQueryState::None});
+
         m_displacement_gradient_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         SetCoordinateField(mesh_data);
         SetReferenceDisplacementGradientField(mesh_data);
@@ -108,40 +108,18 @@ struct ComputeForce {
      * @param elem_index The element index.
      * @todo This should be moved to a separate functor.
      */
-    KOKKOS_INLINE_FUNCTION void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, NumNodes, 3> &node_displacements_np1, const Eigen::Matrix<double, NumNodes, 3> &b_matrix) const {
-        // Compute the displacement gradient
-        /*
-          node_displacements_np1.transpose() for a 3D element with 4 nodes is a 3x4 matrix:
-            | u_x1 u_x2 u_x3 u_x4 |
-            | u_y1 u_y2 u_y3 u_y4 |
-            | u_z1 u_z2 u_z3 u_z4 |
-
-            b_matrix for a 3D element with 4 nodes is a 4x3 matrix:
-            | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |
-            | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z |
-            | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |
-            | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
-
-          H = node_displacements_np1.transpose() * b_matrix:
-            | u_x1 u_x2 u_x3 u_x4 |   | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |   | ∂u_x/∂X ∂u_x/∂Y ∂u_x/∂Z |
-            | u_y1 u_y2 u_y3 u_y4 | * | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z | = | ∂u_y/∂X ∂u_y/∂Y ∂u_y/∂Z |
-            | u_z1 u_z2 u_z3 u_z4 |   | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |   | ∂u_z/∂X ∂u_z/∂Y ∂u_z/∂Z |
-                                      | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
-
-           where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
-        */
+    KOKKOS_INLINE_FUNCTION void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, 3, 3> &input_displacement_gradient) const {
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             // Updated Lagrangian formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.
             //  - ΔH^{n+1} = B * Δd^{n+½}
             //  - H^{n+1} = ΔH^{n+1} + H^{n} + ΔH^{n+1} * H^{n}
             const auto reference_displacement_gradient_map = m_reference_displacement_gradient_field.GetConstEigenMatrixMap<3, 3>(elem_index);
-            const Eigen::Matrix<double, 3, 3> displacement_gradient_increment = node_displacements_np1.transpose() * b_matrix;
-            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + reference_displacement_gradient_map + displacement_gradient_increment * reference_displacement_gradient_map);
+            m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient + reference_displacement_gradient_map + input_displacement_gradient * reference_displacement_gradient_map);
 
         } else {
-            // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration.
-            m_displacement_gradient_np1_field.Assign(elem_index, node_displacements_np1.transpose() * b_matrix);
+            // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration. Input displacement gradient is the total displacement gradient.
+            m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient);
         }
     }
 
@@ -197,8 +175,28 @@ struct ComputeForce {
             // Compute the B matrix and integration weight for a given gauss point.
             auto [b_matrix, weight] = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
 
-            // Compute displacement gradient, put it in the field
-            ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
+            // Compute the displacement gradient
+            /*
+              node_displacements_np1.transpose() for a 3D element with 4 nodes is a 3x4 matrix:
+                | u_x1 u_x2 u_x3 u_x4 |
+                | u_y1 u_y2 u_y3 u_y4 |
+                | u_z1 u_z2 u_z3 u_z4 |
+
+                b_matrix for a 3D element with 4 nodes is a 4x3 matrix:
+                | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |
+                | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z |
+                | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |
+                | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
+
+              H = node_displacements_np1.transpose() * b_matrix:
+                | u_x1 u_x2 u_x3 u_x4 |   | ∂N_1/∂X ∂N_1/∂Y ∂N_1/∂Z |   | ∂u_x/∂X ∂u_x/∂Y ∂u_x/∂Z |
+                | u_y1 u_y2 u_y3 u_y4 | * | ∂N_2/∂X ∂N_2/∂Y ∂N_2/∂Z | = | ∂u_y/∂X ∂u_y/∂Y ∂u_y/∂Z |
+                | u_z1 u_z2 u_z3 u_z4 |   | ∂N_3/∂X ∂N_3/∂Y ∂N_3/∂Z |   | ∂u_z/∂X ∂u_z/∂Y ∂u_z/∂Z |
+                                          | ∂N_4/∂X ∂N_4/∂Y ∂N_4/∂Z |
+
+               where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
+            */
+            ComputeDisplacementGradient(elem_index, node_displacements_np1.transpose() * b_matrix);
 
             // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the original configuration
             // If using the semi Lagrangian formulation, the b_matrix and weight are computed in the latest reference configuration, adjust the b_matrix and weight to the original configuration
