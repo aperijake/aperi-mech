@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "ComputeElementVolumeFunctor.h"
-#include "ComputeForceFunctor.h"
+#include "ComputeInternalForceGaussian.h"
 #include "Constants.h"
 #include "ElementBase.h"
 #include "Field.h"
@@ -70,9 +70,7 @@ class ElementTetrahedron4 : public ElementBase {
         m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
 
         // Create the compute force functor
-        // TODO(jake) Passing in the base class StressFunctor. This likely causes polymorphism vtable lookups, but avoids bloating with all Material / Element classes.
-        // Leaving as is for now. My need to rethink how this is done in the Material class. Use a function pointer to get stress?
-        m_compute_force = std::make_shared<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material, m_lagrangian_formulation_type);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceGaussian<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material, m_lagrangian_formulation_type);
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -163,8 +161,8 @@ class ElementTetrahedron4 : public ElementBase {
    private:
     ShapeFunctionsFunctorTet4 *m_shape_functions_functor;
     Quadrature<1, TET4_NUM_NODES> *m_integration_functor;
-    std::shared_ptr<aperi::ElementNodeProcessor<TET4_NUM_NODES>> m_element_node_processor;                                                                    // The element node processor.
-    std::shared_ptr<aperi::ComputeForce<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>> m_compute_force;  // The compute force functor.
+    std::shared_ptr<aperi::ElementNodeProcessor<TET4_NUM_NODES>> m_element_node_processor;                                                           // The element node processor.
+    std::shared_ptr<aperi::ComputeInternalForceGaussian<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>>> m_compute_force;  // The compute force functor.
     const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;

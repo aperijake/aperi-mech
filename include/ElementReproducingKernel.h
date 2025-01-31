@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "ComputeForceSmoothedCell.h"
+#include "ComputeInternalForceSmoothedCell.h"
 #include "Constants.h"
 #include "ElementBase.h"
 #include "FieldData.h"
@@ -65,7 +65,7 @@ class ElementReproducingKernel : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell<Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, force_field_name, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, force_field_name, *this->m_material);
     }
 
     void FindNeighbors() {
@@ -135,7 +135,7 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
-    std::shared_ptr<aperi::ComputeForceSmoothedCell<Material::StressFunctor>> m_compute_force;
+    std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     bool m_use_one_pass_method;
 };

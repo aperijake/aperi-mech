@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "ComputeForceSmoothedCell.h"
+#include "ComputeInternalForceSmoothedCell.h"
 #include "Constants.h"
 #include "ElementBase.h"
 #include "Field.h"
@@ -62,7 +62,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell<Material::StressFunctor>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type);
     }
 
     void FindNeighbors() {
@@ -131,7 +131,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     const std::string m_displacement_field_name;
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::ComputeForceSmoothedCell<Material::StressFunctor>> m_compute_force;
+    std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
 };
