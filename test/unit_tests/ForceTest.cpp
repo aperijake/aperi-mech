@@ -17,7 +17,7 @@ class ForceTest : public PatchTest {
     }
 
     void RunShearTest(double magnitude, int load_direction, int load_surface, const aperi::LagrangianFormulationType& lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) {
-        if (m_num_procs != 1 && load_direction == 2) {
+        if (m_num_procs != 1 && load_surface == 2) {
             // Exit if the number of processors is not 1
             // TODO(jake): Add support for parallel tests. Problem is that this is explicit and IOSS requires a at least 1 element per processor in z direction.
             // Thus, all DOFs are not constrained and some noise will be present in the fields.
@@ -56,9 +56,6 @@ class ForceTest : public PatchTest {
         // Volume of the mesh
         double volume = m_num_procs * m_num_procs;  // 1 x num_procs x num_procs mesh
 
-        // Cross section area for loading direction
-        double cross_section_area = m_num_procs * m_num_procs;
-
         // Run the problem, apply the displacement boundary conditions on the faces
         RunFullyPrescribedBoundaryConditionProblem(mesh_string, displacement_direction, magnitude, side_sets[0], side_sets[1], PatchTestIntegrationScheme::GAUSS_QUADRATURE, false, lagrangian_formulation_type, true);
 
@@ -85,6 +82,9 @@ class ForceTest : public PatchTest {
         std::vector<std::string> all_surfaces = {"surface_1", "surface_2", "surface_3", "surface_4", "surface_5", "surface_6"};
         // Get the expected forces
         for (int i = 0; i < 3; i++) {
+            // Cross section area for loading direction
+            double cross_section_area = i == load_surface ? m_num_procs * m_num_procs : m_num_procs;
+
             Eigen::Vector3d expected_force = GetExpectedPositiveForces(i, cross_section_area, m_displacement_gradient);
 
             // Check the force, one surface at a time
