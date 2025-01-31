@@ -12,6 +12,7 @@
 #include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/NgpField.hpp>
+#include <stk_mesh/base/NgpFieldBLAS.hpp>
 #include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_topology/topology.hpp>
@@ -287,6 +288,46 @@ class Field {
                 m_ngp_field(fast_index, i * M + j) = data(i, j);
             }
         }
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
+     * @param selector The selector for the field.
+     */
+    void Fill(const T &value, const aperi::Selector &selector) {
+        stk::mesh::field_fill(value, *m_field, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
+     * @param sets The sets used to get the selector.
+     */
+    void Fill(const T &value, std::vector<std::string> sets = {}) {
+        // Get the selector
+        aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+        // Fill the field
+        stk::mesh::field_fill(value, *m_field, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Zero a field.
+     * @param field The field to zero.
+     * @param selector The selector for the field.
+     */
+    void Zero(const aperi::Selector &selector) {
+        Fill(0, selector);
+    }
+
+    /**
+     * @brief Zero a field.
+     * @param field The field to zero.
+     * @param sets The sets used to get the selector.
+     */
+    void Zero(Field<T> &field, std::vector<std::string> sets = {}) {
+        Fill(0, sets);
     }
 
     // Get the sum of a field

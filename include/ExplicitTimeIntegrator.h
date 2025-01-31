@@ -437,7 +437,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
         aperi::CopyField(m_current_coordinates_np1_field, m_reference_coordinates_field, m_active_selector);
 
         // Zero the displacement increment
-        aperi::Zero(m_displacement_coefficients_increment_field, m_active_selector);
+        m_displacement_coefficients_increment_field.Zero(m_active_selector);
 
         // Copy the displacement gradient to the reference displacement gradient
         aperi::CopyField(m_displacement_gradient_np1_field, m_reference_displacement_gradient_field);
