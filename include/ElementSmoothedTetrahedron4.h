@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "ComputeForceSmoothedCell.h"
+#include "Constants.h"
 #include "ElementBase.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -33,7 +34,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data) {
+    ElementSmoothedTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data), m_lagrangian_formulation_type(lagrangian_formulation_type) {
         // Find and store the element neighbors
         CreateElementForceProcessor();
         FindNeighbors();
@@ -45,10 +46,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      */
     virtual ~ElementSmoothedTetrahedron4() {}
 
+    /**
+     * @brief Creates the element processor associated with the element.
+     */
     void CreateElementForceProcessor() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
 
+        // Create the element processor
         if (!m_mesh_data) {
             // Allowing for testing
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
@@ -128,6 +133,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
+    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
 };
 
 }  // namespace aperi

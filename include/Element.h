@@ -34,7 +34,7 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
     if (element_topology == ElementTopology::Tetrahedron4) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
-                return std::make_shared<ElementSmoothedTetrahedron4>(displacement_field_name, part_names, mesh_data, material);
+                return std::make_shared<ElementSmoothedTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type);
             } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
                 return std::make_shared<ElementTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type);
             }
