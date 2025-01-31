@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "Constants.h"
 #include "EntityProcessor.h"
 #include "ExplicitTimeIntegrator.h"
 #include "Field.h"
@@ -61,13 +62,13 @@ class Solver {
      * @param external_force_contributions The vector of external force contributions.
      * @param time_stepper The time stepper object.
      */
-    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
-        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler) {
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr)
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler), m_reference_configuration_update_scheduler(reference_configuration_update_scheduler) {
         mp_mesh_data = m_io_mesh->GetMeshData();
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
         m_uses_generalized_fields = false;
         m_uses_one_pass_method = false;
-        m_uses_incremental_formulation = m_internal_force_contributions[0]->UsesIncrementalFormulation();
+        m_lagrangian_formulation_type = m_internal_force_contributions[0]->GetLagrangianFormulationType();
         m_active_selector = aperi::Selector({"universal_active_part"}, mp_mesh_data.get());
         for (const auto &force_contribution : m_internal_force_contributions) {
             if (force_contribution->UsesGeneralizedFields()) {
@@ -76,7 +77,7 @@ class Solver {
             if (force_contribution->UsesOnePassMethod()) {
                 m_uses_one_pass_method = true;
             }
-            assert(m_uses_incremental_formulation == force_contribution->UsesIncrementalFormulation());
+            assert(m_lagrangian_formulation_type == force_contribution->GetLagrangianFormulationType());
         }
         if (m_uses_generalized_fields) {
             // Create a value from generalized field processor for all generalized fields
@@ -159,11 +160,11 @@ class Solver {
     virtual void CommunicateForce(const SolverTimerType &timer_type) = 0;
 
     /**
-     * @brief Get whether the solver uses an incremental formulation.
+     * @brief Get the Lagrangian formulation type.
      *
-     * @return True if the solver uses an incremental formulation, false otherwise.
+     * @return The LagrangianFormulationType object.
      */
-    bool UsesIncrementalFormulation() { return m_uses_incremental_formulation; }
+    aperi::LagrangianFormulationType GetLagrangianFormulationType() { return m_lagrangian_formulation_type; }
 
     /**
      * @brief Get the timer manager object.
@@ -178,12 +179,13 @@ class Solver {
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                                   ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                             ///< The time stepper object.
     std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                                   ///< The output scheduler object.
+    std::shared_ptr<aperi::Scheduler<size_t>> m_reference_configuration_update_scheduler;                           ///< The reference configuration update scheduler object.
     std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                  ///< The mesh data object.
     std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;                                          ///< The timer manager object.
     int m_num_processors;                                                                                           ///< The number of processors.
     bool m_uses_generalized_fields;                                                                                 ///< Whether the solver uses generalized fields.
     bool m_uses_one_pass_method;                                                                                    ///< Whether the solver uses the one-pass method.
-    bool m_uses_incremental_formulation;                                                                            ///< Whether the solver uses the incremental formulation.
+    aperi::LagrangianFormulationType m_lagrangian_formulation_type;                                                 ///< The Lagrangian formulation type.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
@@ -207,9 +209,10 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * @param external_force_contributions A vector of external force contributions applied to the mechanical system.
      * @param time_stepper The time stepper used to advance the simulation over time.
      * @param output_scheduler The output scheduler used to control the output of the simulation.
+     * @param reference_configuration_update_scheduler The reference configuration update scheduler used to update the reference configuration.
      */
-    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler)
-        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler) {
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr)
+        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler) {
         m_timer_manager = std::make_shared<aperi::TimerManager<SolverTimerType>>("Explicit Solver", explicit_solver_timer_names_map);
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
@@ -232,6 +235,10 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         std::shared_ptr<aperi::Field<double>> state_field_ptr = aperi::GetField<double>(mp_mesh_data, aperi::FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         if (state_field_ptr != nullptr) {
             m_temporal_varying_output_fields.push_back(*state_field_ptr);
+        }
+        std::shared_ptr<aperi::Field<double>> ref_disp_grad_field_ptr = aperi::GetField<double>(mp_mesh_data, aperi::FieldQueryData<double>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        if (ref_disp_grad_field_ptr != nullptr) {
+            m_temporal_varying_output_fields.push_back(*ref_disp_grad_field_ptr);
         }
     }
 
@@ -310,8 +317,8 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
  * @param time_stepper The time stepper object.
  * @return A shared pointer to the created solver object.
  */
-inline std::shared_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler) {
-    return std::make_shared<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler);
+inline std::shared_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr) {
+    return std::make_shared<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 }
 
 }  // namespace aperi

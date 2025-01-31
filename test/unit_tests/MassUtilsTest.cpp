@@ -47,8 +47,8 @@ class MassMatrixTest : public CaptureOutputTest {
     void TestComputeMassMatrix(const bool uses_generalized_fields, bool split_mesh_in_two = false, const std::string &override_mesh_string = "") {
         // Create FieldData
         bool uses_strain_smoothing = uses_generalized_fields;
-        bool uses_incremental_formulation = false;
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing, uses_incremental_formulation, true /* output_coefficients */);
+        aperi::LagrangianFormulationType formulation_type = aperi::LagrangianFormulationType::Total;
+        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing, formulation_type, true /* output_coefficients */);
 
         // Add field data from mesh labeler
         aperi::MeshLabeler mesh_labeler;

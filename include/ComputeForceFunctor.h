@@ -5,6 +5,7 @@
 #include <chrono>
 #include <memory>
 
+#include "Constants.h"
 #include "ElementNodeProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -28,9 +29,9 @@ namespace aperi {
  * @param functions_functor The functor for computing the shape functions.
  * @param integration_functor The functor for computing the integration points and weights.
  * @param material The material.
- * @param incremental_formulation Whether to use the incremental formulation.
+ * @param lagrangian_formulation_type The Lagrangian formulation type.
  *
- * @todo This is setup with total Lagrangian being the primary formulation. The incremental formulation is not optimized.
+ * @todo This is setup with total Lagrangian being the primary formulation. The updated Lagrangian formulation is not optimized.
  * @todo The field indexing only is set up for a single gauss point. This needs to be updated to handle multiple gauss points.
  *
  * This functor computes the internal force of an element using standard quadrature. The internal force is computed by looping over all gauss points and computing the B matrix and integration weight for each gauss point. The displacement gradient is then computed and the 1st pk stress and internal force of the element are computed.
@@ -44,10 +45,10 @@ struct ComputeForce {
                  const FunctionsFunctor &functions_functor,
                  const IntegrationFunctor &integration_functor,
                  const Material &material,
-                 const bool incremental_formulation = false)
+                 const LagrangianFormulationType &lagrangian_formulation_type = LagrangianFormulationType::Total)
         : m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
-          m_incremental_formulation(incremental_formulation),
+          m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_time_increment_device("TimeIncrementDevice"),
           m_functions_functor(functions_functor),
           m_integration_functor(integration_functor),
@@ -55,7 +56,7 @@ struct ComputeForce {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
 
-        if (m_incremental_formulation) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             displacements_field_name += "_inc";
         }
 
@@ -66,6 +67,7 @@ struct ComputeForce {
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         SetCoordinateField(mesh_data);
+        SetReferenceDisplacementGradientField(mesh_data);
         SetStateFields(mesh_data);
     }
 
@@ -85,6 +87,9 @@ struct ComputeForce {
         if (m_has_state) {
             m_state_n_field.UpdateField();
             m_state_np1_field.UpdateField();
+        }
+        if (m_lagrangian_formulation_type != LagrangianFormulationType::Total) {
+            m_reference_displacement_gradient_field.UpdateField();
         }
     }
 
@@ -125,14 +130,14 @@ struct ComputeForce {
 
            where u_x, u_y, and u_z are the displacements in the x, y, and z directions, respectively, and X, Y, and Z are the directions in the reference configuration.
         */
-        if (m_incremental_formulation) {
-            // Incremental formulation. Displacement is the increment. B matrix is in the current configuration.
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            // Updated Lagrangian formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.
             //  - ΔH^{n+1} = B * Δd^{n+½}
             //  - H^{n+1} = ΔH^{n+1} + H^{n} + ΔH^{n+1} * H^{n}
-            const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+            const auto reference_displacement_gradient_map = m_reference_displacement_gradient_field.GetConstEigenMatrixMap<3, 3>(elem_index);
             const Eigen::Matrix<double, 3, 3> displacement_gradient_increment = node_displacements_np1.transpose() * b_matrix;
-            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + displacement_gradient_n_map + displacement_gradient_increment * displacement_gradient_n_map);
+            m_displacement_gradient_np1_field.Assign(elem_index, displacement_gradient_increment + reference_displacement_gradient_map + displacement_gradient_increment * reference_displacement_gradient_map);
 
         } else {
             // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration.
@@ -187,7 +192,7 @@ struct ComputeForce {
 
         // Loop over all gauss points and compute the internal force.
         for (int gauss_id = 0; gauss_id < m_integration_functor.NumGaussPoints(); ++gauss_id) {
-            // For total formulation, the values are with respect to the reference configuration. For incremental formulation, the values are with respect to the configuration at time n.
+            // For total formulation, the values are with respect to the reference configuration. For updated Lagrangian formulation, the values are with respect to the configuration at time n.
 
             // Compute the B matrix and integration weight for a given gauss point.
             auto [b_matrix, weight] = m_integration_functor.ComputeBMatrixAndWeight(node_coordinates, m_functions_functor, gauss_id);
@@ -195,22 +200,20 @@ struct ComputeForce {
             // Compute displacement gradient, put it in the field
             ComputeDisplacementGradient(elem_index, node_displacements_np1, b_matrix);
 
-            // If using the incremental formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the reference configuration
-            if (m_incremental_formulation) {
+            // If using the updated Lagrangian formulation the b_matrix and weight are computed in the current configuration, adjust the b_matrix and weight to the original configuration
+            // If using the semi Lagrangian formulation, the b_matrix and weight are computed in the latest reference configuration, adjust the b_matrix and weight to the original configuration
+            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
                 // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_n = Eigen::Matrix3d::Identity() + m_displacement_gradient_n_field.GetEigenMatrix<3, 3>(elem_index);
+                const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
 
-                // Compute the deformation gradient determinant
-                const double j_n = F_n.determinant();
-
-                // Compute the b matrix in the reference configuration
-                //   b_current matrix is (NumNodes x 3):      b_current_ij = dN_i/dx_j
+                // Compute the b matrix in the original configuration
+                //   b_reference matrix is (NumNodes x 3):      b_reference_ij = dN_i/dx_j
                 //   F is (3 x 3):                                    F_jk = dx_j/dX_k
-                //   b_reference matrix is (NumNodes x 3):  b_reference_ik = b_current_ij * F_jk
-                b_matrix = b_matrix * F_n;
+                //   b_original matrix is (NumNodes x 3):  b_original_ik = b_reference_ij * F_jk
+                b_matrix = b_matrix * F_reference;
 
                 // Compute the weight
-                weight = weight / j_n;
+                weight = weight / F_reference.determinant();
             }
 
             // Get the displacement gradient map
@@ -231,6 +234,9 @@ struct ComputeForce {
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {
+                /* Note: In Box 4.6 on page 212 in [1], P is not the first Piola Kirchhoff stress. There, it is the nominal stress which is the transpose of the first Piola Kirchhoff stress. See Box 3.2 on page 106.
+                [1] Belytschko, Ted; Liu, Wing Kam; Moran, Brian; Elkhodary, Khalil. Nonlinear Finite Elements for Continua and Structures. Wiley. Kindle Edition.
+                */
                 force.row(i).noalias() -= b_matrix.row(i) * pk1_stress_map.transpose() * weight;
             }
         }
@@ -244,10 +250,21 @@ struct ComputeForce {
    private:
     void SetCoordinateField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
         // Get the coordinates field
-        if (m_incremental_formulation) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
+        } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"reference_coordinates", FieldQueryState::None});
         } else {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
+        }
+    }
+
+    void SetReferenceDisplacementGradientField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
+        // Get the reference displacement gradient field
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
+            m_reference_displacement_gradient_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+        } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            m_reference_displacement_gradient_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         }
     }
 
@@ -258,9 +275,9 @@ struct ComputeForce {
         }
     }
 
-    const bool m_has_state;                // Whether the functor uses state
-    const bool m_needs_velocity_gradient;  // Whether the functor needs the velocity gradient
-    const bool m_incremental_formulation;  // Whether the functor uses the incremental formulation
+    const bool m_has_state;                                                // Whether the functor uses state
+    const bool m_needs_velocity_gradient;                                  // Whether the functor needs the velocity gradient
+    const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device
 
@@ -270,6 +287,7 @@ struct ComputeForce {
     aperi::Field<double> m_state_n_field;                            // The field for the node state at time n
     mutable aperi::Field<double> m_state_np1_field;                  // The field for the node state at time n+1
     aperi::Field<double> m_displacement_gradient_n_field;            // The field for the element displacement gradient
+    aperi::Field<double> m_reference_displacement_gradient_field;    // The field for the element reference displacement gradient
     mutable aperi::Field<double> m_displacement_gradient_np1_field;  // The field for the element displacement gradient at time n+1
     mutable aperi::Field<double> m_pk1_stress_field;                 // The field for the element pk1 stress
 

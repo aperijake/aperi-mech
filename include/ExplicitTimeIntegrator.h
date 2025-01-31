@@ -3,8 +3,10 @@
 #include <memory>
 #include <vector>
 
+#include "Constants.h"
 #include "Field.h"
 #include "FieldData.h"
+#include "FieldUtils.h"
 #include "MeshData.h"
 #include "Selector.h"
 
@@ -12,6 +14,7 @@ namespace aperi {
 
 /**
  * @brief Struct for the explicit time integration fields.
+ * @note These fields are used for all formulations.
  */
 struct ExplicitTimeIntegrationFields {
     // Delete the default constructor
@@ -39,23 +42,49 @@ struct ExplicitTimeIntegrationFields {
     aperi::Field<double> displacement_coefficients_np1_field;
 };
 
-struct ExplicitTimeIntegrationFieldsIncremental {
+/**
+ * @brief Add fields that are needed for the update Lagrangian formulation.
+ */
+struct ExplicitTimeIntegrationFieldsUpdated : public ExplicitTimeIntegrationFields {
     // Delete the default constructor
-    ExplicitTimeIntegrationFieldsIncremental() = delete;
+    ExplicitTimeIntegrationFieldsUpdated() = delete;
 
     // Constructor
-    ExplicitTimeIntegrationFieldsIncremental(std::shared_ptr<aperi::MeshData> mesh_data)
-        : displacement_coefficients_increment_field(mesh_data, {"displacement_coefficients_inc", FieldQueryState::None}),
+    ExplicitTimeIntegrationFieldsUpdated(std::shared_ptr<aperi::MeshData> mesh_data)
+        : ExplicitTimeIntegrationFields(mesh_data),
+          displacement_coefficients_increment_field(mesh_data, {"displacement_coefficients_inc", FieldQueryState::None}),
           current_coordinates_n_field(mesh_data, {"current_coordinates", FieldQueryState::N}),
           current_coordinates_np1_field(mesh_data, {"current_coordinates", FieldQueryState::NP1}) {}
 
     // Fields
     aperi::Field<double> displacement_coefficients_increment_field;
-    aperi::Field<double> current_coordinates_n_field;
+    aperi::Field<double> current_coordinates_n_field;  // TODO(jake): probably should track current coordinates in all formulations
     aperi::Field<double> current_coordinates_np1_field;
 };
 
-// Functor for updating the displacements
+/**
+ * @brief Add fields that are needed for the semi Lagrangian formulation.
+ */
+struct ExplicitTimeIntegrationFieldsSemi : public ExplicitTimeIntegrationFieldsUpdated {
+    // Delete the default constructor
+    ExplicitTimeIntegrationFieldsSemi() = delete;
+
+    // Constructor
+    ExplicitTimeIntegrationFieldsSemi(std::shared_ptr<aperi::MeshData> mesh_data)
+        : ExplicitTimeIntegrationFieldsUpdated(mesh_data),
+          reference_coordinates_field(mesh_data, {"reference_coordinates", FieldQueryState::None}),
+          reference_displacement_gradient_field(mesh_data, {"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+          displacement_gradient_np1_field(mesh_data, {"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}) {}
+
+    // Fields
+    aperi::Field<double> reference_coordinates_field;
+    aperi::Field<double> reference_displacement_gradient_field;
+    aperi::Field<double> displacement_gradient_np1_field;
+};
+
+/**
+ * @brief Functor for updating the nodal displacements for the total Lagrangian formulation.
+ */
 struct UpdateDisplacementsTotalFunctor {
     // Constructor
     UpdateDisplacementsTotalFunctor(const aperi::Field<double> &displacement_coefficients_n_field, const aperi::Field<double> &velocity_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_np1_field, const Kokkos::View<double> &time_increment_device)
@@ -95,16 +124,22 @@ struct UpdateDisplacementsTotalFunctor {
     const Kokkos::View<double> m_time_increment_device;
 };
 
-struct UpdateDisplacementsIncrementalFunctor {
+/**
+ * @brief Functor for updating the nodal displacements for the semi Lagrangian formulation.
+ * @note With updated Lagrangian, the displacement increment is for one time step.
+ * @note With semi Lagrangian, the displacement increment is from the last reference configuration.
+ */
+struct UpdateDisplacementsUpdatedFunctor {
     // Constructor
-    UpdateDisplacementsIncrementalFunctor(const aperi::Field<double> &displacement_coefficients_n_field, const aperi::Field<double> &velocity_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_increment_field, const aperi::Field<double> &current_coordinates_n_field, const aperi::Field<double> &current_coordinates_np1_field, const Kokkos::View<double> &time_increment_device)
+    UpdateDisplacementsUpdatedFunctor(const aperi::Field<double> &displacement_coefficients_n_field, const aperi::Field<double> &velocity_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_increment_field, const aperi::Field<double> &current_coordinates_n_field, const aperi::Field<double> &current_coordinates_np1_field, const Kokkos::View<double> &time_increment_device, bool is_semi_lagrangian = false)
         : m_displacement_coefficients_n_field(displacement_coefficients_n_field),
           m_velocity_coefficients_np1_field(velocity_coefficients_np1_field),
           m_displacement_coefficients_np1_field(displacement_coefficients_np1_field),
           m_displacement_coefficients_increment_field(displacement_coefficients_increment_field),
           m_current_coordinates_n_field(current_coordinates_n_field),
           m_current_coordinates_np1_field(current_coordinates_np1_field),
-          m_time_increment_device(time_increment_device) {}
+          m_time_increment_device(time_increment_device),
+          m_is_semi_lagrangian(is_semi_lagrangian) {}
 
     void UpdateFields() {
         m_displacement_coefficients_n_field.UpdateField();
@@ -135,7 +170,13 @@ struct UpdateDisplacementsIncrementalFunctor {
         for (size_t i = 0; i < 3; ++i) {
             double displacement_increment = time_increment * m_velocity_coefficients_np1_field(index, i);
             m_displacement_coefficients_np1_field(index, i) = m_displacement_coefficients_n_field(index, i) + displacement_increment;
-            m_displacement_coefficients_increment_field(index, i) = displacement_increment;
+            if (m_is_semi_lagrangian) {
+                // With semi Lagrangian, the displacement increment is from the last reference configuration.
+                m_displacement_coefficients_increment_field(index, i) += displacement_increment;
+            } else {
+                // With updated Lagrangian, the displacement increment is for one time step.
+                m_displacement_coefficients_increment_field(index, i) = displacement_increment;
+            }
             m_current_coordinates_np1_field(index, i) = m_current_coordinates_n_field(index, i) + displacement_increment;
         }
     }
@@ -149,6 +190,7 @@ struct UpdateDisplacementsIncrementalFunctor {
     aperi::Field<double> m_current_coordinates_n_field;
     mutable aperi::Field<double> m_current_coordinates_np1_field;
     const Kokkos::View<double> m_time_increment_device;
+    bool m_is_semi_lagrangian;
 };
 
 // Functor for computing the acceleration
@@ -309,6 +351,9 @@ class ExplicitTimeIntegrator {
     // Update the displacements
     virtual void UpdateDisplacements() = 0;
 
+    // Update the reference coordinates
+    virtual void UpdateReferenceConfiguration() {}
+
     // Compute the second partial update
     void ComputeSecondPartialUpdate() {
         // Loop over each entity and compute the second partial update
@@ -347,11 +392,11 @@ class ExplicitTimeIntegratorTotal : public ExplicitTimeIntegrator {
     UpdateDisplacementsTotalFunctor m_update_displacements_functor;  // Update displacements functor
 };
 
-class ExplicitTimeIntegratorIncremental : public ExplicitTimeIntegrator {
+class ExplicitTimeIntegratorUpdated : public ExplicitTimeIntegrator {
    public:
     // Constructor
-    explicit ExplicitTimeIntegratorIncremental(const ExplicitTimeIntegrationFields &fields, const ExplicitTimeIntegrationFieldsIncremental &extra_fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
-        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, extra_fields.displacement_coefficients_increment_field, extra_fields.current_coordinates_n_field, extra_fields.current_coordinates_np1_field, m_time_increment_device) {}
+    explicit ExplicitTimeIntegratorUpdated(const ExplicitTimeIntegrationFieldsUpdated &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device) {}
 
     // Update the displacements
     void UpdateDisplacements() override {
@@ -362,20 +407,73 @@ class ExplicitTimeIntegratorIncremental : public ExplicitTimeIntegrator {
     }
 
    private:
-    UpdateDisplacementsIncrementalFunctor m_update_displacements_functor;  // Update displacements functor
+    UpdateDisplacementsUpdatedFunctor m_update_displacements_functor;  // Update displacements functor
+};
+
+class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
+   public:
+    // Constructor
+    explicit ExplicitTimeIntegratorSemi(const ExplicitTimeIntegrationFieldsSemi &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device, true), m_current_coordinates_np1_field(fields.current_coordinates_np1_field), m_reference_coordinates_field(fields.reference_coordinates_field), m_displacement_coefficients_increment_field(fields.displacement_coefficients_increment_field), m_displacement_gradient_np1_field(fields.displacement_gradient_np1_field), m_reference_displacement_gradient_field(fields.reference_displacement_gradient_field) {}
+
+    // Update the displacements
+    void UpdateDisplacements() override {
+        // Loop over each entity and update the displacements
+        m_update_displacements_functor.UpdateFields();
+        ForEachNode(m_update_displacements_functor, *mp_mesh_data, m_active_selector);
+        m_update_displacements_functor.MarkModifiedOnDevice();
+    }
+
+    // Update the reference coordinates
+    void UpdateReferenceConfiguration() override {
+        // Update the fields
+        m_current_coordinates_np1_field.UpdateField();
+        m_reference_coordinates_field.UpdateField();
+        m_displacement_coefficients_increment_field.UpdateField();
+        m_displacement_gradient_np1_field.UpdateField();
+        m_reference_displacement_gradient_field.UpdateField();
+
+        // Copy the current coordinates to the reference coordinates
+        aperi::CopyField(m_current_coordinates_np1_field, m_reference_coordinates_field, m_active_selector);
+
+        // Zero the displacement increment
+        m_displacement_coefficients_increment_field.Zero(m_active_selector);
+
+        // Copy the displacement gradient to the reference displacement gradient
+        aperi::CopyField(m_displacement_gradient_np1_field, m_reference_displacement_gradient_field);
+
+        // Mark the m_as modified
+        m_reference_coordinates_field.MarkModifiedOnDevice();
+        m_displacement_coefficients_increment_field.MarkModifiedOnDevice();
+        m_reference_displacement_gradient_field.MarkModifiedOnDevice();
+    }
+
+   private:
+    UpdateDisplacementsUpdatedFunctor m_update_displacements_functor;  // Update displacements functor
+    aperi::Field<double> m_current_coordinates_np1_field;              // The field for the node current coordinates at time n+1
+    aperi::Field<double> m_reference_coordinates_field;                // The field for the node reference coordinates
+    aperi::Field<double> m_displacement_coefficients_increment_field;  // The field for the node displacement increment
+    aperi::Field<double> m_displacement_gradient_np1_field;            // The field for the element displacement gradient at time n+1
+    aperi::Field<double> m_reference_displacement_gradient_field;      // The field for the element reference displacement gradient
 };
 
 // Create the explicit time integrator
-inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &active_selector, bool uses_incremental_formulation) {
+inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &active_selector, const aperi::LagrangianFormulationType &lagrangian_formulation_type) {
     // Create the explicit time integration fields
-    ExplicitTimeIntegrationFields fields(mesh_data);
 
     // Create the explicit time integrator
-    if (uses_incremental_formulation) {
-        ExplicitTimeIntegrationFieldsIncremental fields_incremental(mesh_data);
-        return std::make_shared<ExplicitTimeIntegratorIncremental>(fields, fields_incremental, mesh_data, active_selector);
-    } else {
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
+        ExplicitTimeIntegrationFieldsUpdated fields(mesh_data);
+        return std::make_shared<ExplicitTimeIntegratorUpdated>(fields, mesh_data, active_selector);
+    } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Total) {
+        ExplicitTimeIntegrationFields fields(mesh_data);
         return std::make_shared<ExplicitTimeIntegratorTotal>(fields, mesh_data, active_selector);
+    } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        ExplicitTimeIntegrationFieldsSemi fields(mesh_data);
+        return std::make_shared<ExplicitTimeIntegratorSemi>(fields, mesh_data, active_selector);
+    } else {
+        // Throw an logic error
+        throw std::logic_error("Invalid Lagrangian formulation type.");
     }
 }
 

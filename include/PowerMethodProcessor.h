@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "AperiStkUtils.h"
+#include "Constants.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
@@ -110,7 +111,8 @@ class PowerMethodProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
-        bool is_incremental = solver->UsesIncrementalFormulation();
+        LagrangianFormulationType formulation = solver->GetLagrangianFormulationType();
+        bool is_incremental = formulation == LagrangianFormulationType::Updated || formulation == LagrangianFormulationType::Semi;
 
         std::string displacement_field_name = is_incremental ? "displacement_coefficients_inc" : "displacement_coefficients";
 

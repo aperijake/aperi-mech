@@ -1,7 +1,8 @@
 procedures:
   - explicit_dynamics_procedure:
       lagrangian_formulation:
-        updated: ~
+        semi:
+          update_interval: 10
       geometry:
         mesh: ../mesh/cylinder0p02.exo
         parts:

@@ -73,12 +73,12 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
             found_at_least_one_entity = true;
             if constexpr (std::is_floating_point_v<T>) {
                 if (std::fabs(expected_values[i]) < 1.0e-12) {
-                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], tolerance) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
                 } else {
-                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], std::fabs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], expected_values[i], std::fabs(tolerance * expected_values[i])) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
                 }
             } else {
-                EXPECT_EQ(field_data[0][i_entity_start[0] + i], expected_values[i]) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect";
+                EXPECT_EQ(field_data[0][i_entity_start[0] + i], expected_values[i]) << "Field " << field_name << " value at entity " << i_entity_start[0] << " dof " << i << " is incorrect" << std::endl;
             }
         }
     });
@@ -241,16 +241,20 @@ void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std
     entity_processor.SyncAllFieldsDeviceToHost();
 
     // Get the sum of the field values
-    size_t num_components = 0;
+    size_t local_num_components = 0;
     bool num_components_set = false;
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& /*i_entity_start*/, const std::array<size_t, 1>& entity_num_components, std::array<T*, 1>& /*field_data*/) {
         if (num_components_set) {
-            EXPECT_EQ(entity_num_components[0], num_components) << "Number of components is not consistent";
+            EXPECT_EQ(entity_num_components[0], local_num_components) << "Number of components is not consistent";
         } else {
-            num_components = entity_num_components[0];
+            local_num_components = entity_num_components[0];
             num_components_set = true;
         }
     });
+    // Parallel max on the number of components
+    size_t num_components;
+    MPI_Allreduce(&local_num_components, &num_components, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
+    EXPECT_GT(num_components, 0);
     std::vector<double> sum_values_local(num_components, 0.0);
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& num_components, std::array<T*, 1>& field_data) {
         for (size_t i = 0; i < num_components[0]; i++) {

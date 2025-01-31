@@ -12,4 +12,14 @@ enum class ElementTopology { None,
                              Tetrahedron4,
                              Hexahedron8 };
 
+enum class ApproximationSpaceType { FiniteElement,
+                                    ReproducingKernel };
+
+enum class IntegrationSchemeType { GaussQuadrature,
+                                   StrainSmoothing };
+
+enum class LagrangianFormulationType { Total,
+                                       Updated,
+                                       Semi };
+
 }  // namespace aperi

@@ -7,6 +7,7 @@
 #include <utility>    // for pair
 #include <vector>     // for vector
 
+#include "Constants.h"
 #include "MathUtils.h"
 #include "YamlUtils.h"
 
@@ -140,19 +141,40 @@ class IoInputFile {
         return node_pair.first;
     }
 
-    // Get whether to use incremental formulation for a specific procedure id
-    bool GetIncremental(int procedure_id, bool exit_on_error = true) const {
+    // Get the Lagrangian formulation type
+    LagrangianFormulationType GetLagrangianFormulationType(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
 
         YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
-        // If incremental is not defined, default to false
-        if (!procedure_node["incremental_formulation"].IsDefined()) {
-            return false;
+        // If lagrangian_formulation is not defined, default to false
+        if (!procedure_node["lagrangian_formulation"].IsDefined()) {
+            return LagrangianFormulationType::Total;
         }
-        std::pair<bool, int> bool_pair = GetScalarValue<bool>(procedure_node, "incremental_formulation");
-        if (exit_on_error && bool_pair.second != 0) throw std::runtime_error("Error getting incremental formulation");
-        return bool_pair.first;
+        // Check if the lagrangian_formulation is a map
+        if (!procedure_node["lagrangian_formulation"].IsMap()) {
+            if (exit_on_error) throw std::runtime_error("Error getting Lagrangian formulation type. 'lagrangian_formulation' must be a map.");
+            return LagrangianFormulationType::Total;
+        }
+        YAML::Node lagrangian_node = procedure_node["lagrangian_formulation"];
+
+        // Check if the lagrangian_formulation has a "total" key
+        if (lagrangian_node["total"]) {
+            return LagrangianFormulationType::Total;
+        }
+
+        // Check if the lagrangian_formulation has an "updated" key
+        if (lagrangian_node["updated"]) {
+            return LagrangianFormulationType::Updated;
+        }
+
+        // Check if the lagrangian_formulation has a "semi" key
+        if (lagrangian_node["semi"]) {
+            return LagrangianFormulationType::Semi;
+        } else {
+            if (exit_on_error) throw std::runtime_error("Error getting Lagrangian formulation type. Must have 'total', 'updated', or 'semi' key.");
+            return LagrangianFormulationType::Total;
+        }
     }
 
     // Get the time stepper for a specific procedure id
@@ -175,6 +197,27 @@ class IoInputFile {
         std::pair<YAML::Node, int> node_pair = GetNode(procedure_node, "output");
         if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting output scheduler");
         return node_pair.first;
+    }
+
+    // Get the reference configuration update scheduler for a specific procedure id
+    int GetSemiLagrangianConfigurationUpdateInterval(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        std::pair<YAML::Node, int> node_pair = GetNode(procedure_node, "lagrangian_formulation");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting lagrangian formulation");
+
+        // Check if the lagrangian_formulation has a "semi" key
+        if (node_pair.first["semi"]) {
+            // Get update_interval node
+            std::pair<int, int> update_interval_pair = GetScalarValue<int>(node_pair.first["semi"], "update_interval");
+            if (exit_on_error && update_interval_pair.second != 0) throw std::runtime_error("Error getting update interval.");
+            return update_interval_pair.first;
+        } else {
+            if (exit_on_error) throw std::runtime_error("Error getting reference configuration update scheduler. Must have 'semi' key.");
+            return -1;
+        }
     }
 
     // Get material from a part

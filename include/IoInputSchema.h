@@ -452,9 +452,25 @@ YAML::Node GetInputSchema() {
     geometry_schema.AddOptional(mesh_search_directories_node);
     YAML::Node geometry_node = geometry_schema.GetInputSchema();
 
-    // Incremental node
-    aperi::InputSchema incremental_schema("incremental_formulation", "bool", "indicates whether to use incremental formulation");
-    YAML::Node incremental_node = incremental_schema.GetInputSchema();
+    // Total Lagrangian formulation node
+    aperi::InputSchema total_lagrangian_schema("total_lagrangian", "map", "total Lagrangian formulation");
+    YAML::Node total_lagrangian_node = total_lagrangian_schema.GetInputSchema();
+
+    // Updated Lagrangian formulation node
+    aperi::InputSchema updated_lagrangian_schema("updated_lagrangian", "map", "updated Lagrangian formulation");
+    YAML::Node updated_lagrangian_node = updated_lagrangian_schema.GetInputSchema();
+
+    // Semi Lagrangian formulation node
+    aperi::InputSchema semi_lagrangian_schema("semi_lagrangian", "map", "semi Lagrangian formulation");
+    semi_lagrangian_schema.AddAllOf(update_interval_node);
+    YAML::Node semi_lagrangian_node = semi_lagrangian_schema.GetInputSchema();
+
+    // Lagrangian formulation node
+    aperi::InputSchema lagrangian_schema("lagrangian", "map", "the Lagrangian formulation");
+    lagrangian_schema.AddOneOf(total_lagrangian_node);
+    lagrangian_schema.AddOneOf(updated_lagrangian_node);
+    lagrangian_schema.AddOneOf(semi_lagrangian_node);
+    YAML::Node lagrangian_node = lagrangian_schema.GetInputSchema();
 
     // Explicit dynamics procedure node
     aperi::InputSchema explicit_dynamics_procedure_schema("explicit_dynamics_procedure", "map", "an explicit dynamics procedure");
@@ -464,7 +480,7 @@ YAML::Node GetInputSchema() {
     explicit_dynamics_procedure_schema.AddOptional(initial_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(boundary_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(loads_node);
-    explicit_dynamics_procedure_schema.AddOptional(incremental_node);
+    explicit_dynamics_procedure_schema.AddOptional(lagrangian_node);
     YAML::Node explicit_dynamics_procedure_node = explicit_dynamics_procedure_schema.GetInputSchema();
 
     // Procedures node
