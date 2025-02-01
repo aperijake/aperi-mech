@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "ComputeForceSmoothedCell.h"
+#include "ComputeInternalForceSmoothedCell.h"
 #include "Constants.h"
 #include "ElementBase.h"
 #include "FieldData.h"
@@ -65,7 +65,7 @@ class ElementReproducingKernel : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeForceSmoothedCell>(m_mesh_data, m_displacement_field_name, force_field_name, m_part_names, *this->m_material);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, force_field_name, *this->m_material);
     }
 
     void FindNeighbors() {
@@ -117,7 +117,7 @@ class ElementReproducingKernel : public ElementBase {
         // Loop over all elements and compute the internal force
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
-        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data, this->m_material->GetStressFunctor());
+        m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
@@ -135,7 +135,7 @@ class ElementReproducingKernel : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
-    std::shared_ptr<aperi::ComputeForceSmoothedCell> m_compute_force;
+    std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     bool m_use_one_pass_method;
 };
