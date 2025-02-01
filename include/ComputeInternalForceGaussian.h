@@ -88,18 +88,6 @@ struct ComputeInternalForceGaussian : public ComputeInternalForceBase<aperi::Mat
             // Compute the displacement gradient
             ComputeDisplacementGradient(elem_index, node_displacements_np1.transpose() * b_matrix);
 
-            // Adjust the B matrix and weight for updated or semi Lagrangian formulations
-            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-                // Compute the deformation gradient
-                const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
-
-                // Compute the B matrix in the original configuration
-                b_matrix = b_matrix * F_reference;
-
-                // Compute the weight
-                weight = weight / F_reference.determinant();
-            }
-
             // Get the displacement gradient map
             const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
 
@@ -116,6 +104,18 @@ struct ComputeInternalForceGaussian : public ComputeInternalForceBase<aperi::Mat
 
             // Compute the stress
             m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
+
+            // Adjust the B matrix and weight for updated or semi Lagrangian formulations
+            if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+                // Compute the deformation gradient
+                const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
+
+                // Compute the B matrix in the original configuration
+                b_matrix = b_matrix * F_reference;
+
+                // Compute the weight
+                weight = weight / F_reference.determinant();
+            }
 
             // Compute the internal force
             for (size_t i = 0; i < actual_num_nodes; ++i) {

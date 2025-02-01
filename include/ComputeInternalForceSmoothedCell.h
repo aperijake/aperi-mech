@@ -92,35 +92,46 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 }
 
                 // Compute the field gradients
-                m_displacement_gradient_np1_field.Assign(elem_index, this_displacement_gradient);
+                ComputeDisplacementGradient(elem_index, this_displacement_gradient);
 
+                // Get the displacement gradient map
                 const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
-
-                // Get the number of state variables
-                const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
-
-                Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
-                const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
-                auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Compute the velocity gradient if needed
                 const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
-                // Compute the stress and internal force of the element.
-                double volume = scd.GetCellVolume(cell_id);
+                // Get the number of state variables
+                const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
 
-                // PK1 stress
+                // Get the state maps
+                Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
+                const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+                auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+
+                // Get the pk1 stress map
                 auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
 
                 // Compute the stress
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
 
-                const Eigen::Matrix<double, 3, 3> pk1_stress_transpose_neg_volume = pk1_stress_map.transpose() * -volume;
+                // Compute the stress and internal force of the element.
+                double volume = scd.GetCellVolume(cell_id);
+
+                Eigen::Matrix<double, 3, 3> stress_term = pk1_stress_map.transpose() * -volume;
+
+                // Adjust for the B matrix and weight not being in the original configuration for updated or semi Lagrangian formulations
+                if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+                    // Compute the deformation gradient
+                    const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
+
+                    // Adjust the stress to account for the difference in configuration
+                    stress_term = F_reference * stress_term / F_reference.determinant();
+                }
 
                 // Scatter the force to the nodes
                 for (size_t k = 0; k < num_nodes; ++k) {
                     // Calculate the force
-                    const Eigen::Matrix<double, 1, 3> force = b_matrix_map.row(k) * pk1_stress_transpose_neg_volume;
+                    const Eigen::Matrix<double, 1, 3> force = b_matrix_map.row(k) * stress_term;
 
                     // Add the force to the node
                     const stk::mesh::Entity node(node_local_offsets[k]);
