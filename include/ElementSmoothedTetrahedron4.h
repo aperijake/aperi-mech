@@ -88,7 +88,6 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         // Build the smoothed cell data
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
         strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(integration_functor);
-        strain_smoothing_processor.ComputeCellVolumeFromElementVolume();
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, true);
 
         // Add the strain smoothing timer manager to the timer manager

@@ -26,7 +26,6 @@ namespace aperi {
 enum class StrainSmoothingTimerType {
     Instantiate,
     ComputeDerivatives,
-    ComputeCellVolumeFromElementVolume,
     BuildSmoothedCellData,
     NONE
 };
@@ -34,7 +33,6 @@ enum class StrainSmoothingTimerType {
 inline const std::map<StrainSmoothingTimerType, std::string> strain_smoothing_timer_map = {
     {StrainSmoothingTimerType::Instantiate, "Instantiate"},
     {StrainSmoothingTimerType::ComputeDerivatives, "ComputeDerivatives"},
-    {StrainSmoothingTimerType::ComputeCellVolumeFromElementVolume, "ComputeCellVolumeFromElementVolume"},
     {StrainSmoothingTimerType::BuildSmoothedCellData, "BuildSmoothedCellData"},
     {StrainSmoothingTimerType::NONE, "NONE"}};
 
@@ -85,10 +83,6 @@ class StrainSmoothingProcessor {
         // Get the element volume field
         m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
-
-        // Get the cell volume field
-        m_cell_volume_fraction_field = StkGetField(FieldQueryData<double>{"cell_volume_fraction", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_cell_volume_fraction_field = &stk::mesh::get_updated_ngp_field<double>(*m_cell_volume_fraction_field);
 
         // Get the cell id field
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
@@ -153,67 +147,6 @@ class StrainSmoothingProcessor {
             m_ngp_element_function_derivatives_fields[i]->clear_sync_state();
             m_ngp_element_function_derivatives_fields[i]->modify_on_device();
         }
-    }
-
-    // Should be call after for_each_neighbor_compute_derivatives so element volume is computed
-    // - Loop over each element
-    //   - Add the element volume to the cell volume for the element at the cell id
-    // - Loop over each element again
-    //   - Grab the cell volume for the element from the element at the cell id
-    // - Loop over each element again
-    //   - Set the volume fraction by dividing the element volume by the cell volume
-    void ComputeCellVolumeFromElementVolume() {
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::ComputeCellVolumeFromElementVolume, "Compute Cell Volume From Element Volume");
-        auto ngp_mesh = m_ngp_mesh;
-
-        // Get the ngp fields
-        auto ngp_element_volume_field = *m_ngp_element_volume_field;
-        auto ngp_cell_volume_fraction_field = *m_ngp_cell_volume_fraction_field;
-        auto ngp_cell_id_field = *m_ngp_cell_id_field;
-
-        // Loop over all the elements
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the cell parent element index
-                stk::mesh::Entity cell_parent_element(ngp_cell_id_field(elem_index, 0));
-                stk::mesh::FastMeshIndex cell_parent_element_index = ngp_mesh.fast_mesh_index(cell_parent_element);
-
-                // Get the element volume
-                double element_volume = ngp_element_volume_field(elem_index, 0);
-
-                // Add the element volume to the cell volume
-                Kokkos::atomic_add(&ngp_cell_volume_fraction_field(cell_parent_element_index, 0), element_volume);
-            });
-
-        // Loop over all the elements
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the cell parent element index
-                stk::mesh::Entity cell_parent_element(ngp_cell_id_field(elem_index, 0));
-                stk::mesh::FastMeshIndex cell_parent_element_index = ngp_mesh.fast_mesh_index(cell_parent_element);
-
-                // Get the cell volume
-                double cell_volume_fraction = ngp_cell_volume_fraction_field(cell_parent_element_index, 0);
-
-                // Set the cell volume
-                ngp_cell_volume_fraction_field(elem_index, 0) = cell_volume_fraction;
-            });
-
-        // Loop over all the elements
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element volume
-                double element_volume = ngp_element_volume_field(elem_index, 0);
-
-                // Get the cell volume
-                double cell_volume_fraction = ngp_cell_volume_fraction_field(elem_index, 0);
-
-                // Set the volume fraction
-                ngp_cell_volume_fraction_field(elem_index, 0) = element_volume / cell_volume_fraction;
-            });
     }
 
     bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
@@ -414,32 +347,54 @@ class StrainSmoothingProcessor {
 
             // Loop over all the cell elements and add the function derivatives to the nodes
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+                // Get the element using the stk local offset
                 auto element_local_offset = cell_element_local_offsets[j];
                 stk::mesh::Entity element(element_local_offset);
+
+                // Get the nodes for the element
                 stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
+
+                // Get the element volume
                 double element_volume = stk::mesh::field_data(element_volume_field, element)[0];
+
+                // Store the cell volume fraction
                 double cell_volume_fraction = element_volume / cell_volume;
+
+                // Get the element function derivatives. TODO(jake): Calculate the element function derivatives here instead of precomputing and storing.
                 std::vector<double *> element_function_derivatives_data(3);
                 for (size_t l = 0; l < 3; ++l) {
                     element_function_derivatives_data[l] = stk::mesh::field_data(*element_function_derivatives_fields[l], element);
                 }
+
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
+                    // One pass method: store the function derivatives for the neighbors of the nodes in the cell
                     if (one_pass_method) {
+                        // Get the number of neighbors
                         uint64_t num_neighbors = stk::mesh::field_data(num_neighbors_field, element_nodes[k])[0];
+
                         // Loop over the nodes neighbors
                         for (size_t l = 0; l < num_neighbors; ++l) {
+                            // Get the neighbor
                             uint64_t neighbor = stk::mesh::field_data(neighbors_field, element_nodes[k])[l];
+
+                            // Get the function value
                             double function_value = stk::mesh::field_data(function_values_field, element_nodes[k])[l];
+
+                            // Get the cell index of the neighbor
                             auto neighbor_iter = node_local_offsets_to_index.find(neighbor);
                             assert(neighbor_iter != node_local_offsets_to_index.end());
                             size_t neighbor_index = neighbor_iter->second;
+
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
                                 Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives_data[m][k] * cell_volume_fraction * function_value);
                             }
                         }
                     } else {
+                        // Two pass method: store the function derivatives for the nodes in the cell
+
+                        // Get the node local offset
                         uint64_t node_local_offset = element_nodes[k].local_offset();
                         size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
@@ -589,13 +544,11 @@ class StrainSmoothingProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;                                                 // The ngp mesh object.
     DoubleField *m_coordinates_field;                                              // The coordinates field
     DoubleField *m_element_volume_field;                                           // The element volume field
-    DoubleField *m_cell_volume_fraction_field;                                     // The cell volume field
     UnsignedField *m_cell_id_field;                                                // The cell id field
     UnsignedField *m_smoothed_cell_id_field;                                       // The smoothed cell id field
     Kokkos::Array<DoubleField *, 3> m_element_function_derivatives_fields;         // The function derivatives fields
     NgpDoubleField *m_ngp_coordinates_field;                                       // The ngp coordinates field
     NgpDoubleField *m_ngp_element_volume_field;                                    // The ngp element volume field
-    NgpDoubleField *m_ngp_cell_volume_fraction_field;                              // The ngp cell volume field
     NgpUnsignedField *m_ngp_cell_id_field;                                         // The ngp cell id field
     NgpUnsignedField *m_ngp_smoothed_cell_id_field;                                // The ngp smoothed cell id field
     Kokkos::Array<NgpDoubleField *, 3> m_ngp_element_function_derivatives_fields;  // The ngp function derivatives fields
