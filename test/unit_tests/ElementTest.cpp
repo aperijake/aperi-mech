@@ -89,13 +89,10 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
         m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, part_names, mesh_data, material);
 
-        std::array<aperi::FieldQueryData<double>, 5> elem_field_query_data_gather_vec;
+        std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
-        elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        auto entity_processor = std::make_shared<aperi::ElementProcessor<5>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+        elem_field_query_data_gather_vec[1] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        auto entity_processor = std::make_shared<aperi::ElementProcessor<2>>(elem_field_query_data_gather_vec, mesh_data, part_names);
         entity_processor->MarkAllFieldsModifiedOnDevice();
         entity_processor->SyncAllFieldsDeviceToHost();
 
@@ -108,11 +105,6 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) {  // not storing shape function values for FiniteElement
             CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::NODE>(*mesh_data, {"block_1"}, "function_values", 1.0, aperi::FieldQueryState::None);
         }
-
-        // Check partition of nullity for the shape function derivatives
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
     }
 
     void CheckSmoothedCellData() {

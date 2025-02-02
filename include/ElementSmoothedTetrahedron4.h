@@ -85,10 +85,13 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
                 new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
             });
 
+        // Create a host version of the functor
+        SmoothedQuadratureTet4 host_integration_functor;
+
         // Build the smoothed cell data
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        strain_smoothing_processor.for_each_neighbor_compute_derivatives<TET4_NUM_NODES>(integration_functor);
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData(TET4_NUM_NODES, true);
+        strain_smoothing_processor.ComputeElementVolumes<TET4_NUM_NODES>(integration_functor);
+        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<TET4_NUM_NODES>(host_integration_functor, TET4_NUM_NODES, true);
 
         // Add the strain smoothing timer manager to the timer manager
         m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
