@@ -93,43 +93,6 @@ class StrainSmoothingProcessor {
         m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
     }
 
-    template <size_t NumNodes, typename IntegrationFunctor>
-    void ComputeElementVolumes(const IntegrationFunctor &integration_functor) {
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::ComputeDerivatives, "Compute Derivatives");
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_coordinates_field = *m_ngp_coordinates_field;
-        auto ngp_element_volume_field = *m_ngp_element_volume_field;
-        // Loop over all the buckets
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the element's nodes
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                size_t num_nodes = nodes.size();
-
-                // Set up the field data to gather
-                Eigen::Matrix<double, NumNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumNodes, 3>::Zero();
-
-                // Gather the field data for each node
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
-                    for (size_t j = 0; j < 3; ++j) {
-                        cell_node_coordinates(i, j) = ngp_coordinates_field(node_index, j);
-                    }
-                }
-
-                assert(integration_functor->NumGaussPoints() == 1);
-
-                // TODO(jake): Create and just use a compute volume functor
-                Kokkos::pair<Eigen::Matrix<double, NumNodes, 3>, double> derivatives_and_weight = integration_functor->ComputeBMatrixAndWeight(cell_node_coordinates);
-                ngp_element_volume_field(elem_index, 0) = derivatives_and_weight.second;
-            });
-        // Mark modified fields
-        m_ngp_element_volume_field->clear_sync_state();
-        m_ngp_element_volume_field->modify_on_device();
-    }
-
     bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
         // Loop over all the cells
         bool passed = true;
@@ -202,7 +165,7 @@ class StrainSmoothingProcessor {
         smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
     }
 
-    void SetCellLocalOffsets(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, const stk::mesh::NgpMesh &ngp_mesh, const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field, const stk::mesh::NgpField<double> &ngp_element_volume_field, stk::mesh::Selector &owned_selector, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+    void SetCellLocalOffsets(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, const stk::mesh::NgpMesh &ngp_mesh, const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field, stk::mesh::Selector &owned_selector, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
         // #### Set the cell element local offsets for the smoothed cell data ####
 
         // Create a scoped timer
@@ -220,10 +183,9 @@ class StrainSmoothingProcessor {
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
                 uint64_t element_local_offset = element.local_offset();
-                double element_volume = ngp_element_volume_field(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(smoothed_cell_id, element_local_offset, element_volume);
+                add_cell_element_functor(smoothed_cell_id, element_local_offset);
             });
         // Cell element local offsets (STK offsets) are now set. Copy to host.
         smoothed_cell_data->CopyCellElementViewsToHost();
@@ -324,8 +286,8 @@ class StrainSmoothingProcessor {
                 ++node_index;
             }
 
-            // Cell volume
-            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+            // Assert cell volume is zero
+            assert(smoothed_cell_data->GetCellVolumeHost(i) == 0.0);
 
             // Loop over all the cell elements and add the function derivatives to the nodes
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
@@ -339,12 +301,6 @@ class StrainSmoothingProcessor {
                 // Number of nodes in the element
                 size_t num_nodes = bulk_data.num_nodes(element);
 
-                // Get the element volume
-                double element_volume = stk::mesh::field_data(element_volume_field, element)[0];
-
-                // Store the cell volume fraction
-                double cell_volume_fraction = element_volume / cell_volume;
-
                 // Get the element function derivatives. TODO(jake): Calculate the element function derivatives here instead of precomputing and storing.
                 // Set up the field data to gather
                 Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
@@ -357,6 +313,11 @@ class StrainSmoothingProcessor {
                 }
                 Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
                 const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
+                double &element_volume = derivatives_and_weight.second;
+
+                // Set the element volume
+                stk::mesh::field_data(element_volume_field, element)[0] = element_volume;
+                smoothed_cell_data->AddToCellVolumeHost(i, element_volume);
 
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
@@ -380,7 +341,8 @@ class StrainSmoothingProcessor {
 
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
-                                Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives(k, m) * cell_volume_fraction * function_value);
+                                // Will have to divide by the cell volume when we have the full value
+                                Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives(k, m) * element_volume * function_value);
                             }
                         }
                     } else {
@@ -391,12 +353,30 @@ class StrainSmoothingProcessor {
                         size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
                         for (size_t l = 0; l < 3; ++l) {
-                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * cell_volume_fraction);
+                            // Will have to divide by the cell volume when we have the full value
+                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
                         }
                     }
                 }
             }
+
+            // Cell volume
+            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+
+            // Divide the function derivatives by the cell volume
+            size_t node_start = node_starts(i);
+            for (size_t j = 0, je = node_lengths(i); j < je; ++j) {
+                size_t j3 = (node_start + j) * 3;
+                for (size_t k = 0; k < 3; ++k) {
+                    node_function_derivatives(j3 + k) /= cell_volume;
+                }
+            }
         }
+        // Copy element volumes to device
+        element_volume_field.modify_on_host();
+        element_volume_field.sync_to_device();
+        smoothed_cell_data->CopyCellVolumeToDevice();
+
         double num_cells = static_cast<double>(smoothed_cell_data->NumCells());
         average_num_nodes /= num_cells;
         aperi::CoutP0() << "     - Average number of points defining a cell: " << average_num_nodes << std::endl;
@@ -463,7 +443,7 @@ class StrainSmoothingProcessor {
         AddCellNumElementsToSmoothedCellData(smoothed_cell_data, ngp_mesh, *m_ngp_smoothed_cell_id_field, m_owned_selector, smoothed_cell_timer_manager);
 
         // Set the cell local offsets
-        SetCellLocalOffsets(smoothed_cell_data, ngp_mesh, *m_ngp_smoothed_cell_id_field, *m_ngp_element_volume_field, m_owned_selector, smoothed_cell_timer_manager);
+        SetCellLocalOffsets(smoothed_cell_data, ngp_mesh, *m_ngp_smoothed_cell_id_field, m_owned_selector, smoothed_cell_timer_manager);
 
         // Set the function derivatives
         SetFunctionDerivatives<NumElementNodes>(smoothed_cell_data, integration_functor, ngp_mesh, *m_bulk_data, *num_neighbors_field, *neighbors_field, *function_values_field, *m_element_volume_field, *m_coordinates_field, one_pass_method, smoothed_cell_timer_manager);

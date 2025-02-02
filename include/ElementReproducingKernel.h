@@ -172,7 +172,6 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         SmoothedQuadratureTet4 host_integration_functor;
 
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        strain_smoothing_processor.ComputeElementVolumes<aperi::TET4_NUM_NODES>(integration_functor);
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<TET4_NUM_NODES>(host_integration_functor, TET4_NUM_NODES, m_use_one_pass_method);
 
         // Add the strain smoothing timer manager to the timer manager
@@ -220,7 +219,6 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         SmoothedQuadratureHex8 host_integration_functor;
 
         aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        strain_smoothing_processor.ComputeElementVolumes<aperi::HEX8_NUM_NODES>(integration_functor);
         m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<HEX8_NUM_NODES>(host_integration_functor, HEX8_NUM_NODES, m_use_one_pass_method);
 
         // Add the strain smoothing timer manager to the timer manager

@@ -156,11 +156,23 @@ class SmoothedCellDataFixture : public ::testing::Test {
         auto add_cell_element_functor = scd.GetAddCellElementFunctor();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                add_cell_element_functor(i, i, element_volume);
+                add_cell_element_functor(i, i);
                 if (i == 2) {
-                    add_cell_element_functor(i, i + 1, element_volume);
+                    add_cell_element_functor(i, i + 1);
                 }
             });
+
+        // Add to the cell volume in a kokkos parallel for loop
+        auto add_to_cell_volume_functor = scd.GetAddToCellVolumeFunctor();
+        Kokkos::parallel_for(
+            "AddToCellVolume", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                add_to_cell_volume_functor(i, element_volume);
+                if (i == 2) {
+                    add_to_cell_volume_functor(i, element_volume);
+                }
+            });
+
+        // Copy the cell data to the host
         scd.CopyCellViewsToHost();
 
         // Check the cell volumes

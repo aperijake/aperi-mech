@@ -225,11 +225,19 @@ class SmoothedCellData {
         CompleteAddingCellNodeIndicesOnHost(set_starts_from_lengths);
     }
 
-    void CopyCellElementViewsToHost() {
+    void CopyCellElementLocalOffsetsToHost() {
         m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
-        m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         Kokkos::deep_copy(m_element_local_offsets_host, m_element_local_offsets);
+    }
+
+    void CopyCellVolumeToHost() {
+        m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         Kokkos::deep_copy(m_cell_volume_host, m_cell_volume);
+    }
+
+    void CopyCellElementViewsToHost() {
+        CopyCellElementLocalOffsetsToHost();
+        CopyCellVolumeToHost();
     }
 
     void CopyCellNodeViewsToHost() {
@@ -244,9 +252,17 @@ class SmoothedCellData {
         CopyCellNodeViewsToHost();
     }
 
-    void CopyCellElementViewsToDevice() {
-        Kokkos::deep_copy(m_element_local_offsets, m_element_local_offsets_host);
+    void CopyCellVolumeToDevice() {
         Kokkos::deep_copy(m_cell_volume, m_cell_volume_host);
+    }
+
+    void CopyCellElementLocalOffsetsToDevice() {
+        Kokkos::deep_copy(m_element_local_offsets, m_element_local_offsets_host);
+    }
+
+    void CopyCellElementViewsToDevice() {
+        CopyCellVolumeToDevice();
+        CopyCellElementLocalOffsetsToDevice();
     }
 
     void CopyCellNodeViewsToDevice() {
@@ -264,13 +280,12 @@ class SmoothedCellData {
         Kokkos::View<uint64_t *> start_view;
         Kokkos::View<uint64_t *> length_view;
         Kokkos::View<uint64_t *> element_local_offsets_view;
-        Kokkos::View<double *> cell_volume;
 
-        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<uint64_t *> element_local_offsets_view_in, Kokkos::View<double *> cell_volume_in)
-            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_local_offsets_view(std::move(element_local_offsets_view_in)), cell_volume(std::move(cell_volume_in)) {}
+        AddCellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<uint64_t *> element_local_offsets_view_in)
+            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_local_offsets_view(std::move(element_local_offsets_view_in)) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &cell_id, const size_t &element_local_offset, const double &element_volume) const {
+        void operator()(const size_t &cell_id, const size_t &element_local_offset) const {
             // Get the start and length for the cell
             uint64_t start = start_view(cell_id);
             uint64_t length = length_view(cell_id);
@@ -289,15 +304,31 @@ class SmoothedCellData {
             if (!found) {
                 Kokkos::abort("Could not find an empty slot to add the element to the cell.");
             }
-
-            // Atomically add the element volume to the cell volume
-            Kokkos::atomic_add(&cell_volume(cell_id), element_volume);
         }
     };
 
     // Return the AddCellElementFunctor using the member variables m_element_indices.start, m_element_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
     AddCellElementFunctor GetAddCellElementFunctor() {
-        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets, m_cell_volume);
+        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets);
+    }
+
+    // Functor to add volume to a cell, use the getter GetAddToCellVolumeFunctor and call in a kokkos parallel for loop
+    struct AddToCellVolumeFunctor {
+        Kokkos::View<double *> cell_volume;
+
+        AddToCellVolumeFunctor(Kokkos::View<double *> cell_volume_in)
+            : cell_volume(std::move(cell_volume_in)) {}
+
+        KOKKOS_INLINE_FUNCTION
+        void operator()(const size_t &cell_id, const double &element_volume) const {
+            // Atomically add the element volume to the cell volume
+            Kokkos::atomic_add(&cell_volume(cell_id), element_volume);
+        }
+    };
+
+    // Return the AddCellElementFunctor using the member variable m_cell_volume. Call this in a kokkos parallel for loop.
+    AddToCellVolumeFunctor GetAddToCellVolumeFunctor() {
+        return AddToCellVolumeFunctor(m_cell_volume);
     }
 
     // Get host view with copy of function derivatives
@@ -329,6 +360,11 @@ class SmoothedCellData {
     // Get the cell volume for a cell
     double GetCellVolumeHost(size_t cell_id) {
         return m_cell_volume_host(cell_id);
+    }
+
+    // Add to cell volume, host
+    void AddToCellVolumeHost(size_t cell_id, double value) {
+        m_cell_volume_host(cell_id) += value;
     }
 
     // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
