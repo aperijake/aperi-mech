@@ -27,19 +27,17 @@ deviatoric_part(const T& a) {
 
 template<typename T>
 KOKKOS_INLINE_FUNCTION double double_dot(T& a, T& b) {
-  auto result = (a(0, 0) + b(0, 0) + a(0, 1) + b(0, 1) + a(0, 2) + b(0, 2));
-  result += (a(1, 0) + b(1, 0) + a(1, 1) + b(1, 1) + a(1, 2) + b(1, 2));
-  result += (a(2, 0) + b(2, 0) + a(2, 1) + b(2, 1) + a(2, 2) + b(2, 2));
+  auto result = (a.array() * b.array()).sum();
   return result;
 }
 
 template<typename T>
 KOKKOS_INLINE_FUNCTION double magnitude(const T& a) {
-  return std::sqrt(double_dot(a, a));
+  return Kokkos::sqrt(double_dot(a, a));
 }
 
 template<typename T>
-KOKKOS_INLINE_FUNCTION void lode(const T& a, double& z, double& t, T& E) {
+KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& t, T& E) {
   /* Return Lode components of second order tensor A
 
   Args
@@ -53,11 +51,11 @@ KOKKOS_INLINE_FUNCTION void lode(const T& a, double& z, double& t, T& E) {
   E: Basis tensor of deviatoric part of A
   */
 
-  z = a.trace() / std::sqrt(3.0);
+  z = a.trace() / Kokkos::sqrt(3.0);
   auto dev = deviatoric_part(a);
   auto s = magnitude(dev);
   E.setZero();
-  if (std::abs(s) > 1.0e-10)
+  if (Kokkos::abs(s) > 1.0e-10)
   {
     E = dev / s;
   }
@@ -89,7 +87,7 @@ public:
    * @return The field data of the material.
    */
   std::vector<aperi::FieldData> GetFieldData() override {
-    std::vector<double> initial_state(1, 0.0);
+    std::vector<double> initial_state(2, 0.0);
     auto displacement_gradient = aperi::FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2 /*number of states*/, std::vector<double>{});
     auto state = aperi::FieldData("state", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 2 /*number of states*/, 1 /*state size*/, initial_state);
     return {displacement_gradient, state};
@@ -162,7 +160,7 @@ public:
       KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
 
       const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
-      auto Ez = I / std::sqrt(3.0);
+      auto Ez = I / Kokkos::sqrt(3.0);
       auto F = *displacement_gradient_np1 + I;
       Eigen::Matrix<double, 3, 3> tau = pk1_stress * F.transpose();
 
@@ -173,7 +171,7 @@ public:
 
       double zt, st;
       Eigen::Matrix<double, 3, 3> Es;
-      lode(tau, zt, st, Es);
+      get_lode_components(tau, zt, st, Es);
 
       auto dstrain = 0.5 * (
         *displacement_gradient_np1 + displacement_gradient_np1->transpose()
@@ -183,7 +181,7 @@ public:
       dep.setZero();
 
       auto f = m_A1 - m_A2 * zt;
-      auto g = st / std::sqrt(2.0) - f;
+      auto g = st / Kokkos::sqrt(2.0) - f;
 
       if (g > 1.0e-4)
       {
@@ -198,7 +196,7 @@ public:
         {
           // Yield normal N and flow direction M
           auto Nz = m_A2;
-          auto Ns = 1.0 / std::sqrt(2.0);
+          auto Ns = 1.0 / Kokkos::sqrt(2.0);
     
           // Flow direction
           auto Mz = m_A2G;
@@ -220,7 +218,7 @@ public:
           auto As = 2.0 * m_shear_modulus * Ms;
     
           // Scaled components of return direction tensor
-          auto fac = std::sqrt((zt * zt + st * st) / (Mz * Mz + Ms * Ms)) / m_bulk_modulus;
+          auto fac = Kokkos::sqrt((zt * zt + st * st) / (Mz * Mz + Ms * Ms)) / m_bulk_modulus;
           auto Pz = fac * Az;
           auto Ps = fac * As;
     
@@ -228,7 +226,7 @@ public:
           auto beta = -g / (Nz * Pz + Ns * Ps);
     
           // Check for convergence
-          if(std::abs(beta) < 1.0e-10)
+          if(Kokkos::abs(beta) < 1.0e-10)
           {
             converged = true;
             break;
@@ -239,11 +237,11 @@ public:
           st += beta * Ps;
 
           f = m_A1 - m_A2 * zt;
-          g = st / std::sqrt(2.0) - f;
+          g = st / Kokkos::sqrt(2.0) - f;
         }
         
         if (!converged)
-          throw std::logic_error("Drucker-Prager Newton iterations failed");
+          Kokkos::abort("Drucker-Prager Newton iterations failed");
 
         // Updated stress and increment
         Eigen::Matrix<double, 3, 3> dtau;
@@ -257,7 +255,7 @@ public:
         }
         double dz, ds;
         Eigen::Matrix<double, 3, 3> EDS;
-        lode(dtau, dz, ds, EDS);
+        get_lode_components(dtau, dz, ds, EDS);
         
         // Elastic and plastic strain increments
         for (auto i=0; i<3; i++)
@@ -271,7 +269,7 @@ public:
       }
 
       auto depdev = deviatoric_part(dep);
-      auto deqps = std::sqrt(double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
+      auto deqps = Kokkos::sqrt(double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
 
       // Update the state
       state_new->coeffRef(PLASTIC_STRAIN) += deqps;
