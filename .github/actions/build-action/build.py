@@ -55,7 +55,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
         ./do_configure --build-type {build_type} {configure_flag}
 
         cd {build_path}
-        make -j 4
+        make -j
 
         {run_coverage}
 
