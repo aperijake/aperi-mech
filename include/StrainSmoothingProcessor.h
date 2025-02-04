@@ -307,7 +307,11 @@ class StrainSmoothingProcessor {
                     uint64_t node_local_offset = node_entities_to_use.key_at(j);
                     uint64_t node_value = node_entities_to_use.value_at(j) + start_node_index;
                     stk::mesh::Entity node_entity(node_local_offset);
-                    aperi::Index node_index = aperi::Index(ngp_mesh.fast_mesh_index(node_entity));
+
+                    const stk::mesh::MeshIndex &meshIndex = bulk_data.mesh_index(node_entity);
+                    stk::mesh::FastMeshIndex fast_mesh_index = stk::mesh::FastMeshIndex{meshIndex.bucket->bucket_id(), static_cast<unsigned>(meshIndex.bucket_ordinal)};
+
+                    aperi::Index node_index = aperi::Index(fast_mesh_index);
                     node_indicies(node_value) = node_index;
                 }
             }
