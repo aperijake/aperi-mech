@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Kokkos_Core.hpp>
+#include <Kokkos_UnorderedMap.hpp>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -58,6 +60,10 @@ class StrainSmoothingProcessor {
     typedef stk::mesh::NgpField<double> NgpDoubleField;
     typedef stk::mesh::Field<uint64_t> UnsignedField;
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
+
+    // Define the key type and value type
+    using KeyType = uint64_t;
+    using ValueType = uint64_t;  // Use uint64_t for the local index
 
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
@@ -215,9 +221,20 @@ class StrainSmoothingProcessor {
             // Get the cell element local offsets
             auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
-            // Create a set of node entities to their indices
-            std::unordered_set<uint64_t> node_entities;           // Short list of all the nodes in the cell
-            std::unordered_set<uint64_t> node_neighbor_entities;  // Short list of all the node neighbors in the cell
+            // Estimate the initial size for the maps
+            size_t estimated_size = cell_element_local_offsets.size() * NumElementNodes * 10;  // TODO: This is a guess. Need to determine a better way to estimate the size.
+
+            // Create a map of node entities to their indices
+            Kokkos::UnorderedMap<KeyType, ValueType> node_entities_device(estimated_size);           // Short list of all the nodes in the cell
+            Kokkos::UnorderedMap<KeyType, ValueType> node_neighbor_entities_device(estimated_size);  // Short list of all the node neighbors in the cell
+            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_entities = Kokkos::create_mirror(node_entities_device);
+            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_neighbor_entities = Kokkos::create_mirror(node_neighbor_entities_device);
+            Kokkos::deep_copy(node_entities, node_entities_device);
+            Kokkos::deep_copy(node_neighbor_entities, node_neighbor_entities_device);
+
+            // Initialize the local index
+            ValueType local_node_index = 0;
+            ValueType local_neighbor_index = 0;
 
             // Loop over all elements in the cell to create the short list of nodes or node neighbors
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
@@ -227,22 +244,26 @@ class StrainSmoothingProcessor {
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
                     uint64_t node_local_offset = element_nodes[k].local_offset();
-                    if (node_entities.find(node_local_offset) == node_entities.end()) {
-                        node_entities.insert(node_local_offset);
+                    if (!node_entities.exists(node_local_offset)) {
+                        node_entities.insert(node_local_offset, local_node_index++);
                         if (one_pass_method) {
                             // Get the node neighbors
                             uint64_t num_neighbors = stk::mesh::field_data(num_neighbors_field, element_nodes[k])[0];
                             uint64_t *neighbors = stk::mesh::field_data(neighbors_field, element_nodes[k]);
                             for (size_t l = 0; l < num_neighbors; ++l) {
                                 uint64_t neighbor = neighbors[l];
-                                if (node_neighbor_entities.find(neighbor) == node_neighbor_entities.end()) {
-                                    node_neighbor_entities.insert(neighbor);
+                                if (!node_neighbor_entities.exists(neighbor)) {
+                                    node_neighbor_entities.insert(neighbor, local_neighbor_index++);
                                 }
                             }
                         }
                     }
                 }
             }
+
+            // Shrink the maps to their actual size
+            node_entities.rehash(node_entities.size());
+            node_neighbor_entities.rehash(node_neighbor_entities.size());
 
             // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
             if (one_pass_method) {
@@ -277,13 +298,14 @@ class StrainSmoothingProcessor {
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
-            std::unordered_map<uint64_t, size_t> node_local_offsets_to_index;
-            size_t node_index = node_starts(i);
-            std::unordered_set<uint64_t> &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
-            for (const auto &node_local_offset : node_entities_to_use) {
-                node_local_offsets(node_index) = node_local_offset;
-                node_local_offsets_to_index[node_local_offset] = node_index;
-                ++node_index;
+            size_t start_node_index = node_starts(i);
+            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
+            for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
+                if (node_entities_to_use.valid_at(j)) {
+                    uint64_t node_local_offset = node_entities_to_use.key_at(j);
+                    uint64_t node_value = node_entities_to_use.value_at(j) + start_node_index;
+                    node_local_offsets(node_value) = node_local_offset;
+                }
             }
 
             // Assert cell volume is zero
@@ -335,14 +357,13 @@ class StrainSmoothingProcessor {
                             double function_value = stk::mesh::field_data(function_values_field, element_nodes[k])[l];
 
                             // Get the cell index of the neighbor
-                            auto neighbor_iter = node_local_offsets_to_index.find(neighbor);
-                            assert(neighbor_iter != node_local_offsets_to_index.end());
-                            size_t neighbor_index = neighbor_iter->second;
+                            KOKKOS_ASSERT(node_neighbor_entities.exists(neighbor));
+                            auto neighbor_component_index = (node_neighbor_entities.value_at(node_neighbor_entities.find(neighbor)) + start_node_index) * 3;
 
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
                                 // Will have to divide by the cell volume when we have the full value
-                                Kokkos::atomic_add(&node_function_derivatives(neighbor_index * 3 + m), element_function_derivatives(k, m) * element_volume * function_value);
+                                Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
                             }
                         }
                     } else {
@@ -350,7 +371,8 @@ class StrainSmoothingProcessor {
 
                         // Get the node local offset
                         uint64_t node_local_offset = element_nodes[k].local_offset();
-                        size_t node_component_index = node_local_offsets_to_index[node_local_offset] * 3;
+                        KOKKOS_ASSERT(node_entities.exists(node_local_offset));
+                        size_t node_component_index = (node_entities.value_at(node_entities.find(node_local_offset)) + start_node_index) * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
                         for (size_t l = 0; l < 3; ++l) {
                             // Will have to divide by the cell volume when we have the full value
@@ -364,9 +386,8 @@ class StrainSmoothingProcessor {
             double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
 
             // Divide the function derivatives by the cell volume
-            size_t node_start = node_starts(i);
             for (size_t j = 0, je = node_lengths(i); j < je; ++j) {
-                size_t j3 = (node_start + j) * 3;
+                size_t j3 = (start_node_index + j) * 3;
                 for (size_t k = 0; k < 3; ++k) {
                     node_function_derivatives(j3 + k) /= cell_volume;
                 }
