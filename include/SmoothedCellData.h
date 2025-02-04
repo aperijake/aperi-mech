@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "Index.h"
+
 namespace aperi {
 
 struct FlattenedRaggedArray {
@@ -86,20 +88,19 @@ struct FlattenedRaggedArray {
 class SmoothedCellData {
    public:
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_local_offsets("node_local_offsets", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_total_num_elements(0) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_total_num_elements(0) {
         // Fill the new elements with the maximum uint64_t value
-        Kokkos::deep_copy(m_node_local_offsets, UINT64_MAX);
+        Kokkos::deep_copy(m_node_indicies, aperi::Index());
         Kokkos::deep_copy(m_element_local_offsets, UINT64_MAX);
         Kokkos::deep_copy(m_cell_volume, 0.0);
 
         // Create host views
         m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
-        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
         m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
 
         // Fill the new elements with the maximum uint64_t value
-        Kokkos::deep_copy(m_node_local_offsets_host, UINT64_MAX);
         Kokkos::deep_copy(m_element_local_offsets_host, UINT64_MAX);
     }
 
@@ -107,14 +108,12 @@ class SmoothedCellData {
     void ResizeNodeViews(size_t new_total_num_nodes) {
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_local_offsets, new_total_num_nodes);
+        Kokkos::resize(m_node_indicies, new_total_num_nodes);
 
         // Create new host mirrors
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
 
-        // Fill the new elements with the maximum uint64_t value
-        InitializeLocalOffsets(m_reserved_nodes, new_total_num_nodes, m_node_local_offsets);
         m_reserved_nodes = new_total_num_nodes;
     }
 
@@ -123,35 +122,22 @@ class SmoothedCellData {
         // TODO(jake): Figure out if there is a better way to do this that doesn't require all the copying.
         // Copy the existing data to the device
         Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
-        Kokkos::deep_copy(m_node_local_offsets, m_node_local_offsets_host);
+        Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
 
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_local_offsets, new_total_num_nodes);
+        Kokkos::resize(m_node_indicies, new_total_num_nodes);
 
         // Create new host mirrors
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
 
         // Fill the new elements with the maximum uint64_t value
-        InitializeLocalOffsets(m_reserved_nodes, new_total_num_nodes, m_node_local_offsets);
         m_reserved_nodes = new_total_num_nodes;
 
         // Copy the new data to the host
         Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-        Kokkos::deep_copy(m_node_local_offsets_host, m_node_local_offsets);
-    }
-
-    // Function to initialize the local offsets to the maximum uint64_t value
-    static void InitializeLocalOffsets(const size_t start, const size_t stop, const Kokkos::View<uint64_t *> &local_offsets) {
-        // No need to do anything if shrinking
-        if (start >= stop) {
-            return;
-        }
-        Kokkos::parallel_for(
-            "FillNewLocalOffsets", Kokkos::RangePolicy<>(start, stop), KOKKOS_LAMBDA(const size_t i) {
-                local_offsets(i) = UINT64_MAX;
-            });
+        Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
     }
 
     // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
@@ -242,9 +228,9 @@ class SmoothedCellData {
 
     void CopyCellNodeViewsToHost() {
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_local_offsets_host = Kokkos::create_mirror_view(m_node_local_offsets);
+        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
         Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-        Kokkos::deep_copy(m_node_local_offsets_host, m_node_local_offsets);
+        Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
     }
 
     void CopyCellViewsToHost() {
@@ -267,7 +253,7 @@ class SmoothedCellData {
 
     void CopyCellNodeViewsToDevice() {
         Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
-        Kokkos::deep_copy(m_node_local_offsets, m_node_local_offsets_host);
+        Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
     }
 
     void CopyCellViewsToDevice() {
@@ -337,8 +323,8 @@ class SmoothedCellData {
     }
 
     // Get host view with copy of node local offsets
-    Kokkos::View<uint64_t *>::HostMirror GetNodeLocalOffsetsHost() {
-        return m_node_local_offsets_host;
+    Kokkos::View<aperi::Index *>::HostMirror GetNodeIndiciesHost() {
+        return m_node_indicies_host;
     }
 
     // Get host view with copy of element local offsets
@@ -383,13 +369,14 @@ class SmoothedCellData {
         size_t end = start + length;
         return Kokkos::subview(m_element_local_offsets, Kokkos::make_pair(start, end));
     }
+
     // Get the local offsets for the nodes in a cell. Return a kokkos subview of the node local offsets.
     KOKKOS_INLINE_FUNCTION
-    Kokkos::View<uint64_t *> GetCellNodeLocalOffsets(size_t cell_id) const {
+    Kokkos::View<aperi::Index *> GetCellNodeIndicies(size_t cell_id) const {
         size_t start = m_node_indices.start(cell_id);
         size_t length = m_node_indices.length(cell_id);
         size_t end = start + length;
-        return Kokkos::subview(m_node_local_offsets, Kokkos::make_pair(start, end));
+        return Kokkos::subview(m_node_indicies, Kokkos::make_pair(start, end));
     }
 
     // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
@@ -460,7 +447,7 @@ class SmoothedCellData {
             std::cout << "Cell " << i << ": start = " << start << ", length = " << length << std::endl;
             size_t end = start + length;
             for (size_t j = start; j < end; ++j) {
-                std::cout << m_node_local_offsets_host(j) << " ";
+                std::cout << m_node_indicies_host(j) << " ";
             }
             std::cout << std::endl;
         }
@@ -518,7 +505,7 @@ class SmoothedCellData {
             size_t end = start + length;
             std::cout << "Cell " << i << ": ";
             for (size_t j = start; j < end; ++j) {
-                std::cout << m_node_local_offsets_host(j) << " ";
+                std::cout << m_node_indicies_host(j) << " ";
             }
             std::cout << std::endl;
         }
@@ -530,10 +517,10 @@ class SmoothedCellData {
     FlattenedRaggedArray m_node_indices;                                // Indices for the cells
     FlattenedRaggedArray m_element_indices;                             // Indices for the elements
     Kokkos::View<uint64_t *> m_element_local_offsets;                   // Element local offsets
-    Kokkos::View<uint64_t *> m_node_local_offsets;                      // Node local offsets
+    Kokkos::View<aperi::Index *> m_node_indicies;                       // Node local offsets
     Kokkos::View<double *> m_function_derivatives;                      // Function derivatives
     Kokkos::View<uint64_t *>::HostMirror m_element_local_offsets_host;  // Host view with copy of element local offsets
-    Kokkos::View<uint64_t *>::HostMirror m_node_local_offsets_host;     // Host view with copy of node local offsets
+    Kokkos::View<aperi::Index *>::HostMirror m_node_indicies_host;      // Host view with copy of node local offsets
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
     Kokkos::View<double *> m_cell_volume;                               // Cell volume
     Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume

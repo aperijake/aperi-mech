@@ -9,6 +9,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
+#include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
 #include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -19,6 +20,7 @@
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "LogUtils.h"
 #include "MeshData.h"
 #include "SmoothedCellData.h"
@@ -212,7 +214,7 @@ class StrainSmoothingProcessor {
         auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
 
         // Get host views of the node local offsets
-        auto node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+        auto node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
 
         double average_num_neighbors = 0;
         double average_num_nodes = 0;
@@ -280,21 +282,21 @@ class StrainSmoothingProcessor {
             }
 
             // Resize the node views if necessary
-            size_t node_local_offsets_size = node_starts(i) + node_lengths(i);
-            size_t current_node_local_offsets_size = node_local_offsets.extent(0);
-            if (node_local_offsets_size > current_node_local_offsets_size) {
+            size_t node_indicies_size = node_starts(i) + node_lengths(i);
+            size_t current_node_indicies_size = node_indicies.extent(0);
+            if (node_indicies_size > current_node_indicies_size) {
                 // Calculate the percent done
                 double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
 
                 // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
-                auto expected_size = static_cast<size_t>(static_cast<double>(node_local_offsets_size) * 1.5 * (1.0 + percent_done));
+                auto expected_size = static_cast<size_t>(static_cast<double>(node_indicies_size) * 1.5 * (1.0 + percent_done));
 
                 // Double the size of the node local offsets
                 smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
 
                 // Get the new host views of the node local offsets
                 node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
-                node_local_offsets = smoothed_cell_data->GetNodeLocalOffsetsHost();
+                node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
@@ -304,7 +306,9 @@ class StrainSmoothingProcessor {
                 if (node_entities_to_use.valid_at(j)) {
                     uint64_t node_local_offset = node_entities_to_use.key_at(j);
                     uint64_t node_value = node_entities_to_use.value_at(j) + start_node_index;
-                    node_local_offsets(node_value) = node_local_offset;
+                    stk::mesh::Entity node_entity(node_local_offset);
+                    aperi::Index node_index = aperi::Index(ngp_mesh.fast_mesh_index(node_entity));
+                    node_indicies(node_value) = node_index;
                 }
             }
 
