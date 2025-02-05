@@ -64,8 +64,8 @@ class StrainSmoothingProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
     // Define the key type and value type
-    using KeyType = uint64_t;
-    using ValueType = uint64_t;  // Use uint64_t for the local index
+    using KeyType = aperi::Index;  // Use aperi::Index for the key
+    using ValueType = uint64_t;    // Use uint64_t for the local index
 
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
@@ -204,6 +204,17 @@ class StrainSmoothingProcessor {
         smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
+    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) {
+        const stk::mesh::MeshIndex &meshIndex = m_bulk_data->mesh_index(entity);
+        stk::mesh::FastMeshIndex fast_mesh_index = stk::mesh::FastMeshIndex{meshIndex.bucket->bucket_id(), static_cast<unsigned>(meshIndex.bucket_ordinal)};
+        return aperi::Index{fast_mesh_index.bucket_id, fast_mesh_index.bucket_ord};
+    }
+
+    aperi::Index LocalOffsetToIndex(uint64_t local_offset) {
+        stk::mesh::Entity entity(local_offset);
+        return EntityToIndex(entity);
+    }
+
     template <size_t NumElementNodes, typename IntegrationFunctor>
     void SetFunctionDerivatives(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data,
                                 const IntegrationFunctor &integration_functor,
@@ -283,17 +294,17 @@ class StrainSmoothingProcessor {
                 stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
-                    uint64_t node_local_offset = element_nodes[k].local_offset();
-                    if (!node_entities.exists(node_local_offset)) {
-                        node_entities.insert(node_local_offset, local_node_index++);
+                    aperi::Index node_index = EntityToIndex(element_nodes[k]);
+                    if (!node_entities.exists(node_index)) {
+                        node_entities.insert(node_index, local_node_index++);
                         if (one_pass_method) {
                             // Get the node neighbors
                             uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
                             uint64_t *neighbors = stk::mesh::field_data(*neighbors_field, element_nodes[k]);
                             for (size_t l = 0; l < num_neighbors; ++l) {
-                                uint64_t neighbor = neighbors[l];
-                                if (!node_neighbor_entities.exists(neighbor)) {
-                                    node_neighbor_entities.insert(neighbor, local_neighbor_index++);
+                                aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
+                                if (!node_neighbor_entities.exists(neighbor_node_index)) {
+                                    node_neighbor_entities.insert(neighbor_node_index, local_neighbor_index++);
                                 }
                             }
                         }
@@ -342,14 +353,8 @@ class StrainSmoothingProcessor {
             Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
             for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
                 if (node_entities_to_use.valid_at(j)) {
-                    uint64_t node_local_offset = node_entities_to_use.key_at(j);
                     uint64_t node_value = node_entities_to_use.value_at(j) + start_node_index;
-                    stk::mesh::Entity node_entity(node_local_offset);
-
-                    const stk::mesh::MeshIndex &meshIndex = bulk_data.mesh_index(node_entity);
-                    stk::mesh::FastMeshIndex fast_mesh_index = stk::mesh::FastMeshIndex{meshIndex.bucket->bucket_id(), static_cast<unsigned>(meshIndex.bucket_ordinal)};
-
-                    aperi::Index node_index = aperi::Index(fast_mesh_index);
+                    aperi::Index node_index = node_entities_to_use.key_at(j);
                     node_indicies(node_value) = node_index;
                 }
             }
@@ -403,8 +408,9 @@ class StrainSmoothingProcessor {
                             double function_value = stk::mesh::field_data(*function_values_field, element_nodes[k])[l];
 
                             // Get the cell index of the neighbor
-                            KOKKOS_ASSERT(node_neighbor_entities.exists(neighbor));
-                            auto neighbor_component_index = (node_neighbor_entities.value_at(node_neighbor_entities.find(neighbor)) + start_node_index) * 3;
+                            aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
+                            KOKKOS_ASSERT(node_neighbor_entities.exists(neighbor_index));
+                            auto neighbor_component_index = (node_neighbor_entities.value_at(node_neighbor_entities.find(neighbor_index)) + start_node_index) * 3;
 
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
@@ -416,9 +422,9 @@ class StrainSmoothingProcessor {
                         // Two pass method: store the function derivatives for the nodes in the cell
 
                         // Get the node local offset
-                        uint64_t node_local_offset = element_nodes[k].local_offset();
-                        KOKKOS_ASSERT(node_entities.exists(node_local_offset));
-                        size_t node_component_index = (node_entities.value_at(node_entities.find(node_local_offset)) + start_node_index) * 3;
+                        aperi::Index node_index = EntityToIndex(element_nodes[k]);
+                        KOKKOS_ASSERT(node_entities.exists(node_index));
+                        size_t node_component_index = (node_entities.value_at(node_entities.find(node_index)) + start_node_index) * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
                         for (size_t l = 0; l < 3; ++l) {
                             // Will have to divide by the cell volume when we have the full value
