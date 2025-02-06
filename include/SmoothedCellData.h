@@ -566,12 +566,12 @@ class SmoothedCellData {
     FlattenedRaggedArray m_element_indices;  // Indices for the elements
 
     Kokkos::View<uint64_t *> m_element_local_offsets;  // Element local offsets
-    Kokkos::View<aperi::Index *> m_node_indicies;      // Node local offsets
+    Kokkos::View<aperi::Index *> m_node_indicies;      // Node indicies
     Kokkos::View<double *> m_function_derivatives;     // Function derivatives
     Kokkos::View<double *> m_cell_volume;              // Cell volume
 
     Kokkos::View<uint64_t *>::HostMirror m_element_local_offsets_host;  // Host view with copy of element local offsets
-    Kokkos::View<aperi::Index *>::HostMirror m_node_indicies_host;      // Host view with copy of node local offsets
+    Kokkos::View<aperi::Index *>::HostMirror m_node_indicies_host;      // Host view with copy of node indicies
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
     Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume
 
