@@ -28,7 +28,6 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_procs);
         m_num_elems_z = m_num_procs;
         m_expected_volume = m_num_elems_z;
-        m_expected_cell_volume_fraction_sum = m_num_elems_z * 6.0;  // 6 tets per hex
 
         m_mesh_string = "1x1x" + std::to_string(m_num_elems_z) + "|tets";
     }
@@ -90,14 +89,10 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
         m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, part_names, mesh_data, material);
 
-        std::array<aperi::FieldQueryData<double>, 6> elem_field_query_data_gather_vec;
+        std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
-        elem_field_query_data_gather_vec[1] = {"function_derivatives_x", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[2] = {"function_derivatives_y", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[3] = {"function_derivatives_z", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[4] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        elem_field_query_data_gather_vec[5] = {"cell_volume_fraction", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
-        auto entity_processor = std::make_shared<aperi::ElementProcessor<6>>(elem_field_query_data_gather_vec, mesh_data, part_names);
+        elem_field_query_data_gather_vec[1] = {"volume", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT};
+        auto entity_processor = std::make_shared<aperi::ElementProcessor<2>>(elem_field_query_data_gather_vec, mesh_data, part_names);
         entity_processor->MarkAllFieldsModifiedOnDevice();
         entity_processor->SyncAllFieldsDeviceToHost();
 
@@ -106,20 +101,10 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         expected_volume[0] = m_expected_volume;
         CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", expected_volume, aperi::FieldQueryState::None);
 
-        // Check the cell volume
-        std::array<double, 1> expected_cell_volume_fraction_sum;
-        expected_cell_volume_fraction_sum[0] = m_expected_cell_volume_fraction_sum;
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "cell_volume_fraction", expected_cell_volume_fraction_sum, aperi::FieldQueryState::None);
-
         // Check the partition of unity for the shape functions. Shape functions are tested more rigorously in the ShapeFunctionsFunctor tests. This is just a basic check to help identify issues should they arise.
         if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) {  // not storing shape function values for FiniteElement
             CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::NODE>(*mesh_data, {"block_1"}, "function_values", 1.0, aperi::FieldQueryState::None);
         }
-
-        // Check partition of nullity for the shape function derivatives
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_x", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_y", 0.0, aperi::FieldQueryState::None);
-        CheckEntityFieldSumOfComponents<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "function_derivatives_z", 0.0, aperi::FieldQueryState::None);
     }
 
     void CheckSmoothedCellData() {
@@ -134,7 +119,6 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
     int m_num_elems_z;
     int m_num_procs;
     double m_expected_volume;
-    double m_expected_cell_volume_fraction_sum;
     bool m_use_one_pass_method = true;
     aperi::ElementTopology m_element_topology = aperi::ElementTopology::Tetrahedron4;
     std::shared_ptr<aperi::ElementBase> m_element;
@@ -174,7 +158,6 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8OnePass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
     m_mesh_string = "1x1x" + std::to_string(m_num_elems_z);
-    m_expected_cell_volume_fraction_sum = m_num_elems_z;
 
     // Reproducing kernel on hex8 element
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
@@ -189,7 +172,6 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8TwoPass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
     m_mesh_string = "1x1x" + std::to_string(m_num_elems_z);
-    m_expected_cell_volume_fraction_sum = m_num_elems_z;
 
     // Reproducing kernel on hex8 element
     double kernel_radius_scale_factor = 0.03;  // Small so it is like a tet4
@@ -208,7 +190,6 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalOnePass) {
     m_io_mesh_parameters->mesh_type = "exodusII";
     aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     m_expected_volume = 8;
-    m_expected_cell_volume_fraction_sum = 27;  // Sum to 1 for each active node
 
     // Reproducing kernel on hex8 element
     double kernel_radius_scale_factor = 1.01;
@@ -226,7 +207,6 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalTwoPass) {
     m_io_mesh_parameters->mesh_type = "exodusII";
     aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     m_expected_volume = 8;
-    m_expected_cell_volume_fraction_sum = 27;  // Sum to 1 for each active node
 
     // Reproducing kernel on hex8 element
     double kernel_radius_scale_factor = 1.01;

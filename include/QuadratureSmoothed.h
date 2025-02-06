@@ -31,7 +31,6 @@ struct SmoothedQuadratureTet4 {
     // Compute the B matrix and integration weight for a given gauss point, function values are provided
     KOKKOS_INLINE_FUNCTION Kokkos::pair<Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3>, double> ComputeBMatrixAndWeight(const Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3> &cell_node_coordinates) const {
         Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3> b_matrix = Eigen::Matrix<double, aperi::TET4_NUM_NODES, 3>::Zero();
-        // const Eigen::Matrix<double, aperi::TET4_NUM_NODES, aperi::TET4_NUM_NODES> cell_node_function_values = Eigen::Matrix<double, aperi::TET4_NUM_NODES, aperi::TET4_NUM_NODES>::Identity();
 
         double volume = 0.0;
 
@@ -48,12 +47,6 @@ struct SmoothedQuadratureTet4 {
 
             // Compute the smoothed shape function derivatives. Add the contribution of the current face to the smoothed shape function derivatives.
             for (size_t k = 0; k < aperi::TET4_NUM_NODES; ++k) {
-                // double shape_function_value = 0.0;
-                // for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
-                //     shape_function_value += cell_node_function_values(k, m_face_nodes(j, l));
-                // }
-                // shape_function_value /= 3.0;  // for the average of the 3 nodes
-                // b_matrix.row(k) += shape_function_value * face_normal.transpose();
                 for (size_t l = 0; l < 3; ++l) {  // Loop over nodes per face
                     if (k == m_face_nodes(j, l)) {
                         b_matrix.row(k) += face_normal.transpose() / 3.0;  // for the average of the 3 nodes
@@ -80,7 +73,7 @@ struct SmoothedQuadratureTet4 {
 struct SmoothedQuadratureHex8 {
     KOKKOS_INLINE_FUNCTION SmoothedQuadratureHex8() {
         /* Face ordering
-        8-node hexhedron face node ordering per Seacas: https://sandialabs.github.io/seacas-docs/html/element_types.html
+        8-node hexahedron face node ordering per Seacas: https://sandialabs.github.io/seacas-docs/html/element_types.html
         */
         m_face_nodes << 0, 1, 5, 4,
             1, 2, 6, 5,

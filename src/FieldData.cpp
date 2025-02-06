@@ -69,7 +69,6 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
     field_data.push_back(FieldData("pk1_stress", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
-    field_data.push_back(FieldData("cell_volume_fraction", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
         field_data.push_back(FieldData("reference_displacement_gradient", "reference_disp_grad", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
@@ -86,11 +85,6 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         uint64_t max_node_num_neighbors = uses_generalized_fields ? MAX_NODE_NUM_NEIGHBORS : FEM_NODE_NUM_NEIGHBORS;
         field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<uint64_t>{}, false));      // The neighbors of the node
         field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<double>{}, false));  // The function values of neighbors at the node
-
-        // Cell neighbor data.
-        field_data.push_back(FieldData("function_derivatives_x", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in x of neighbors at the cell
-        field_data.push_back(FieldData("function_derivatives_y", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in y of neighbors at the cell
-        field_data.push_back(FieldData("function_derivatives_z", FieldDataRank::CUSTOM, FieldDataTopologyRank::ELEMENT, 1, MAX_CELL_NUM_NODES, std::vector<double>{}, false));  // The function derivatives in z of neighbors at the cell
 
 #ifdef USE_PROTEGO_MECH
         std::vector<FieldData> protego_field_data = protego::GetFieldData();

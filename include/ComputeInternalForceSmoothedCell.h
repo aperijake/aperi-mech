@@ -73,10 +73,10 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 const stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(element);
 
                 // Get the node local offsets and function derivatives
-                const auto node_local_offsets = scd.GetCellNodeLocalOffsets(cell_id);
+                const auto node_indicies = scd.GetCellNodeIndicies(cell_id);
                 const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
 
-                const size_t num_nodes = node_local_offsets.extent(0);
+                const size_t num_nodes = node_indicies.extent(0);
 
                 // Create maps for the function derivatives and displacement
                 Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
@@ -84,8 +84,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Calculate the displacement gradient
                 for (size_t k = 0; k < num_nodes; ++k) {
-                    const stk::mesh::Entity node(node_local_offsets[k]);
-                    const aperi::Index node_index(ngp_mesh.fast_mesh_index(node));
+                    const aperi::Index node_index = node_indicies(k);
                     const auto displacement_np1 = m_displacement_np1_field.GetConstEigenVectorMap<3>(node_index);
                     // Perform the matrix multiplication for field_data_to_gather_gradient
                     this_displacement_gradient += displacement_np1 * b_matrix_map.row(k);
@@ -134,8 +133,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                     const Eigen::Matrix<double, 1, 3> force = b_matrix_map.row(k) * stress_term;
 
                     // Add the force to the node
-                    const stk::mesh::Entity node(node_local_offsets[k]);
-                    const aperi::Index node_index(ngp_mesh.fast_mesh_index(node));
+                    const aperi::Index node_index = node_indicies(k);
                     // Scatter the force to the nodes
                     m_force_field.AtomicAdd(node_index, force);
                 }

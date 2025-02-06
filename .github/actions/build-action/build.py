@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
+import sys
 
 import paramiko
 
@@ -17,6 +19,11 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     ssh.connect(vm_ip, username=vm_username, timeout=60)
     transport = ssh.get_transport()
     transport.set_keepalive(30)  # Send keepalive messages every 30 seconds
+
+    # Determine the number of processors and calculate 75% of them
+    stdin, stdout, stderr = ssh.exec_command("nproc")
+    num_procs = int(stdout.read().strip())
+    num_jobs = math.ceil(num_procs * 0.75)
 
     # Construct the compose file and service name
     compose_file = "docker-compose.yml"
@@ -55,7 +62,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
         ./do_configure --build-type {build_type} {configure_flag}
 
         cd {build_path}
-        make -j 4
+        make -j{num_jobs}
 
         {run_coverage}
 
@@ -66,12 +73,18 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     print(commands)
 
     stdin, stdout, stderr = ssh.exec_command(commands, get_pty=True)
+    exit_status = stdout.channel.recv_exit_status()
+
     for line in stdout:
         print(line.strip())
     for line in stderr:
         print(line.strip())
 
     ssh.close()
+
+    if exit_status != 0:
+        print("Build failed with exit status", exit_status)
+        sys.exit(exit_status)
 
 
 if __name__ == "__main__":
