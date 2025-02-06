@@ -265,6 +265,9 @@ class StrainSmoothingProcessor {
         // Get host views of the node local offsets
         auto node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
 
+        // Get the global node index to local index map
+        auto &node_to_local_index_map = smoothed_cell_data->GetNodeToLocalIndexMapHost();
+
         double average_num_neighbors = 0;
         double average_num_nodes = 0;
         // Loop over all the cells, set the derivative values for the nodes
@@ -312,22 +315,30 @@ class StrainSmoothingProcessor {
                 }
             }
 
-            // Shrink the maps to their actual size
-            node_entities.rehash(node_entities.size());
-            node_neighbor_entities.rehash(node_neighbor_entities.size());
-
             // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
             if (one_pass_method) {
-                node_lengths(i) = node_neighbor_entities.size();
-                average_num_neighbors += static_cast<double>(node_neighbor_entities.size());
+                node_lengths(i) = local_neighbor_index;
+                average_num_neighbors += static_cast<double>(local_neighbor_index);
             } else {
-                node_lengths(i) = node_entities.size();
+                node_lengths(i) = local_node_index;
             }
-            average_num_nodes += static_cast<double>(node_entities.size());
+            average_num_nodes += static_cast<double>(local_node_index);
 
             // Set the start to the start + length of the previous cell, if not the first cell
             if (i > 0) {
                 node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
+            }
+
+            uint64_t node_start = node_starts(i);
+
+            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
+            // Fill the global node index to local index map
+            for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
+                if (node_entities_to_use.valid_at(j)) {
+                    uint64_t node_value = node_entities_to_use.value_at(j);
+                    aperi::Index node_index = node_entities_to_use.key_at(j);
+                    node_to_local_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, node_value + node_start);
+                }
             }
 
             // Resize the node views if necessary
@@ -350,7 +361,6 @@ class StrainSmoothingProcessor {
 
             // Loop over the node entities, create a map of local offsets to node indices
             size_t start_node_index = node_starts(i);
-            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
             for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
                 if (node_entities_to_use.valid_at(j)) {
                     uint64_t node_value = node_entities_to_use.value_at(j) + start_node_index;
@@ -358,6 +368,12 @@ class StrainSmoothingProcessor {
                     node_indicies(node_value) = node_index;
                 }
             }
+        }
+
+        // Loop over all the cells, set the derivative values for the nodes
+        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
             // Assert cell volume is zero
             assert(smoothed_cell_data->GetCellVolumeHost(i) == 0.0);
@@ -409,8 +425,8 @@ class StrainSmoothingProcessor {
 
                             // Get the cell index of the neighbor
                             aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
-                            KOKKOS_ASSERT(node_neighbor_entities.exists(neighbor_index));
-                            auto neighbor_component_index = (node_neighbor_entities.value_at(node_neighbor_entities.find(neighbor_index)) + start_node_index) * 3;
+                            KOKKOS_ASSERT(node_to_local_index_map.exists({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
+                            auto neighbor_component_index = node_to_local_index_map.value_at(node_to_local_index_map.find({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
 
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
@@ -423,8 +439,8 @@ class StrainSmoothingProcessor {
 
                         // Get the node local offset
                         aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        KOKKOS_ASSERT(node_entities.exists(node_index));
-                        size_t node_component_index = (node_entities.value_at(node_entities.find(node_index)) + start_node_index) * 3;
+                        KOKKOS_ASSERT(node_to_local_index_map.exists({i, node_index.bucket_id(), node_index.bucket_ord()}));
+                        size_t node_component_index = node_to_local_index_map.value_at(node_to_local_index_map.find({i, node_index.bucket_id(), node_index.bucket_ord()})) * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
                         for (size_t l = 0; l < 3; ++l) {
                             // Will have to divide by the cell volume when we have the full value
@@ -436,6 +452,8 @@ class StrainSmoothingProcessor {
 
             // Cell volume
             double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+
+            size_t start_node_index = node_starts(i);
 
             // Divide the function derivatives by the cell volume
             for (size_t j = 0, je = node_lengths(i); j < je; ++j) {
