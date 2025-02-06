@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
 
 import paramiko
 
@@ -66,12 +67,18 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     print(commands)
 
     stdin, stdout, stderr = ssh.exec_command(commands, get_pty=True)
+    exit_status = stdout.channel.recv_exit_status()
+
     for line in stdout:
         print(line.strip())
     for line in stderr:
         print(line.strip())
 
     ssh.close()
+
+    if exit_status != 0:
+        print("Build failed with exit status", exit_status)
+        sys.exit(exit_status)
 
 
 if __name__ == "__main__":
