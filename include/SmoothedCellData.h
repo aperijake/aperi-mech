@@ -124,8 +124,14 @@ struct IndexToLocalMapKeyHash {
 
 class SmoothedCellData {
    public:
+    /**
+     * @brief Constructs a SmoothedCellData object.
+     *
+     * @param num_cells The number of cells to construct the SmoothedCellData object with.
+     * @param num_elements The number of elements on this part and partition.
+     */
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_local_index_map(estimated_total_num_nodes * 10), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_local_index_map(estimated_total_num_nodes * 30), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
         // TODO(jake): come up with a better way to estimate the size of m_node_to_index_map
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indicies, aperi::Index());
@@ -157,6 +163,7 @@ class SmoothedCellData {
         m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
 
         m_reserved_nodes = new_total_num_nodes;
+        m_number_of_resizes++;
     }
 
     // Function to resize the node views on host
@@ -180,6 +187,16 @@ class SmoothedCellData {
         // Copy the new data to the host
         Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
         Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
+        m_number_of_resizes++;
+    }
+
+    // Function to rehash the node to local index map on host
+    void RehashNodeToLocalIndexMapOnHost(size_t new_total_num_nodes) {
+        // Rehash the map
+        m_node_to_local_index_map_host.rehash(new_total_num_nodes);
+
+        // Copy the new data to the device
+        Kokkos::deep_copy(m_node_to_local_index_map, m_node_to_local_index_map_host);
     }
 
     // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
@@ -463,6 +480,11 @@ class SmoothedCellData {
         return m_num_cells;
     }
 
+    // Get the number of resizes
+    size_t NumberOfResizes() const {
+        return m_number_of_resizes;
+    }
+
     // Get a reference to the node indices
     FlattenedRaggedArray &GetNodeIndices() {
         return m_node_indices;
@@ -581,6 +603,7 @@ class SmoothedCellData {
     size_t m_total_num_nodes = 0;            // Total number of nodes
     size_t m_total_num_elements = 0;         // Total number of elements
     size_t m_total_components = 0;           // Total number of components (total number of nodes * number of dimensions)
+    size_t m_number_of_resizes = 0;          // Number of resizes
     static constexpr size_t k_num_dims = 3;  // Number of dimensions
 };
 

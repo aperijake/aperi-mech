@@ -5,6 +5,7 @@
 #include <Kokkos_UnorderedMap.hpp>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -217,6 +218,30 @@ class StrainSmoothingProcessor {
         return EntityToIndex(entity);
     }
 
+    // Resize the node views and map. Check if the size is greater than the current size. If so, resize the node views and map.
+    bool ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t next_size, size_t cell_index, size_t num_cells) {
+        // Calculate the percent done
+        if (next_size > current_size) {
+            double ratio_complete = static_cast<double>(cell_index + 1) / static_cast<double>(num_cells);
+            // Estimate the expected size based on the percent done.
+            // Multiply by up to 1.2 to give some buffer. (ramp from multiplying by 1.2 to 1.0 as ratio_complete goes from 0 to 1)
+            auto expected_size = static_cast<size_t>(std::ceil(static_cast<double>(next_size) / ratio_complete * (1.0 + 0.2 * (1.0 - ratio_complete))));
+
+            int proc_id;
+            MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
+            printf("Resizing node views on processor %d from %lu to %lu. Percent done building smoothed cell data: %f\n", proc_id, current_size, expected_size, ratio_complete * 100.0);
+
+            // Double the size of the node local offsets
+            smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
+
+            // Rehash the map
+            smoothed_cell_data->RehashNodeToLocalIndexMapOnHost(expected_size);
+
+            return true;
+        }
+        return false;
+    }
+
     template <size_t NumElementNodes>
     void SetNodeIndiciesAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data,
                                bool one_pass_method,
@@ -290,7 +315,8 @@ class StrainSmoothingProcessor {
                 for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
                     aperi::Index node_index = EntityToIndex(element_nodes[k]);
                     if (!node_entities.exists(node_index)) {
-                        node_entities.insert(node_index, local_node_index++);
+                        auto node_insert_results = node_entities.insert(node_index, local_node_index++);
+                        KOKKOS_ASSERT(!node_insert_results.failed());
                         if (one_pass_method) {
                             // Get the node neighbors
                             uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
@@ -298,7 +324,8 @@ class StrainSmoothingProcessor {
                             for (size_t l = 0; l < num_neighbors; ++l) {
                                 aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
                                 if (!node_neighbor_entities.exists(neighbor_node_index)) {
-                                    node_neighbor_entities.insert(neighbor_node_index, local_neighbor_index++);
+                                    auto neighbor_insert_results = node_neighbor_entities.insert(neighbor_node_index, local_neighbor_index++);
+                                    KOKKOS_ASSERT(!neighbor_insert_results.failed());
                                 }
                             }
                         }
@@ -320,7 +347,16 @@ class StrainSmoothingProcessor {
                 node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
             }
 
+            // Resize the node views if necessary
             uint64_t node_start = node_starts(i);
+            size_t new_node_indicies_size = node_start + node_lengths(i);
+            size_t current_node_indicies_size = node_indicies.extent(0);
+            bool resized = ResizeNodeViewsAndMap(smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
+
+            if (resized) {
+                // Get the new host views of the node local offsets
+                node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
+            }
 
             Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
             // Fill the global node index to local index map
@@ -328,25 +364,9 @@ class StrainSmoothingProcessor {
                 if (node_entities_to_use.valid_at(j)) {
                     uint64_t node_value = node_entities_to_use.value_at(j);
                     aperi::Index node_index = node_entities_to_use.key_at(j);
-                    node_to_local_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, node_value + node_start);
+                    auto results = node_to_local_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, node_value + node_start);
+                    KOKKOS_ASSERT(!results.failed());
                 }
-            }
-
-            // Resize the node views if necessary
-            size_t node_indicies_size = node_starts(i) + node_lengths(i);
-            size_t current_node_indicies_size = node_indicies.extent(0);
-            if (node_indicies_size > current_node_indicies_size) {
-                // Calculate the percent done
-                double percent_done = static_cast<double>(i + 1) / static_cast<double>(e);
-
-                // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
-                auto expected_size = static_cast<size_t>(static_cast<double>(node_indicies_size) * 1.5 * (1.0 + percent_done));
-
-                // Double the size of the node local offsets
-                smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
-
-                // Get the new host views of the node local offsets
-                node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
@@ -573,6 +593,15 @@ class StrainSmoothingProcessor {
         size_t min_num_cells = *std::min_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
         size_t max_num_cells = *std::max_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
 
+        bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
+        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        smoothed_cell_data->CopyCellNodeViewsToDevice();
+
+        assert(CheckPartitionOfNullity(smoothed_cell_data));
+
+        // Get the number of resizes that occurred. Should be at least one due to the final resize.
+        size_t num_resizes = smoothed_cell_data->NumberOfResizes();
+
         // Calculate the percent unbalance = (max - avg) / avg
         double percent_unbalance = (static_cast<double>(max_num_cells) - avg_num_cells) / avg_num_cells * 100.0;
 
@@ -587,14 +616,9 @@ class StrainSmoothingProcessor {
         ss << "----------------------------------------------------\n";
         ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
         ss << "***************************************************\n";
+        ss << "Number of resizes: " << num_resizes << std::endl;
         aperi::CoutP0() << ss.str();
         // ---- End diagnostic output
-
-        bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
-        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
-        smoothed_cell_data->CopyCellNodeViewsToDevice();
-
-        assert(CheckPartitionOfNullity(smoothed_cell_data));
 
         return smoothed_cell_data;
     }
