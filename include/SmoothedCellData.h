@@ -116,9 +116,8 @@ struct IndexToLocalMapKeyHash {
     size_t operator()(const IndexToLocalMapKey &key) const {
         // Combine the hash values of cell_id, bucket_id, and bucket_ord
         size_t h1 = key.cell_id;
-        size_t h2 = key.bucket_id;
-        size_t h3 = key.bucket_ord;
-        return h1 ^ (h2 * 31) ^ (h3 * 37);
+        size_t h2 = key.bucket_id * 512 + key.bucket_ord;
+        return h1 ^ (h2 * 173);
     }
 };
 
@@ -131,7 +130,7 @@ class SmoothedCellData {
      * @param num_elements The number of elements on this part and partition.
      */
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_local_index_map(estimated_total_num_nodes * 30), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_local_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
         // TODO(jake): come up with a better way to estimate the size of m_node_to_index_map
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indicies, aperi::Index());
