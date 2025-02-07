@@ -3,3 +3,6 @@ __pycache__
 gh-pages/
 .vscode/settings.json
 .DS_Store
+
+build-*
+venv
