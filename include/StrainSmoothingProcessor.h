@@ -220,22 +220,25 @@ class StrainSmoothingProcessor {
 
     // Resize the node views and map. Check if the size is greater than the current size. If so, resize the node views and map.
     bool ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t next_size, size_t cell_index, size_t num_cells) {
+        double ratio_complete = static_cast<double>(cell_index + 1) / static_cast<double>(num_cells);
+        // Estimate the expected size based on the percent done.
+        double expected_size = static_cast<double>(next_size) / ratio_complete;
+        double size_ratio = static_cast<double>(current_size) / expected_size;
+
         // Calculate the percent done
-        if (next_size > current_size) {
-            double ratio_complete = static_cast<double>(cell_index + 1) / static_cast<double>(num_cells);
-            // Estimate the expected size based on the percent done.
+        if (next_size > current_size || size_ratio < 0.8) {
             // Multiply by up to 1.2 to give some buffer. (ramp from multiplying by 1.2 to 1.0 as ratio_complete goes from 0 to 1)
-            auto expected_size = static_cast<size_t>(std::ceil(static_cast<double>(next_size) / ratio_complete * (1.0 + 0.2 * (1.0 - ratio_complete))));
+            auto new_size = static_cast<size_t>(std::ceil(size_ratio * (1.0 + 0.2 * (1.0 - ratio_complete))));
 
             int proc_id;
             MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
-            printf("Resizing node views on processor %d from %lu to %lu. Percent done building smoothed cell data: %f\n", proc_id, current_size, expected_size, ratio_complete * 100.0);
+            printf("Resizing node views on processor %d from %lu to %lu. Percent done building smoothed cell data: %f\n", proc_id, current_size, new_size, ratio_complete * 100.0);
 
             // Double the size of the node local offsets
-            smoothed_cell_data->ResizeNodeViewsOnHost(expected_size);
+            smoothed_cell_data->ResizeNodeViewsOnHost(new_size);
 
-            // Rehash the map
-            smoothed_cell_data->RehashNodeToLocalIndexMapOnHost(expected_size);
+            // Rehash the map, doubling the size
+            smoothed_cell_data->RehashNodeToLocalIndexMapOnHost(new_size * 2);
 
             return true;
         }
@@ -316,7 +319,10 @@ class StrainSmoothingProcessor {
                     aperi::Index node_index = EntityToIndex(element_nodes[k]);
                     if (!node_entities.exists(node_index)) {
                         auto node_insert_results = node_entities.insert(node_index, local_node_index++);
-                        KOKKOS_ASSERT(!node_insert_results.failed());
+                        if (node_insert_results.failed()) {
+                            printf("Failed to insert node (%lu, %lu) into node_entities\n", node_index.bucket_id(), node_index.bucket_ord());
+                            Kokkos::abort("Failed to insert node into node_entities");
+                        }
                         if (one_pass_method) {
                             // Get the node neighbors
                             uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
@@ -325,7 +331,10 @@ class StrainSmoothingProcessor {
                                 aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
                                 if (!node_neighbor_entities.exists(neighbor_node_index)) {
                                     auto neighbor_insert_results = node_neighbor_entities.insert(neighbor_node_index, local_neighbor_index++);
-                                    KOKKOS_ASSERT(!neighbor_insert_results.failed());
+                                    if (neighbor_insert_results.failed()) {
+                                        printf("Failed to insert node (%lu, %lu) into node_neighbor_entities\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord());
+                                        Kokkos::abort("Failed to insert node into node_entities");
+                                    }
                                 }
                             }
                         }
@@ -360,12 +369,15 @@ class StrainSmoothingProcessor {
 
             Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
             // Fill the global node index to local index map
-            for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
+            for (size_t j = 0, je = node_entities_to_use.capacity(); j < je; ++j) {
                 if (node_entities_to_use.valid_at(j)) {
                     uint64_t node_value = node_entities_to_use.value_at(j);
                     aperi::Index node_index = node_entities_to_use.key_at(j);
                     auto results = node_to_local_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, node_value + node_start);
-                    KOKKOS_ASSERT(!results.failed());
+                    if (results.failed()) {
+                        printf("Failed to insert node (%lu, %lu) into node_to_local_index_map\n", node_index.bucket_id(), node_index.bucket_ord());
+                        Kokkos::abort("Failed to insert node into node_entities");
+                    }
                 }
             }
 
