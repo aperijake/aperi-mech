@@ -228,7 +228,7 @@ class StrainSmoothingProcessor {
         // Calculate the percent done
         if (next_size > current_size || size_ratio < 0.8) {
             // Multiply by up to 1.2 to give some buffer. (ramp from multiplying by 1.2 to 1.0 as ratio_complete goes from 0 to 1)
-            auto new_size = static_cast<size_t>(std::ceil(size_ratio * (1.0 + 0.2 * (1.0 - ratio_complete))));
+            auto new_size = static_cast<size_t>(std::ceil(expected_size * (1.0 + 0.2 * (1.0 - ratio_complete))));
 
             int proc_id;
             MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
@@ -236,9 +236,6 @@ class StrainSmoothingProcessor {
 
             // Double the size of the node local offsets
             smoothed_cell_data->ResizeNodeViewsOnHost(new_size);
-
-            // Rehash the map, doubling the size
-            smoothed_cell_data->RehashNodeToLocalIndexMapOnHost(new_size * 2);
 
             return true;
         }
@@ -283,9 +280,6 @@ class StrainSmoothingProcessor {
 
         // Get host views of the node local offsets
         auto node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
-
-        // Get the global node index to local index map
-        auto &node_to_local_index_map = smoothed_cell_data->GetNodeToLocalIndexMapHost();
 
         double average_num_neighbors = 0;
         double average_num_nodes = 0;
@@ -367,21 +361,8 @@ class StrainSmoothingProcessor {
                 node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
             }
 
-            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
-            // Fill the global node index to local index map
-            for (size_t j = 0, je = node_entities_to_use.capacity(); j < je; ++j) {
-                if (node_entities_to_use.valid_at(j)) {
-                    uint64_t node_value = node_entities_to_use.value_at(j);
-                    aperi::Index node_index = node_entities_to_use.key_at(j);
-                    auto results = node_to_local_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, node_value + node_start);
-                    if (results.failed()) {
-                        printf("Failed to insert node (%lu, %lu) into node_to_local_index_map\n", node_index.bucket_id(), node_index.bucket_ord());
-                        Kokkos::abort("Failed to insert node into node_entities");
-                    }
-                }
-            }
-
             // Loop over the node entities, create a map of local offsets to node indices
+            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror &node_entities_to_use = one_pass_method ? node_neighbor_entities : node_entities;
             size_t start_node_index = node_starts(i);
             for (size_t j = 0; j < node_entities_to_use.capacity(); ++j) {
                 if (node_entities_to_use.valid_at(j)) {
@@ -448,11 +429,11 @@ class StrainSmoothingProcessor {
         // Zero the node derivatives
         Kokkos::deep_copy(node_function_derivatives, 0.0);
 
-        // Get the global node index to local index map
-        auto &node_to_local_index_map = smoothed_cell_data->GetNodeToLocalIndexMapHost();
-
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the node to view index map
+            auto node_to_view_index_map = smoothed_cell_data->BuildNodeToViewIndexMapHost(i);
+
             // Get the cell element local offsets
             auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
@@ -506,8 +487,8 @@ class StrainSmoothingProcessor {
 
                             // Get the cell index of the neighbor
                             aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
-                            KOKKOS_ASSERT(node_to_local_index_map.exists({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
-                            auto neighbor_component_index = node_to_local_index_map.value_at(node_to_local_index_map.find({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+                            KOKKOS_ASSERT(node_to_view_index_map.exists(neighbor_index));
+                            auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find(neighbor_index)) * 3;
 
                             // Atomic add to the derivatives and set the node local offsets for the cell
                             for (size_t m = 0; m < 3; ++m) {
@@ -520,8 +501,8 @@ class StrainSmoothingProcessor {
 
                         // Get the node local offset
                         aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        KOKKOS_ASSERT(node_to_local_index_map.exists({i, node_index.bucket_id(), node_index.bucket_ord()}));
-                        size_t node_component_index = node_to_local_index_map.value_at(node_to_local_index_map.find({i, node_index.bucket_id(), node_index.bucket_ord()})) * 3;
+                        KOKKOS_ASSERT(node_to_view_index_map.exists(node_index));
+                        size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find(node_index)) * 3;
                         // Atomic add to the derivatives and set the node local offsets for the cell
                         for (size_t l = 0; l < 3; ++l) {
                             // Will have to divide by the cell volume when we have the full value
