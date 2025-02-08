@@ -19,33 +19,56 @@ class UnorderedMapFixture : public ::testing::Test {
     void TearDown() override {
     }
 
-    void Reset() {
-        // m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>();
-        // m_map_host_mirror = Kokkos::create_mirror(m_map);
-        // m_set = Kokkos::UnorderedMap<uint64_t, void>();
-        // m_set_host_mirror = Kokkos::create_mirror(m_set);
+    double ResetStdUnorderedMap() {
+        auto start = std::chrono::high_resolution_clock::now();
         m_map_std.clear();
-        m_set_std.clear();
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void SizeMaps(size_t size) {
+    double ResetStdUnorderedSet() {
+        auto start = std::chrono::high_resolution_clock::now();
+        m_set_std.clear();
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
+    }
+
+    double SizeMaps(size_t size) {
+        auto start = std::chrono::high_resolution_clock::now();
         m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
         m_map_host_mirror = Kokkos::create_mirror(m_map);
-        Kokkos::deep_copy(m_map_host_mirror, m_map);  // This is needed or inserting into the host map will get stuck in an infinite loop
+        Kokkos::deep_copy(m_map_host_mirror, m_map);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void SizeMapsDevice(size_t size) {
+    double SizeMapsDevice(size_t size) {
+        auto start = std::chrono::high_resolution_clock::now();
         m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void SizeSets(size_t size) {
+    double SizeSets(size_t size) {
+        auto start = std::chrono::high_resolution_clock::now();
         m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
         m_set_host_mirror = Kokkos::create_mirror(m_set);
         Kokkos::deep_copy(m_set_host_mirror, m_set);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void SizeSetsDevice(size_t size) {
+    double SizeSetsDevice(size_t size) {
+        auto start = std::chrono::high_resolution_clock::now();
         m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
     void PopulateRandomView(size_t size, size_t potential_unique_values = 100, size_t seed = 0) {
@@ -59,137 +82,219 @@ class UnorderedMapFixture : public ::testing::Test {
         Kokkos::deep_copy(m_random_indices, m_random_indices_host_mirror);
     }
 
-    void PopulateStdUnorderedMap() {
+    double PopulateStdUnorderedMap() {
+        auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_map_std.insert({m_random_indices_host_mirror(i), i});
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void PopulateStdUnorderedSet() {
+    double PopulateStdUnorderedSet() {
+        auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_set_std.insert(m_random_indices_host_mirror(i));
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void PopulateKokkosUnorderedMapOnHost() {
+    double PopulateKokkosUnorderedMapOnHost() {
+        auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_map_host_mirror.insert(m_random_indices_host_mirror(i), i);
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void PopulateKokkosUnorderedMapOnDevice() {
+    double PopulateKokkosUnorderedMapOnDevice() {
+        auto start = std::chrono::high_resolution_clock::now();
         auto map = m_map;
         auto random_indices = m_random_indices;
         Kokkos::parallel_for(
             "populate_kokkos_unordered_map", random_indices.extent(0), KOKKOS_LAMBDA(const size_t i) { map.insert(random_indices(i), i); });
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void PopulateKokkosUnorderedSetOnHost() {
+    double PopulateKokkosUnorderedSetOnHost() {
+        auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_set_host_mirror.insert(m_random_indices_host_mirror(i));
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void PopulateKokkosUnorderedSetOnDevice() {
+    double PopulateKokkosUnorderedSetOnDevice() {
+        auto start = std::chrono::high_resolution_clock::now();
         auto set = m_set;
         auto random_indices = m_random_indices;
         Kokkos::parallel_for(
             "populate_kokkos_unordered_set", random_indices.extent(0), KOKKOS_LAMBDA(const size_t i) { set.insert(random_indices(i)); });
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        return duration.count();
     }
 
-    void do_map_check() {
+    void CheckKokkosVsStdMap() {
         for (size_t i = 0; i < m_random_indices.extent(0); ++i) {
-            // Check the maps
             auto kokkos_value = m_map_host_mirror.value_at(m_map_host_mirror.find(m_random_indices_host_mirror(i)));
             auto std_value = m_map_std.find(m_random_indices_host_mirror(i));
             EXPECT_EQ(kokkos_value, std_value->second);
         }
     }
 
-    void do_set_check() {
+    void CheckKokkosVsStdSet() {
         for (size_t i = 0; i < m_random_indices.extent(0); ++i) {
-            // Check the sets
             EXPECT_EQ(m_set_host_mirror.exists(m_random_indices_host_mirror(i)), m_set_std.find(m_random_indices_host_mirror(i)) != m_set_std.end());
         }
     }
 
-    void CheckKokkosVsStd() {
-        do_map_check();
-        do_set_check();
-        Kokkos::deep_copy(m_set_host_mirror, m_set);
-        // do_set_check();
-        //  Device map wouldn't have the same values as the host map due to threads and what value are being inserted into the map first.
+    std::pair<double, double> RunStdUnorderedMapNTimes(size_t n) {
+        double reset_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            reset_time += ResetStdUnorderedMap();
+            populate_time += PopulateStdUnorderedMap();
+        }
+        return {reset_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
     }
 
-    void RunTest(size_t num_indices, size_t num_unique_indices) {
-        // Reset the maps
-        Reset();
+    std::pair<double, double> RunStdUnorderedSetNTimes(size_t n) {
+        double reset_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            reset_time += ResetStdUnorderedSet();
+            populate_time += PopulateStdUnorderedSet();
+        }
+        return {reset_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
+    }
 
-        // Populate the random indices
+    std::pair<double, double> RunKokkosUnorderedMapOnDeviceNTimes(size_t n, size_t num_unique_indices) {
+        double size_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_time += SizeMapsDevice(num_unique_indices);
+            populate_time += PopulateKokkosUnorderedMapOnDevice();
+        }
+        return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
+    }
+
+    std::pair<double, double> RunKokkosUnorderedSetOnDeviceNTimes(size_t n, size_t num_unique_indices) {
+        double size_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_time += SizeSetsDevice(num_unique_indices);
+            populate_time += PopulateKokkosUnorderedSetOnDevice();
+        }
+        return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
+    }
+
+    std::pair<double, double> RunKokkosUnorderedMapOnHostNTimes(size_t n, size_t num_unique_indices) {
+        double size_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_time += SizeMaps(num_unique_indices);
+            populate_time += PopulateKokkosUnorderedMapOnHost();
+        }
+        return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
+    }
+
+    std::pair<double, double> RunKokkosUnorderedSetOnHostNTimes(size_t n, size_t num_unique_indices) {
+        double size_time = 0;
+        double populate_time = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_time += SizeSets(num_unique_indices);
+            populate_time += PopulateKokkosUnorderedSetOnHost();
+        }
+        return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
+    }
+
+    void RunTest(size_t num_indices, size_t num_unique_indices, size_t num_iterations) {
         PopulateRandomView(num_indices, num_unique_indices);
 
-        // Populate the std unordered map. Timed.
-        auto start_std = std::chrono::high_resolution_clock::now();
-        PopulateStdUnorderedMap();
-        auto end_std = std::chrono::high_resolution_clock::now();
-        auto duration_std = std::chrono::duration_cast<std::chrono::microseconds>(end_std - start_std);
+        auto [std_unordered_map_reset_time, std_unordered_map_populate_time] = RunStdUnorderedMapNTimes(num_iterations);
+        auto [std_unordered_set_reset_time, std_unordered_set_populate_time] = RunStdUnorderedSetNTimes(num_iterations);
+        auto [kokkos_map_host_size_time, kokkos_map_host_populate_time] = RunKokkosUnorderedMapOnHostNTimes(num_iterations, num_unique_indices);
+        auto [kokkos_set_host_size_time, kokkos_set_host_populate_time] = RunKokkosUnorderedSetOnHostNTimes(num_iterations, num_unique_indices);
+        CheckKokkosVsStdSet();
+        CheckKokkosVsStdMap();
 
-        // Populate the std unordered set. Timed.
-        auto start_std_set = std::chrono::high_resolution_clock::now();
-        PopulateStdUnorderedSet();
-        auto end_std_set = std::chrono::high_resolution_clock::now();
-        auto duration_std_set = std::chrono::duration_cast<std::chrono::microseconds>(end_std_set - start_std_set);
+        auto [kokkos_map_device_size_time, kokkos_map_device_populate_time] = RunKokkosUnorderedMapOnDeviceNTimes(num_iterations, num_unique_indices);
+        auto [kokkos_set_device_size_time, kokkos_set_device_populate_time] = RunKokkosUnorderedSetOnDeviceNTimes(num_iterations, num_unique_indices);
+        Kokkos::deep_copy(m_set_host_mirror, m_set);
+        CheckKokkosVsStdSet();
+        // Map is expected to be different on device as the order of insertion is not guaranteed to be the same
 
-        // Populate the kokkos unordered map on device. Timed.
-        auto start_kokkos_device = std::chrono::high_resolution_clock::now();
-        SizeMapsDevice(num_unique_indices);
-        PopulateKokkosUnorderedMapOnDevice();
-        auto end_kokkos_device = std::chrono::high_resolution_clock::now();
-        auto duration_kokkos_device = std::chrono::duration_cast<std::chrono::microseconds>(end_kokkos_device - start_kokkos_device);
+        double std_unordered_set_total_time = std_unordered_set_reset_time + std_unordered_set_populate_time;
 
-        // Populate the kokkos unordered set on device. Timed.
-        auto start_kokkos_set_device = std::chrono::high_resolution_clock::now();
-        SizeSetsDevice(num_unique_indices);
-        PopulateKokkosUnorderedSetOnDevice();
-        auto end_kokkos_set_device = std::chrono::high_resolution_clock::now();
-        auto duration_kokkos_set_device = std::chrono::duration_cast<std::chrono::microseconds>(end_kokkos_set_device - start_kokkos_set_device);
-
-        // Populate the kokkos unordered map. Timed.
-        auto start_kokkos = std::chrono::high_resolution_clock::now();
-        SizeMaps(num_unique_indices);
-        PopulateKokkosUnorderedMapOnHost();
-        auto end_kokkos = std::chrono::high_resolution_clock::now();
-        auto duration_kokkos = std::chrono::duration_cast<std::chrono::microseconds>(end_kokkos - start_kokkos);
-
-        // Populate the kokkos unordered set. Timed.
-        auto start_kokkos_set = std::chrono::high_resolution_clock::now();
-        SizeSets(num_unique_indices);
-        PopulateKokkosUnorderedSetOnHost();
-        auto end_kokkos_set = std::chrono::high_resolution_clock::now();
-        auto duration_kokkos_set = std::chrono::duration_cast<std::chrono::microseconds>(end_kokkos_set - start_kokkos_set);
-
-        // Print a table of the times relative to the std unordered set
-        std::cout << "-------------------------------------------------------------" << std::endl;
+        std::cout << "------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
         std::cout << std::setw(35) << "Test"
-                  << " | " << std::setw(10) << "Time (us)"
-                  << " | " << std::setw(6) << "Ratio to std unordered set" << std::endl;
-        std::cout << "-------------------------------------------------------------" << std::endl;
+                  << " | " << std::setw(15) << "Reset Time"
+                  << " | " << std::setw(15) << "Reset Ratio"
+                  << " | " << std::setw(15) << "Populate Time"
+                  << " | " << std::setw(15) << "Populate Ratio"
+                  << " | " << std::setw(15) << "Total Time"
+                  << " | " << std::setw(15) << "Total Ratio" << std::endl;
+        std::cout << std::setw(35) << ""
+                  << " | " << std::setw(15) << "(seconds)"
+                  << " | " << std::setw(15) << ""
+                  << " | " << std::setw(15) << "(seconds)"
+                  << " | " << std::setw(15) << ""
+                  << " | " << std::setw(15) << "(seconds)"
+                  << " | " << std::setw(15) << "" << std::endl;
+        std::cout << "------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
         std::cout << std::setw(35) << "Std unordered set"
-                  << " | " << std::setw(10) << duration_std_set.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_std_set.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * std_unordered_set_reset_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << 1.0
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * std_unordered_set_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << 1.0
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * std_unordered_set_total_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << 1.0 << std::endl;
         std::cout << std::setw(35) << "Std unordered map"
-                  << " | " << std::setw(10) << duration_std.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_std.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
-        std::cout << std::setw(35) << "Kokkos unordered set"
-                  << " | " << std::setw(10) << duration_kokkos_set.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_kokkos_set.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
-        std::cout << std::setw(35) << "Kokkos unordered map"
-                  << " | " << std::setw(10) << duration_kokkos.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_kokkos.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * std_unordered_map_reset_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (std_unordered_map_reset_time / std_unordered_set_reset_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * std_unordered_map_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (std_unordered_map_populate_time / std_unordered_set_populate_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * (std_unordered_map_reset_time + std_unordered_map_populate_time)
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << ((std_unordered_map_reset_time + std_unordered_map_populate_time) / std_unordered_set_total_time) << std::endl;
+        std::cout << std::setw(35) << "Kokkos unordered map on host"
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_map_host_size_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_map_host_size_time / std_unordered_set_reset_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_map_host_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_map_host_populate_time / std_unordered_set_populate_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * (kokkos_map_host_size_time + kokkos_map_host_populate_time)
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << ((kokkos_map_host_size_time + kokkos_map_host_populate_time) / std_unordered_set_total_time) << std::endl;
+        std::cout << std::setw(35) << "Kokkos unordered set on host"
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_set_host_size_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_set_host_size_time / std_unordered_set_reset_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_set_host_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_set_host_populate_time / std_unordered_set_populate_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * (kokkos_set_host_size_time + kokkos_set_host_populate_time)
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << ((kokkos_set_host_size_time + kokkos_set_host_populate_time) / std_unordered_set_total_time) << std::endl;
         std::cout << std::setw(35) << "Kokkos unordered map on device"
-                  << " | " << std::setw(10) << duration_kokkos_device.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_kokkos_device.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_map_device_size_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_map_device_size_time / std_unordered_set_reset_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_map_device_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_map_device_populate_time / std_unordered_set_populate_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * (kokkos_map_device_size_time + kokkos_map_device_populate_time)
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << ((kokkos_map_device_size_time + kokkos_map_device_populate_time) / std_unordered_set_total_time) << std::endl;
         std::cout << std::setw(35) << "Kokkos unordered set on device"
-                  << " | " << std::setw(10) << duration_kokkos_set_device.count() << " | " << std::setw(6) << std::fixed << std::setprecision(2) << static_cast<double>(duration_kokkos_set_device.count()) / static_cast<double>(duration_std_set.count()) << std::endl;
-        std::cout << "-------------------------------------------------------------" << std::endl;
-
-        // Check the kokkos unordered map against the std unordered map
-        CheckKokkosVsStd();
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_set_device_size_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_set_device_size_time / std_unordered_set_reset_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * kokkos_set_device_populate_time
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << (kokkos_set_device_populate_time / std_unordered_set_populate_time)
+                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * (kokkos_set_device_size_time + kokkos_set_device_populate_time)
+                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << ((kokkos_set_device_size_time + kokkos_set_device_populate_time) / std_unordered_set_total_time) << std::endl;
+        std::cout << "------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
     }
 
     Kokkos::View<uint64_t *> m_random_indices;
@@ -212,16 +317,28 @@ TEST_F(UnorderedMapFixture, UnorderedMapTest) {
         GTEST_SKIP_("Test only runs with 1 or fewer processes.");
     }
 
-    std::vector<double> num_indices_list = {1e3, 1e4, 1e5, 1e6, 1e7};  //, 1e8};
+    std::vector<double> num_indices_list = {1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7};
     std::vector<double> fill_ratios = {0.001, 0.01, 0.1, 1.0};
-    for (auto num_indices : num_indices_list) {
+    int max_num_iterations_times_num_indices = 1e7;
+    size_t max_num_iterations = 1e4;
+    for (auto num_indices_d : num_indices_list) {
+        auto num_indices = static_cast<size_t>(num_indices_d);
         for (auto fill_ratio : fill_ratios) {
+            size_t num_iterations = max_num_iterations;
             size_t num_unique_indices = static_cast<size_t>(num_indices * fill_ratio);
-            std::cout << "---------------------------------------------" << std::endl;
-            std::cout << "Testing with " << static_cast<size_t>(num_indices) << " indices and " << num_unique_indices << " unique indices." << std::endl;
-            RunTest(static_cast<size_t>(num_indices), num_unique_indices);
-            std::cout << "---------------------------------------------" << std::endl
-                      << std::endl;
+            if (num_unique_indices == 0) {
+                continue;
+            }
+            if (num_indices * num_iterations > max_num_iterations_times_num_indices) {
+                // Change the number of iterations to keep the total number of operations under max_num_iterations_times_num_indices
+                num_iterations = static_cast<size_t>(max_num_iterations_times_num_indices / num_indices);
+            }
+            std::cout << "------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
+            std::cout << std::scientific << std::uppercase << std::setprecision(1);
+            std::cout << "Testing " << static_cast<double>(num_iterations) << " iterations with " << static_cast<double>(num_indices) << " indices and " << static_cast<double>(num_unique_indices) << " unique indices." << std::endl;
+            std::cout << std::fixed;
+            RunTest(num_indices, num_unique_indices, num_iterations);
+            std::cout << "------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
         }
     }
 }
