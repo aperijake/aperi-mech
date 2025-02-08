@@ -36,36 +36,50 @@ class UnorderedMapFixture : public ::testing::Test {
     }
 
     double SizeMaps(size_t size) {
+        if (size != m_map_host_mirror.capacity()) {
+            m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
+            m_map_host_mirror = Kokkos::create_mirror(m_map);
+            Kokkos::deep_copy(m_map_host_mirror, m_map);
+        }
         auto start = std::chrono::high_resolution_clock::now();
-        m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
-        m_map_host_mirror = Kokkos::create_mirror(m_map);
-        Kokkos::deep_copy(m_map_host_mirror, m_map);
+        m_map_host_mirror.clear();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
     }
 
     double SizeMapsDevice(size_t size) {
+        if (size != m_map.capacity()) {
+            m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
+        }
         auto start = std::chrono::high_resolution_clock::now();
-        m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
+        // m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(size);
+        m_map.clear();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
     }
 
     double SizeSets(size_t size) {
+        if (size != m_set_host_mirror.capacity()) {
+            m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
+            m_set_host_mirror = Kokkos::create_mirror(m_set);
+            Kokkos::deep_copy(m_set_host_mirror, m_set);
+        }
         auto start = std::chrono::high_resolution_clock::now();
-        m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
-        m_set_host_mirror = Kokkos::create_mirror(m_set);
-        Kokkos::deep_copy(m_set_host_mirror, m_set);
+        m_set_host_mirror.clear();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
     }
 
     double SizeSetsDevice(size_t size) {
+        if (size != m_set.capacity()) {
+            m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
+        }
         auto start = std::chrono::high_resolution_clock::now();
-        m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
+        // m_set = Kokkos::UnorderedMap<uint64_t, void>(size);
+        m_set.clear();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
@@ -102,7 +116,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedMapOnHost() {
+    double PopulateKokkosUnorderedMapOnHost() const {
         auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_map_host_mirror.insert(m_random_indices_host_mirror(i), i);
@@ -112,7 +126,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedMapOnDevice() {
+    double PopulateKokkosUnorderedMapOnDevice() const {
         auto start = std::chrono::high_resolution_clock::now();
         auto map = m_map;
         auto random_indices = m_random_indices;
@@ -123,7 +137,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedSetOnHost() {
+    double PopulateKokkosUnorderedSetOnHost() const {
         auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_set_host_mirror.insert(m_random_indices_host_mirror(i));
@@ -133,7 +147,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedSetOnDevice() {
+    double PopulateKokkosUnorderedSetOnDevice() const {
         auto start = std::chrono::high_resolution_clock::now();
         auto set = m_set;
         auto random_indices = m_random_indices;
@@ -325,7 +339,7 @@ TEST_F(UnorderedMapFixture, UnorderedMapTest) {
         auto num_indices = static_cast<size_t>(num_indices_d);
         for (auto fill_ratio : fill_ratios) {
             size_t num_iterations = max_num_iterations;
-            size_t num_unique_indices = static_cast<size_t>(num_indices * fill_ratio);
+            auto num_unique_indices = static_cast<size_t>(num_indices * fill_ratio);
             if (num_unique_indices == 0) {
                 continue;
             }

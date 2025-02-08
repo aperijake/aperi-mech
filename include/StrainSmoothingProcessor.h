@@ -283,21 +283,38 @@ class StrainSmoothingProcessor {
 
         double average_num_neighbors = 0;
         double average_num_nodes = 0;
+
+        // Estimate the initial size for the maps. TODO(jake): This is a guess, we should be able to do better.
+        size_t estimated_size = smoothed_cell_data->TotalNumElements() / smoothed_cell_data->NumCells() * NumElementNodes * 15;
+
+        // Create a map of node entities to their indices
+        Kokkos::UnorderedMap<KeyType, ValueType> node_entities_device(estimated_size);           // Short list of all the nodes in the cell
+        Kokkos::UnorderedMap<KeyType, ValueType> node_neighbor_entities_device(estimated_size);  // Short list of all the node neighbors in the cell
+        Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_entities = Kokkos::create_mirror(node_entities_device);
+        Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_neighbor_entities = Kokkos::create_mirror(node_neighbor_entities_device);
+        Kokkos::deep_copy(node_entities, node_entities_device);
+        Kokkos::deep_copy(node_neighbor_entities, node_neighbor_entities_device);
+
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
             // Get the cell element local offsets
             auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
-            // Estimate the initial size for the maps
-            size_t estimated_size = cell_element_local_offsets.size() * NumElementNodes * 10;  // TODO: This is a guess. Need to determine a better way to estimate the size.
+            // Estimate the size for this cell
+            size_t this_estimated_size = cell_element_local_offsets.size() * NumElementNodes * 10;
 
-            // Create a map of node entities to their indices
-            Kokkos::UnorderedMap<KeyType, ValueType> node_entities_device(estimated_size);           // Short list of all the nodes in the cell
-            Kokkos::UnorderedMap<KeyType, ValueType> node_neighbor_entities_device(estimated_size);  // Short list of all the node neighbors in the cell
-            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_entities = Kokkos::create_mirror(node_entities_device);
-            Kokkos::UnorderedMap<KeyType, ValueType>::HostMirror node_neighbor_entities = Kokkos::create_mirror(node_neighbor_entities_device);
-            Kokkos::deep_copy(node_entities, node_entities_device);
-            Kokkos::deep_copy(node_neighbor_entities, node_neighbor_entities_device);
+            if (this_estimated_size > estimated_size) {
+                estimated_size = this_estimated_size;
+                node_entities_device = Kokkos::UnorderedMap<KeyType, ValueType>(estimated_size);
+                node_neighbor_entities_device = Kokkos::UnorderedMap<KeyType, ValueType>(estimated_size);
+                node_entities = Kokkos::create_mirror(node_entities_device);
+                node_neighbor_entities = Kokkos::create_mirror(node_neighbor_entities_device);
+                Kokkos::deep_copy(node_entities, node_entities_device);
+                Kokkos::deep_copy(node_neighbor_entities, node_neighbor_entities_device);
+            } else {
+                node_entities.clear();
+                node_neighbor_entities.clear();
+            }
 
             // Initialize the local index
             ValueType local_node_index = 0;
