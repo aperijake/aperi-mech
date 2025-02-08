@@ -167,25 +167,15 @@ class SmoothedCellData {
 
     // Function to resize the node views on host
     void ResizeNodeViewsOnHost(size_t new_total_num_nodes) {
-        // TODO(jake): Figure out if there is a better way to do this that doesn't require all the copying.
-        // Copy the existing data to the device
-        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
-        Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
-
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
         Kokkos::resize(m_node_indicies, new_total_num_nodes);
-
-        // Create new host mirrors
-        m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
+        Kokkos::resize(m_function_derivatives_host, new_total_num_nodes * k_num_dims);
+        Kokkos::resize(m_node_indicies_host, new_total_num_nodes);
 
         // Fill the new elements with the maximum uint64_t value
         m_reserved_nodes = new_total_num_nodes;
 
-        // Copy the new data to the host
-        Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-        Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
         m_number_of_resizes++;
     }
 
@@ -193,9 +183,7 @@ class SmoothedCellData {
     void RehashNodeToViewIndexMapOnHost(size_t new_total_num_nodes) {
         // Rehash the map
         m_node_to_view_index_map_host.rehash(new_total_num_nodes);
-
-        // Copy the new data to the device
-        Kokkos::deep_copy(m_node_to_view_index_map, m_node_to_view_index_map_host);
+        m_node_to_view_index_map.rehash(new_total_num_nodes);
     }
 
     // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
