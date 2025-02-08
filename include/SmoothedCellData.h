@@ -87,38 +87,37 @@ struct FlattenedRaggedArray {
 };
 
 // Struct holding the three unsigned for the map: cell_id, bucket_id, and bucket_ord
-struct IndexToLocalMapKey {
+struct NodeToViewIndexMapKey {
     uint64_t cell_id;
     uint64_t bucket_id;
     uint64_t bucket_ord;
 
     KOKKOS_INLINE_FUNCTION
-    IndexToLocalMapKey(uint64_t cell_id_in, uint64_t bucket_id_in, uint64_t bucket_ord_in) : cell_id(cell_id_in), bucket_id(bucket_id_in), bucket_ord(bucket_ord_in) {}
+    NodeToViewIndexMapKey(uint64_t cell_id_in, uint64_t bucket_id_in, uint64_t bucket_ord_in) : cell_id(cell_id_in), bucket_id(bucket_id_in), bucket_ord(bucket_ord_in) {}
 
     KOKKOS_INLINE_FUNCTION
-    IndexToLocalMapKey() : cell_id(UINT64_MAX), bucket_id(UINT64_MAX), bucket_ord(UINT64_MAX) {}
+    NodeToViewIndexMapKey() : cell_id(UINT64_MAX), bucket_id(UINT64_MAX), bucket_ord(UINT64_MAX) {}
 
     KOKKOS_INLINE_FUNCTION
-    IndexToLocalMapKey(const IndexToLocalMapKey &) = default;
+    NodeToViewIndexMapKey(const NodeToViewIndexMapKey &) = default;
 
     KOKKOS_INLINE_FUNCTION
-    IndexToLocalMapKey &operator=(const IndexToLocalMapKey &) = default;
+    NodeToViewIndexMapKey &operator=(const NodeToViewIndexMapKey &) = default;
 
     KOKKOS_INLINE_FUNCTION
-    bool operator==(const IndexToLocalMapKey &other) const {
+    bool operator==(const NodeToViewIndexMapKey &other) const {
         return cell_id == other.cell_id && bucket_id == other.bucket_id && bucket_ord == other.bucket_ord;
     }
 };
 
-// Custom hash function for IndexToLocalMapKey
-struct IndexToLocalMapKeyHash {
+// Custom hash function for NodeToViewIndexMapKey
+struct NodeToViewIndexMapKeyHash {
     KOKKOS_INLINE_FUNCTION
-    size_t operator()(const IndexToLocalMapKey &key) const {
+    size_t operator()(const NodeToViewIndexMapKey &key) const {
         // Combine the hash values of cell_id, bucket_id, and bucket_ord
         size_t h1 = key.cell_id;
-        size_t h2 = key.bucket_id;
-        size_t h3 = key.bucket_ord;
-        return h1 ^ (h2 * 31) ^ (h3 * 37);
+        size_t h2 = key.bucket_id * 512 + key.bucket_ord;
+        return h1 ^ (h2 * 173);
     }
 };
 
@@ -131,7 +130,7 @@ class SmoothedCellData {
      * @param num_elements The number of elements on this part and partition.
      */
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_local_index_map(estimated_total_num_nodes * 30), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
         // TODO(jake): come up with a better way to estimate the size of m_node_to_index_map
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indicies, aperi::Index());
@@ -148,8 +147,8 @@ class SmoothedCellData {
         Kokkos::deep_copy(m_element_local_offsets_host, UINT64_MAX);
 
         // Initialize the unordered maps on the host
-        m_node_to_local_index_map_host = Kokkos::create_mirror(m_node_to_local_index_map);
-        Kokkos::deep_copy(m_node_to_local_index_map_host, m_node_to_local_index_map);
+        m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
+        Kokkos::deep_copy(m_node_to_view_index_map_host, m_node_to_view_index_map);
     }
 
     // Function to resize views
@@ -168,35 +167,23 @@ class SmoothedCellData {
 
     // Function to resize the node views on host
     void ResizeNodeViewsOnHost(size_t new_total_num_nodes) {
-        // TODO(jake): Figure out if there is a better way to do this that doesn't require all the copying.
-        // Copy the existing data to the device
-        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
-        Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
-
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
         Kokkos::resize(m_node_indicies, new_total_num_nodes);
-
-        // Create new host mirrors
-        m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
+        Kokkos::resize(m_function_derivatives_host, new_total_num_nodes * k_num_dims);
+        Kokkos::resize(m_node_indicies_host, new_total_num_nodes);
 
         // Fill the new elements with the maximum uint64_t value
         m_reserved_nodes = new_total_num_nodes;
 
-        // Copy the new data to the host
-        Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-        Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
         m_number_of_resizes++;
     }
 
     // Function to rehash the node to local index map on host
-    void RehashNodeToLocalIndexMapOnHost(size_t new_total_num_nodes) {
+    void RehashNodeToViewIndexMapOnHost(size_t new_total_num_nodes) {
         // Rehash the map
-        m_node_to_local_index_map_host.rehash(new_total_num_nodes);
-
-        // Copy the new data to the device
-        Kokkos::deep_copy(m_node_to_local_index_map, m_node_to_local_index_map_host);
+        m_node_to_view_index_map_host.rehash(new_total_num_nodes);
+        m_node_to_view_index_map.rehash(new_total_num_nodes);
     }
 
     // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
@@ -456,8 +443,8 @@ class SmoothedCellData {
     }
 
     // Get the map from node to local index, host
-    Kokkos::UnorderedMap<IndexToLocalMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, IndexToLocalMapKeyHash>::HostMirror &GetNodeToLocalIndexMapHost() {
-        return m_node_to_local_index_map_host;
+    Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, NodeToViewIndexMapKeyHash>::HostMirror &GetNodeToViewIndexMapHost() {
+        return m_node_to_view_index_map_host;
     }
 
     // Get the total number of nodes
@@ -597,8 +584,8 @@ class SmoothedCellData {
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
     Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume
 
-    Kokkos::UnorderedMap<IndexToLocalMapKey, uint64_t, Kokkos::DefaultExecutionSpace, IndexToLocalMapKeyHash> m_node_to_local_index_map;                       // Map from node to local index
-    Kokkos::UnorderedMap<IndexToLocalMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, IndexToLocalMapKeyHash>::HostMirror m_node_to_local_index_map_host;  // Host map from node to local index
+    Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultExecutionSpace, NodeToViewIndexMapKeyHash> m_node_to_view_index_map;                       // Map from node to local index
+    Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, NodeToViewIndexMapKeyHash>::HostMirror m_node_to_view_index_map_host;  // Host map from node to local index
 
     size_t m_total_num_nodes = 0;            // Total number of nodes
     size_t m_total_num_elements = 0;         // Total number of elements
