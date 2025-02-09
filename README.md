@@ -2,7 +2,8 @@
 
 [![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml)
 [![Performance Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/performance-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/performance-pipeline.yaml)
-[![Trunk Check](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml/badge.svg)](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml)
+<!--Trunk fails due to having the private protego-make submodule so turn off until there is a solution-->
+<!--[![Trunk Check](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml/badge.svg)](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml)-->
 [![Code Coverage](https://codecov.io/github/aperijake/aperi-mech/graph/badge.svg?token=FPVQZ9WRHF)](https://codecov.io/github/aperijake/aperi-mech)
 
 An open-source platform for computational mechanics. It uses Kokkos and will run in parallel (MPI) and on the GPU.
