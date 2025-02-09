@@ -116,7 +116,7 @@ Or, for a GPU build:
 spack add compadre
 spack add kokkos-kernels +cuda ~shared cuda_arch=75
 spack add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cuda_arch=75 cxxstd=17
-spack add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cuda_arch=75 cxxstd=17
+spack add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cuda_arch=75 cxxstd=17
 spack add googletest
 spack add lcov
 spack add yaml-cpp
