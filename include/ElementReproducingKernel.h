@@ -40,7 +40,9 @@ class ElementReproducingKernel : public ElementBase {
         // Find and store the element neighbors
         CreateElementForceProcessor();
         FindNeighbors();
-        ComputeAndStoreFunctionValues();
+        CreateFunctionValueStorageProcessor();
+        CreateStrainSmoothingProcessor();
+        BuildSmoothedCellData();
     }
 
     /**
@@ -48,7 +50,37 @@ class ElementReproducingKernel : public ElementBase {
      */
     virtual ~ElementReproducingKernel() {}
 
-    virtual void ComputeSmoothedQuadrature() = 0;
+    void UpdateShapeFunctions() override {
+        ComputeAndStoreFunctionValues();
+        ComputeFunctionDerivatives();
+    }
+
+    /**
+     * @brief Builds the quadrature functor.
+     *
+     * This function is a pure virtual function that must be implemented by derived classes.
+     */
+    virtual void BuildQuadratureFunctor() = 0;
+
+    /**
+     * @brief Computes the function derivatives.
+     *
+     * This function is a pure virtual function that must be implemented by derived classes.
+     */
+    virtual void ComputeFunctionDerivatives() = 0;
+
+    /**
+     * @brief Builds the smoothed cell data.
+     *
+     * This function builds the smoothed cell data for the element.
+     */
+    void BuildSmoothedCellData() {
+        // Build the smoothed cell data
+        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(NumCellNodes, m_use_one_pass_method);
+
+        // Add the strain smoothing timer manager to the timer manager
+        m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
+    }
 
     void CreateElementForceProcessor() {
         // Create a scoped timer
@@ -66,6 +98,28 @@ class ElementReproducingKernel : public ElementBase {
         // Create the element processor
         assert(m_material != nullptr);
         m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, force_field_name, *this->m_material);
+    }
+
+    void CreateFunctionValueStorageProcessor() {
+        if (!m_mesh_data) {
+            // Allowing for testing
+            aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
+            return;
+        }
+
+        // Create the function value storage processor
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names);
+    }
+
+    void CreateStrainSmoothingProcessor() {
+        if (!m_mesh_data) {
+            // Allowing for testing
+            aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
+            return;
+        }
+
+        // Make the strain smoothing processor
+        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names);
     }
 
     void FindNeighbors() {
@@ -98,12 +152,11 @@ class ElementReproducingKernel : public ElementBase {
         // Create the bases
         aperi::BasesLinear bases;
 
-        // Create the function value storage processor
-        aperi::FunctionValueStorageProcessor function_value_storage_processor(m_mesh_data, m_part_names);
-        function_value_storage_processor.compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
+        // Compute and store the function values
+        m_function_value_storage_processor->compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 
         // Add the timer manager
-        m_timer_manager->AddChild(function_value_storage_processor.GetTimerManager());
+        m_timer_manager->AddChild(m_function_value_storage_processor->GetTimerManager());
     }
 
     /**
@@ -137,6 +190,8 @@ class ElementReproducingKernel : public ElementBase {
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
+    std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
+    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
     bool m_use_one_pass_method;
 };
 
@@ -153,38 +208,41 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
      * @brief Constructs a ElementReproducingKernelTet4 object.
      */
     ElementReproducingKernelTet4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0, bool use_one_pass_method = true) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method) {
-        ComputeSmoothedQuadrature();
+        BuildQuadratureFunctor();
+        UpdateShapeFunctions();
     }
 
-    void ComputeSmoothedQuadrature() override {
+    void BuildQuadratureFunctor() override {
+        // TODO(jake): Device functor not currently used, but will be. Commenting out for now.
         // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
-        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
-        assert(integration_functor != nullptr);
+        // size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
+        // auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
+        // assert(integration_functor != nullptr);
 
-        // Initialize the functors
-        Kokkos::parallel_for(
-            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
-            });
+        //// Initialize the functors
+        // Kokkos::parallel_for(
+        //     "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+        //         new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
+        //     });
 
         // Create a host version of the functor
-        SmoothedQuadratureTet4 host_integration_functor;
+        m_smoothed_quadrature_host_functor = std::make_shared<SmoothedQuadratureTet4>();
 
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<TET4_NUM_NODES>(host_integration_functor, TET4_NUM_NODES, m_use_one_pass_method);
+        //// Destroy the functors
+        // Kokkos::parallel_for(
+        //     "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+        //         integration_functor->~SmoothedQuadratureTet4();
+        //     });
 
-        // Add the strain smoothing timer manager to the timer manager
-        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
-
-        // Destroy the functors
-        Kokkos::parallel_for(
-            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadratureTet4();
-            });
-
-        Kokkos::kokkos_free(integration_functor);
+        // Kokkos::kokkos_free(integration_functor);
     }
+
+    void ComputeFunctionDerivatives() override {
+        m_strain_smoothing_processor->ComputeFunctionDerivatives<TET4_NUM_NODES>(*m_smoothed_quadrature_host_functor.get(), m_use_one_pass_method);
+    }
+
+   private:
+    std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;
 };
 
 /**
@@ -200,38 +258,40 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
      * @brief Constructs a ElementReproducingKernelHex8 object.
      */
     ElementReproducingKernelHex8(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material = nullptr, double kernel_radius_scale_factor = 1.0, bool use_one_pass_method = true) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method) {
-        ComputeSmoothedQuadrature();
+        BuildQuadratureFunctor();
+        UpdateShapeFunctions();
     }
 
-    void ComputeSmoothedQuadrature() override {
+    void BuildQuadratureFunctor() override {
         // Functor for smooth quadrature
-        size_t integration_functor_size = sizeof(SmoothedQuadratureHex8);
-        auto integration_functor = (SmoothedQuadratureHex8 *)Kokkos::kokkos_malloc(integration_functor_size);
-        assert(integration_functor != nullptr);
+        // size_t integration_functor_size = sizeof(SmoothedQuadratureHex8);
+        // auto integration_functor = (SmoothedQuadratureHex8 *)Kokkos::kokkos_malloc(integration_functor_size);
+        // assert(integration_functor != nullptr);
 
-        // Initialize the functors
-        Kokkos::parallel_for(
-            "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadratureHex8 *)integration_functor) SmoothedQuadratureHex8();
-            });
+        //// Initialize the functors
+        // Kokkos::parallel_for(
+        //     "CreateReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+        //         new ((SmoothedQuadratureHex8 *)integration_functor) SmoothedQuadratureHex8();
+        //     });
 
         // Create a host version of the functor
-        SmoothedQuadratureHex8 host_integration_functor;
-
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<HEX8_NUM_NODES>(host_integration_functor, HEX8_NUM_NODES, m_use_one_pass_method);
-
-        // Add the strain smoothing timer manager to the timer manager
-        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
+        m_smoothed_quadrature_host_functor = std::make_shared<SmoothedQuadratureHex8>();
 
         // Destroy the functors
-        Kokkos::parallel_for(
-            "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadratureHex8();
-            });
+        // Kokkos::parallel_for(
+        //    "DestroyReproducingKernelFunctors", 1, KOKKOS_LAMBDA(const int &) {
+        //        integration_functor->~SmoothedQuadratureHex8();
+        //    });
 
-        Kokkos::kokkos_free(integration_functor);
+        // Kokkos::kokkos_free(integration_functor);
     }
+
+    void ComputeFunctionDerivatives() override {
+        m_strain_smoothing_processor->ComputeFunctionDerivatives<HEX8_NUM_NODES>(*m_smoothed_quadrature_host_functor.get(), m_use_one_pass_method);
+    }
+
+   private:
+    std::shared_ptr<aperi::SmoothedQuadratureHex8> m_smoothed_quadrature_host_functor;
 };
 
 }  // namespace aperi

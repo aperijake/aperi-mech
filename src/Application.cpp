@@ -261,12 +261,12 @@ std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateSche
     return aperi::CreateStepScheduler(start_n, reference_configuration_update_interval);
 }
 
-void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::Preprocessing, "Pre-processing");
 
     // Run pre-processing
-    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions);
+    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
@@ -349,7 +349,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Pre-processing
-    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, timer_manager);
+    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, formulation_type, timer_manager);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {

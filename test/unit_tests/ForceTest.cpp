@@ -225,31 +225,31 @@ TEST_F(ForceTest, ExplicitShearYZForceSmoothedTet4) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx.
-TEST_F(ForceTest, DISABLED_ExplicitShearYXForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearYXForceSmoothedTet4Semi) {
     RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zx.
-TEST_F(ForceTest, DISABLED_ExplicitShearZXForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearZXForceSmoothedTet4Semi) {
     RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xy.
-TEST_F(ForceTest, DISABLED_ExplicitShearXYForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearXYForceSmoothedTet4Semi) {
     RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in zy.
-TEST_F(ForceTest, DISABLED_ExplicitShearZYForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearZYForceSmoothedTet4Semi) {
     RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in xz.
-TEST_F(ForceTest, DISABLED_ExplicitShearXZForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearXZForceSmoothedTet4Semi) {
     RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yz.
-TEST_F(ForceTest, DISABLED_ExplicitShearYZForceSmoothedTet4Semi) {
+TEST_F(ForceTest, ExplicitShearYZForceSmoothedTet4Semi) {
     RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }

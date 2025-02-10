@@ -40,6 +40,8 @@ class ElementBase {
         m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map);
     }
 
+    virtual void UpdateShapeFunctions() {}
+
     /**
      * @brief Gets the number of nodes in the element.
      *

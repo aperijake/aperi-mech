@@ -186,20 +186,6 @@ double ExplicitSolver::Solve() {
     // Print the number of nodes
     mp_mesh_data->PrintNodeCounts();
 
-    // Copy the coordinates field to the current coordinates field, if using the updated formulation or semi-Lagrangian formulation
-    if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-        aperi::Field<double> coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{mp_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
-        aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
-        aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::NP1});
-        aperi::CopyField(coordinates_field, current_coordinates_n_field);
-        aperi::CopyField(coordinates_field, current_coordinates_np1_field);
-        // If using the semi-Lagrangian formulation, copy the reference coordinates field to the reference coordinates field
-        if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-            aperi::Field<double> reference_coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"reference_coordinates", FieldQueryState::None});
-            aperi::CopyField(coordinates_field, reference_coordinates_field);
-        }
-    }
-
     // Build the mass matrix
     BuildMassMatrix();
 
@@ -349,6 +335,9 @@ double ExplicitSolver::Solve() {
 
         // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
         if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
+            for (const auto &internal_force_contribution : m_internal_force_contributions) {
+                internal_force_contribution->UpdateShapeFunctions();
+            }
             explicit_time_integrator->UpdateReferenceConfiguration();
         }
     }

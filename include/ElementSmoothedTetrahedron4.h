@@ -38,6 +38,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         // Find and store the element neighbors
         CreateElementForceProcessor();
         FindNeighbors();
+        BuildSmoothedCellData();
         ComputeSmoothedQuadrature();
     }
 
@@ -45,6 +46,10 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      * @brief Destroys a ElementSmoothedTetrahedron4 object.
      */
     virtual ~ElementSmoothedTetrahedron4() {}
+
+    void UpdateShapeFunctions() override {
+        ComputeSmoothedQuadrature();
+    }
 
     /**
      * @brief Creates the element processor associated with the element.
@@ -73,35 +78,39 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
 
-    void ComputeSmoothedQuadrature() {
+    void BuildSmoothedCellData() {
         // Create the integration functor
-        size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
-        auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
-        assert(integration_functor != nullptr);
+        // size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
+        // auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
+        // assert(integration_functor != nullptr);
 
-        // Initialize the functors
-        Kokkos::parallel_for(
-            "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
-                new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
-            });
+        // // Initialize the functors
+        // Kokkos::parallel_for(
+        //     "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
+        //         new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
+        //     });
 
         // Create a host version of the functor
-        SmoothedQuadratureTet4 host_integration_functor;
+        m_smoothed_quadrature_host_functor = std::make_shared<SmoothedQuadratureTet4>();
 
         // Build the smoothed cell data
-        aperi::StrainSmoothingProcessor strain_smoothing_processor(m_mesh_data, m_part_names);
-        m_smoothed_cell_data = strain_smoothing_processor.BuildSmoothedCellData<TET4_NUM_NODES>(host_integration_functor, TET4_NUM_NODES, true);
+        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
+        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<TET4_NUM_NODES>(TET4_NUM_NODES, true);
 
         // Add the strain smoothing timer manager to the timer manager
-        m_timer_manager->AddChild(strain_smoothing_processor.GetTimerManager());
+        m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
 
-        // Destroy the integration functor
-        Kokkos::parallel_for(
-            "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-                integration_functor->~SmoothedQuadratureTet4();
-            });
+        // // Destroy the integration functor
+        // Kokkos::parallel_for(
+        //     "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
+        //         integration_functor->~SmoothedQuadratureTet4();
+        //     });
 
-        Kokkos::kokkos_free(integration_functor);
+        // Kokkos::kokkos_free(integration_functor);
+    }
+
+    void ComputeSmoothedQuadrature() {
+        m_strain_smoothing_processor->ComputeFunctionDerivatives<TET4_NUM_NODES>(*m_smoothed_quadrature_host_functor.get(), true);
     }
 
     /**
@@ -135,6 +144,8 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
+    std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;
+    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
 };
 
 }  // namespace aperi
