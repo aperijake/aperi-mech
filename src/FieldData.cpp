@@ -45,19 +45,22 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         field_data.push_back(FieldData("velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));      // The velocity field
         field_data.push_back(FieldData("acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The acceleration field
         field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
+        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+            field_data.push_back(FieldData("displacement_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field, physical
+        }
     } else {
         // Field data at nodes is the same as generalized fields. Just output coefficients.
         field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized / full
         field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized / full
         field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized / full
         field_data.push_back(FieldData("force_coefficients", "force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The force field
-        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-            field_data.push_back(FieldData("displacement_coefficients_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field
-            field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));            // The current coordinates field
-        }
-        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-            field_data.push_back(FieldData("reference_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The last reference coordinates field
-        }
+    }
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        field_data.push_back(FieldData("displacement_coefficients_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field, generalized
+        field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));            // The current coordinates field
+    }
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        field_data.push_back(FieldData("reference_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The last reference coordinates field
     }
     field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements
     field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)

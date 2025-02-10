@@ -42,7 +42,7 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
                 bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
-                return std::make_shared<ElementReproducingKernelTet4>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method);
+                return std::make_shared<ElementReproducingKernelTet4>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }
@@ -61,7 +61,7 @@ inline std::shared_ptr<ElementBase> CreateElement(const aperi::ElementTopology& 
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
                 bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
-                return std::make_shared<ElementReproducingKernelHex8>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method);
+                return std::make_shared<ElementReproducingKernelHex8>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }

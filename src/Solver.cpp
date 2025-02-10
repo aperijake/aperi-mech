@@ -190,7 +190,7 @@ double ExplicitSolver::Solve() {
     BuildMassMatrix();
 
     // Create the explicit time integrator
-    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_lagrangian_formulation_type);
+    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_lagrangian_formulation_type, m_uses_generalized_fields);
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -335,10 +335,13 @@ double ExplicitSolver::Solve() {
 
         // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
         if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
+            if (m_uses_generalized_fields) {
+                m_displacement_inc_processor->compute_value_from_generalized_field();
+            }
+            explicit_time_integrator->UpdateReferenceConfiguration();
             for (const auto &internal_force_contribution : m_internal_force_contributions) {
                 internal_force_contribution->UpdateShapeFunctions();
             }
-            explicit_time_integrator->UpdateReferenceConfiguration();
         }
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");

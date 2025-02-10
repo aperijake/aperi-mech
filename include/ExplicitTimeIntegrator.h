@@ -50,9 +50,9 @@ struct ExplicitTimeIntegrationFieldsUpdated : public ExplicitTimeIntegrationFiel
     ExplicitTimeIntegrationFieldsUpdated() = delete;
 
     // Constructor
-    ExplicitTimeIntegrationFieldsUpdated(std::shared_ptr<aperi::MeshData> mesh_data)
+    ExplicitTimeIntegrationFieldsUpdated(std::shared_ptr<aperi::MeshData> mesh_data, bool uses_generalized_fields)
         : ExplicitTimeIntegrationFields(mesh_data),
-          displacement_coefficients_increment_field(mesh_data, {"displacement_coefficients_inc", FieldQueryState::None}),
+          displacement_coefficients_increment_field(mesh_data, {uses_generalized_fields ? "displacement_inc" : "displacement_coefficients_inc", FieldQueryState::None}),
           current_coordinates_n_field(mesh_data, {"current_coordinates", FieldQueryState::N}),
           current_coordinates_np1_field(mesh_data, {"current_coordinates", FieldQueryState::NP1}) {}
 
@@ -70,8 +70,8 @@ struct ExplicitTimeIntegrationFieldsSemi : public ExplicitTimeIntegrationFieldsU
     ExplicitTimeIntegrationFieldsSemi() = delete;
 
     // Constructor
-    ExplicitTimeIntegrationFieldsSemi(std::shared_ptr<aperi::MeshData> mesh_data)
-        : ExplicitTimeIntegrationFieldsUpdated(mesh_data),
+    ExplicitTimeIntegrationFieldsSemi(std::shared_ptr<aperi::MeshData> mesh_data, bool uses_generalized_fields)
+        : ExplicitTimeIntegrationFieldsUpdated(mesh_data, uses_generalized_fields),
           reference_coordinates_field(mesh_data, {"reference_coordinates", FieldQueryState::None}),
           reference_displacement_gradient_field(mesh_data, {"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
           displacement_gradient_np1_field(mesh_data, {"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}) {}
@@ -458,18 +458,18 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
 };
 
 // Create the explicit time integrator
-inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &active_selector, const aperi::LagrangianFormulationType &lagrangian_formulation_type) {
+inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &active_selector, const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool uses_generalized_fields) {
     // Create the explicit time integration fields
 
     // Create the explicit time integrator
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
-        ExplicitTimeIntegrationFieldsUpdated fields(mesh_data);
+        ExplicitTimeIntegrationFieldsUpdated fields(mesh_data, uses_generalized_fields);
         return std::make_shared<ExplicitTimeIntegratorUpdated>(fields, mesh_data, active_selector);
     } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Total) {
         ExplicitTimeIntegrationFields fields(mesh_data);
         return std::make_shared<ExplicitTimeIntegratorTotal>(fields, mesh_data, active_selector);
     } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-        ExplicitTimeIntegrationFieldsSemi fields(mesh_data);
+        ExplicitTimeIntegrationFieldsSemi fields(mesh_data, uses_generalized_fields);
         return std::make_shared<ExplicitTimeIntegratorSemi>(fields, mesh_data, active_selector);
     } else {
         // Throw an logic error

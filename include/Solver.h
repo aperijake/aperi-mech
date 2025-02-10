@@ -110,6 +110,16 @@ class Solver {
                 dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
                 m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
             }
+
+            if (m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+                // Create a value from generalized field processor for the coordinate field
+                std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_coordinates;
+                src_field_query_data_coordinates[0] = {"displacement_coefficients_inc", FieldQueryState::None};
+
+                std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_coordinates;
+                dest_field_query_data_coordinates[0] = {"displacement_inc", FieldQueryState::None};
+                m_displacement_inc_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_coordinates, dest_field_query_data_coordinates, mp_mesh_data);
+            }
         }
     }
 
@@ -189,6 +199,7 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
+    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_displacement_inc_processor;                     ///< The displacement increment processor.
     aperi::Selector m_active_selector;                                                                              ///< The active selector.
 };
 
