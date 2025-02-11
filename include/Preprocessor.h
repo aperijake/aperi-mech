@@ -38,8 +38,8 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
     // Copy the coordinates field to the current coordinates field, if using the updated formulation or semi-Lagrangian formulation
     if (lagrangian_formulation_type == LagrangianFormulationType::Updated || lagrangian_formulation_type == LagrangianFormulationType::Semi) {
         aperi::Field<double> coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
-        aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
-        aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::NP1});
+        aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates_n", FieldQueryState::None});
+        aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None});
         aperi::CopyField(coordinates_field, current_coordinates_n_field);
         aperi::CopyField(coordinates_field, current_coordinates_np1_field);
         // If using the semi-Lagrangian formulation, copy the reference coordinates field to the reference coordinates field

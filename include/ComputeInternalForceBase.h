@@ -141,7 +141,7 @@ class ComputeInternalForceBase {
      */
     void SetCoordinateField(const std::shared_ptr<aperi::MeshData> &mesh_data) {
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
-            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
+            m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"current_coordinates_n", FieldQueryState::None});
         } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"reference_coordinates", FieldQueryState::None});
         } else {

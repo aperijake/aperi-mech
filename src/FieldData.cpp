@@ -57,7 +57,9 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     }
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
         field_data.push_back(FieldData("displacement_coefficients_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field, generalized
-        field_data.push_back(FieldData("current_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));            // The current coordinates field
+        // The current coordinates field, manually states as they will not be updated every time step
+        field_data.push_back(FieldData("current_coordinates_n", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The current coordinates field
+        field_data.push_back(FieldData("current_coordinates_np1", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The current coordinates field
     }
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
         field_data.push_back(FieldData("reference_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The last reference coordinates field

@@ -53,8 +53,8 @@ struct ExplicitTimeIntegrationFieldsUpdated : public ExplicitTimeIntegrationFiel
     ExplicitTimeIntegrationFieldsUpdated(std::shared_ptr<aperi::MeshData> mesh_data, bool uses_generalized_fields)
         : ExplicitTimeIntegrationFields(mesh_data),
           displacement_coefficients_increment_field(mesh_data, {uses_generalized_fields ? "displacement_inc" : "displacement_coefficients_inc", FieldQueryState::None}),
-          current_coordinates_n_field(mesh_data, {"current_coordinates", FieldQueryState::N}),
-          current_coordinates_np1_field(mesh_data, {"current_coordinates", FieldQueryState::NP1}) {}
+          current_coordinates_n_field(mesh_data, {"current_coordinates_n", FieldQueryState::None}),
+          current_coordinates_np1_field(mesh_data, {"current_coordinates_np1", FieldQueryState::None}) {}
 
     // Fields
     aperi::Field<double> displacement_coefficients_increment_field;
@@ -131,7 +131,14 @@ struct UpdateDisplacementsTotalFunctor {
  */
 struct UpdateDisplacementsUpdatedFunctor {
     // Constructor
-    UpdateDisplacementsUpdatedFunctor(const aperi::Field<double> &displacement_coefficients_n_field, const aperi::Field<double> &velocity_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_np1_field, const aperi::Field<double> &displacement_coefficients_increment_field, const aperi::Field<double> &current_coordinates_n_field, const aperi::Field<double> &current_coordinates_np1_field, const Kokkos::View<double> &time_increment_device, bool is_semi_lagrangian = false)
+    UpdateDisplacementsUpdatedFunctor(const aperi::Field<double> &displacement_coefficients_n_field,
+                                      const aperi::Field<double> &velocity_coefficients_np1_field,
+                                      const aperi::Field<double> &displacement_coefficients_np1_field,
+                                      const aperi::Field<double> &displacement_coefficients_increment_field,
+                                      const aperi::Field<double> &current_coordinates_n_field,
+                                      const aperi::Field<double> &current_coordinates_np1_field,
+                                      const Kokkos::View<double> &time_increment_device,
+                                      bool is_semi_lagrangian = false)
         : m_displacement_coefficients_n_field(displacement_coefficients_n_field),
           m_velocity_coefficients_np1_field(velocity_coefficients_np1_field),
           m_displacement_coefficients_np1_field(displacement_coefficients_np1_field),
@@ -173,11 +180,13 @@ struct UpdateDisplacementsUpdatedFunctor {
             if (m_is_semi_lagrangian) {
                 // With semi Lagrangian, the displacement increment is from the last reference configuration.
                 m_displacement_coefficients_increment_field(index, i) += displacement_increment;
+                // Will update the current coordinates when the reference configuration is updated.
             } else {
                 // With updated Lagrangian, the displacement increment is for one time step.
                 m_displacement_coefficients_increment_field(index, i) = displacement_increment;
+                // Update the current generalized coordinates every time step
+                m_current_coordinates_np1_field(index, i) = m_current_coordinates_n_field(index, i) + displacement_increment;
             }
-            m_current_coordinates_np1_field(index, i) = m_current_coordinates_n_field(index, i) + displacement_increment;
         }
     }
 
@@ -196,8 +205,12 @@ struct UpdateDisplacementsUpdatedFunctor {
 // Functor for computing the acceleration
 struct ComputeAccelerationFunctor {
     // Constructor
-    ComputeAccelerationFunctor(const aperi::Field<double> &mass_field, const aperi::Field<double> &force_coefficients_field, const aperi::Field<double> &acceleration_coefficients_np1_field)
-        : m_mass_field(mass_field), m_force_coefficients_field(force_coefficients_field), m_acceleration_coefficients_np1_field(acceleration_coefficients_np1_field) {}
+    ComputeAccelerationFunctor(const aperi::Field<double> &mass_field,
+                               const aperi::Field<double> &force_coefficients_field,
+                               const aperi::Field<double> &acceleration_coefficients_np1_field)
+        : m_mass_field(mass_field),
+          m_force_coefficients_field(force_coefficients_field),
+          m_acceleration_coefficients_np1_field(acceleration_coefficients_np1_field) {}
 
     void UpdateFields() {
         m_acceleration_coefficients_np1_field.UpdateField();
@@ -231,7 +244,10 @@ struct ComputeAccelerationFunctor {
 // Functor for computing the first partial update
 struct ComputeFirstPartialUpdateFunctor {
     // Constructor
-    ComputeFirstPartialUpdateFunctor(const aperi::Field<double> &velocity_coefficients_n_field, const aperi::Field<double> &acceleration_coefficients_n_field, const aperi::Field<double> &velocity_coefficients_np1_field, const Kokkos::View<double> &half_time_increment_device)
+    ComputeFirstPartialUpdateFunctor(const aperi::Field<double> &velocity_coefficients_n_field,
+                                     const aperi::Field<double> &acceleration_coefficients_n_field,
+                                     const aperi::Field<double> &velocity_coefficients_np1_field,
+                                     const Kokkos::View<double> &half_time_increment_device)
         : m_velocity_coefficients_n_field(velocity_coefficients_n_field),
           m_acceleration_coefficients_n_field(acceleration_coefficients_n_field),
           m_velocity_coefficients_np1_field(velocity_coefficients_np1_field),
@@ -271,7 +287,9 @@ struct ComputeFirstPartialUpdateFunctor {
 // Functor for computing the second partial update
 struct ComputeSecondPartialUpdateFunctor {
     // Constructor
-    ComputeSecondPartialUpdateFunctor(const aperi::Field<double> &velocity_coefficients_np1_field, const aperi::Field<double> &acceleration_coefficients_np1_field, const Kokkos::View<double> &half_time_increment_device)
+    ComputeSecondPartialUpdateFunctor(const aperi::Field<double> &velocity_coefficients_np1_field,
+                                      const aperi::Field<double> &acceleration_coefficients_np1_field,
+                                      const Kokkos::View<double> &half_time_increment_device)
         : m_velocity_coefficients_np1_field(velocity_coefficients_np1_field),
           m_acceleration_coefficients_np1_field(acceleration_coefficients_np1_field),
           m_half_time_increment_device(half_time_increment_device) {}
@@ -312,7 +330,9 @@ struct ComputeSecondPartialUpdateFunctor {
 class ExplicitTimeIntegrator {
    public:
     // Constructor
-    explicit ExplicitTimeIntegrator(const ExplicitTimeIntegrationFields &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
+    explicit ExplicitTimeIntegrator(const ExplicitTimeIntegrationFields &fields,
+                                    std::shared_ptr<aperi::MeshData> mesh_data,
+                                    aperi::Selector active_selector)
         : mp_mesh_data(mesh_data),
           m_active_selector(active_selector),
           m_time_increment_device("TimeIncrementDevice"),
@@ -377,8 +397,11 @@ class ExplicitTimeIntegrator {
 class ExplicitTimeIntegratorTotal : public ExplicitTimeIntegrator {
    public:
     // Constructor
-    explicit ExplicitTimeIntegratorTotal(const ExplicitTimeIntegrationFields &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
-        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, m_time_increment_device) {}
+    explicit ExplicitTimeIntegratorTotal(const ExplicitTimeIntegrationFields &fields,
+                                         std::shared_ptr<aperi::MeshData> mesh_data,
+                                         aperi::Selector active_selector)
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector),
+          m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, m_time_increment_device) {}
 
     // Update the displacements
     void UpdateDisplacements() override {
@@ -395,8 +418,11 @@ class ExplicitTimeIntegratorTotal : public ExplicitTimeIntegrator {
 class ExplicitTimeIntegratorUpdated : public ExplicitTimeIntegrator {
    public:
     // Constructor
-    explicit ExplicitTimeIntegratorUpdated(const ExplicitTimeIntegrationFieldsUpdated &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
-        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device) {}
+    explicit ExplicitTimeIntegratorUpdated(const ExplicitTimeIntegrationFieldsUpdated &fields,
+                                           std::shared_ptr<aperi::MeshData> mesh_data,
+                                           aperi::Selector active_selector)
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector),
+          m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device) {}
 
     // Update the displacements
     void UpdateDisplacements() override {
@@ -413,8 +439,17 @@ class ExplicitTimeIntegratorUpdated : public ExplicitTimeIntegrator {
 class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
    public:
     // Constructor
-    explicit ExplicitTimeIntegratorSemi(const ExplicitTimeIntegrationFieldsSemi &fields, std::shared_ptr<aperi::MeshData> mesh_data, aperi::Selector active_selector)
-        : ExplicitTimeIntegrator(fields, mesh_data, active_selector), m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device, true), m_current_coordinates_np1_field(fields.current_coordinates_np1_field), m_reference_coordinates_field(fields.reference_coordinates_field), m_displacement_coefficients_increment_field(fields.displacement_coefficients_increment_field), m_displacement_gradient_np1_field(fields.displacement_gradient_np1_field), m_reference_displacement_gradient_field(fields.reference_displacement_gradient_field) {}
+    explicit ExplicitTimeIntegratorSemi(const ExplicitTimeIntegrationFieldsSemi &fields,
+                                        std::shared_ptr<aperi::MeshData> mesh_data,
+                                        aperi::Selector active_selector)
+        : ExplicitTimeIntegrator(fields, mesh_data, active_selector),
+          m_update_displacements_functor(fields.displacement_coefficients_n_field, fields.velocity_coefficients_np1_field, fields.displacement_coefficients_np1_field, fields.displacement_coefficients_increment_field, fields.current_coordinates_n_field, fields.current_coordinates_np1_field, m_time_increment_device, true),
+          m_current_coordinates_n_field(fields.current_coordinates_n_field),
+          m_current_coordinates_np1_field(fields.current_coordinates_np1_field),
+          m_reference_coordinates_field(fields.reference_coordinates_field),
+          m_displacement_coefficients_increment_field(fields.displacement_coefficients_increment_field),
+          m_displacement_gradient_np1_field(fields.displacement_gradient_np1_field),
+          m_reference_displacement_gradient_field(fields.reference_displacement_gradient_field) {}
 
     // Update the displacements
     void UpdateDisplacements() override {
@@ -427,11 +462,15 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
     // Update the reference coordinates
     void UpdateReferenceConfiguration() override {
         // Update the fields
+        m_current_coordinates_n_field.UpdateField();
         m_current_coordinates_np1_field.UpdateField();
         m_reference_coordinates_field.UpdateField();
         m_displacement_coefficients_increment_field.UpdateField();
         m_displacement_gradient_np1_field.UpdateField();
         m_reference_displacement_gradient_field.UpdateField();
+
+        // Compute the current coordinates by adding the displacement increment to the reference coordinates
+        aperi::AXPBYZField(1.0, m_current_coordinates_n_field, 1.0, m_displacement_coefficients_increment_field, m_current_coordinates_np1_field, m_active_selector);
 
         // Copy the current coordinates to the reference coordinates
         aperi::CopyField(m_current_coordinates_np1_field, m_reference_coordinates_field, m_active_selector);
@@ -442,7 +481,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
         // Copy the displacement gradient to the reference displacement gradient
         aperi::CopyField(m_displacement_gradient_np1_field, m_reference_displacement_gradient_field);
 
-        // Mark the m_as modified
+        // Mark them as modified
         m_reference_coordinates_field.MarkModifiedOnDevice();
         m_displacement_coefficients_increment_field.MarkModifiedOnDevice();
         m_reference_displacement_gradient_field.MarkModifiedOnDevice();
@@ -450,6 +489,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
 
    private:
     UpdateDisplacementsUpdatedFunctor m_update_displacements_functor;  // Update displacements functor
+    aperi::Field<double> m_current_coordinates_n_field;                // The field for the node current coordinates at time n
     aperi::Field<double> m_current_coordinates_np1_field;              // The field for the node current coordinates at time n+1
     aperi::Field<double> m_reference_coordinates_field;                // The field for the node reference coordinates
     aperi::Field<double> m_displacement_coefficients_increment_field;  // The field for the node displacement increment
@@ -458,7 +498,10 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
 };
 
 // Create the explicit time integrator
-inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &active_selector, const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool uses_generalized_fields) {
+inline std::shared_ptr<ExplicitTimeIntegrator> CreateExplicitTimeIntegrator(std::shared_ptr<aperi::MeshData> mesh_data,
+                                                                            const aperi::Selector &active_selector,
+                                                                            const aperi::LagrangianFormulationType &lagrangian_formulation_type,
+                                                                            bool uses_generalized_fields) {
     // Create the explicit time integration fields
 
     // Create the explicit time integrator

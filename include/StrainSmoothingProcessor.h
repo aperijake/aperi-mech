@@ -90,7 +90,7 @@ class StrainSmoothingProcessor {
 
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-            m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         } else {
             m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         }
