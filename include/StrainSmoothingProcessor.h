@@ -109,7 +109,7 @@ class StrainSmoothingProcessor {
         m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
     }
 
-    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
         // Loop over all the cells
         bool passed = true;
         for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
@@ -120,7 +120,7 @@ class StrainSmoothingProcessor {
                 cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
             }
             for (size_t j = 0; j < 3; ++j) {
-                if (std::abs(cell_function_derivatives_sum[j]) > 1.0e-12) {
+                if (std::abs(cell_function_derivatives_sum[j]) > tolerance) {
                     aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
                     passed = false;
                 }
