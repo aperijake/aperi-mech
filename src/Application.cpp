@@ -346,6 +346,9 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     if (formulation_type == LagrangianFormulationType::Semi) {
         int reference_configuration_update_interval = io_input_file->GetSemiLagrangianConfigurationUpdateInterval(procedure_id);
         reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval, timer_manager);
+    } else if (formulation_type == LagrangianFormulationType::Updated) {
+        int reference_configuration_update_interval = 1;
+        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval, timer_manager);
     }
 
     // Pre-processing

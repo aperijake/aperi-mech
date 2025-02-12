@@ -80,12 +80,6 @@ class Solver {
             assert(m_lagrangian_formulation_type == force_contribution->GetLagrangianFormulationType());
         }
 
-        if (m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-            // Set the current coordinates fields
-            m_current_coordinates_n_field = aperi::Field<double>(mp_mesh_data, {"current_coordinates_n", FieldQueryState::None});
-            m_current_coordinates_np1_field = aperi::Field<double>(mp_mesh_data, {"current_coordinates_np1", FieldQueryState::None});
-        }
-
         if (m_uses_generalized_fields) {
             // Create a value from generalized field processor for all generalized fields
             std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
@@ -116,16 +110,6 @@ class Solver {
                 std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
                 dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
                 m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
-            }
-
-            if (m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-                // Create a value from generalized field processor for the coordinate field
-                std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_coordinates;
-                src_field_query_data_coordinates[0] = {"displacement_coefficients_inc", FieldQueryState::None};
-
-                std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_coordinates;
-                dest_field_query_data_coordinates[0] = {"displacement_inc", FieldQueryState::None};
-                m_current_coordinates_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_coordinates, dest_field_query_data_coordinates, mp_mesh_data);
             }
         }
     }
@@ -206,9 +190,6 @@ class Solver {
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;    ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                          ///< The force field processor.
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_current_coordinates_processor;                  ///< The current coordinates processor.
-    aperi::Field<double> m_current_coordinates_n_field;                                                             ///< The field for the current coordinates at time n.
-    aperi::Field<double> m_current_coordinates_np1_field;                                                           ///< The field for the current coordinates at time n+1.
     aperi::Selector m_active_selector;                                                                              ///< The active selector.
 };
 

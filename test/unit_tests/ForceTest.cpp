@@ -225,6 +225,36 @@ TEST_F(ForceTest, ExplicitShearYZForceSmoothedTet4) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceSmoothedTet4Updated) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
 TEST_F(ForceTest, ExplicitShearYXForceSmoothedTet4Semi) {
     RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING);
 }
@@ -285,6 +315,126 @@ TEST_F(ForceTest, ExplicitShearYZForceReproducingKernel) {
 }
 
 // Tests element calculations. Explicit test for a simple cube in shear in yx.
-TEST_F(ForceTest, DISABLED_ExplicitShearYXForceSemiReproducingKernel) {
+TEST_F(ForceTest, ExplicitShearYXForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceUpdatedReproducingKernel) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceSemiReproducingKernel) {
     RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceUpdatedReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceSemiReproducingKernelOnePass) {
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
 }

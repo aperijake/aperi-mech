@@ -27,11 +27,6 @@ void ExplicitSolver::UpdateFieldStates() {
     auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateFieldStates);
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-    if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated) {
-        m_current_coordinates_n_field.UpdateField();
-        m_current_coordinates_np1_field.UpdateField();
-        aperi::SwapFields(m_current_coordinates_n_field, m_current_coordinates_np1_field);
-    }
 }
 
 void Solver::UpdateFieldsFromGeneralizedFields() {
@@ -340,15 +335,6 @@ double ExplicitSolver::Solve() {
 
         // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
         if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
-            if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-                // Only need to swap these states when updated the reference configuration
-                m_current_coordinates_n_field.UpdateField();
-                m_current_coordinates_np1_field.UpdateField();
-                aperi::SwapFields(m_current_coordinates_n_field, m_current_coordinates_np1_field);
-            }
-            if (m_uses_generalized_fields) {
-                m_current_coordinates_processor->compute_value_from_generalized_field();
-            }
             explicit_time_integrator->UpdateReferenceConfiguration();
             for (const auto &internal_force_contribution : m_internal_force_contributions) {
                 internal_force_contribution->UpdateShapeFunctions();
