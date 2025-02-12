@@ -32,6 +32,8 @@ enum class SolverTimerType {
     CommunicateDisplacements,
     CommunicateForce,
     TimeStepCompute,
+    WriteOutput,
+    UpdateShapeFunctions,
     NONE
 };
 
@@ -43,6 +45,8 @@ inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_
     {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
     {SolverTimerType::CommunicateForce, "CommunicateForce"},
     {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
+    {SolverTimerType::WriteOutput, "WriteOutput"},
+    {SolverTimerType::UpdateShapeFunctions, "UpdateShapeFunctions"},
     {SolverTimerType::NONE, "NONE"}};
 
 /**

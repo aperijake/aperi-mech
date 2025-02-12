@@ -124,6 +124,7 @@ void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
 }
 
 void ExplicitSolver::WriteOutput(double time) {
+    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::WriteOutput);
     if (m_uses_generalized_fields) {
         UpdateFieldsFromGeneralizedFields();
     }
@@ -335,6 +336,7 @@ double ExplicitSolver::Solve() {
 
         // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
         if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);
             explicit_time_integrator->UpdateReferenceConfiguration();
             for (const auto &internal_force_contribution : m_internal_force_contributions) {
                 internal_force_contribution->UpdateShapeFunctions();
