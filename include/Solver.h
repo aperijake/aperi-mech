@@ -32,6 +32,8 @@ enum class SolverTimerType {
     CommunicateDisplacements,
     CommunicateForce,
     TimeStepCompute,
+    WriteOutput,
+    UpdateShapeFunctions,
     NONE
 };
 
@@ -43,6 +45,8 @@ inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_
     {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
     {SolverTimerType::CommunicateForce, "CommunicateForce"},
     {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
+    {SolverTimerType::WriteOutput, "WriteOutput"},
+    {SolverTimerType::UpdateShapeFunctions, "UpdateShapeFunctions"},
     {SolverTimerType::NONE, "NONE"}};
 
 /**
@@ -79,6 +83,7 @@ class Solver {
             }
             assert(m_lagrangian_formulation_type == force_contribution->GetLagrangianFormulationType());
         }
+
         if (m_uses_generalized_fields) {
             // Create a value from generalized field processor for all generalized fields
             std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
@@ -93,13 +98,17 @@ class Solver {
             m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
 
             if (m_uses_one_pass_method == false) {
+                std::string displacement_name_append = "";
+                if (!m_uses_one_pass_method && (m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || m_lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi)) {
+                    displacement_name_append = "_inc";
+                }
                 // Create a value from generalized field processor for fields that need to be computed for internal force contributions
                 std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_kinematics;
-                src_field_query_data_kinematics[0] = {"displacement_coefficients", FieldQueryState::NP1};
+                src_field_query_data_kinematics[0] = {"displacement_coefficients" + displacement_name_append, FieldQueryState::NP1};
                 // Will need to add velocity here at some point, but not needed for now
 
                 std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_kinematics;
-                dest_field_query_data_kinematics[0] = {"displacement", FieldQueryState::None};
+                dest_field_query_data_kinematics[0] = {"displacement" + displacement_name_append, FieldQueryState::None};
                 m_kinematics_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
 
                 // Create a value from generalized field processor for the force field

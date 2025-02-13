@@ -47,6 +47,24 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
+     * @brief Update the shape functions values and derivatives.
+     *
+     * @return void
+     */
+    void UpdateShapeFunctions() {
+        assert(m_element != nullptr);
+        m_element->UpdateShapeFunctions();
+    }
+
+    /**
+     * @brief Populates the element outputs.
+     */
+    void PopulateElementOutputs() {
+        assert(m_element != nullptr);
+        m_element->PopulateElementOutputs();
+    }
+
+    /**
      * @brief Gets the Material object associated with the force contribution.
      *
      * @return A shared pointer to the Material object.

@@ -34,7 +34,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                                      std::string displacements_field_name,
                                      const std::string &force_field_name,
                                      const Material &material,
-                                     const LagrangianFormulationType &lagrangian_formulation_type = LagrangianFormulationType::Total)
+                                     const LagrangianFormulationType &lagrangian_formulation_type)
         : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type),
           m_mesh_data(mesh_data) {
         // Throw an exception if the mesh data is null.
