@@ -521,6 +521,46 @@ class StrainSmoothingProcessor {
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
     }
 
+    void PopulateElementOutputs() {
+        // Fill in the other elements in the cell with the parent elements values
+        // Fields: pk1_stress, displacement_gradient
+
+        size_t num_tensor_components = 9;
+
+        // Get the fields
+        stk::mesh::Field<double> *pk1_stress_field = StkGetField(FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+        stk::mesh::Field<double> *displacement_gradient_field = StkGetField(FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+
+        // Loop over all the cells, set the derivative values for the nodes
+        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+
+            // Get the first element
+            stk::mesh::Entity first_element(cell_element_local_offsets[0]);
+
+            // Get the pk1_stress and displacement_gradient of the first element
+            auto first_element_pk1_stress = stk::mesh::field_data(*pk1_stress_field, first_element);
+            auto first_element_displacement_gradient = stk::mesh::field_data(*displacement_gradient_field, first_element);
+
+            // Loop over all the cell elements and add the function derivatives to the nodes
+            for (size_t j = 1, je = cell_element_local_offsets.size(); j < je; ++j) {
+                // Get the element using the stk local offset
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+
+                // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
+                for (size_t k = 0; k < num_tensor_components; ++k) {
+                    // Set the pk1_stress
+                    stk::mesh::field_data(*pk1_stress_field, element)[k] = first_element_pk1_stress[k];
+
+                    // Set the displacement_gradient
+                    stk::mesh::field_data(*displacement_gradient_field, element)[k] = first_element_displacement_gradient[k];
+                }
+            }
+        }
+    }
+
     void PrintDiagnosticOutput() {
         // Collect the cell counts on each rank
         size_t num_cells = m_smoothed_cell_data->NumCells();

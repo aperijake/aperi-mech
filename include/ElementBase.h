@@ -84,6 +84,13 @@ class ElementBase {
         return m_timer_manager;
     }
 
+    /**
+     * @brief Populates the element outputs.
+     */
+    virtual void PopulateElementOutputs() {
+        // Default implementation does nothing
+    }
+
    protected:
     size_t m_num_nodes;                                                      ///< The number of nodes in the element.
     std::shared_ptr<Material> m_material;                                    ///< The material of the element.

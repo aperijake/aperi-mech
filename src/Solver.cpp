@@ -132,6 +132,9 @@ void ExplicitSolver::WriteOutput(double time) {
     for (auto &field : m_temporal_varying_output_fields) {
         field.SyncDeviceToHost();
     }
+    for (auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->PopulateElementOutputs();
+    }
     m_io_mesh->WriteFieldResults(time);
 }
 

@@ -113,6 +113,11 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         m_strain_smoothing_processor->ComputeFunctionDerivatives<TET4_NUM_NODES>(*m_smoothed_quadrature_host_functor.get(), true);
     }
 
+    void PopulateElementOutputs() override {
+        // Set the element outputs
+        m_strain_smoothing_processor->PopulateElementOutputs();
+    }
+
     /**
      * @brief Gets the SmoothedCellData object.
      *

@@ -68,6 +68,10 @@ class ForceTest : public PatchTest {
         // Set the expected displacement gradient
         m_displacement_gradient(load_direction, load_surface) = 2.0 * magnitude;
 
+        if (reproducing_kernel) {
+            SetFieldNamesWithoutCoefficients();  // Test on actual fields instead of coefficients
+        }
+
         // Check the mass
         CheckMass(volume, {});
 
@@ -123,6 +127,10 @@ class ForceTest : public PatchTest {
         Eigen::Vector3d expected_velocity = 1.875 * expected_displacement / m_final_time;
         CheckVelocity(expected_velocity, {side_sets[1]});
         CheckVelocity(-expected_velocity, {side_sets[0]});
+
+        // This avoids deleting the static mesh in the destructor
+        bool keep_mesh = !generate_mesh;
+        ResetSolverTest(keep_mesh);
     }
 };
 
@@ -486,10 +494,146 @@ TEST_F(ForceTest, ExplicitShearYZForceSemiReproducingKernelOnePass) {
     RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true);
 }
 
-// Tests element calculations. Patch test so checks the displacement of free nodes. Also, checks the forces.
-TEST_F(ForceTest, ExplicitShearYXForceSemiReproducingKernelNodal) {
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceReproducingKernelNodal) {
     if (m_num_procs != 1) {
         GTEST_SKIP();  // Skip the test if not running on a single processor
     }
     RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceSemiReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yx.
+TEST_F(ForceTest, ExplicitShearYXForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zx.
+TEST_F(ForceTest, ExplicitShearZXForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 0, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xy.
+TEST_F(ForceTest, ExplicitShearXYForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in zy.
+TEST_F(ForceTest, ExplicitShearZYForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 2, 1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in xz.
+TEST_F(ForceTest, ExplicitShearXZForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 0, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
+}
+
+// Tests element calculations. Explicit test for a simple cube in shear in yz.
+TEST_F(ForceTest, ExplicitShearYZForceUpdatedReproducingKernelNodal) {
+    if (m_num_procs != 1) {
+        GTEST_SKIP();  // Skip the test if not running on a single processor
+    }
+    RunShearTest(0.1, 1, 2, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, "test_inputs/thex_1x1x1_brick.exo");
 }

@@ -174,6 +174,11 @@ class ElementReproducingKernel : public ElementBase {
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
+    void PopulateElementOutputs() override {
+        // Set the element outputs
+        m_strain_smoothing_processor->PopulateElementOutputs();
+    }
+
     /**
      * @brief Gets the SmoothedCellData object.
      *

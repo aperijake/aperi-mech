@@ -57,6 +57,14 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
+     * @brief Populates the element outputs.
+     */
+    void PopulateElementOutputs() {
+        assert(m_element != nullptr);
+        m_element->PopulateElementOutputs();
+    }
+
+    /**
      * @brief Gets the Material object associated with the force contribution.
      *
      * @return A shared pointer to the Material object.
