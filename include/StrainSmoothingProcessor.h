@@ -398,6 +398,7 @@ class StrainSmoothingProcessor {
             }
         }
 
+        m_ngp_coordinates_field->sync_to_host();
         stk::mesh::Field<double> &element_volume_field = *m_element_volume_field;
         stk::mesh::Field<double> &coordinate_field = *m_coordinates_field;
 
@@ -514,6 +515,7 @@ class StrainSmoothingProcessor {
             }
         }
         // Copy element volumes, function derivatives to device
+        element_volume_field.clear_sync_state();
         element_volume_field.modify_on_host();
         element_volume_field.sync_to_device();
         m_smoothed_cell_data->CopyCellVolumeToDevice();
@@ -530,6 +532,14 @@ class StrainSmoothingProcessor {
         // Get the fields
         stk::mesh::Field<double> *pk1_stress_field = StkGetField(FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
         stk::mesh::Field<double> *displacement_gradient_field = StkGetField(FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+
+        // Create aperi::Field objects for the fields to make sure they are synced to the host
+        aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        aperi::Field<double> displacement_gradient(m_mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        pk1.MarkModifiedOnDevice();
+        displacement_gradient.MarkModifiedOnDevice();
+        pk1.SyncDeviceToHost();
+        displacement_gradient.SyncDeviceToHost();
 
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {

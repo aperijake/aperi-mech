@@ -130,6 +130,7 @@ void ExplicitSolver::WriteOutput(double time) {
     }
     // Write the field results
     for (auto &field : m_temporal_varying_output_fields) {
+        field.UpdateField();
         field.SyncDeviceToHost();
     }
     for (auto &internal_force_contribution : m_internal_force_contributions) {
