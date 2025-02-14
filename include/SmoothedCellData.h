@@ -297,9 +297,17 @@ class SmoothedCellData {
         CopyCellElementLocalOffsetsToDevice();
     }
 
-    void CopyCellNodeViewsToDevice() {
-        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
+    void CopyCellNodeIndiciesToDevice() {
         Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
+    }
+
+    void CopyCellFunctionDerivativesToDevice() {
+        Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
+    }
+
+    void CopyCellNodeViewsToDevice() {
+        CopyCellNodeIndiciesToDevice();
+        CopyCellFunctionDerivativesToDevice();
     }
 
     void CopyCellViewsToDevice() {

@@ -20,6 +20,7 @@
 #include <stk_topology/topology.hpp>
 
 #include "AperiStkUtils.h"
+#include "Constants.h"
 #include "FieldData.h"
 #include "Index.h"
 #include "LogUtils.h"
@@ -71,7 +72,7 @@ class StrainSmoothingProcessor {
     using ValueType = uint64_t;    // Use uint64_t for the local index
 
    public:
-    StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+    StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -88,7 +89,11 @@ class StrainSmoothingProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+            m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        } else {
+            m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        }
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
@@ -104,7 +109,7 @@ class StrainSmoothingProcessor {
         m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
     }
 
-    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
         // Loop over all the cells
         bool passed = true;
         for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
@@ -115,7 +120,7 @@ class StrainSmoothingProcessor {
                 cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
             }
             for (size_t j = 0; j < 3; ++j) {
-                if (std::abs(cell_function_derivatives_sum[j]) > 1.0e-12) {
+                if (std::abs(cell_function_derivatives_sum[j]) > tolerance) {
                     aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
                     passed = false;
                 }
@@ -152,15 +157,15 @@ class StrainSmoothingProcessor {
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
     }
 
-    void AddCellNumElementsToSmoothedCellData(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+    void AddCellNumElementsToSmoothedCellData() {
         const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
 
         // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
 
         // #### Set length and start for the elements in the smoothed cell data ####
         // Get the functor to add the number of elements to the smoothed cell data
-        auto add_cell_num_elements_functor = smoothed_cell_data->GetAddCellNumElementsFunctor();
+        auto add_cell_num_elements_functor = m_smoothed_cell_data->GetAddCellNumElementsFunctor();
 
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
@@ -175,20 +180,20 @@ class StrainSmoothingProcessor {
         // Number of cell elements ('length') is now set.
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
-        smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
+        m_smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
     }
 
-    void SetCellLocalOffsets(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+    void SetCellLocalOffsets() {
         // #### Set the cell element local offsets for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
         const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
 
         // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
 
         // Get the functor to add the element to the smoothed cell data
-        auto add_cell_element_functor = smoothed_cell_data->GetAddCellElementFunctor();
+        auto add_cell_element_functor = m_smoothed_cell_data->GetAddCellElementFunctor();
 
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
@@ -204,7 +209,7 @@ class StrainSmoothingProcessor {
                 add_cell_element_functor(smoothed_cell_id, element_local_offset);
             });
         // Cell element local offsets (STK offsets) are now set. Copy to host.
-        smoothed_cell_data->CopyCellElementViewsToHost();
+        m_smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
     aperi::Index EntityToIndex(const stk::mesh::Entity &entity) {
@@ -246,9 +251,7 @@ class StrainSmoothingProcessor {
     }
 
     template <size_t NumElementNodes>
-    void SetNodeIndiciesAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data,
-                               bool one_pass_method,
-                               std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+    void SetNodeIndiciesAndMap(bool one_pass_method) {
         // Get the bulk data
         stk::mesh::BulkData &bulk_data = *m_bulk_data;
 
@@ -258,13 +261,13 @@ class StrainSmoothingProcessor {
 
         if (one_pass_method) {
             {
-                auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
+                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
                 // Get the neighbors, num_neighbors fields
                 neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
                 num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
             }
             {
-                auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
+                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
                 auto ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*neighbors_field);
                 auto ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*num_neighbors_field);
                 ngp_neighbors_field->sync_to_host();
@@ -273,27 +276,27 @@ class StrainSmoothingProcessor {
         }
 
         // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
+        auto time = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
         // Get host views of the node index lengths and starts
-        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
+        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
+        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
         node_starts(0) = 0;
 
         // Get host views of the node local offsets
-        auto node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
+        auto node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
 
         // Initialize the global index counter
         ValueType global_index_counter = 0;
 
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
             // Get the cell element local offsets
-            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
             // Initialize the local index counter
             ValueType local_index_counter = 0;
@@ -346,10 +349,10 @@ class StrainSmoothingProcessor {
             uint64_t node_start = node_starts(i);
             size_t new_node_indicies_size = node_start + node_lengths(i);
             size_t current_node_indicies_size = node_indicies.extent(0);
-            bool resized = ResizeNodeViewsAndMap(smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
+            bool resized = ResizeNodeViewsAndMap(m_smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
             if (resized) {
                 // Get the new host views of the node local offsets
-                node_indicies = smoothed_cell_data->GetNodeIndiciesHost();
+                node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
             }
         }
 
@@ -363,13 +366,14 @@ class StrainSmoothingProcessor {
                 node_indicies(value) = aperi::Index(key.bucket_id, key.bucket_ord);
             }
         }
+
+        bool set_start_from_lengths = false;  // The start array is already set above.
+        m_smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        m_smoothed_cell_data->CopyCellNodeIndiciesToDevice();
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
-    void SetFunctionDerivatives(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data,
-                                const IntegrationFunctor &integration_functor,
-                                bool one_pass_method,
-                                std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+    void SetFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
         // Get the bulk data
         stk::mesh::BulkData &bulk_data = *m_bulk_data;
 
@@ -380,7 +384,7 @@ class StrainSmoothingProcessor {
 
         if (one_pass_method) {
             {
-                auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
+                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
                 // Get the neighbors, num_neighbors, and function_values fields
                 neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
                 num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
@@ -388,40 +392,42 @@ class StrainSmoothingProcessor {
             }
             {
                 // Sync the function values field. Other fields are already synced.
-                auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
+                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
                 auto ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*function_values_field);
                 ngp_function_values_field->sync_to_host();
             }
         }
 
+        m_ngp_coordinates_field->sync_to_host();
         stk::mesh::Field<double> &element_volume_field = *m_element_volume_field;
         stk::mesh::Field<double> &coordinate_field = *m_coordinates_field;
 
         // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
         // Get host views of the node index lengths and starts
-        auto node_lengths = smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = smoothed_cell_data->GetNodeIndices().GetStartHost();
+        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
+        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
         node_starts(0) = 0;
 
         // Get host views of the node derivatives
-        auto node_function_derivatives = smoothed_cell_data->GetFunctionDerivativesHost();
+        auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivativesHost();
 
         // Zero the node derivatives
         Kokkos::deep_copy(node_function_derivatives, 0.0);
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
+
+        // Get the cell volume view and zero it
+        auto cell_volumes = m_smoothed_cell_data->GetCellVolumeHost();
+        Kokkos::deep_copy(cell_volumes, 0.0);
 
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
+        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
             // Get the cell element local offsets
-            auto cell_element_local_offsets = smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
-
-            // Assert cell volume is zero
-            assert(smoothed_cell_data->GetCellVolumeHost(i) == 0.0);
+            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
             // Loop over all the cell elements and add the function derivatives to the nodes
             for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
@@ -451,7 +457,7 @@ class StrainSmoothingProcessor {
 
                 // Set the element volume
                 stk::mesh::field_data(element_volume_field, element)[0] = element_volume;
-                smoothed_cell_data->AddToCellVolumeHost(i, element_volume);
+                m_smoothed_cell_data->AddToCellVolumeHost(i, element_volume);
 
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
@@ -496,7 +502,7 @@ class StrainSmoothingProcessor {
             }
 
             // Cell volume
-            double cell_volume = smoothed_cell_data->GetCellVolumeHost(i);
+            double cell_volume = m_smoothed_cell_data->GetCellVolumeHost(i);
 
             size_t start_node_index = node_starts(i);
 
@@ -508,52 +514,66 @@ class StrainSmoothingProcessor {
                 }
             }
         }
-        // Copy element volumes to device
+        // Copy element volumes, function derivatives to device
+        element_volume_field.clear_sync_state();
         element_volume_field.modify_on_host();
         element_volume_field.sync_to_device();
-        smoothed_cell_data->CopyCellVolumeToDevice();
+        m_smoothed_cell_data->CopyCellVolumeToDevice();
+        m_smoothed_cell_data->CopyCellFunctionDerivativesToDevice();
+        assert(CheckPartitionOfNullity(m_smoothed_cell_data));
     }
 
-    template <size_t NumElementNodes, typename IntegrationFunctor>
-    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(const IntegrationFunctor &integration_functor, size_t estimated_num_nodes_per_cell, bool one_pass_method = true) {
-        /* This needs a few things to be completed first:
-           - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
-           - The node function derivatives need to be computed.
-        */
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, "Build Smoothed Cell Data");
+    void PopulateElementOutputs() {
+        // Fill in the other elements in the cell with the parent elements values
+        // Fields: pk1_stress, displacement_gradient
 
-        // Create the smoothed cell timer manager
-        auto smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map);
+        size_t num_tensor_components = 9;
 
-        // Add the smoothed cell timer manager to the timer manager
-        m_timer_manager.AddChild(smoothed_cell_timer_manager);
+        // Get the fields
+        stk::mesh::Field<double> *pk1_stress_field = StkGetField(FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
+        stk::mesh::Field<double> *displacement_gradient_field = StkGetField(FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
 
-        // Create the smoothed cell data object
-        std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_cell, one_pass_method, smoothed_cell_timer_manager);
+        // Create aperi::Field objects for the fields to make sure they are synced to the host
+        aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        aperi::Field<double> displacement_gradient(m_mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        pk1.MarkModifiedOnDevice();
+        displacement_gradient.MarkModifiedOnDevice();
+        pk1.SyncDeviceToHost();
+        displacement_gradient.SyncDeviceToHost();
 
-        // Get the number of cells
-        size_t num_cells = smoothed_cell_data->NumCells();
+        // Loop over all the cells, set the derivative values for the nodes
+        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
+            // Get the cell element local offsets
+            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
 
-        // Sync the fields
-        {
-            auto timer = smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-            m_ngp_element_volume_field->sync_to_host();
+            // Get the first element
+            stk::mesh::Entity first_element(cell_element_local_offsets[0]);
+
+            // Get the pk1_stress and displacement_gradient of the first element
+            auto first_element_pk1_stress = stk::mesh::field_data(*pk1_stress_field, first_element);
+            auto first_element_displacement_gradient = stk::mesh::field_data(*displacement_gradient_field, first_element);
+
+            // Loop over all the cell elements and add the function derivatives to the nodes
+            for (size_t j = 1, je = cell_element_local_offsets.size(); j < je; ++j) {
+                // Get the element using the stk local offset
+                auto element_local_offset = cell_element_local_offsets[j];
+                stk::mesh::Entity element(element_local_offset);
+
+                // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
+                for (size_t k = 0; k < num_tensor_components; ++k) {
+                    // Set the pk1_stress
+                    stk::mesh::field_data(*pk1_stress_field, element)[k] = first_element_pk1_stress[k];
+
+                    // Set the displacement_gradient
+                    stk::mesh::field_data(*displacement_gradient_field, element)[k] = first_element_displacement_gradient[k];
+                }
+            }
         }
+    }
 
-        // Add the cells number of elements to the smoothed cell data
-        AddCellNumElementsToSmoothedCellData(smoothed_cell_data, smoothed_cell_timer_manager);
-
-        // Set the cell local offsets
-        SetCellLocalOffsets(smoothed_cell_data, smoothed_cell_timer_manager);
-
-        // Set the node indicies and map
-        SetNodeIndiciesAndMap<NumElementNodes>(smoothed_cell_data, one_pass_method, smoothed_cell_timer_manager);
-
-        // Set the function derivatives
-        SetFunctionDerivatives<NumElementNodes>(smoothed_cell_data, integration_functor, one_pass_method, smoothed_cell_timer_manager);
-
-        // ---- Diagnostic output
+    void PrintDiagnosticOutput() {
         // Collect the cell counts on each rank
+        size_t num_cells = m_smoothed_cell_data->NumCells();
         size_t num_ranks = m_bulk_data->parallel_size();
         std::vector<size_t> num_cells_per_rank(num_ranks);
         num_cells_per_rank[m_bulk_data->parallel_rank()] = num_cells;
@@ -569,14 +589,8 @@ class StrainSmoothingProcessor {
         size_t min_num_cells = *std::min_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
         size_t max_num_cells = *std::max_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
 
-        bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
-        smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
-        smoothed_cell_data->CopyCellNodeViewsToDevice();
-
-        assert(CheckPartitionOfNullity(smoothed_cell_data));
-
         // Get the number of resizes that occurred. Should be at least one due to the final resize.
-        size_t num_resizes = smoothed_cell_data->NumberOfResizes();
+        size_t num_resizes = m_smoothed_cell_data->NumberOfResizes();
 
         // Calculate the percent unbalance = (max - avg) / avg
         double percent_unbalance = (static_cast<double>(max_num_cells) - avg_num_cells) / avg_num_cells * 100.0;
@@ -594,9 +608,48 @@ class StrainSmoothingProcessor {
         ss << "***************************************************\n";
         ss << "Number of resizes: " << num_resizes << std::endl;
         aperi::CoutP0() << ss.str();
-        // ---- End diagnostic output
+    }
 
-        return smoothed_cell_data;
+    template <size_t NumElementNodes>
+    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method = true) {
+        /* This needs a few things to be completed first:
+           - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
+        */
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, "Build Smoothed Cell Data");
+
+        // Create the smoothed cell timer manager
+        m_smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map);
+
+        // Add the smoothed cell timer manager to the timer manager
+        m_timer_manager.AddChild(m_smoothed_cell_timer_manager);
+
+        // Create the smoothed cell data object
+        m_smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_cell, one_pass_method, m_smoothed_cell_timer_manager);
+
+        // Sync the fields
+        {
+            auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
+            m_ngp_element_volume_field->sync_to_host();
+        }
+
+        // Add the cells number of elements to the smoothed cell data
+        AddCellNumElementsToSmoothedCellData();
+
+        // Set the cell local offsets
+        SetCellLocalOffsets();
+
+        // Set the node indicies and map
+        SetNodeIndiciesAndMap<NumElementNodes>(one_pass_method);
+
+        PrintDiagnosticOutput();
+
+        return m_smoothed_cell_data;
+    }
+
+    template <size_t NumElementNodes, typename IntegrationFunctor>
+    void ComputeFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method = true) {
+        // Set the function derivatives
+        SetFunctionDerivatives<NumElementNodes>(integration_functor, one_pass_method);
     }
 
     double GetNumElements(const stk::mesh::Selector &selector) const {
@@ -612,9 +665,10 @@ class StrainSmoothingProcessor {
     std::shared_ptr<aperi::TimerManager<StrainSmoothingTimerType>> GetTimerManager() { return std::make_shared<aperi::TimerManager<StrainSmoothingTimerType>>(m_timer_manager); }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                   // The mesh data object.
-    std::vector<std::string> m_sets;                                // The sets to process.
-    aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;  // The timer manager.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                    // The mesh data object.
+    std::vector<std::string> m_sets;                                 // The sets to process.
+    aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
+    aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
     stk::mesh::BulkData *m_bulk_data;                // The bulk data object.
     stk::mesh::Selector m_selector;                  // The selector
@@ -628,6 +682,9 @@ class StrainSmoothingProcessor {
     NgpDoubleField *m_ngp_element_volume_field;      // The ngp element volume field
     NgpUnsignedField *m_ngp_cell_id_field;           // The ngp cell id field
     NgpUnsignedField *m_ngp_smoothed_cell_id_field;  // The ngp smoothed cell id field
+
+    std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
+    std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data
 };
 
 }  // namespace aperi

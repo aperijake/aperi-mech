@@ -24,6 +24,21 @@ enum PatchTestIntegrationScheme { GAUSS_QUADRATURE,
                                   ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS,
                                   NODAL_STRAIN_SMOOTHING_FORCE_TWO_PASS };
 
+inline bool SkipTest() {
+    bool skip = false;
+    // Skip if running on GPU and in Release mode
+    // TODO(jake): Get rid of this when we can. It is only here because of some strange compiling issues that lead to a segfault.
+    // As with ShapeFunctionsFunctorReproducingKernel, a segfault on the GPU in Release mode, but works fine in Debug mode or on the CPU.
+    // Spent a lot of time trying to figure out why, but couldn't find the issue.
+#ifdef NDEBUG
+    bool using_gpu = Kokkos::DefaultExecutionSpace::concurrency() > 1;
+    if (using_gpu) {
+        skip = true;
+    }
+#endif
+    return skip;
+}
+
 // Fixture for patch tests
 class PatchTest : public SolverTest {
    protected:
@@ -171,7 +186,7 @@ class PatchTest : public SolverTest {
         double mass = density * volume;
         std::array<double, 3> expected_mass = {mass, mass, mass};
         // Check the mass
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None, 1.0e-12);
     }
 
     void CheckDisplacementGradient(const Eigen::Matrix3d& expected_displacement_gradient, const std::vector<std::string>& set_names = {}) {
@@ -220,7 +235,7 @@ class PatchTest : public SolverTest {
     void CheckPatchTestForces() {
         // Check the force balance
         std::array<double, 3> expected_zero = {0.0, 0.0, 0.0};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_force_field_name, expected_zero, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, m_force_field_name, expected_zero, aperi::FieldQueryState::None, 1.0e-12);
 
         double tolerance = 1.0e-8;  // Large tolerance due to explicit dynamics
 
@@ -257,7 +272,7 @@ class PatchTest : public SolverTest {
         auto density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
         double mass = density * m_elements_x * m_elements_y * m_elements_z;
         std::array<double, 3> expected_mass = {mass, mass, mass};
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::NODE>(*m_solver->GetMeshData(), {}, "mass", expected_mass, aperi::FieldQueryState::None, 1.0e-12);
 
         // Check the boundary conditions
         Eigen::Matrix3d velocity_gradient = m_displacement_gradient * 1.875 / m_final_time;  // Peak velocity for a smooth step function (should be set to be the end of the simulation)

@@ -124,12 +124,17 @@ void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
 }
 
 void ExplicitSolver::WriteOutput(double time) {
+    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::WriteOutput);
     if (m_uses_generalized_fields) {
         UpdateFieldsFromGeneralizedFields();
     }
     // Write the field results
     for (auto &field : m_temporal_varying_output_fields) {
+        field.UpdateField();
         field.SyncDeviceToHost();
+    }
+    for (auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->PopulateElementOutputs();
     }
     m_io_mesh->WriteFieldResults(time);
 }
@@ -186,25 +191,11 @@ double ExplicitSolver::Solve() {
     // Print the number of nodes
     mp_mesh_data->PrintNodeCounts();
 
-    // Copy the coordinates field to the current coordinates field, if using the updated formulation or semi-Lagrangian formulation
-    if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-        aperi::Field<double> coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{mp_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None});
-        aperi::Field<double> current_coordinates_n_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::N});
-        aperi::Field<double> current_coordinates_np1_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"current_coordinates", FieldQueryState::NP1});
-        aperi::CopyField(coordinates_field, current_coordinates_n_field);
-        aperi::CopyField(coordinates_field, current_coordinates_np1_field);
-        // If using the semi-Lagrangian formulation, copy the reference coordinates field to the reference coordinates field
-        if (m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-            aperi::Field<double> reference_coordinates_field = aperi::Field<double>(mp_mesh_data, FieldQueryData<double>{"reference_coordinates", FieldQueryState::None});
-            aperi::CopyField(coordinates_field, reference_coordinates_field);
-        }
-    }
-
     // Build the mass matrix
     BuildMassMatrix();
 
     // Create the explicit time integrator
-    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_lagrangian_formulation_type);
+    std::shared_ptr<ExplicitTimeIntegrator> explicit_time_integrator = aperi::CreateExplicitTimeIntegrator(mp_mesh_data, m_active_selector, m_lagrangian_formulation_type, m_uses_generalized_fields);
 
     // Set the initial time, t = 0
     double time = 0.0;
@@ -349,7 +340,11 @@ double ExplicitSolver::Solve() {
 
         // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
         if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
+            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);
             explicit_time_integrator->UpdateReferenceConfiguration();
+            for (const auto &internal_force_contribution : m_internal_force_contributions) {
+                internal_force_contribution->UpdateShapeFunctions();
+            }
         }
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");

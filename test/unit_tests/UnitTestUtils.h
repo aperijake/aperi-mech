@@ -231,7 +231,7 @@ void CheckEntityFieldSumOfComponents(const aperi::MeshData& mesh_data, const std
 
 // Check that the sum of the nodal field values match the expected values
 template <aperi::FieldDataTopologyRank Rank, typename T, size_t N>
-void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<T, N>& expected_values, aperi::FieldQueryState field_query_state, double tolerance = 1.0e-12) {
+void CheckEntityFieldSum(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const std::array<T, N>& expected_values, aperi::FieldQueryState field_query_state, double tolerance) {
     // Field Query Data
     std::array<aperi::FieldQueryData<T>, 1> field_query_data = {{{field_name, field_query_state, Rank}}};
 

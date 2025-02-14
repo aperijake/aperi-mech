@@ -99,7 +99,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         // Check the volume
         std::array<double, 1> expected_volume;
         expected_volume[0] = m_expected_volume;
-        CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", expected_volume, aperi::FieldQueryState::None);
+        CheckEntityFieldSum<aperi::FieldDataTopologyRank::ELEMENT>(*mesh_data, {"block_1"}, "volume", expected_volume, aperi::FieldQueryState::None, 1.0e-12);
 
         // Check the partition of unity for the shape functions. Shape functions are tested more rigorously in the ShapeFunctionsFunctor tests. This is just a basic check to help identify issues should they arise.
         if (approximation_space_parameters->GetApproximationSpaceType() == aperi::ApproximationSpaceType::ReproducingKernel) {  // not storing shape function values for FiniteElement

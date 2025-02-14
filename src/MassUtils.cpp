@@ -20,6 +20,7 @@ struct ComputeMassFromElementVolumeKernel {
                                                                                                             m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
+        m_element_volume.SyncHostToDevice();
     }
 
     KOKKOS_FUNCTION void operator()(const aperi::Index &elem_index, const Kokkos::Array<aperi::Index, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
