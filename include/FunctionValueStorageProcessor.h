@@ -20,6 +20,7 @@
 #include <stk_topology/topology.hpp>
 
 #include "AperiStkUtils.h"
+#include "Constants.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
@@ -54,7 +55,7 @@ class FunctionValueStorageProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map) {
+    FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -81,7 +82,13 @@ class FunctionValueStorageProcessor {
         m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
 
         // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        std::string coordinate_field_name = mesh_data->GetCoordinatesFieldName();
+        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
+            coordinate_field_name = "current_coordinates_np1";
+        } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+            coordinate_field_name = "reference_coordinates";
+        }
+        m_coordinates_field = StkGetField(FieldQueryData<double>{coordinate_field_name, FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the function values field
