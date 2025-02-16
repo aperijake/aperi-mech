@@ -319,6 +319,26 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema hardening_modulus_schema("hardening_modulus", "float", "the hardening modulus");
     YAML::Node hardening_modulus_node = hardening_modulus_schema.GetInputSchema();
 
+    // Bulk modulus node
+    aperi::InputSchema bulk_modulus_schema("bulk_modulus", "float", "the bulk modulus");
+    YAML::Node bulk_modulus_node = bulk_modulus_schema.GetInputSchema();
+
+    // Shear modulus node
+    aperi::InputSchema shear_modulus_schema("shear_modulus", "float", "the shear modulus");
+    YAML::Node shear_modulus_node = shear_modulus_schema.GetInputSchema();
+
+    // A1 node
+    aperi::InputSchema A1_schema("A1", "float", "the A1 parameter");
+    YAML::Node A1_node = A1_schema.GetInputSchema();
+
+    // A2 node
+    aperi::InputSchema A2_schema("A2", "float", "the A2 parameter");
+    YAML::Node A2_node = A2_schema.GetInputSchema();
+
+    // A2G node
+    aperi::InputSchema A2G_schema("A2G", "float", "the A2G parameter");
+    YAML::Node A2G_node = A2G_schema.GetInputSchema();
+
     // Linear elastic material properties node (small strain)
     aperi::InputSchema linear_elastic_schema("linear_elastic", "map", "the elastic material properties for the small strain model");
     linear_elastic_schema.AddAllOf(density_node);
@@ -347,12 +367,23 @@ YAML::Node GetInputSchema() {
     plastic_schema.AddAllOf(poissons_ratio_node);
     YAML::Node plastic_node = plastic_schema.GetInputSchema();
 
+    // Drucker-Prager material properties node
+    aperi::InputSchema drucker_prager_schema("drucker_prager", "map", "the Drucker-Prager material properties");
+    drucker_prager_schema.AddAllOf(density_node);
+    drucker_prager_schema.AddAllOf(bulk_modulus_node);
+    drucker_prager_schema.AddAllOf(shear_modulus_node);
+    drucker_prager_schema.AddAllOf(A1_node);
+    drucker_prager_schema.AddAllOf(A2_node);
+    drucker_prager_schema.AddAllOf(A2G_node);
+    YAML::Node drucker_prager_node = drucker_prager_schema.GetInputSchema();
+
     // Material node
     aperi::InputSchema material_schema("material", "map", "the material");
     material_schema.AddOneOf(linear_elastic_node);
     material_schema.AddOneOf(elastic_node);
     material_schema.AddOneOf(neo_hookean_node);
     material_schema.AddOneOf(plastic_node);
+    material_schema.AddOneOf(drucker_prager_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
     // Integration order node
