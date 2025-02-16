@@ -37,7 +37,7 @@ KOKKOS_INLINE_FUNCTION double magnitude(const T& a) {
 }
 
 template <typename T>
-KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& t, T& E) {
+KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& s, T& E) {
     /* Return Lode components of second order tensor A
 
     Args
@@ -53,7 +53,7 @@ KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& t
 
     z = a.trace() / Kokkos::sqrt(3.0);
     auto dev = deviatoric_part(a);
-    auto s = magnitude(dev);
+    s = magnitude(dev);
     E.setZero();
     if (Kokkos::abs(s) > 1.0e-10) {
         E = dev / s;
@@ -63,7 +63,6 @@ KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& t
 
 /**
  * @brief Derived class for the Drucker-Prager pressure dependent plastic material.
- * @note This is small strain plasticity.
  */
 class DruckerPragerMaterial : public Material {
    public:
@@ -256,7 +255,7 @@ class DruckerPragerMaterial : public Material {
             state_new->coeffRef(PLASTIC_STRAIN) += deqps;
             state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) += dep.trace();
 
-            pk1_stress = tau * F.inverse();
+            pk1_stress = tau * F.inverse().transpose();
         }
 
         KOKKOS_INLINE_FUNCTION
@@ -269,6 +268,11 @@ class DruckerPragerMaterial : public Material {
             return 2;
         }
 
+        KOKKOS_INLINE_FUNCTION
+        bool NeedsVelocityGradient() const override {
+            return true;
+        }
+
        private:
         double m_bulk_modulus;
         double m_shear_modulus;
@@ -279,6 +283,11 @@ class DruckerPragerMaterial : public Material {
 
     // TODO(jake): get rid of this in favor of the above HasState
     bool HasState() const override {
+        return true;
+    }
+
+    // TODO(jake): get rid of this in favor of the above NeedsVelocityGradient
+    bool NeedsVelocityGradient() const override {
         return true;
     }
 };
