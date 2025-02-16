@@ -195,6 +195,32 @@ YAML::Node GetInputSchema() {
     components_schema.AddOneOrMoreOf(z_component_node);
     YAML::Node components_node = components_schema.GetInputSchema();
 
+    // Abscissa values node
+    aperi::InputSchema abscissa_values_schema("abscissa_values", "float_vector", "the abscissa values");
+    YAML::Node abscissa_values_node = abscissa_values_schema.GetInputSchema();
+
+    // Ordinate values node
+    aperi::InputSchema ordinate_values_schema("ordinate_values", "float_vector", "the ordinate values");
+    YAML::Node ordinate_values_node = ordinate_values_schema.GetInputSchema();
+
+    // Ramp function node
+    aperi::InputSchema ramp_function_schema("ramp_function", "map", "a piecewise linear function");
+    ramp_function_schema.AddAllOf(abscissa_values_node);
+    ramp_function_schema.AddAllOf(ordinate_values_node);
+    YAML::Node ramp_function_node = ramp_function_schema.GetInputSchema();
+
+    // Smooth step function node
+    aperi::InputSchema smooth_step_function_schema("smooth_step_function", "map", "a smooth step function");
+    smooth_step_function_schema.AddAllOf(abscissa_values_node);
+    smooth_step_function_schema.AddAllOf(ordinate_values_node);
+    YAML::Node smooth_step_function_node = smooth_step_function_schema.GetInputSchema();
+
+    // Time function node
+    aperi::InputSchema time_function_schema("time_function", "map", "a time function");
+    time_function_schema.AddOneOf(ramp_function_node);
+    time_function_schema.AddOneOf(smooth_step_function_node);
+    YAML::Node time_function_node = time_function_schema.GetInputSchema();
+
     // Direct time stepper node
     aperi::InputSchema direct_time_stepper_schema("direct_time_stepper", "map", "the direct time stepper");
     direct_time_stepper_schema.AddAllOf(time_increment_node);
@@ -232,6 +258,7 @@ YAML::Node GetInputSchema() {
     gravity_load_schema.AddAllOf(sets_node);
     gravity_load_schema.AddOneOf(vector_node);
     gravity_load_schema.AddOneOf(components_node);
+    gravity_load_schema.AddOptional(time_function_node);
     YAML::Node gravity_load_node = gravity_load_schema.GetInputSchema();
 
     // Loads node
@@ -250,32 +277,6 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema initial_conditions_schema("initial_conditions", "sequence", "the initial conditions");
     initial_conditions_schema.AddOptional(initial_velocity_node);
     YAML::Node initial_conditions_node = initial_conditions_schema.GetInputSchema();
-
-    // Abscissa values node
-    aperi::InputSchema abscissa_values_schema("abscissa_values", "float_vector", "the abscissa values");
-    YAML::Node abscissa_values_node = abscissa_values_schema.GetInputSchema();
-
-    // Ordinate values node
-    aperi::InputSchema ordinate_values_schema("ordinate_values", "float_vector", "the ordinate values");
-    YAML::Node ordinate_values_node = ordinate_values_schema.GetInputSchema();
-
-    // Ramp function node
-    aperi::InputSchema ramp_function_schema("ramp_function", "map", "a piecewise linear function");
-    ramp_function_schema.AddAllOf(abscissa_values_node);
-    ramp_function_schema.AddAllOf(ordinate_values_node);
-    YAML::Node ramp_function_node = ramp_function_schema.GetInputSchema();
-
-    // Smooth step function node
-    aperi::InputSchema smooth_step_function_schema("smooth_step_function", "map", "a smooth step function");
-    smooth_step_function_schema.AddAllOf(abscissa_values_node);
-    smooth_step_function_schema.AddAllOf(ordinate_values_node);
-    YAML::Node smooth_step_function_node = smooth_step_function_schema.GetInputSchema();
-
-    // Time function node
-    aperi::InputSchema time_function_schema("time_function", "map", "a time function");
-    time_function_schema.AddOneOf(ramp_function_node);
-    time_function_schema.AddOneOf(smooth_step_function_node);
-    YAML::Node time_function_node = time_function_schema.GetInputSchema();
 
     // Specified velocity node
     aperi::InputSchema specified_velocity_schema("velocity", "map", "a velocity boundary condition");

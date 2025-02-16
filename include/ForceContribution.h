@@ -12,7 +12,7 @@ class ForceContribution {
     ForceContribution() = default;
     virtual ~ForceContribution() = default;
     virtual void Preprocess(){};
-    virtual void ComputeForce(double time_increment) = 0;
+    virtual void ComputeForce(double time, double time_increment) = 0;
 };
 
 }  // namespace aperi
