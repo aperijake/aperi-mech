@@ -156,8 +156,9 @@ class DruckerPragerMaterial : public Material {
             Eigen::Matrix<double, 3, 3> tau = pk1_stress * F.transpose();
 
             // Trial stress
-            auto trde = velocity_gradient_np1->trace() * timestep;
-            auto dedev = deviatoric_part(*velocity_gradient_np1) * timestep;
+            auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
+            auto trde = de.trace();
+            auto dedev = deviatoric_part(de);
             tau += m_bulk_modulus * trde * I + 2 * m_shear_modulus * dedev;
 
             double zt, st;
