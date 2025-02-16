@@ -303,6 +303,23 @@ inline std::function<double(double)> GetTimeFunction(const YAML::Node& node_cont
     return time_function;
 }
 
+// Get the active time range
+inline std::pair<double, double> GetActiveTimeRange(const YAML::Node& node_containing_time_range) {
+    // Check if the node contains an active time range
+    if (!node_containing_time_range["active_time_range"]) {
+        return {0.0, std::numeric_limits<double>::max()};
+    }
+
+    // Get the active time range node
+    const YAML::Node active_time_range_node = node_containing_time_range["active_time_range"];
+
+    // Get the start and end times
+    double start_time = active_time_range_node["time_start"].as<double>();
+    double end_time = active_time_range_node["time_end"].as<double>();
+
+    return {start_time, end_time};
+}
+
 // IoInputFile factory function
 inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {
     return std::make_unique<IoInputFile>(filename, check_input);

@@ -11,6 +11,11 @@ namespace aperi {
 
 // Apply the velocity boundary condition (displacement is converted to velocity earlier)
 void BoundaryCondition::ApplyVelocity(double time) {
+    // Check if the time is within the active time range
+    if (time < m_active_time_start || time > m_active_time_end) {
+        return;
+    }
+
     // Get the time function values
     double time_scale = m_velocity_time_function(time);
 
@@ -24,6 +29,11 @@ void BoundaryCondition::ApplyVelocity(double time) {
 
 // Apply the acceleration boundary condition
 void BoundaryCondition::ApplyAcceleration(double time) {
+    // Check if the time is within the active time range
+    if (time < m_active_time_start || time > m_active_time_end) {
+        return;
+    }
+
     // Get the time function values
     double time_scale = m_acceleration_time_function(time);
 
@@ -148,13 +158,16 @@ std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& bou
     // Get the velocity and acceleration time functions
     std::pair<std::function<double(double)>, std::function<double(double)>> time_functions = SetTimeFunctions(boundary_condition_node, type);
 
+    // Get the active time range
+    std::pair<double, double> active_time_range = aperi::GetActiveTimeRange(boundary_condition_node);
+
     // Loop over sets from boundary condition
     std::vector<std::string> sets;
     if (boundary_condition_node["sets"]) {
         sets = boundary_condition_node["sets"].as<std::vector<std::string>>();
     }
 
-    return std::make_shared<BoundaryCondition>(component_value_vector, time_functions, sets, mesh_data);
+    return std::make_shared<BoundaryCondition>(component_value_vector, time_functions, sets, mesh_data, active_time_range.first, active_time_range.second);
 }
 
 }  // namespace aperi

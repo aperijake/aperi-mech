@@ -221,6 +221,12 @@ YAML::Node GetInputSchema() {
     time_function_schema.AddOneOf(smooth_step_function_node);
     YAML::Node time_function_node = time_function_schema.GetInputSchema();
 
+    // Active time range node
+    aperi::InputSchema active_time_range_schema("active_time_range", "map", "the active time range");
+    active_time_range_schema.AddAllOf(time_start_node);
+    active_time_range_schema.AddAllOf(time_end_node);
+    YAML::Node active_time_range_node = active_time_range_schema.GetInputSchema();
+
     // Direct time stepper node
     aperi::InputSchema direct_time_stepper_schema("direct_time_stepper", "map", "the direct time stepper");
     direct_time_stepper_schema.AddAllOf(time_increment_node);
@@ -284,6 +290,7 @@ YAML::Node GetInputSchema() {
     specified_velocity_schema.AddOneOf(time_function_node);
     specified_velocity_schema.AddOneOf(vector_node, 1);  // New OneOf set
     specified_velocity_schema.AddOneOf(components_node, 1);
+    specified_velocity_schema.AddOptional(active_time_range_node);
     YAML::Node specified_velocity_node = specified_velocity_schema.GetInputSchema();
 
     // Specified displacement node
@@ -292,6 +299,7 @@ YAML::Node GetInputSchema() {
     specified_displacement_schema.AddOneOf(time_function_node);
     specified_displacement_schema.AddOneOf(vector_node, 1);  // New OneOf set
     specified_displacement_schema.AddOneOf(components_node, 1);
+    specified_displacement_schema.AddOptional(active_time_range_node);
     YAML::Node specified_displacement_node = specified_displacement_schema.GetInputSchema();
 
     // Boundary conditions node
