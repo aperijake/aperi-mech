@@ -203,7 +203,7 @@ class PowerMethodTimeStepper : public TimeStepper {
         bool updated = false;
         // Update the time increment if necessary
         if (m_step_scheduler->AtNextEvent(increment)) {
-            double full_time_increment = m_power_method_processor->ComputeStableTimeIncrement(m_time_increment);
+            double full_time_increment = m_power_method_processor->ComputeStableTimeIncrement(m_time_increment / m_scale_factor);
             m_time_increment = full_time_increment * m_scale_factor;
             updated = true;
         }

@@ -364,7 +364,7 @@ class PowerMethodProcessor {
         m_power_method_stats.Reset(num_iterations);
 
         // Set the current stable time increment to the input time increment
-        double current_stable_time_increment = time_increment;
+        double current_stable_time_increment = time_increment == 0.0 ? 1.0 : time_increment;
 
         bool converged = false;
         size_t num_iterations_required = num_iterations;
