@@ -169,7 +169,7 @@ YAML::Node CreateTestYaml() {
     return root;
 }
 
-void AddBoundaryCondition(YAML::Node& root, const std::string& type, bool use_components = false, const std::string& ramp_function_type = "ramp_function") {
+void AddBoundaryCondition(YAML::Node& root, const std::string& type, bool use_components = false, const std::string& ramp_function_type = "ramp_function", bool add_active_range = false) {
     // Create the boundary conditions list
     YAML::Node boundary_conditions(YAML::NodeType::Sequence);
 
@@ -202,6 +202,14 @@ void AddBoundaryCondition(YAML::Node& root, const std::string& type, bool use_co
     time_function[ramp_function_type] = ramp_function;
     bc[type]["time_function"] = time_function;
 
+    // Create the active range
+    if (add_active_range) {
+        YAML::Node active_range;
+        active_range["time_start"] = 0.2;
+        active_range["time_end"] = 0.8;
+        bc[type]["active_time_range"] = active_range;
+    }
+
     // Add the boundary condition to the list
     boundary_conditions.push_back(bc);
 
@@ -219,10 +227,22 @@ void AddDisplacementBoundaryConditionsComponents(YAML::Node& root, const std::st
     AddBoundaryCondition(root, "displacement", use_components, ramp_function_type);
 }
 
+// Add a displacement boundary condition with active range to the input file
+void AddDisplacementBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type) {
+    bool use_components = false;
+    AddBoundaryCondition(root, "displacement", use_components, ramp_function_type, true);
+}
+
 // Add a velocity boundary condition to the input file
 void AddVelocityBoundaryConditions(YAML::Node& root, const std::string& ramp_function_type) {
     bool use_components = false;
     AddBoundaryCondition(root, "velocity", use_components, ramp_function_type);
+}
+
+// Add a velocity boundary condition with active range to the input file
+void AddVelocityBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type) {
+    bool use_components = false;
+    AddBoundaryCondition(root, "velocity", use_components, ramp_function_type, true);
 }
 
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data) {
