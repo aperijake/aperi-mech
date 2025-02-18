@@ -325,7 +325,7 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement(double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
+    double ComputeStableTimeIncrement(double time, double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
         /*
             Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
             The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
@@ -378,7 +378,7 @@ class PowerMethodProcessor {
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce(current_stable_time_increment);
+            m_solver->ComputeForce(time, current_stable_time_increment);
             m_solver->CommunicateForce();
 
             // Compute the next eigenvector

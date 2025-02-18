@@ -97,7 +97,7 @@ class BoundaryConditionTest : public ApplicationTest {
         node_processor.MarkAllFieldsModifiedOnDevice();
     }
 
-    static void GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, std::array<double, 3> &expected_displacement, std::array<double, 3> &expected_velocity) {
+    static std::array<std::array<double, 3>, 2> GetExpectedValues(double time, double time_increment, const std::array<double, 2> &abscissa, const std::array<double, 2> &ordinate, const std::array<double, 3> &direction, double magnitude, const std::string &ramp_type, const std::string &bc_type, const std::array<double, 3> &previous_displacement, const std::array<double, 3> &previous_velocity, double active_range_start, double active_range_end) {
         double velocity_time_scale_factor = 1.0;
         // Interpolate the abscissa and ordinate values to get the time scale factor
         if (bc_type == "displacement") {
@@ -124,15 +124,21 @@ class BoundaryConditionTest : public ApplicationTest {
         } else {
             EXPECT_TRUE(false) << "Boundary condition type must be 'velocity' or 'displacement'. Found: " << bc_type << ".";
         }
-        expected_velocity = direction;
-        aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
+
+        // Initialize the expected values
+        std::array<double, 3> expected_displacement = previous_displacement;
+        std::array<double, 3> expected_velocity = previous_velocity;
+        // Check if the time is within the active range, if not return the previous displacement
+        if (time >= active_range_start && time <= active_range_end) {
+            expected_velocity = direction;
+            aperi::ChangeLength(expected_velocity, magnitude * velocity_time_scale_factor);
+        }
+
         // Integrate the displacement expected values when the boundary condition
         for (size_t i = 0; i < expected_displacement.size(); ++i) {
             expected_displacement[i] = expected_displacement[i] + expected_velocity[i] * time_increment;
         }
-        std::array<std::array<double, 3>, 2> expected_values;
-        expected_values[0] = expected_displacement;
-        expected_values[1] = expected_velocity;
+        return {{expected_displacement, expected_velocity}};
     }
 
     void CheckEssentialBoundaryFlag() {
@@ -168,9 +174,10 @@ class BoundaryConditionTest : public ApplicationTest {
         EXPECT_EQ(m_boundary_conditions.size(), boundary_condition.size());
         EXPECT_TRUE(boundary_condition.size() > 0);
 
-        // Set up the expected displacement and velocity values
-        std::array<double, 3> expected_displacement = {0.0, 0.0, 0.0};
-        std::array<double, 3> expected_velocity = {0.0, 0.0, 0.0};
+        // Initialize the expected values
+        std::array<std::array<double, 3>, 2> expected_values;
+        expected_values[0] = {0.0, 0.0, 0.0};
+        expected_values[1] = {0.0, 0.0, 0.0};
 
         // Check the essential boundary flag
         CheckEssentialBoundaryFlag();
@@ -239,13 +246,21 @@ class BoundaryConditionTest : public ApplicationTest {
                 auto abscissa = ramp_function["abscissa_values"].as<std::array<double, 2>>();
                 auto ordinate = ramp_function["ordinate_values"].as<std::array<double, 2>>();
 
+                // Get the active range
+                double active_range_start = 0.0;
+                double active_range_end = 1.0e12;
+                if (bc_node["active_time_range"]) {
+                    active_range_start = bc_node["active_time_range"]["time_start"].as<double>();
+                    active_range_end = bc_node["active_time_range"]["time_end"].as<double>();
+                }
+
                 // Get the expected values
-                GetExpectedValues(time, time_increment, abscissa, ordinate, direction, magnitude, function_type, bc_type, expected_displacement, expected_velocity);
+                expected_values = GetExpectedValues(time, time_increment, abscissa, ordinate, direction, magnitude, function_type, bc_type, expected_values[0], expected_values[1], active_range_start, active_range_end);
 
                 // Check the displacement and velocity values
                 m_all_field_node_processor->SyncAllFieldsDeviceToHost();
-                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement_coefficients", expected_displacement, aperi::FieldQueryState::N);
-                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity_coefficients", expected_velocity, aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "displacement_coefficients", expected_values[0], aperi::FieldQueryState::N);
+                CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), sets, "velocity_coefficients", expected_values[1], aperi::FieldQueryState::N);
             }
         }
     }
@@ -331,4 +346,18 @@ TEST_F(BoundaryConditionTest, AddSmoothStepBoundaryConditionVelocity) {
 
     // Check the boundary conditions
     CheckBoundaryConditions("velocity");
+}
+
+// Test adding a displacement boundary condition with active range
+TEST_F(BoundaryConditionTest, AddDisplacementBoundaryConditionWithActiveRange) {
+    m_yaml_data = CreateTestYaml();
+    AddDisplacementBoundaryConditionsWithActiveRange(m_yaml_data, "ramp_function");
+    CreateTestMesh(m_field_data);
+    CreateInputFile();
+
+    // Add boundary conditions
+    AddTestBoundaryConditions();
+
+    // Check the boundary conditions
+    CheckBoundaryConditions("displacement");
 }

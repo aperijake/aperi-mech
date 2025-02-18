@@ -40,7 +40,7 @@ class InternalForceContribution : public ForceContribution {
      * This function overrides the ComputeForce function from the base class.
      * It calculates the internal forces for the force contribution.
      */
-    void ComputeForce(double time_increment) override {
+    void ComputeForce(double /*time*/, double time_increment) override {
         assert(m_element != nullptr);
         // Compute the internal force for all elements
         m_element->ComputeInternalForceAllElements(time_increment);

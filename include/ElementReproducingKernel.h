@@ -108,7 +108,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Create the function value storage processor
-        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names);
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
     }
 
     void CreateStrainSmoothingProcessor() {

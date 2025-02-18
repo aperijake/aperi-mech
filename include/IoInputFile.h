@@ -260,6 +260,66 @@ inline std::vector<std::pair<size_t, double>> GetComponentsAndValues(const YAML:
     return component_value_pair;
 }
 
+// Get the time function
+inline std::function<double(double)> GetTimeFunction(const YAML::Node& node_containing_time_function) {
+    // Create a velocity vs time function
+    std::function<double(double)> time_function;
+
+    // Check if the node contains a time function
+    if (!node_containing_time_function["time_function"]) {
+        // Return a constant function if no time function is provided
+        return [](double /*time*/) { return 1.0; };
+    }
+
+    // Get the time function node
+    const YAML::Node time_function_node = node_containing_time_function["time_function"].begin()->second;
+
+    // Get the type of time function
+    auto time_function_type = node_containing_time_function["time_function"].begin()->first.as<std::string>();
+
+    // Get the abscissa and ordinate
+    auto abscissa = time_function_node["abscissa_values"].as<std::vector<double>>();
+    auto ordinate = time_function_node["ordinate_values"].as<std::vector<double>>();
+
+    if (abscissa.size() != ordinate.size()) {
+        throw std::runtime_error("Abscissa and ordinate vectors must be the same size.");
+    }
+    if (abscissa.empty()) {
+        throw std::runtime_error("Abscissa and ordinate vectors must have at least one value.");
+    }
+
+    // Set the time function
+    if (time_function_type == "ramp_function") {
+        time_function = [abscissa, ordinate](double time) {
+            return aperi::LinearInterpolation(time, abscissa, ordinate);
+        };
+    } else if (time_function_type == "smooth_step_function") {
+        time_function = [abscissa, ordinate](double time) {
+            return aperi::SmoothStepInterpolation(time, abscissa, ordinate);
+        };
+    } else {
+        throw std::runtime_error("Time function type '" + time_function_type + "' not found.");
+    }
+    return time_function;
+}
+
+// Get the active time range
+inline std::pair<double, double> GetActiveTimeRange(const YAML::Node& node_containing_time_range) {
+    // Check if the node contains an active time range
+    if (!node_containing_time_range["active_time_range"]) {
+        return {0.0, std::numeric_limits<double>::max()};
+    }
+
+    // Get the active time range node
+    const YAML::Node active_time_range_node = node_containing_time_range["active_time_range"];
+
+    // Get the start and end times
+    double start_time = active_time_range_node["time_start"].as<double>();
+    double end_time = active_time_range_node["time_end"].as<double>();
+
+    return {start_time, end_time};
+}
+
 // IoInputFile factory function
 inline std::unique_ptr<IoInputFile> CreateIoInputFile(std::string filename, bool check_input = true) {
     return std::make_unique<IoInputFile>(filename, check_input);

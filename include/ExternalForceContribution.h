@@ -1,7 +1,12 @@
 #pragma once
 
+#include <array>
+#include <cmath>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "EntityProcessor.h"
 #include "ForceContribution.h"
@@ -29,7 +34,7 @@ class ExternalForceContribution : public ForceContribution {
      * @param mesh_data The mesh data object.
      * @param components_and_values The components and values of the force.
      */
-    ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : m_mesh_data(mesh_data), m_components_and_values(components_and_values) {}
+    ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : m_mesh_data(mesh_data), m_components_and_values(components_and_values), m_time_function(time_function) {}
 
     virtual ~ExternalForceContribution() = default;
 
@@ -38,11 +43,12 @@ class ExternalForceContribution : public ForceContribution {
      *
      * This function overrides the ComputeForce() function from the base class.
      */
-    void ComputeForce(double time_increment) override = 0;
+    void ComputeForce(double time, double time_increment) override = 0;
 
    protected:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                   /**< The mesh data object. */
     std::vector<std::pair<size_t, double>> m_components_and_values; /**< The components and values of the force. */
+    std::function<double(double)> m_time_function;                  /**< The time function for the force. */
 };
 
 /**
@@ -59,7 +65,7 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
      * @param magnitude The magnitude of the traction force.
      * @param direction The direction of the traction force.
      */
-    ExternalForceContributionTraction(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : ExternalForceContribution(mesh_data, components_and_values) {
+    ExternalForceContributionTraction(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, components_and_values, time_function) {
         // Throw error because this is not implemented yet
         throw std::runtime_error("Error: Traction not implemented yet");
     }
@@ -71,12 +77,15 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
      *
      * This function overrides the ComputeForce function in the base class.
      */
-    void ComputeForce(double time_increment) override {}
+    void ComputeForce(double time, double time_increment) override {}
 };
 
 struct ComputeGravityForceFunctor {
     ComputeGravityForceFunctor(double gravity_value) : m_gravity_value(gravity_value) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force += m_gravity_value * *mass; }
+
+    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const {
+        *force += m_gravity_value * *mass;
+    }
     double m_gravity_value;
 };
 
@@ -94,7 +103,7 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @param mesh_data The mesh data object.
      * @param components_and_values The components and values of the gravity force.
      */
-    ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values) : ExternalForceContribution(mesh_data, components_and_values) {
+    ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, components_and_values, time_function) {
         std::array<FieldQueryData<double>, 2> field_query_data;
         field_query_data[0] = {"force_coefficients", FieldQueryState::None};
         field_query_data[1] = {"mass", FieldQueryState::None};
@@ -111,11 +120,16 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      *
      * @note The force field should be zeroed out before applying the gravity force.
      */
-    void ComputeForce(double time_increment) override {
+    void ComputeForce(double time, double time_increment) override {
+        // Get the scale factor for the gravity force
+        double scale_factor = m_time_function(time);
+        // Assert that the scale factor is not nan
+        assert(!std::isnan(scale_factor));
+
         // Loop over the nodes
         for (auto component_value : m_components_and_values) {
             // Create the functor to compute the gravity force
-            ComputeGravityForceFunctor compute_gravity_force_functor(component_value.second);
+            ComputeGravityForceFunctor compute_gravity_force_functor(component_value.second * scale_factor);
             // Compute the gravity force for the component
             m_node_processor->for_component_i_owned(compute_gravity_force_functor, component_value.first);
         }
@@ -141,12 +155,17 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
 inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContribution(YAML::Node &load, std::shared_ptr<MeshData> mesh_data) {
     std::string type = load.begin()->first.as<std::string>();
     YAML::Node load_node = load.begin()->second;
+
     // Get the components and values
     std::vector<std::pair<size_t, double>> components_and_values = aperi::GetComponentsAndValues(load_node);
+
+    // Get the time function
+    std::function<double(double)> time_function = GetTimeFunction(load_node);
+
     if (type == "traction_load") {
-        return std::make_shared<ExternalForceContributionTraction>(mesh_data, components_and_values);
+        return std::make_shared<ExternalForceContributionTraction>(mesh_data, components_and_values, time_function);
     } else if (type == "gravity_load") {
-        return std::make_shared<ExternalForceContributionGravity>(mesh_data, components_and_values);
+        return std::make_shared<ExternalForceContributionGravity>(mesh_data, components_and_values, time_function);
     } else {
         return nullptr;
     }

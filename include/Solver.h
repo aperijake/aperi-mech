@@ -157,8 +157,8 @@ class Solver {
      *
      * This function must be implemented by derived classes to compute the forces acting on the mesh.
      */
-    virtual void ComputeForce(double time_increment) = 0;
-    virtual void ComputeForce(const SolverTimerType &timer_type, double time_increment) = 0;
+    virtual void ComputeForce(double time, double time_increment) = 0;
+    virtual void ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) = 0;
 
     /**
      * @brief Pure virtual function for communicating forces.
@@ -285,8 +285,8 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * This function is responsible for calculating the force.
      * It overrides the base class function.
      */
-    void ComputeForce(double time_increment) override;
-    void ComputeForce(const SolverTimerType &timer_type, double time_increment) override;
+    void ComputeForce(double time, double time_increment) override;
+    void ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) override;
 
     /**
      * @brief Communicates the force.

@@ -69,7 +69,7 @@ Reference:
     13. Output; if simulation not complete, go to 4.
 */
 
-void ExplicitSolver::ComputeForce(double time_increment) {
+void ExplicitSolver::ComputeForce(double time, double time_increment) {
     // Set the force field to zero
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
@@ -84,7 +84,7 @@ void ExplicitSolver::ComputeForce(double time_increment) {
 
     // Compute internal force contributions
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeForce(time_increment);
+        internal_force_contribution->ComputeForce(time, time_increment);
     }
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
@@ -99,13 +99,13 @@ void ExplicitSolver::ComputeForce(double time_increment) {
 
     // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
-        external_force_contribution->ComputeForce(time_increment);
+        external_force_contribution->ComputeForce(time, time_increment);
     }
 }
 
-void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time_increment) {
+void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) {
     auto timer = m_timer_manager->CreateScopedTimer(timer_type);
-    ComputeForce(time_increment);
+    ComputeForce(time, time_increment);
 }
 
 void ExplicitSolver::CommunicateForce() {
@@ -220,7 +220,7 @@ double ExplicitSolver::Solve() {
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
-    ComputeForce(aperi::SolverTimerType::ComputeForce, time_increment);
+    ComputeForce(aperi::SolverTimerType::ComputeForce, time, time_increment);
     CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
@@ -292,7 +292,7 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the force, f^{n+1}
-        ComputeForce(aperi::SolverTimerType::ComputeForce, time_increment);
+        ComputeForce(aperi::SolverTimerType::ComputeForce, time, time_increment);
 
         // Communicate the force field data
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
