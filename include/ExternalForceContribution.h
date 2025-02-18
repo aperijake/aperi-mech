@@ -1,7 +1,12 @@
 #pragma once
 
+#include <array>
+#include <cmath>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "EntityProcessor.h"
 #include "ForceContribution.h"
@@ -77,7 +82,10 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
 
 struct ComputeGravityForceFunctor {
     ComputeGravityForceFunctor(double gravity_value) : m_gravity_value(gravity_value) {}
-    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const { *force += m_gravity_value * *mass; }
+
+    KOKKOS_INLINE_FUNCTION void operator()(double *force, const double *mass) const {
+        *force += m_gravity_value * *mass;
+    }
     double m_gravity_value;
 };
 
@@ -115,6 +123,8 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
     void ComputeForce(double time, double time_increment) override {
         // Get the scale factor for the gravity force
         double scale_factor = m_time_function(time);
+        // Assert that the scale factor is not nan
+        assert(!std::isnan(scale_factor));
 
         // Loop over the nodes
         for (auto component_value : m_components_and_values) {

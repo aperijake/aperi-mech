@@ -157,6 +157,9 @@ void TestGravity(const YAML::Node& yaml_data, const std::shared_ptr<aperi::Solve
 TEST_F(SolverTest, ExplicitGravity) {
     m_yaml_data = CreateTestYaml();
     m_num_blocks = 1;
+    // Increase the density to make the time step larger, try and make it near 0.1
+    double current_density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = current_density * 1.e4;
     CreateInputFile();
     CreateTestMesh();
     RunSolver();
@@ -168,7 +171,9 @@ TEST_F(SolverTest, ExplicitGravityLinearRamp) {
     m_yaml_data = CreateTestYaml();
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["time_function"]["ramp_function"]["abscissa_values"] = std::vector<double>{0.0, 1.0};
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["loads"][0]["gravity_load"]["time_function"]["ramp_function"]["ordinate_values"] = std::vector<double>{0.0, 1.0};
-    // Reduce the time increment to make the problem stable
+    // Increase the density to make the time step larger, try and make it near 0.1
+    double current_density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = current_density * 1.e4;
     m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["time_stepper"]["direct_time_stepper"]["time_increment"] = 0.001;
     m_num_blocks = 1;
     CreateInputFile();
@@ -201,6 +206,9 @@ TEST_F(SolverTest, ExplicitGravityMultipleBlocks) {
     */
     m_yaml_data = CreateTestYaml();
     m_num_blocks = 2;
+    // Increase the density to make the time step larger, try and make it near 0.1
+    double current_density = m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
+    m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"] = current_density * 1.e4;
     CreateInputFile();
     CreateTestMesh();
     RunSolver();
