@@ -180,7 +180,7 @@ class StrainSmoothingProcessor {
         // Number of cell elements ('length') is now set.
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
-        m_smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
+        m_smoothed_cell_data->CompleteAddingCellElementCSRIndicesOnDevice();
     }
 
     void SetCellLocalOffsets() {
@@ -280,12 +280,12 @@ class StrainSmoothingProcessor {
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
         // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthHost();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartHost();
         node_starts(0) = 0;
 
         // Get host views of the node local offsets
-        auto node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
+        auto node_indicies = m_smoothed_cell_data->GetNodeIndicesHost();
 
         // Get the global node index to local index map
         auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
@@ -352,7 +352,7 @@ class StrainSmoothingProcessor {
             bool resized = ResizeNodeViewsAndMap(m_smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
             if (resized) {
                 // Get the new host views of the node local offsets
-                node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
+                node_indicies = m_smoothed_cell_data->GetNodeIndicesHost();
             }
         }
 
@@ -368,8 +368,8 @@ class StrainSmoothingProcessor {
         }
 
         bool set_start_from_lengths = false;  // The start array is already set above.
-        m_smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
-        m_smoothed_cell_data->CopyCellNodeIndiciesToDevice();
+        m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
+        m_smoothed_cell_data->CopyCellNodeIndicesToDevice();
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
@@ -407,8 +407,8 @@ class StrainSmoothingProcessor {
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
         // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthHost();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartHost();
         node_starts(0) = 0;
 
         // Get host views of the node derivatives

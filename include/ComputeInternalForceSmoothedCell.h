@@ -73,7 +73,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 const stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(element);
 
                 // Get the node local offsets and function derivatives
-                const auto node_indicies = scd.GetCellNodeIndicies(cell_id);
+                const auto node_indicies = scd.GetCellNodeCSRIndices(cell_id);
                 const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
 
                 const size_t num_nodes = node_indicies.extent(0);

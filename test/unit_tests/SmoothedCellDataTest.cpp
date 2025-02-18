@@ -136,7 +136,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_cell_num_elements_functor(i, 2);
                 }
             });
-        scd.CompleteAddingCellElementIndicesOnDevice();
+        scd.CompleteAddingCellElementCSRIndicesOnDevice();
 
         // Check the element local offsets before adding elements. Should be all UINT64_MAX
         auto element_local_offsets_host_pre = scd.GetElementLocalOffsetsHost();
@@ -176,13 +176,13 @@ class SmoothedCellDataFixture : public ::testing::Test {
         EXPECT_EQ(cell_volume_host(2), 1.0);
 
         // Get host views of the node index lengths and starts
-        auto node_lengths = scd.GetNodeIndices().GetLengthHost();
-        auto node_starts = scd.GetNodeIndices().GetStartHost();
+        auto node_lengths = scd.GetNodeCSRIndices().GetLengthHost();
+        auto node_starts = scd.GetNodeCSRIndices().GetStartHost();
         node_starts(0) = 0;  // Set the start for the first cell
 
         // Get host views of the node derivatives and local offsets
         auto node_function_derivatives = scd.GetFunctionDerivativesHost();
-        auto node_indicies = scd.GetNodeIndiciesHost();
+        auto node_indicies = scd.GetNodeIndicesHost();
 
         // Loop over all the cells
         for (size_t i = 0, e = scd.NumCells(); i < e; ++i) {
@@ -240,7 +240,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
 
                 // Get the new host views of the node local offsets
                 node_function_derivatives = scd.GetFunctionDerivativesHost();
-                node_indicies = scd.GetNodeIndiciesHost();
+                node_indicies = scd.GetNodeIndicesHost();
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
@@ -273,7 +273,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             }
         }
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
-        scd.CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        scd.CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
         scd.CopyCellNodeViewsToDevice();
 
         // Get the total number of nodes, element and components
@@ -287,7 +287,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
         EXPECT_EQ(total_num_components, 30);  // 3 for each node
 
         // Copy the node local offsets to host
-        auto node_indicies_host = scd.GetNodeIndiciesHost();
+        auto node_indicies_host = scd.GetNodeIndicesHost();
 
         // Expected: 0 1 3 1 3 4 1 2 4 5, all with bucket 0
         std::vector<aperi::Index> expected_node_indices = {

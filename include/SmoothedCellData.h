@@ -130,16 +130,16 @@ class SmoothedCellData {
      * @param num_elements The number of elements on this part and partition.
      */
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_indices(num_cells), m_element_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indicies("node_indicies", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
+        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_csr_indices(num_cells), m_element_csr_indices(num_cells), m_element_local_offsets("element_local_offsets", num_elements), m_node_indices("node_indices", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
         // TODO(jake): come up with a better way to estimate the size of m_node_to_index_map
         // Fill the new elements with the maximum uint64_t value
-        Kokkos::deep_copy(m_node_indicies, aperi::Index());
+        Kokkos::deep_copy(m_node_indices, aperi::Index());
         Kokkos::deep_copy(m_element_local_offsets, UINT64_MAX);
         Kokkos::deep_copy(m_cell_volume, 0.0);
 
         // Create host views
         m_element_local_offsets_host = Kokkos::create_mirror_view(m_element_local_offsets);
-        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
+        m_node_indices_host = Kokkos::create_mirror_view(m_node_indices);
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
         m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
 
@@ -155,11 +155,11 @@ class SmoothedCellData {
     void ResizeNodeViews(size_t new_total_num_nodes) {
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_indicies, new_total_num_nodes);
+        Kokkos::resize(m_node_indices, new_total_num_nodes);
 
         // Create new host mirrors
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
+        m_node_indices_host = Kokkos::create_mirror_view(m_node_indices);
 
         m_reserved_nodes = new_total_num_nodes;
         m_number_of_resizes++;
@@ -169,9 +169,9 @@ class SmoothedCellData {
     void ResizeNodeViewsOnHost(size_t new_total_num_nodes) {
         // Resize the views
         Kokkos::resize(m_function_derivatives, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_indicies, new_total_num_nodes);
+        Kokkos::resize(m_node_indices, new_total_num_nodes);
         Kokkos::resize(m_function_derivatives_host, new_total_num_nodes * k_num_dims);
-        Kokkos::resize(m_node_indicies_host, new_total_num_nodes);
+        Kokkos::resize(m_node_indices_host, new_total_num_nodes);
 
         // Fill the new elements with the maximum uint64_t value
         m_reserved_nodes = new_total_num_nodes;
@@ -199,48 +199,48 @@ class SmoothedCellData {
         }
     };
 
-    // Return the AddCellNumNodesFunctor using the member variable m_node_indices.length. Call this in a kokkos parallel for loop.
+    // Return the AddCellNumNodesFunctor using the member variable m_node_csr_indices.length. Call this in a kokkos parallel for loop.
     AddCellNumItemsFunctor GetAddCellNumNodesFunctor() const {
-        return AddCellNumItemsFunctor(m_node_indices.length);
+        return AddCellNumItemsFunctor(m_node_csr_indices.length);
     }
 
-    // Return the AddCellNumElementsFunctor using the member variable m_element_indices.length. Call this in a kokkos parallel for loop.
+    // Return the AddCellNumElementsFunctor using the member variable m_element_csr_indices.length. Call this in a kokkos parallel for loop.
     AddCellNumItemsFunctor GetAddCellNumElementsFunctor() const {
-        return AddCellNumItemsFunctor(m_element_indices.length);
+        return AddCellNumItemsFunctor(m_element_csr_indices.length);
     }
 
     // Should be called after AddCellNumElementsFunctor has been called for all cells and should not be called in a loop.
-    void CompleteAddingCellElementIndicesOnDevice(bool set_starts_from_lengths = true) {
-        m_element_indices.FinishPopulatingOnDevice(set_starts_from_lengths);
+    void CompleteAddingCellElementCSRIndicesOnDevice(bool set_starts_from_lengths = true) {
+        m_element_csr_indices.FinishPopulatingOnDevice(set_starts_from_lengths);
 
         // Get the total number of elements
-        m_total_num_elements = m_element_indices.RaggedArraySize();
+        m_total_num_elements = m_element_csr_indices.RaggedArraySize();
     }
 
-    void CompleteAddingCellElementIndicesOnHost(bool set_starts_from_lengths = true) {
-        m_element_indices.FinishPopulatingOnHost(set_starts_from_lengths);
+    void CompleteAddingCellElementCSRIndicesOnHost(bool set_starts_from_lengths = true) {
+        m_element_csr_indices.FinishPopulatingOnHost(set_starts_from_lengths);
 
         // Get the total number of elements
-        m_total_num_elements = m_element_indices.RaggedArraySize();
+        m_total_num_elements = m_element_csr_indices.RaggedArraySize();
     }
 
     // Should be called after AddCellNumNodesFunctor has been called for all cells and should not be called in a loop.
-    void CompleteAddingCellNodeIndicesOnDevice(bool set_starts_from_lengths = true) {
-        m_node_indices.FinishPopulatingOnDevice(set_starts_from_lengths);
+    void CompleteAddingCellNodeCSRIndicesOnDevice(bool set_starts_from_lengths = true) {
+        m_node_csr_indices.FinishPopulatingOnDevice(set_starts_from_lengths);
 
         // Get the total number of nodes and number of components
-        m_total_num_nodes = m_node_indices.RaggedArraySize();
+        m_total_num_nodes = m_node_csr_indices.RaggedArraySize();
         m_total_components = m_total_num_nodes * k_num_dims;
 
         // Resize the views
         ResizeNodeViews(m_total_num_nodes);
     }
 
-    void CompleteAddingCellNodeIndicesOnHost(bool set_starts_from_lengths = true) {
-        m_node_indices.FinishPopulatingOnHost(set_starts_from_lengths);
+    void CompleteAddingCellNodeCSRIndicesOnHost(bool set_starts_from_lengths = true) {
+        m_node_csr_indices.FinishPopulatingOnHost(set_starts_from_lengths);
 
         // Get the total number of nodes and number of components
-        m_total_num_nodes = m_node_indices.RaggedArraySize();
+        m_total_num_nodes = m_node_csr_indices.RaggedArraySize();
         m_total_components = m_total_num_nodes * k_num_dims;
 
         // Resize the views
@@ -248,13 +248,13 @@ class SmoothedCellData {
     }
 
     void CompleteSettingSizesOnDevice(bool set_starts_from_lengths = true) {
-        CompleteAddingCellElementIndicesOnDevice(set_starts_from_lengths);
-        CompleteAddingCellNodeIndicesOnDevice(set_starts_from_lengths);
+        CompleteAddingCellElementCSRIndicesOnDevice(set_starts_from_lengths);
+        CompleteAddingCellNodeCSRIndicesOnDevice(set_starts_from_lengths);
     }
 
     void CompleteSettingSizesOnHost(bool set_starts_from_lengths = true) {
-        CompleteAddingCellElementIndicesOnHost(set_starts_from_lengths);
-        CompleteAddingCellNodeIndicesOnHost(set_starts_from_lengths);
+        CompleteAddingCellElementCSRIndicesOnHost(set_starts_from_lengths);
+        CompleteAddingCellNodeCSRIndicesOnHost(set_starts_from_lengths);
     }
 
     void CopyCellElementLocalOffsetsToHost() {
@@ -274,9 +274,9 @@ class SmoothedCellData {
 
     void CopyCellNodeViewsToHost() {
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_indicies_host = Kokkos::create_mirror_view(m_node_indicies);
+        m_node_indices_host = Kokkos::create_mirror_view(m_node_indices);
         Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
-        Kokkos::deep_copy(m_node_indicies_host, m_node_indicies);
+        Kokkos::deep_copy(m_node_indices_host, m_node_indices);
     }
 
     void CopyCellViewsToHost() {
@@ -297,8 +297,8 @@ class SmoothedCellData {
         CopyCellElementLocalOffsetsToDevice();
     }
 
-    void CopyCellNodeIndiciesToDevice() {
-        Kokkos::deep_copy(m_node_indicies, m_node_indicies_host);
+    void CopyCellNodeIndicesToDevice() {
+        Kokkos::deep_copy(m_node_indices, m_node_indices_host);
     }
 
     void CopyCellFunctionDerivativesToDevice() {
@@ -306,7 +306,7 @@ class SmoothedCellData {
     }
 
     void CopyCellNodeViewsToDevice() {
-        CopyCellNodeIndiciesToDevice();
+        CopyCellNodeIndicesToDevice();
         CopyCellFunctionDerivativesToDevice();
     }
 
@@ -347,9 +347,9 @@ class SmoothedCellData {
         }
     };
 
-    // Return the AddCellElementFunctor using the member variables m_element_indices.start, m_element_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
+    // Return the AddCellElementFunctor using the member variables m_element_csr_indices.start, m_element_csr_indices.length, and m_element_local_offsets. Call this in a kokkos parallel for loop.
     AddCellElementFunctor GetAddCellElementFunctor() {
-        return AddCellElementFunctor(m_element_indices.start, m_element_indices.length, m_element_local_offsets);
+        return AddCellElementFunctor(m_element_csr_indices.start, m_element_csr_indices.length, m_element_local_offsets);
     }
 
     // Functor to add volume to a cell, use the getter GetAddToCellVolumeFunctor and call in a kokkos parallel for loop
@@ -377,8 +377,8 @@ class SmoothedCellData {
     }
 
     // Get host view with copy of node local offsets
-    Kokkos::View<aperi::Index *>::HostMirror GetNodeIndiciesHost() {
-        return m_node_indicies_host;
+    Kokkos::View<aperi::Index *>::HostMirror GetNodeIndicesHost() {
+        return m_node_indices_host;
     }
 
     // Get host view with copy of element local offsets
@@ -409,8 +409,8 @@ class SmoothedCellData {
 
     // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
     Kokkos::View<uint64_t *>::HostMirror GetCellElementLocalOffsetsHost(size_t cell_id) {
-        size_t start = m_element_indices.start_host(cell_id);
-        size_t length = m_element_indices.length_host(cell_id);
+        size_t start = m_element_csr_indices.start_host(cell_id);
+        size_t length = m_element_csr_indices.length_host(cell_id);
         size_t end = start + length;
         return Kokkos::subview(m_element_local_offsets_host, Kokkos::make_pair(start, end));
     }
@@ -418,34 +418,34 @@ class SmoothedCellData {
     // Get the local offsets for the elements in a cell. Return a kokkos subview of the element local offsets.
     KOKKOS_INLINE_FUNCTION
     Kokkos::View<uint64_t *> GetCellElementLocalOffsets(size_t cell_id) const {
-        size_t start = m_element_indices.start(cell_id);
-        size_t length = m_element_indices.length(cell_id);
+        size_t start = m_element_csr_indices.start(cell_id);
+        size_t length = m_element_csr_indices.length(cell_id);
         size_t end = start + length;
         return Kokkos::subview(m_element_local_offsets, Kokkos::make_pair(start, end));
     }
 
     // Get the local offsets for the nodes in a cell. Return a kokkos subview of the node local offsets.
     KOKKOS_INLINE_FUNCTION
-    Kokkos::View<aperi::Index *> GetCellNodeIndicies(size_t cell_id) const {
-        size_t start = m_node_indices.start(cell_id);
-        size_t length = m_node_indices.length(cell_id);
+    Kokkos::View<aperi::Index *> GetCellNodeCSRIndices(size_t cell_id) const {
+        size_t start = m_node_csr_indices.start(cell_id);
+        size_t length = m_node_csr_indices.length(cell_id);
         size_t end = start + length;
-        return Kokkos::subview(m_node_indicies, Kokkos::make_pair(start, end));
+        return Kokkos::subview(m_node_indices, Kokkos::make_pair(start, end));
     }
 
     // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
     KOKKOS_INLINE_FUNCTION
     Kokkos::View<double *> GetCellFunctionDerivatives(size_t cell_id) const {
-        size_t start = m_node_indices.start(cell_id) * k_num_dims;
-        size_t length = m_node_indices.length(cell_id) * k_num_dims;
+        size_t start = m_node_csr_indices.start(cell_id) * k_num_dims;
+        size_t length = m_node_csr_indices.length(cell_id) * k_num_dims;
         size_t end = start + length;
         return Kokkos::subview(m_function_derivatives, Kokkos::make_pair(start, end));
     }
 
     // Get the function derivatives for the nodes in a cell. Return a kokkos subview of the function derivatives.
     Kokkos::View<double *>::HostMirror GetCellFunctionDerivativesHost(size_t cell_id) {
-        size_t start = m_node_indices.start_host(cell_id) * k_num_dims;
-        size_t length = m_node_indices.length_host(cell_id) * k_num_dims;
+        size_t start = m_node_csr_indices.start_host(cell_id) * k_num_dims;
+        size_t length = m_node_csr_indices.length_host(cell_id) * k_num_dims;
         size_t end = start + length;
         return Kokkos::subview(m_function_derivatives_host, Kokkos::make_pair(start, end));
     }
@@ -481,13 +481,13 @@ class SmoothedCellData {
     }
 
     // Get a reference to the node indices
-    FlattenedRaggedArray &GetNodeIndices() {
-        return m_node_indices;
+    FlattenedRaggedArray &GetNodeCSRIndices() {
+        return m_node_csr_indices;
     }
 
     // Get a reference to the element indices
-    FlattenedRaggedArray &GetElementIndices() {
-        return m_element_indices;
+    FlattenedRaggedArray &GetElementCSRIndices() {
+        return m_element_csr_indices;
     }
 
     // Debug print on host
@@ -504,29 +504,19 @@ class SmoothedCellData {
         std::cout << "Total Number of Components: " << m_total_components << std::endl;
 
         // Print the node indices
-        std::cout << "Node Indices" << std::endl;
+        std::cout << "Node CSR Indices" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
-            size_t start = m_node_indices.start_host(i);
-            size_t length = m_node_indices.length_host(i);
+            size_t start = m_node_csr_indices.start_host(i);
+            size_t length = m_node_csr_indices.length_host(i);
             std::cout << "Cell " << i << ": start = " << start << ", length = " << length << std::endl;
-            size_t end = start + length;
-            for (size_t j = start; j < end; ++j) {
-                std::cout << m_node_indicies_host(j) << " ";
-            }
-            std::cout << std::endl;
         }
 
         // Print the element indices
-        std::cout << "Element Indices" << std::endl;
+        std::cout << "Element CSR Indices" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
-            size_t start = m_element_indices.start_host(i);
-            size_t length = m_element_indices.length_host(i);
+            size_t start = m_element_csr_indices.start_host(i);
+            size_t length = m_element_csr_indices.length_host(i);
             std::cout << "Cell " << i << ": start = " << start << ", length = " << length << std::endl;
-            size_t end = start + length;
-            for (size_t j = start; j < end; ++j) {
-                std::cout << m_element_local_offsets_host(j) << " ";
-            }
-            std::cout << std::endl;
         }
 
         // Print the cell volume
@@ -538,8 +528,8 @@ class SmoothedCellData {
         // Print the function derivatives
         std::cout << "Function Derivatives" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
-            size_t start = m_node_indices.start_host(i) * k_num_dims;
-            size_t length = m_node_indices.length_host(i) * k_num_dims;
+            size_t start = m_node_csr_indices.start_host(i) * k_num_dims;
+            size_t length = m_node_csr_indices.length_host(i) * k_num_dims;
             size_t end = start + length;
             std::cout << "Cell " << i << ": ";
             for (size_t j = start; j < end; j += 3) {
@@ -551,8 +541,8 @@ class SmoothedCellData {
         // Print the element local offsets
         std::cout << "Element Local Offsets" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
-            size_t start = m_element_indices.start_host(i);
-            size_t length = m_element_indices.length_host(i);
+            size_t start = m_element_csr_indices.start_host(i);
+            size_t length = m_element_csr_indices.length_host(i);
             size_t end = start + length;
             std::cout << "Cell " << i << ": ";
             for (size_t j = start; j < end; ++j) {
@@ -561,15 +551,15 @@ class SmoothedCellData {
             std::cout << std::endl;
         }
 
-        // Print the node local offsets
-        std::cout << "Node Local Offsets" << std::endl;
+        // Print the node aperi indices
+        std::cout << "Node Aperi Indices" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
-            size_t start = m_node_indices.start_host(i);
-            size_t length = m_node_indices.length_host(i);
+            size_t start = m_node_csr_indices.start_host(i);
+            size_t length = m_node_csr_indices.length_host(i);
             size_t end = start + length;
             std::cout << "Cell " << i << ": ";
             for (size_t j = start; j < end; ++j) {
-                std::cout << m_node_indicies_host(j) << " ";
+                std::cout << m_node_indices_host(j) << " ";
             }
             std::cout << std::endl;
         }
@@ -579,16 +569,16 @@ class SmoothedCellData {
     size_t m_num_cells;       // Number of cells
     size_t m_reserved_nodes;  // Estimated total number of nodes
 
-    FlattenedRaggedArray m_node_indices;     // Indices for the cells
-    FlattenedRaggedArray m_element_indices;  // Indices for the elements
+    FlattenedRaggedArray m_node_csr_indices;     // Indices for the cells
+    FlattenedRaggedArray m_element_csr_indices;  // Indices for the elements
 
     Kokkos::View<uint64_t *> m_element_local_offsets;  // Element local offsets
-    Kokkos::View<aperi::Index *> m_node_indicies;      // Node indicies
+    Kokkos::View<aperi::Index *> m_node_indices;       // Node indices
     Kokkos::View<double *> m_function_derivatives;     // Function derivatives
     Kokkos::View<double *> m_cell_volume;              // Cell volume
 
     Kokkos::View<uint64_t *>::HostMirror m_element_local_offsets_host;  // Host view with copy of element local offsets
-    Kokkos::View<aperi::Index *>::HostMirror m_node_indicies_host;      // Host view with copy of node indicies
+    Kokkos::View<aperi::Index *>::HostMirror m_node_indices_host;       // Host view with copy of node indices
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;     // Host view with copy of function derivatives
     Kokkos::View<double *>::HostMirror m_cell_volume_host;              // Host view with copy of cell volume
 

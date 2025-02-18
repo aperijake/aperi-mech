@@ -249,7 +249,7 @@ void TestDerivDet(Tensor<Dim> F) {
 }
 
 template <int Dim>
-bool TestDerivElementEnergyPerVolume(std::vector<Tensor<Dim>>& Fs,
+void TestDerivElementEnergyPerVolume(std::vector<Tensor<Dim>>& Fs,
                                      const std::vector<double>& weights) {
     // scratch space
     std::vector<Tensor<Dim>> fbars(Fs.size());
@@ -262,7 +262,6 @@ bool TestDerivElementEnergyPerVolume(std::vector<Tensor<Dim>>& Fs,
     const double energy = ElementEnergyPerVolume(Fs, weights, fbars);
     DerivElementEnergyPerVolume(Fs, weights, fbars, pbars, d_energy_d_fs);
 
-    bool all_pass = true;
     static constexpr double k_eps = 1e-7;
 
     for (int n = 0; n < Fs.size(); ++n) {
@@ -272,21 +271,17 @@ bool TestDerivElementEnergyPerVolume(std::vector<Tensor<Dim>>& Fs,
                 const double energy_p = ElementEnergyPerVolume(Fs, weights, fbars);
                 const double fd = (energy_p - energy) / (k_eps * weights[n]);
                 d_energy_d_fs_fd[n](i, j) = fd;
-                bool pass = std::abs(fd - d_energy_d_fs[n](i, j)) < 1e-6;
-                if (!pass) {
-                    std::cout << std::setprecision(15) << "vals = " << d_energy_d_fs_fd[n](i, j) << " " << d_energy_d_fs[n](i, j) << std::endl;
-                    all_pass = false;
-                }
+                EXPECT_NEAR(fd, d_energy_d_fs[n](i, j), 1e-6) << "n = " << n << " i = " << i << " j = " << j << std::endl;
                 Fs[n](i, j) -= k_eps;
             }
         }
     }
-    return all_pass;
 }
 
 TEST(FBarTest, FbarTest) {
     constexpr int k_dim = 3;
 
+    // Fraction of volume for each subcell
     std::vector<double> weights{0.2, 0.3, 0.25, 0.25};
 
     std::vector<Tensor<3>> fs;
@@ -310,5 +305,5 @@ TEST(FBarTest, FbarTest) {
         EXPECT_NEAR(Det(f), jbar, 1e-12);
     }
 
-    ASSERT_TRUE(TestDerivElementEnergyPerVolume(fs, weights));
+    TestDerivElementEnergyPerVolume(fs, weights);
 }
