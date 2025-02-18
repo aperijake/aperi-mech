@@ -203,10 +203,15 @@ class StrainSmoothingProcessor {
                 uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-                uint64_t element_local_offset = element.local_offset();
+
+                // Get the fast mesh index for the element
+                stk::mesh::FastMeshIndex element_fast_mesh_index = ngp_mesh.fast_mesh_index(element);
+
+                // Create an aperi::Index for the element
+                aperi::Index element_index = aperi::Index(element_fast_mesh_index);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(smoothed_cell_id, element_local_offset);
+                add_cell_element_functor(smoothed_cell_id, element_index);
             });
         // Cell element local offsets (STK offsets) are now set. Copy to host.
         m_smoothed_cell_data->CopyCellElementViewsToHost();
@@ -296,15 +301,15 @@ class StrainSmoothingProcessor {
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
             // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
 
             // Initialize the local index counter
             ValueType local_index_counter = 0;
 
             // Loop over all elements in the cell to create the short list of nodes or node neighbors
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
+            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
+                auto element_index = cell_element_indices[j];
+                const stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, element_index());
                 stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
@@ -426,14 +431,14 @@ class StrainSmoothingProcessor {
 
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+            // Get the cell element indices
+            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
 
             // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
+            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
                 // Get the element using the stk local offset
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
+                auto element_index = cell_element_indices[j];
+                const stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, element_index());
 
                 // Get the nodes for the element
                 stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
@@ -558,10 +563,10 @@ class StrainSmoothingProcessor {
         // Loop over all the cells, set the derivative values for the nodes
         for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
             // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
 
             // Get the first element
-            stk::mesh::Entity first_element(cell_element_local_offsets[0]);
+            const stk::mesh::Entity first_element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, cell_element_indices[0]());
 
             // Get the pk1_stress and displacement_gradient of the first element
             auto first_element_pk1_stress = stk::mesh::field_data(*pk1_stress_field, first_element);
@@ -573,10 +578,9 @@ class StrainSmoothingProcessor {
             }
 
             // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 1, je = cell_element_local_offsets.size(); j < je; ++j) {
+            for (size_t j = 1, je = cell_element_indices.size(); j < je; ++j) {
                 // Get the element using the stk local offset
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
+                stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, cell_element_indices[j]());
 
                 // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
                 for (size_t k = 0; k < num_tensor_components; ++k) {
