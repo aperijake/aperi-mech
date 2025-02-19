@@ -191,6 +191,9 @@ class SmoothedCellData {
 
     // Function to rehash the node to local index map on host
     void RehashNodeToViewIndexMapOnHost(size_t new_total_num_nodes) {
+        // Clear the map
+        m_node_to_view_index_map_host.clear();
+        m_node_to_view_index_map.clear();
         // Rehash the map
         m_node_to_view_index_map_host.rehash(new_total_num_nodes);
         m_node_to_view_index_map.rehash(new_total_num_nodes);
@@ -398,6 +401,11 @@ class SmoothedCellData {
     // Get host view of node indices
     Kokkos::View<aperi::Index *>::HostMirror GetNodeIndicesHost() {
         return m_node_indices_host;
+    }
+
+    // Get device view of node indices
+    Kokkos::View<aperi::Index *> GetNodeIndices() {
+        return m_node_indices;
     }
 
     // Get host view of element indices

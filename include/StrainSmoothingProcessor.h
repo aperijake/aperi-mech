@@ -67,10 +67,6 @@ class StrainSmoothingProcessor {
     typedef stk::mesh::Field<uint64_t> UnsignedField;
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
-    // Define the key type and value type
-    using KeyType = aperi::Index;  // Use aperi::Index for the key
-    using ValueType = uint64_t;    // Use uint64_t for the local index
-
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
@@ -246,154 +242,138 @@ class StrainSmoothingProcessor {
         return EntityToIndex(entity);
     }
 
-    // Resize the node views and map. Check if the size is greater than the current size. If so, resize the node views and map.
-    bool ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t next_size, size_t cell_index, size_t num_cells) {
-        double ratio_complete = static_cast<double>(cell_index + 1) / static_cast<double>(num_cells);
-        // Estimate the expected size based on the percent done.
-        double expected_size = static_cast<double>(next_size) / ratio_complete;
-        double size_ratio = static_cast<double>(current_size) / expected_size;
-
-        // Calculate the percent done
-        if (next_size > current_size || size_ratio < 0.8) {
-            // Multiply by up to 1.2 to give some buffer. (ramp from multiplying by 1.2 to 1.0 as ratio_complete goes from 0 to 1)
-            auto new_size = static_cast<size_t>(std::ceil(expected_size * (1.0 + 0.2 * (1.0 - ratio_complete))));
-
-            int proc_id;
-            MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
-            printf("Resizing node views on processor %d from %lu to %lu. Percent done building smoothed cell data: %f\n", proc_id, current_size, new_size, ratio_complete * 100.0);
-
-            // Double the size of the node local offsets
-            smoothed_cell_data->ResizeNodeViewsOnHost(new_size);
-
-            // Rehash the map, doubling the size
-            smoothed_cell_data->RehashNodeToViewIndexMapOnHost(new_size * 2);
-
-            return true;
+    // Resize the node views and map.
+    void ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t required_size) {
+        if (current_size >= required_size) {
+            return;
         }
-        return false;
+        int proc_id;
+        MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
+        printf("Resizing node views on processor %d from %lu to %lu\n", proc_id, current_size, required_size);
+
+        // Double the size of the node local offsets
+        smoothed_cell_data->ResizeNodeViewsOnHost(required_size);
+
+        // Rehash the map
+        smoothed_cell_data->RehashNodeToViewIndexMapOnHost(required_size * 1.2);  // Add 20% buffer to help avoid collisions
     }
 
     template <size_t NumElementNodes>
     void SetNodeIndiciesAndMap(bool one_pass_method) {
-        // Get the bulk data
-        stk::mesh::BulkData &bulk_data = *m_bulk_data;
-
-        // Needed for the one pass method
-        stk::mesh::Field<uint64_t> *neighbors_field = nullptr;
-        stk::mesh::Field<uint64_t> *num_neighbors_field = nullptr;
-
-        if (one_pass_method) {
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-                // Get the neighbors, num_neighbors fields
-                neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-            }
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-                auto ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*neighbors_field);
-                auto ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*num_neighbors_field);
-                ngp_neighbors_field->sync_to_host();
-                ngp_num_neighbors_field->sync_to_host();
-            }
-        }
+        m_num_neighbors.UpdateField();
+        m_neighbors.UpdateField();
 
         // Create a scoped timer
         auto time = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
 
-        // #### Set the smoothed cell node ids from the smoothed cell elements ####
-        // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartHost();
-        node_starts(0) = 0;
+        // Get views of the node index lengths starts
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLength();
 
-        // Get host views of the node local offsets
-        auto node_indicies = m_smoothed_cell_data->GetNodeIndicesHost();
+        // Get views of the node local offsets
+        auto node_indicies = m_smoothed_cell_data->GetNodeIndices();
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
-        // Initialize the global index counter
-        ValueType global_index_counter = 0;
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
 
-        // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
+        auto &ngp_mesh = m_ngp_mesh;
 
-            // Initialize the local index counter
-            ValueType local_index_counter = 0;
+        size_t num_failed;
+        size_t num_tries = 0;
+        size_t max_tries = 3;
 
-            // Loop over all elements in the cell to create the short list of nodes or node neighbors
-            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                auto element_index = cell_element_indices[j];
-                const stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, element_index());
-                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
-                    if (one_pass_method) {
-                        // Get the node neighbors
-                        uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
-                        uint64_t *neighbors = stk::mesh::field_data(*neighbors_field, element_nodes[k]);
-                        for (size_t l = 0; l < num_neighbors; ++l) {
-                            aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
-                            auto results = node_to_view_index_map.insert({i, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, global_index_counter);
-                            if (results.success()) {
-                                global_index_counter++;
-                                local_index_counter++;
-                            } else if (results.failed()) {
-                                // printf("Failed to insert node (%lu, %lu) into node_neighbor_entities\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord());
-                                Kokkos::abort("Failed to insert node into node_entities");
+        // Loop over all the cells, set indexes for the nodes
+        do {
+            Kokkos::parallel_reduce(
+                "set_indices_and_map", num_cells, KOKKOS_LAMBDA(const size_t cell_id, size_t &local_fail) {
+                    // Get the cell element local offsets
+                    auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
+
+                    // Initialize the local index counter
+                    uint64_t local_index_counter = 0;
+
+                    // Loop over all elements in the cell to create the short list of nodes or node neighbors
+                    for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
+                        auto element_index = cell_element_indices[j];
+
+                        // Get the nodes for the element
+                        stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
+                        size_t num_nodes = element_node_entities.size();
+                        Kokkos::Array<aperi::Index, NumElementNodes> element_nodes;
+                        for (size_t i = 0; i < num_nodes; ++i) {
+                            element_nodes[i] = aperi::Index(ngp_mesh.fast_mesh_index(element_node_entities[i]));
+                        }
+
+                        // Loop over all the nodes in the element
+                        for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
+                            if (one_pass_method) {
+                                // Get the node neighbors
+                                uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
+                                uint64_t *neighbors = m_neighbors.data(element_nodes[k]);
+                                for (size_t l = 0; l < num_neighbors; ++l) {
+                                    aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
+                                    auto results = node_to_view_index_map.insert({cell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
+                                    if (results.success()) {
+                                        local_index_counter++;
+                                    } else if (results.failed()) {
+                                        local_fail++;
+                                    }
+                                }
+                            } else {
+                                auto results = node_to_view_index_map.insert({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}, local_index_counter);
+                                if (results.success()) {
+                                    local_index_counter++;
+                                } else if (results.failed()) {
+                                    local_fail++;
+                                }
                             }
                         }
-                    } else {
-                        aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        auto results = node_to_view_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, global_index_counter);
-                        if (results.success()) {
-                            global_index_counter++;
-                            local_index_counter++;
-                        } else if (results.failed()) {
-                            // printf("Failed to insert node (%lu, %lu) into node_to_view_index_map\n", node_index.bucket_id(), node_index.bucket_ord());
-                            Kokkos::abort("Failed to insert node into node_entities");
-                        }
                     }
+
+                    // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
+                    node_lengths(cell_id) = local_index_counter;
+                },
+                num_failed);
+
+            if (num_failed > 0) {
+                // Resize the node views and map
+                ResizeNodeViewsAndMap(m_smoothed_cell_data, node_to_view_index_map.capacity(), node_to_view_index_map.capacity() + num_failed);
+
+                // Get the views after resizing
+                node_indicies = m_smoothed_cell_data->GetNodeIndices();
+
+                num_tries++;
+                if (num_tries > max_tries) {
+                    aperi::CoutP0() << "Error: Too many tries to set node indicies and map." << std::endl;
+                    Kokkos::abort("Error: Too many tries to set node indicies and map.");
                 }
             }
+        } while (num_failed > 0);
 
-            // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
-            node_lengths(i) = local_index_counter;
+        bool set_start_from_lengths = true;
+        m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnDevice(set_start_from_lengths);
 
-            // Set the start to the start + length of the previous cell, if not the first cell
-            if (i > 0) {
-                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
-            }
+        // Get the views after potential resizing
+        node_indicies = m_smoothed_cell_data->GetNodeIndices();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStart();
 
-            // Resize the node views if necessary
-            uint64_t node_start = node_starts(i);
-            size_t new_node_indicies_size = node_start + node_lengths(i);
-            size_t current_node_indicies_size = node_indicies.extent(0);
-            bool resized = ResizeNodeViewsAndMap(m_smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
-            if (resized) {
-                // Get the new host views of the node local offsets
-                node_indicies = m_smoothed_cell_data->GetNodeIndicesHost();
-            }
-        }
+        // Get the capacity of the node to view index map
+        size_t map_size = node_to_view_index_map.capacity();
 
         // Set the node indicies
-        for (size_t i = 0, e = node_to_view_index_map.capacity(); i < e; ++i) {
-            if (node_to_view_index_map.valid_at(i)) {
-                auto key = node_to_view_index_map.key_at(i);
-                auto value = node_to_view_index_map.value_at(i);
-                // Note: This is the correct value because the cell were looped over in order.
-                // This will have to change when this function is threaded.
-                node_indicies(value) = aperi::Index(key.bucket_id, key.bucket_ord);
-            }
-        }
-
-        bool set_start_from_lengths = false;  // The start array is already set above.
-        m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
-        m_smoothed_cell_data->CopyCellNodeIndicesToDevice();
-        m_smoothed_cell_data->CopyNodeToViewIndexMapToDevice();
+        Kokkos::parallel_for(
+            "set_node_indicies_from_map", map_size, KOKKOS_LAMBDA(const size_t i) {
+                if (node_to_view_index_map.valid_at(i)) {
+                    auto key = node_to_view_index_map.key_at(i);
+                    auto value = node_to_view_index_map.value_at(i);
+                    auto node_start_index = node_starts(key.cell_id);
+                    uint64_t new_value = node_start_index + value;
+                    node_indicies(new_value) = aperi::Index(key.bucket_id, key.bucket_ord);
+                    node_to_view_index_map.value_at(i) = new_value;
+                }
+            });
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
