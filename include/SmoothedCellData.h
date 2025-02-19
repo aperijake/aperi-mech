@@ -426,7 +426,7 @@ class SmoothedCellData {
 
     // Get the indices for the nodes in a cell. Return a kokkos subview of the node indices.
     KOKKOS_INLINE_FUNCTION
-    Kokkos::View<aperi::Index *> GetCellNodeCSRIndices(size_t cell_id) const {
+    Kokkos::View<aperi::Index *> GetCellNodeIndices(size_t cell_id) const {
         size_t start = m_node_csr_indices.start(cell_id);
         size_t length = m_node_csr_indices.length(cell_id);
         size_t end = start + length;
