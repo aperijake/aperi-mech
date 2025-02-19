@@ -136,12 +136,12 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_cell_num_elements_functor(i, 2);
                 }
             });
-        scd.CompleteAddingCellElementIndicesOnDevice();
+        scd.CompleteAddingCellElementCSRIndicesOnDevice();
 
-        // Check the element local offsets before adding elements. Should be all UINT64_MAX
-        auto element_local_offsets_host_pre = scd.GetElementLocalOffsetsHost();
+        // Check the element indices before adding elements. Should be all UINT_MAX
+        auto element_indices_host_pre = scd.GetElementIndicesHost();
         for (size_t i = 0; i < m_num_elements; ++i) {
-            EXPECT_EQ(element_local_offsets_host_pre(i), UINT64_MAX) << "i: " << i;
+            EXPECT_EQ(element_indices_host_pre(i), aperi::Index(0, UINT_MAX)) << "i: " << i;
         }
 
         double element_volume = 0.5;  // Volume of half of a unit cube
@@ -150,9 +150,9 @@ class SmoothedCellDataFixture : public ::testing::Test {
         auto add_cell_element_functor = scd.GetAddCellElementFunctor();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                add_cell_element_functor(i, i);
+                add_cell_element_functor(i, aperi::Index(0, i));
                 if (i == 2) {
-                    add_cell_element_functor(i, i + 1);
+                    add_cell_element_functor(i, aperi::Index(0, i + 1));
                 }
             });
 
@@ -176,35 +176,35 @@ class SmoothedCellDataFixture : public ::testing::Test {
         EXPECT_EQ(cell_volume_host(2), 1.0);
 
         // Get host views of the node index lengths and starts
-        auto node_lengths = scd.GetNodeIndices().GetLengthHost();
-        auto node_starts = scd.GetNodeIndices().GetStartHost();
+        auto node_lengths = scd.GetNodeCSRIndices().GetLengthHost();
+        auto node_starts = scd.GetNodeCSRIndices().GetStartHost();
         node_starts(0) = 0;  // Set the start for the first cell
 
-        // Get host views of the node derivatives and local offsets
+        // Get host views of the node derivatives and indices
         auto node_function_derivatives = scd.GetFunctionDerivativesHost();
-        auto node_indicies = scd.GetNodeIndiciesHost();
+        auto node_indicies = scd.GetNodeIndicesHost();
 
         // Loop over all the cells
         for (size_t i = 0, e = scd.NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = scd.GetCellElementLocalOffsetsHost(i);
-            // Check the GetCellElementLocalOffsetsHost function returns the correct size and values
+            // Get the cell element indices
+            auto cell_element_indices = scd.GetCellElementIndicesHost(i);
+            // Check the GetCellElementIndicesHost function returns the correct size and values
             if (i < 2) {
-                EXPECT_EQ(cell_element_local_offsets.size(), 1) << "i: " << i;
-                EXPECT_EQ(cell_element_local_offsets[0], i) << "i: " << i;
+                EXPECT_EQ(cell_element_indices.size(), 1) << "i: " << i;
+                EXPECT_EQ(cell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
             } else {
-                EXPECT_EQ(cell_element_local_offsets.size(), 2) << "i: " << i;
-                EXPECT_EQ(cell_element_local_offsets[0], i) << "i: " << i;
-                EXPECT_EQ(cell_element_local_offsets[1], i + 1) << "i: " << i;
+                EXPECT_EQ(cell_element_indices.size(), 2) << "i: " << i;
+                EXPECT_EQ(cell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
+                EXPECT_EQ(cell_element_indices[1], aperi::Index(0, i + 1)) << "i: " << i;
             }
 
             // Create a set of node entities. Using a set to ensure no duplicates.
             std::set<uint64_t> node_entities;
 
-            // Loop over all the cell element local offsets
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_local_offset];
+            // Loop over all the cell element indices
+            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
+                auto element_index = cell_element_indices[j];
+                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
                 for (uint64_t this_element_node : this_element_nodes) {
                     node_entities.insert(this_element_node);
                 }
@@ -235,12 +235,12 @@ class SmoothedCellDataFixture : public ::testing::Test {
                 // Estimate the expected size based on the percent done. Then multiply by 1.5 to give some buffer.
                 auto expected_size = static_cast<size_t>(static_cast<double>(node_indicies_size) * 1.5 * (1.0 + percent_done));
 
-                // Double the size of the node local offsets
+                // Double the size of the node indices
                 scd.ResizeNodeViewsOnHost(expected_size);
 
-                // Get the new host views of the node local offsets
+                // Get the new host views of the node indices
                 node_function_derivatives = scd.GetFunctionDerivativesHost();
-                node_indicies = scd.GetNodeIndiciesHost();
+                node_indicies = scd.GetNodeIndicesHost();
             }
 
             // Loop over the node entities, create a map of local offsets to node indices
@@ -255,11 +255,11 @@ class SmoothedCellDataFixture : public ::testing::Test {
             }
 
             // Loop over all the cell elements
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_local_offset];
+            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
+                auto element_index = cell_element_indices[j];
+                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
 
-                std::vector<std::vector<double>> element_function_derivatives_data = element_function_derivatives[element_local_offset];
+                std::vector<std::vector<double>> element_function_derivatives_data = element_function_derivatives[element_index.bucket_ord()];
 
                 // Loop over all the nodes in the element
                 for (size_t k = 0, ke = this_element_nodes.size(); k < ke; ++k) {
@@ -273,7 +273,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             }
         }
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
-        scd.CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
+        scd.CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
         scd.CopyCellNodeViewsToDevice();
 
         // Get the total number of nodes, element and components
@@ -286,8 +286,8 @@ class SmoothedCellDataFixture : public ::testing::Test {
         EXPECT_EQ(total_num_elements, 4);
         EXPECT_EQ(total_num_components, 30);  // 3 for each node
 
-        // Copy the node local offsets to host
-        auto node_indicies_host = scd.GetNodeIndiciesHost();
+        // Copy the node indices to host
+        auto node_indicies_host = scd.GetNodeIndicesHost();
 
         // Expected: 0 1 3 1 3 4 1 2 4 5, all with bucket 0
         std::vector<aperi::Index> expected_node_indices = {
@@ -303,20 +303,23 @@ class SmoothedCellDataFixture : public ::testing::Test {
             {0, 5},
         };
 
-        // Check the node local offsets.
+        // Check the node indices
         for (size_t i = 0; i < total_num_nodes; ++i) {
             EXPECT_EQ(node_indicies_host(i), expected_node_indices[i]) << "i: " << i;
         }
 
-        // Copy the element local offsets to host
-        auto element_local_offsets_host = scd.GetElementLocalOffsetsHost();
+        // Copy the element indices to host
+        auto element_indices_host = scd.GetElementIndicesHost();
 
         // Expected: 0, 1, 2, 3
-        std::vector<uint64_t> expected_element_local_offsets = {0, 1, 2, 3};
+        std::vector<aperi::Index> expected_element_indices = {aperi::Index(0, 0),
+                                                              aperi::Index(0, 1),
+                                                              aperi::Index(0, 2),
+                                                              aperi::Index(0, 3)};
 
-        // Check the element local offsets.
+        // Check the element indices
         for (size_t i = 0; i < total_num_elements; ++i) {
-            EXPECT_EQ(element_local_offsets_host(i), expected_element_local_offsets[i]) << "i: " << i;
+            EXPECT_EQ(element_indices_host(i), expected_element_indices[i]) << "i: " << i;
         }
 
         // Copy the function derivatives to host

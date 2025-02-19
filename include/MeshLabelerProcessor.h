@@ -62,7 +62,7 @@ class MeshLabelerProcessor {
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
 
-        // Get the smoothe cell id field
+        // Get the smoothed cell id field
         m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
     }
@@ -289,7 +289,7 @@ class MeshLabelerProcessor {
         m_bulk_data->modification_end();
     }
 
-    void PutAllCellElementsOnTheSameProcessorHost(const std::map<uint64_t, int> &cell_id_to_processor_map) {
+    void PutAllCellElementsOnTheSameProcessorHost(const std::unordered_map<uint64_t, int> &cell_id_to_processor_map) {
         int this_processor = m_bulk_data->parallel_rank();
 
         // Create the active selector
@@ -322,7 +322,7 @@ class MeshLabelerProcessor {
         m_bulk_data->change_entity_owner(element_processor_pairs);
     }
 
-    std::map<uint64_t, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<uint64_t, int>> &local_cell_id_to_processor) {
+    std::unordered_map<uint64_t, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<uint64_t, int>> &local_cell_id_to_processor) {
         // Communicate the cell id to processor vector
         int local_size = local_cell_id_to_processor.size();
 
@@ -349,7 +349,7 @@ class MeshLabelerProcessor {
                        global_cell_id_to_processor.data(), byte_sizes.data(), displacements.data(), MPI_BYTE, MPI_COMM_WORLD);
 
         // Put into a map
-        std::map<uint64_t, int> cell_id_to_processor_map(global_cell_id_to_processor.begin(), global_cell_id_to_processor.end());
+        std::unordered_map<uint64_t, int> cell_id_to_processor_map(global_cell_id_to_processor.begin(), global_cell_id_to_processor.end());
 
         return cell_id_to_processor_map;
     }
@@ -432,13 +432,13 @@ class MeshLabelerProcessor {
         }
 
         // Communicate the cell id to processor map
-        std::map<uint64_t, int> cell_id_to_processor_map = MakeGlobalCellIdToProcMap(local_cell_id_to_processor);
+        std::unordered_map<uint64_t, int> cell_id_to_processor_map = MakeGlobalCellIdToProcMap(local_cell_id_to_processor);
 
         // Put all the cell elements on the same processor
         PutAllCellElementsOnTheSameProcessorHost(cell_id_to_processor_map);
 
         // Map from cell id to local offset
-        std::map<uint64_t, uint64_t> cell_id_to_local_offset;
+        std::unordered_map<uint64_t, uint64_t> cell_id_to_local_offset;
 
         // Fill the cell id to local offset map
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
