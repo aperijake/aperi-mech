@@ -91,13 +91,16 @@ class StrainSmoothingProcessor {
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE});
         } else {
             m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
         }
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
         m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_element_volume = aperi::Field(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
 
         // Get the cell id field
@@ -107,26 +110,41 @@ class StrainSmoothingProcessor {
         // Get the smoothed cell id field
         m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
+
+        // Get the neighbors and num_neighbors fields
+        m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_num_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+
+        // Get the function values field
+        m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
     bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
-        // Loop over all the cells
-        bool passed = true;
-        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the function derivatives
-            auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivativesHost(i);
-            std::array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
-            for (size_t j = 0, je = cell_function_derivatives.size(); j < je; ++j) {
-                cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
-            }
-            for (size_t j = 0; j < 3; ++j) {
-                if (std::abs(cell_function_derivatives_sum[j]) > tolerance) {
-                    aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
-                    passed = false;
+        // Get the number of cells
+        size_t num_cells = smoothed_cell_data->NumCells();
+
+        // Get the number of nodes
+        auto node_lengths = smoothed_cell_data->GetNodeCSRIndices().GetLength();
+
+        // Loop over all the cells, set the derivative values for the nodes
+        Kokkos::parallel_for(
+            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the function derivatives
+                auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivatives(cell_id);
+                Kokkos::Array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
+                for (size_t j = 0, je = node_lengths[cell_id] * 3; j < je; ++j) {
+                    cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
                 }
-            }
-        }
-        return passed;
+                for (size_t j = 0; j < 3; ++j) {
+                    // Compare the sum of the function derivatives to the tolerance on device
+                    if (Kokkos::abs(cell_function_derivatives_sum[j]) > tolerance) {
+                        // Print the cell id and the sum of the function derivatives
+                        printf("Cell %lu: Sum of function derivatives: %f\n", cell_id, cell_function_derivatives_sum[j]);
+                        Kokkos::abort("Partition of nullity check failed");
+                    }
+                }
+            });
+        return true;
     }
 
     std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
@@ -217,12 +235,12 @@ class StrainSmoothingProcessor {
         m_smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
+    KOKKOS_INLINE_FUNCTION
     aperi::Index EntityToIndex(const stk::mesh::Entity &entity) {
-        const stk::mesh::MeshIndex &meshIndex = m_bulk_data->mesh_index(entity);
-        stk::mesh::FastMeshIndex fast_mesh_index = stk::mesh::FastMeshIndex{meshIndex.bucket->bucket_id(), static_cast<unsigned>(meshIndex.bucket_ordinal)};
-        return aperi::Index{fast_mesh_index.bucket_id, fast_mesh_index.bucket_ord};
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
+    KOKKOS_INLINE_FUNCTION
     aperi::Index LocalOffsetToIndex(uint64_t local_offset) {
         stk::mesh::Entity entity(local_offset);
         return EntityToIndex(entity);
@@ -375,156 +393,134 @@ class StrainSmoothingProcessor {
         bool set_start_from_lengths = false;  // The start array is already set above.
         m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
         m_smoothed_cell_data->CopyCellNodeIndicesToDevice();
+        m_smoothed_cell_data->CopyNodeToViewIndexMapToDevice();
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
     void SetFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
-        // Get the bulk data
-        stk::mesh::BulkData &bulk_data = *m_bulk_data;
-
-        // Needed for the one pass method
-        stk::mesh::Field<uint64_t> *neighbors_field = nullptr;
-        stk::mesh::Field<uint64_t> *num_neighbors_field = nullptr;
-        stk::mesh::Field<double> *function_values_field = nullptr;
-
-        if (one_pass_method) {
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-                // Get the neighbors, num_neighbors, and function_values fields
-                neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-            }
-            {
-                // Sync the function values field. Other fields are already synced.
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-                auto ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*function_values_field);
-                ngp_function_values_field->sync_to_host();
-            }
-        }
-
-        m_ngp_coordinates_field->sync_to_host();
-        stk::mesh::Field<double> &element_volume_field = *m_element_volume_field;
-        stk::mesh::Field<double> &coordinate_field = *m_coordinates_field;
+        // Update the fields
+        m_coordinates.UpdateField();
+        m_element_volume.UpdateField();
+        m_neighbors.UpdateField();
+        m_num_neighbors.UpdateField();
+        m_function_values.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
-        // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartHost();
-        node_starts(0) = 0;
+        // Get device views of the node index lengths and starts
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLength();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStart();
 
-        // Get host views of the node derivatives
-        auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivativesHost();
+        // Get device view of the node derivatives
+        auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivatives();
 
         // Zero the node derivatives
         Kokkos::deep_copy(node_function_derivatives, 0.0);
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
         // Get the cell volume view and zero it
         auto cell_volumes = m_smoothed_cell_data->GetCellVolumeHost();
         Kokkos::deep_copy(cell_volumes, 0.0);
 
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
+
+        auto &ngp_mesh = m_ngp_mesh;
+
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element indices
-            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
+        Kokkos::parallel_for(
+            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the cell element indices
+                auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
 
-            // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                // Get the element using the stk local offset
-                auto element_index = cell_element_indices[j];
-                const stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, element_index());
+                // Loop over all the cell elements and add the function derivatives to the nodes
+                for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
+                    // Get the element using the stk local offset
+                    auto element_index = cell_element_indices[j];
 
-                // Get the nodes for the element
-                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
-
-                // Number of nodes in the element
-                size_t num_nodes = bulk_data.num_nodes(element);
-
-                // Get the element function derivatives. TODO(jake): Calculate the element function derivatives here instead of precomputing and storing.
-                // Set up the field data to gather
-                Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
-
-                // Gather the field data for each node
-                for (size_t l = 0; l < num_nodes; ++l) {
-                    for (size_t k = 0; k < 3; ++k) {
-                        cell_node_coordinates(l, k) = stk::mesh::field_data(coordinate_field, element_nodes[l])[k];
+                    // Get the nodes for the element
+                    stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
+                    size_t num_nodes = element_node_entities.size();
+                    Kokkos::Array<aperi::Index, NumElementNodes> element_nodes;
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        element_nodes[i] = aperi::Index(ngp_mesh.fast_mesh_index(element_node_entities[i]));
                     }
-                }
-                Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
-                const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
-                double &element_volume = derivatives_and_weight.second;
 
-                // Set the element volume
-                stk::mesh::field_data(element_volume_field, element)[0] = element_volume;
-                m_smoothed_cell_data->AddToCellVolumeHost(i, element_volume);
+                    // Set up the field data to gather
+                    Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
 
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
-                    // One pass method: store the function derivatives for the neighbors of the nodes in the cell
-                    if (one_pass_method) {
-                        // Get the number of neighbors
-                        uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
+                    // Gather the field data for each node
+                    for (size_t l = 0; l < num_nodes; ++l) {
+                        cell_node_coordinates.row(l).noalias() = m_coordinates.GetEigenMatrix<1, 3>(element_nodes[l]);
+                    }
+                    Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
+                    const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
+                    double &element_volume = derivatives_and_weight.second;
 
-                        // Loop over the nodes neighbors
-                        for (size_t l = 0; l < num_neighbors; ++l) {
-                            // Get the neighbor
-                            uint64_t neighbor = stk::mesh::field_data(*neighbors_field, element_nodes[k])[l];
+                    // Set the element volume
+                    m_element_volume(element_index, 0) = element_volume;
+                    m_smoothed_cell_data->AddToCellVolume(cell_id, element_volume);
 
-                            // Get the function value
-                            double function_value = stk::mesh::field_data(*function_values_field, element_nodes[k])[l];
+                    // Loop over all the nodes in the element
+                    for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
+                        // One pass method: store the function derivatives for the neighbors of the nodes in the cell
+                        if (one_pass_method) {
+                            // Get the number of neighbors
+                            uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
 
-                            // Get the cell index of the neighbor
-                            aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
-                            KOKKOS_ASSERT(node_to_view_index_map.exists({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
-                            auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+                            // Loop over the nodes neighbors
+                            for (size_t l = 0; l < num_neighbors; ++l) {
+                                // Get the neighbor
+                                uint64_t neighbor = m_neighbors(element_nodes[k], l);
 
+                                // Get the function value
+                                double function_value = m_function_values(element_nodes[k], l);
+
+                                // Get the cell index of the neighbor
+                                aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
+                                KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
+                                auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+
+                                // Atomic add to the derivatives and set the node local offsets for the cell
+                                for (size_t m = 0; m < 3; ++m) {
+                                    // Will have to divide by the cell volume when we have the full value
+                                    Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
+                                }
+                            }
+                        } else {
+                            // Two pass method: store the function derivatives for the nodes in the cell
+
+                            // Get the node local offset
+                            KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}));
+                            size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()})) * 3;
                             // Atomic add to the derivatives and set the node local offsets for the cell
-                            for (size_t m = 0; m < 3; ++m) {
+                            for (size_t l = 0; l < 3; ++l) {
                                 // Will have to divide by the cell volume when we have the full value
-                                Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
+                                Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
                             }
                         }
-                    } else {
-                        // Two pass method: store the function derivatives for the nodes in the cell
-
-                        // Get the node local offset
-                        aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        KOKKOS_ASSERT(node_to_view_index_map.exists({i, node_index.bucket_id(), node_index.bucket_ord()}));
-                        size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({i, node_index.bucket_id(), node_index.bucket_ord()})) * 3;
-                        // Atomic add to the derivatives and set the node local offsets for the cell
-                        for (size_t l = 0; l < 3; ++l) {
-                            // Will have to divide by the cell volume when we have the full value
-                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
-                        }
                     }
                 }
-            }
 
-            // Cell volume
-            double cell_volume = m_smoothed_cell_data->GetCellVolumeHost(i);
+                // Cell volume
+                double cell_volume = m_smoothed_cell_data->GetCellVolume(cell_id);
 
-            size_t start_node_index = node_starts(i);
+                size_t start_node_index = node_starts(cell_id);
 
-            // Divide the function derivatives by the cell volume
-            for (size_t j = 0, je = node_lengths(i); j < je; ++j) {
-                size_t j3 = (start_node_index + j) * 3;
-                for (size_t k = 0; k < 3; ++k) {
-                    node_function_derivatives(j3 + k) /= cell_volume;
+                // Divide the function derivatives by the cell volume
+                for (size_t j = 0, je = node_lengths(cell_id); j < je; ++j) {
+                    size_t j3 = (start_node_index + j) * 3;
+                    for (size_t k = 0; k < 3; ++k) {
+                        node_function_derivatives(j3 + k) /= cell_volume;
+                    }
                 }
-            }
-        }
+            });
         // Copy element volumes, function derivatives to device
-        element_volume_field.clear_sync_state();
-        element_volume_field.modify_on_host();
-        element_volume_field.sync_to_device();
-        m_smoothed_cell_data->CopyCellVolumeToDevice();
-        m_smoothed_cell_data->CopyCellFunctionDerivativesToDevice();
+        m_element_volume.MarkModifiedOnDevice();
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
     }
 
@@ -712,6 +708,11 @@ class StrainSmoothingProcessor {
     NgpDoubleField *m_ngp_element_volume_field;      // The ngp element volume field
     NgpUnsignedField *m_ngp_cell_id_field;           // The ngp cell id field
     NgpUnsignedField *m_ngp_smoothed_cell_id_field;  // The ngp smoothed cell id field
+    aperi::Field<double> m_coordinates;              // The coordinates field
+    aperi::Field<double> m_element_volume;           // The element volume field
+    aperi::Field<uint64_t> m_neighbors;
+    aperi::Field<uint64_t> m_num_neighbors;
+    aperi::Field<double> m_function_values;  // The function values field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data

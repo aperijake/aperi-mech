@@ -68,12 +68,22 @@ struct FlattenedRaggedArray {
         return ragged_array_size;
     }
 
-    // Get host view with copy of start.
+    // Get device view of start.
+    Kokkos::View<uint64_t *> GetStart() const {
+        return start;
+    }
+
+    // Get device view of length.
+    Kokkos::View<uint64_t *> GetLength() const {
+        return length;
+    }
+
+    // Get host view of start.
     Kokkos::View<uint64_t *>::HostMirror GetStartHost() const {
         return start_host;
     }
 
-    // Get host view with copy of length.
+    // Get host view of length.
     Kokkos::View<uint64_t *>::HostMirror GetLengthHost() const {
         return length_host;
     }
@@ -82,8 +92,8 @@ struct FlattenedRaggedArray {
     uint64_t ragged_array_size{0};                     // Total number of elements in the ragged array
     Kokkos::View<uint64_t *> start;                    // Start indices for each item in the ragged array
     Kokkos::View<uint64_t *> length;                   // Length of each item in the ragged array
-    Kokkos::View<uint64_t *>::HostMirror start_host;   // Host view with copy of start
-    Kokkos::View<uint64_t *>::HostMirror length_host;  // Host view with copy of length
+    Kokkos::View<uint64_t *>::HostMirror start_host;   // Host view of start
+    Kokkos::View<uint64_t *>::HostMirror length_host;  // Host view of length
 };
 
 // Struct holding the three unsigned for the map: cell_id, bucket_id, and bucket_ord
@@ -301,6 +311,10 @@ class SmoothedCellData {
         Kokkos::deep_copy(m_node_indices, m_node_indices_host);
     }
 
+    void CopyNodeToViewIndexMapToDevice() {
+        Kokkos::deep_copy(m_node_to_view_index_map, m_node_to_view_index_map_host);
+    }
+
     void CopyCellFunctionDerivativesToDevice() {
         Kokkos::deep_copy(m_function_derivatives, m_function_derivatives_host);
     }
@@ -371,22 +385,32 @@ class SmoothedCellData {
         return AddToCellVolumeFunctor(m_cell_volume);
     }
 
-    // Get host view with copy of function derivatives
+    // Get device view of function derivatives
+    Kokkos::View<double *> GetFunctionDerivatives() {
+        return m_function_derivatives;
+    }
+
+    // Get host view of function derivatives
     Kokkos::View<double *>::HostMirror GetFunctionDerivativesHost() {
         return m_function_derivatives_host;
     }
 
-    // Get host view with copy of node indices
+    // Get host view of node indices
     Kokkos::View<aperi::Index *>::HostMirror GetNodeIndicesHost() {
         return m_node_indices_host;
     }
 
-    // Get host view with copy of element indices
+    // Get host view of element indices
     Kokkos::View<aperi::Index *>::HostMirror GetElementIndicesHost() {
         return m_element_indices_host;
     }
 
-    // Get host view with copy of cell volume
+    // Get device view of cell volume
+    Kokkos::View<double *> GetCellVolume() {
+        return m_cell_volume;
+    }
+
+    // Get host view of cell volume
     Kokkos::View<double *>::HostMirror GetCellVolumeHost() {
         return m_cell_volume_host;
     }
@@ -405,6 +429,12 @@ class SmoothedCellData {
     // Add to cell volume, host
     void AddToCellVolumeHost(size_t cell_id, double value) {
         m_cell_volume_host(cell_id) += value;
+    }
+
+    // Add to cell volume, device
+    KOKKOS_INLINE_FUNCTION
+    void AddToCellVolume(size_t cell_id, double value) const {
+        m_cell_volume(cell_id) += value;
     }
 
     // Get the indices for the elements in a cell. Return a kokkos subview of the element indices.
@@ -448,6 +478,11 @@ class SmoothedCellData {
         size_t length = m_node_csr_indices.length_host(cell_id) * k_num_dims;
         size_t end = start + length;
         return Kokkos::subview(m_function_derivatives_host, Kokkos::make_pair(start, end));
+    }
+
+    // Get the map from node to local index, device
+    Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultExecutionSpace, NodeToViewIndexMapKeyHash> &GetNodeToViewIndexMap() {
+        return m_node_to_view_index_map;
     }
 
     // Get the map from node to local index, host
@@ -577,10 +612,10 @@ class SmoothedCellData {
     Kokkos::View<double *> m_function_derivatives;   // Function derivatives
     Kokkos::View<double *> m_cell_volume;            // Cell volume
 
-    Kokkos::View<aperi::Index *>::HostMirror m_element_indices_host;  // Host view with copy of element indices
-    Kokkos::View<aperi::Index *>::HostMirror m_node_indices_host;     // Host view with copy of node indices
-    Kokkos::View<double *>::HostMirror m_function_derivatives_host;   // Host view with copy of function derivatives
-    Kokkos::View<double *>::HostMirror m_cell_volume_host;            // Host view with copy of cell volume
+    Kokkos::View<aperi::Index *>::HostMirror m_element_indices_host;  // Host view of element indices
+    Kokkos::View<aperi::Index *>::HostMirror m_node_indices_host;     // Host view of node indices
+    Kokkos::View<double *>::HostMirror m_function_derivatives_host;   // Host view of function derivatives
+    Kokkos::View<double *>::HostMirror m_cell_volume_host;            // Host view of cell volume
 
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultExecutionSpace, NodeToViewIndexMapKeyHash> m_node_to_view_index_map;                       // Map from node to local index
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, NodeToViewIndexMapKeyHash>::HostMirror m_node_to_view_index_map_host;  // Host map from node to local index
