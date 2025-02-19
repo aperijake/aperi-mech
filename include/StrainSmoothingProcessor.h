@@ -530,74 +530,74 @@ class StrainSmoothingProcessor {
 
     void PopulateElementOutputs() {
         // Fill in the other elements in the cell with the parent elements values
-        // Fields: pk1_stress, displacement_gradient
+        // Fields: pk1_stress, displacement_gradient, state
 
         size_t num_tensor_components = 9;
 
         // Get the fields
-        stk::mesh::Field<double> *pk1_stress_field = StkGetField(FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
-        stk::mesh::Field<double> *displacement_gradient_field = StkGetField(FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
-
-        // Create aperi::Field objects for the fields to make sure they are synced to the host
         aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         aperi::Field<double> displacement_gradient(m_mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
-        pk1.MarkModifiedOnDevice();
-        displacement_gradient.MarkModifiedOnDevice();
-        pk1.SyncDeviceToHost();
-        displacement_gradient.SyncDeviceToHost();
 
         // Check for state field
         aperi::FieldQueryData<double> state_query({"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
-        stk::mesh::Field<double> *state = nullptr;
         bool state_field_exists = false;
-        if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
+        aperi::Field<double> state;
+        if (FieldExists(state_query, m_mesh_data)) {
             state_field_exists = true;
             // Get the state field
-            state = StkGetField(state_query, &m_bulk_data->mesh_meta_data());
-            // Create aperi::Field objects for the fields to make sure they are synced to the host
-            aperi::Field<double> state(m_mesh_data, state_query);
-            state.MarkModifiedOnDevice();
-            state.SyncDeviceToHost();
+            state = aperi::Field<double>(m_mesh_data, state_query);
         }
 
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
+
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndicesHost(i);
+        Kokkos::parallel_for(
+            "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the cell element local offsets
+                auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
 
-            // Get the first element
-            const stk::mesh::Entity first_element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, cell_element_indices[0]());
+                // Get the first element
+                const aperi::Index first_element = cell_element_indices[0];
 
-            // Get the pk1_stress and displacement_gradient of the first element
-            auto first_element_pk1_stress = stk::mesh::field_data(*pk1_stress_field, first_element);
-            auto first_element_displacement_gradient = stk::mesh::field_data(*displacement_gradient_field, first_element);
-            double *first_element_state = nullptr;
-            // Get the state field if it exists
-            if (state_field_exists) {
-                first_element_state = stk::mesh::field_data(*state, first_element);
-            }
-
-            // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 1, je = cell_element_indices.size(); j < je; ++j) {
-                // Get the element using the stk local offset
-                stk::mesh::Entity element = m_ngp_mesh.get_entity(stk::topology::ELEM_RANK, cell_element_indices[j]());
-
-                // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
-                for (size_t k = 0; k < num_tensor_components; ++k) {
-                    // Set the pk1_stress
-                    stk::mesh::field_data(*pk1_stress_field, element)[k] = first_element_pk1_stress[k];
-
-                    // Set the displacement_gradient
-                    stk::mesh::field_data(*displacement_gradient_field, element)[k] = first_element_displacement_gradient[k];
-                }
-                // Set the state field if it exists
+                // Get the pk1_stress and displacement_gradient of the first element
+                double *first_element_pk1_stress = pk1.data(first_element);
+                double *first_element_displacement_gradient = displacement_gradient.data(first_element);
+                double *first_element_state = nullptr;
+                // Get the state field if it exists
                 if (state_field_exists) {
-                    int num_state_components = stk::mesh::field_scalars_per_entity(*state, element);
-                    for (int k = 0; k < num_state_components; ++k) {
-                        stk::mesh::field_data(*state, element)[k] = first_element_state[k];
+                    first_element_state = state.data(first_element);
+                }
+
+                // Loop over all the cell elements and add the function derivatives to the nodes
+                for (size_t j = 1, je = cell_element_indices.size(); j < je; ++j) {
+                    // Get the element using the stk local offset
+                    const aperi::Index element_index = cell_element_indices[j];
+
+                    // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
+                    for (size_t k = 0; k < num_tensor_components; ++k) {
+                        // Set the pk1_stress
+                        pk1.data(element_index)[k] = first_element_pk1_stress[k];
+
+                        // Set the displacement_gradient
+                        displacement_gradient.data(element_index)[k] = first_element_displacement_gradient[k];
+                    }
+                    // Set the state field if it exists
+                    if (state_field_exists) {
+                        int num_state_components = state.GetNumComponentsPerEntity(element_index);
+                        for (int k = 0; k < num_state_components; ++k) {
+                            state.data(element_index)[k] = first_element_state[k];
+                        }
                     }
                 }
-            }
+            });
+        pk1.MarkModifiedOnDevice();
+        displacement_gradient.MarkModifiedOnDevice();
+        // pk1.SyncDeviceToHost();
+        // displacement_gradient.SyncDeviceToHost();
+        if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
+            state.MarkModifiedOnDevice();
+            // state.SyncDeviceToHost();
         }
     }
 
