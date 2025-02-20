@@ -86,26 +86,16 @@ class StrainSmoothingProcessor {
 
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-            m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
             m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE});
         } else {
-            m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
             m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
         }
-        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
-        m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_element_volume = aperi::Field(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
-        m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
-
-        // Get the cell id field
-        m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
 
         // Get the smoothed cell id field
-        m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
+        m_smoothed_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the neighbors and num_neighbors fields
         m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
@@ -172,7 +162,8 @@ class StrainSmoothingProcessor {
     }
 
     void AddCellNumElementsToSmoothedCellData() {
-        const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+        // Update the fields
+        m_smoothed_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
@@ -184,9 +175,9 @@ class StrainSmoothingProcessor {
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
@@ -201,7 +192,7 @@ class StrainSmoothingProcessor {
         // #### Set the cell element local offsets for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
-        const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+        m_smoothed_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
@@ -212,9 +203,9 @@ class StrainSmoothingProcessor {
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
@@ -232,12 +223,12 @@ class StrainSmoothingProcessor {
     }
 
     KOKKOS_INLINE_FUNCTION
-    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) {
+    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) const {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
     KOKKOS_INLINE_FUNCTION
-    aperi::Index LocalOffsetToIndex(uint64_t local_offset) {
+    aperi::Index LocalOffsetToIndex(uint64_t local_offset) const {
         stk::mesh::Entity entity(local_offset);
         return EntityToIndex(entity);
     }
@@ -289,7 +280,7 @@ class StrainSmoothingProcessor {
             // Reset the number of failed insertions
             num_failed = 0;
             Kokkos::parallel_reduce(
-                "set_indices_and_map", num_cells, KOKKOS_LAMBDA(const size_t cell_id, size_t &local_fail) {
+                "set_indices_and_map", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id, size_t &local_fail) {
                     // Get the cell element local offsets
                     auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
 
@@ -424,7 +415,7 @@ class StrainSmoothingProcessor {
 
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
-            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                 // Get the cell element indices
                 auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
 
@@ -540,7 +531,7 @@ class StrainSmoothingProcessor {
 
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
-            "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+            "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                 // Get the cell element local offsets
                 auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
 
@@ -646,7 +637,8 @@ class StrainSmoothingProcessor {
         // Sync the fields
         {
             auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-            m_ngp_element_volume_field->sync_to_host();
+            m_element_volume.UpdateField();
+            m_element_volume.SyncDeviceToHost();
         }
 
         // Add the cells number of elements to the smoothed cell data
@@ -687,23 +679,16 @@ class StrainSmoothingProcessor {
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
-    stk::mesh::BulkData *m_bulk_data;                // The bulk data object.
-    stk::mesh::Selector m_selector;                  // The selector
-    stk::mesh::Selector m_owned_selector;            // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;                   // The ngp mesh object.
-    DoubleField *m_coordinates_field;                // The coordinates field
-    DoubleField *m_element_volume_field;             // The element volume field
-    UnsignedField *m_cell_id_field;                  // The cell id field
-    UnsignedField *m_smoothed_cell_id_field;         // The smoothed cell id field
-    NgpDoubleField *m_ngp_coordinates_field;         // The ngp coordinates field
-    NgpDoubleField *m_ngp_element_volume_field;      // The ngp element volume field
-    NgpUnsignedField *m_ngp_cell_id_field;           // The ngp cell id field
-    NgpUnsignedField *m_ngp_smoothed_cell_id_field;  // The ngp smoothed cell id field
-    aperi::Field<double> m_coordinates;              // The coordinates field
-    aperi::Field<double> m_element_volume;           // The element volume field
+    stk::mesh::BulkData *m_bulk_data;       // The bulk data object.
+    stk::mesh::Selector m_selector;         // The selector
+    stk::mesh::Selector m_owned_selector;   // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;          // The ngp mesh object.
+    aperi::Field<double> m_coordinates;     // The coordinates field
+    aperi::Field<double> m_element_volume;  // The element volume field
     aperi::Field<uint64_t> m_neighbors;
     aperi::Field<uint64_t> m_num_neighbors;
-    aperi::Field<double> m_function_values;  // The function values field
+    aperi::Field<double> m_function_values;     // The function values field
+    aperi::Field<uint64_t> m_smoothed_cell_id;  // The smoothed cell id field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data
