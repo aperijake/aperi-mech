@@ -365,12 +365,12 @@ class SmoothedCellData {
             // Get the start and length for the cell
             uint64_t start = start_view(cell_id);
             uint64_t length = length_view(cell_id);
-            uint64_t end = start + length - 1;
+            uint64_t end = start + length;
 
             aperi::Index expected(0, UINT_MAX);
-            // Find the first slot that is the maximum uint64_t value
+            // Find the first slot that is the maximum uint value
             bool found = false;
-            for (size_t i = start; i <= end + 1; i++) {
+            for (size_t i = start; i <= end; i++) {
                 if (Kokkos::atomic_compare_exchange(&element_indices_view(i), expected, element_index) == expected) {
                     found = true;
                     break;

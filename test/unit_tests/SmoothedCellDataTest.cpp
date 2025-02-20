@@ -13,6 +13,7 @@ void PopulateLength(const Kokkos::View<uint64_t *> &length) {
         "PopulateLength", length.size(), KOKKOS_LAMBDA(const size_t i) {
             length(i) = i + 1;
         });
+    Kokkos::fence();
 }
 
 TEST(FlattenedRaggedArray, Create) {
@@ -136,6 +137,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_cell_num_elements_functor(i, 2);
                 }
             });
+        Kokkos::fence();
         scd.CompleteAddingCellElementCSRIndicesOnDevice();
 
         // Check the element indices before adding elements. Should be all UINT_MAX
@@ -150,11 +152,14 @@ class SmoothedCellDataFixture : public ::testing::Test {
         auto add_cell_element_functor = scd.GetAddCellElementFunctor();
         Kokkos::parallel_for(
             "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                add_cell_element_functor(i, aperi::Index(0, i));
+                aperi::Index element_index(0, i);
+                add_cell_element_functor(i, element_index);
                 if (i == 2) {
-                    add_cell_element_functor(i, aperi::Index(0, i + 1));
+                    aperi::Index element_index_2(0, i + 1);
+                    add_cell_element_functor(i, element_index_2);
                 }
             });
+        Kokkos::fence();
 
         // Add to the cell volume in a kokkos parallel for loop
         auto add_to_cell_volume_functor = scd.GetAddToCellVolumeFunctor();
@@ -165,6 +170,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                     add_to_cell_volume_functor(i, element_volume);
                 }
             });
+        Kokkos::fence();
 
         // Copy the cell data to the host
         scd.CopyCellViewsToHost();
