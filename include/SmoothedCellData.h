@@ -123,11 +123,25 @@ struct NodeToViewIndexMapKey {
 // Custom hash function for NodeToViewIndexMapKey
 struct NodeToViewIndexMapKeyHash {
     KOKKOS_INLINE_FUNCTION
-    size_t operator()(const NodeToViewIndexMapKey &key) const {
-        // Combine the hash values of cell_id, bucket_id, and bucket_ord
-        size_t h1 = key.cell_id;
-        size_t h2 = key.bucket_id * 512 + key.bucket_ord;
-        return h1 ^ (h2 * 173);
+    uint32_t operator()(const NodeToViewIndexMapKey &k) const {
+        // 32-bit golden ratio prime (2^32 / φ)
+        const uint32_t GOLDEN32 = 0x9E3779B9U;
+        const uint32_t MIXER32 = 0xBF58476DU;
+
+        uint32_t h1 = static_cast<uint32_t>(k.cell_id);
+        uint32_t h2 = static_cast<uint32_t>(k.bucket_id) * 512 + k.bucket_ord;
+
+        // Improved mixing sequence
+        uint32_t combined = (h1 ^ (h2 * GOLDEN32)) * MIXER32;
+
+        // 32-bit avalanche (based on MurmurHash3 finalizer)
+        combined ^= combined >> 16;
+        combined *= 0x85EBCA6BU;
+        combined ^= combined >> 13;
+        combined *= 0xC2B2AE35U;
+        combined ^= combined >> 16;
+
+        return combined;
     }
 };
 
@@ -189,14 +203,19 @@ class SmoothedCellData {
         m_number_of_resizes++;
     }
 
-    // Function to rehash the node to local index map on host
-    void RehashNodeToViewIndexMapOnHost(size_t new_total_num_nodes) {
+    // Function to rehash the node to local index map
+    void RehashNodeToViewIndexMap(size_t new_total_num_nodes) {
         // Clear the map
-        m_node_to_view_index_map_host.clear();
         m_node_to_view_index_map.clear();
         // Rehash the map
-        m_node_to_view_index_map_host.rehash(new_total_num_nodes);
-        m_node_to_view_index_map.rehash(new_total_num_nodes);
+        if (!m_node_to_view_index_map.rehash(new_total_num_nodes)) {
+            Kokkos::abort("RehashNodeToViewIndexMap failed on device");
+        }
+        if (!m_node_to_view_index_map_host.rehash(new_total_num_nodes)) {
+            Kokkos::abort("RehashNodeToViewIndexMap failed on host");
+        }
+        // Create new host mirrors
+        m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
     }
 
     // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop

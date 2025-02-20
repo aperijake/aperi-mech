@@ -251,11 +251,11 @@ class StrainSmoothingProcessor {
         MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
         printf("Resizing node views on processor %d from %lu to %lu\n", proc_id, current_size, required_size);
 
-        // Double the size of the node local offsets
-        smoothed_cell_data->ResizeNodeViewsOnHost(required_size);
+        // Resize the views
+        smoothed_cell_data->ResizeNodeViews(required_size);
 
         // Rehash the map
-        smoothed_cell_data->RehashNodeToViewIndexMapOnHost(required_size * 1.2);  // Add 20% buffer to help avoid collisions
+        smoothed_cell_data->RehashNodeToViewIndexMap(required_size * 1.2);  // Add 20% buffer to help avoid collisions
     }
 
     template <size_t NumElementNodes>
@@ -286,6 +286,8 @@ class StrainSmoothingProcessor {
 
         // Loop over all the cells, set indexes for the nodes
         do {
+            // Reset the number of failed insertions
+            num_failed = 0;
             Kokkos::parallel_reduce(
                 "set_indices_and_map", num_cells, KOKKOS_LAMBDA(const size_t cell_id, size_t &local_fail) {
                     // Get the cell element local offsets
@@ -319,6 +321,10 @@ class StrainSmoothingProcessor {
                                         local_index_counter++;
                                     } else if (results.failed()) {
                                         local_fail++;
+                                        if (num_tries > 0) {
+                                            // Should have sized things properly after the first pass, so this should not happen.
+                                            printf("Warning: Failed to insert neighbor (%u, %u) into the map on cell %lu\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord(), cell_id);
+                                        }
                                     }
                                 }
                             } else {
@@ -327,6 +333,10 @@ class StrainSmoothingProcessor {
                                     local_index_counter++;
                                 } else if (results.failed()) {
                                     local_fail++;
+                                    if (num_tries > 0) {
+                                        // Should have sized things properly after the first pass, so this should not happen.
+                                        printf("Warning: Failed to insert node (%u, %u) into the map on cell %lu\n", element_nodes[k].bucket_id(), element_nodes[k].bucket_ord(), cell_id);
+                                    }
                                 }
                             }
                         }
@@ -343,6 +353,7 @@ class StrainSmoothingProcessor {
 
                 // Get the views after resizing
                 node_indicies = m_smoothed_cell_data->GetNodeIndices();
+                node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
                 num_tries++;
                 if (num_tries > max_tries) {
