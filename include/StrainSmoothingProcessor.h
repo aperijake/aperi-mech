@@ -67,10 +67,6 @@ class StrainSmoothingProcessor {
     typedef stk::mesh::Field<uint64_t> UnsignedField;
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
-    // Define the key type and value type
-    using KeyType = aperi::Index;  // Use aperi::Index for the key
-    using ValueType = uint64_t;    // Use uint64_t for the local index
-
    public:
     StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
@@ -90,43 +86,51 @@ class StrainSmoothingProcessor {
 
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
-            m_coordinates_field = StkGetField(FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE});
         } else {
-            m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
         }
-        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
 
         // Get the element volume field
-        m_element_volume_field = StkGetField(FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_element_volume_field = &stk::mesh::get_updated_ngp_field<double>(*m_element_volume_field);
-
-        // Get the cell id field
-        m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
+        m_element_volume = aperi::Field(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the smoothed cell id field
-        m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
+        m_smoothed_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+
+        // Get the neighbors and num_neighbors fields
+        m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_num_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+
+        // Get the function values field
+        m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
     bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
-        // Loop over all the cells
-        bool passed = true;
-        for (size_t i = 0, e = smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the function derivatives
-            auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivativesHost(i);
-            std::array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
-            for (size_t j = 0, je = cell_function_derivatives.size(); j < je; ++j) {
-                cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
-            }
-            for (size_t j = 0; j < 3; ++j) {
-                if (std::abs(cell_function_derivatives_sum[j]) > tolerance) {
-                    aperi::CoutP0() << "Cell " << i << " has non-zero sum of function derivatives: " << cell_function_derivatives_sum[j] << std::endl;
-                    passed = false;
+        // Get the number of cells
+        size_t num_cells = smoothed_cell_data->NumCells();
+
+        // Get the number of nodes
+        auto node_lengths = smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
+
+        // Loop over all the cells, set the derivative values for the nodes
+        Kokkos::parallel_for(
+            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the function derivatives
+                auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivatives(cell_id);
+                Kokkos::Array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
+                for (size_t j = 0, je = node_lengths[cell_id] * 3; j < je; ++j) {
+                    cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
                 }
-            }
-        }
-        return passed;
+                for (size_t j = 0; j < 3; ++j) {
+                    // Compare the sum of the function derivatives to the tolerance on device
+                    if (Kokkos::abs(cell_function_derivatives_sum[j]) > tolerance) {
+                        // Print the cell id and the sum of the function derivatives
+                        printf("Cell %lu: Sum of function derivatives: %f\n", cell_id, cell_function_derivatives_sum[j]);
+                        Kokkos::abort("Partition of nullity check failed");
+                    }
+                }
+            });
+        return true;
     }
 
     std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
@@ -157,8 +161,9 @@ class StrainSmoothingProcessor {
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
     }
 
-    void AddCellNumElementsToSmoothedCellData() {
-        const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+    void AddCellNumElements() {
+        // Update the fields
+        m_smoothed_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
@@ -170,9 +175,9 @@ class StrainSmoothingProcessor {
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
                 add_cell_num_elements_functor(smoothed_cell_id, 1);
@@ -180,14 +185,14 @@ class StrainSmoothingProcessor {
         // Number of cell elements ('length') is now set.
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
-        m_smoothed_cell_data->CompleteAddingCellElementIndicesOnDevice();
+        m_smoothed_cell_data->CompleteAddingCellElementCSRIndicesOnDevice();
     }
 
-    void SetCellLocalOffsets() {
-        // #### Set the cell element local offsets for the smoothed cell data ####
+    void SetCellElementIndices() {
+        // #### Set the cell element indices for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
-        const stk::mesh::NgpField<uint64_t> &ngp_smoothed_cell_id_field = *m_ngp_smoothed_cell_id_field;
+        m_smoothed_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
@@ -198,402 +203,382 @@ class StrainSmoothingProcessor {
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = ngp_smoothed_cell_id_field(elem_index, 0);
+                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
-                uint64_t element_local_offset = element.local_offset();
+
+                // Get the fast mesh index for the element
+                stk::mesh::FastMeshIndex element_fast_mesh_index = ngp_mesh.fast_mesh_index(element);
+
+                // Create an aperi::Index for the element
+                aperi::Index element_index = aperi::Index(element_fast_mesh_index);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(smoothed_cell_id, element_local_offset);
+                add_cell_element_functor(smoothed_cell_id, element_index);
             });
-        // Cell element local offsets (STK offsets) are now set. Copy to host.
+        // Cell element indices are now set. Copy to host.
         m_smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
-    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) {
-        const stk::mesh::MeshIndex &meshIndex = m_bulk_data->mesh_index(entity);
-        stk::mesh::FastMeshIndex fast_mesh_index = stk::mesh::FastMeshIndex{meshIndex.bucket->bucket_id(), static_cast<unsigned>(meshIndex.bucket_ordinal)};
-        return aperi::Index{fast_mesh_index.bucket_id, fast_mesh_index.bucket_ord};
+    KOKKOS_INLINE_FUNCTION
+    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) const {
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
-    aperi::Index LocalOffsetToIndex(uint64_t local_offset) {
+    KOKKOS_INLINE_FUNCTION
+    aperi::Index LocalOffsetToIndex(uint64_t local_offset) const {
         stk::mesh::Entity entity(local_offset);
         return EntityToIndex(entity);
     }
 
-    // Resize the node views and map. Check if the size is greater than the current size. If so, resize the node views and map.
-    bool ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t next_size, size_t cell_index, size_t num_cells) {
-        double ratio_complete = static_cast<double>(cell_index + 1) / static_cast<double>(num_cells);
-        // Estimate the expected size based on the percent done.
-        double expected_size = static_cast<double>(next_size) / ratio_complete;
-        double size_ratio = static_cast<double>(current_size) / expected_size;
-
-        // Calculate the percent done
-        if (next_size > current_size || size_ratio < 0.8) {
-            // Multiply by up to 1.2 to give some buffer. (ramp from multiplying by 1.2 to 1.0 as ratio_complete goes from 0 to 1)
-            auto new_size = static_cast<size_t>(std::ceil(expected_size * (1.0 + 0.2 * (1.0 - ratio_complete))));
-
-            int proc_id;
-            MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
-            printf("Resizing node views on processor %d from %lu to %lu. Percent done building smoothed cell data: %f\n", proc_id, current_size, new_size, ratio_complete * 100.0);
-
-            // Double the size of the node local offsets
-            smoothed_cell_data->ResizeNodeViewsOnHost(new_size);
-
-            // Rehash the map, doubling the size
-            smoothed_cell_data->RehashNodeToViewIndexMapOnHost(new_size * 2);
-
-            return true;
+    // Resize the node views and map.
+    void ResizeNodeViewsAndMap(std::shared_ptr<aperi::SmoothedCellData> smoothed_cell_data, size_t current_size, size_t required_size) {
+        if (current_size >= required_size) {
+            return;
         }
-        return false;
+        int proc_id;
+        MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
+        printf("Resizing node views on processor %d from %lu to %lu\n", proc_id, current_size, required_size);
+
+        // Resize the views
+        smoothed_cell_data->ResizeNodeViews(required_size);
+
+        // Rehash the map
+        smoothed_cell_data->RehashNodeToViewIndexMap(required_size * 1.2);  // Add 20% buffer to help avoid collisions
     }
 
     template <size_t NumElementNodes>
-    void SetNodeIndiciesAndMap(bool one_pass_method) {
-        // Get the bulk data
-        stk::mesh::BulkData &bulk_data = *m_bulk_data;
-
-        // Needed for the one pass method
-        stk::mesh::Field<uint64_t> *neighbors_field = nullptr;
-        stk::mesh::Field<uint64_t> *num_neighbors_field = nullptr;
-
-        if (one_pass_method) {
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-                // Get the neighbors, num_neighbors fields
-                neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-            }
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-                auto ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*neighbors_field);
-                auto ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*num_neighbors_field);
-                ngp_neighbors_field->sync_to_host();
-                ngp_num_neighbors_field->sync_to_host();
-            }
-        }
+    void SetCellNodeIndices(bool one_pass_method) {
+        m_num_neighbors.UpdateField();
+        m_neighbors.UpdateField();
 
         // Create a scoped timer
-        auto time = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
 
-        // #### Set the smoothed cell node ids from the smoothed cell elements ####
-        // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
-        node_starts(0) = 0;
+        // Get views of the node index lengths starts
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
 
-        // Get host views of the node local offsets
-        auto node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
+        // Get views of the node indices
+        auto node_indicies = m_smoothed_cell_data->GetNodeIndices();
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
-        // Initialize the global index counter
-        ValueType global_index_counter = 0;
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
 
-        // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+        auto &ngp_mesh = m_ngp_mesh;
 
-            // Initialize the local index counter
-            ValueType local_index_counter = 0;
+        size_t num_failed;
+        size_t num_tries = 0;
+        size_t max_tries = 3;
 
-            // Loop over all elements in the cell to create the short list of nodes or node neighbors
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
-                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = bulk_data.num_nodes(element); k < ke; ++k) {
-                    if (one_pass_method) {
-                        // Get the node neighbors
-                        uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
-                        uint64_t *neighbors = stk::mesh::field_data(*neighbors_field, element_nodes[k]);
-                        for (size_t l = 0; l < num_neighbors; ++l) {
-                            aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
-                            auto results = node_to_view_index_map.insert({i, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, global_index_counter);
-                            if (results.success()) {
-                                global_index_counter++;
-                                local_index_counter++;
-                            } else if (results.failed()) {
-                                // printf("Failed to insert node (%lu, %lu) into node_neighbor_entities\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord());
-                                Kokkos::abort("Failed to insert node into node_entities");
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
+
+        // Loop over all the cells, set indexes for the nodes
+        do {
+            // Reset the number of failed insertions
+            num_failed = 0;
+            Kokkos::parallel_reduce(
+                "set_indices_and_map", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id, size_t &local_fail) {
+                    // Initialize the local index counter
+                    uint64_t local_index_counter = 0;
+
+                    // Loop over all elements in the cell to create the short list of nodes or node neighbors
+                    for (size_t j = 0, je = length(cell_id); j < je; ++j) {
+                        auto element_index = element_indices(start(cell_id) + j);
+
+                        // Get the nodes for the element
+                        stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
+                        size_t num_nodes = element_node_entities.size();
+                        Kokkos::Array<aperi::Index, NumElementNodes> element_nodes;
+                        for (size_t i = 0; i < num_nodes; ++i) {
+                            element_nodes[i] = aperi::Index(ngp_mesh.fast_mesh_index(element_node_entities[i]));
+                        }
+
+                        // Loop over all the nodes in the element
+                        for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
+                            if (one_pass_method) {
+                                // Get the node neighbors
+                                uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
+                                for (size_t l = 0; l < num_neighbors; ++l) {
+                                    uint64_t neighbor = m_neighbors(element_nodes[k], l);
+                                    aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbor);
+                                    auto results = node_to_view_index_map.insert({cell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
+                                    if (results.success()) {
+                                        local_index_counter++;
+                                    } else if (results.failed()) {
+                                        local_fail++;
+                                        if (num_tries > 0) {
+                                            // Should have sized things properly after the first pass, so this should not happen.
+                                            printf("Warning: Failed to insert neighbor (%u, %u) into the map on cell %lu\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord(), cell_id);
+                                        }
+                                    }
+                                }
+                            } else {
+                                auto results = node_to_view_index_map.insert({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}, local_index_counter);
+                                if (results.success()) {
+                                    local_index_counter++;
+                                } else if (results.failed()) {
+                                    local_fail++;
+                                    if (num_tries > 0) {
+                                        // Should have sized things properly after the first pass, so this should not happen.
+                                        printf("Warning: Failed to insert node (%u, %u) into the map on cell %lu\n", element_nodes[k].bucket_id(), element_nodes[k].bucket_ord(), cell_id);
+                                    }
+                                }
                             }
                         }
-                    } else {
-                        aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        auto results = node_to_view_index_map.insert({i, node_index.bucket_id(), node_index.bucket_ord()}, global_index_counter);
-                        if (results.success()) {
-                            global_index_counter++;
-                            local_index_counter++;
-                        } else if (results.failed()) {
-                            // printf("Failed to insert node (%lu, %lu) into node_to_view_index_map\n", node_index.bucket_id(), node_index.bucket_ord());
-                            Kokkos::abort("Failed to insert node into node_entities");
-                        }
                     }
+
+                    // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
+                    node_lengths(cell_id) = local_index_counter;
+                },
+                num_failed);
+
+            // This is on the host
+            if (num_failed > 0) {
+                // Resize the node views and map
+                ResizeNodeViewsAndMap(m_smoothed_cell_data, node_to_view_index_map.capacity(), node_to_view_index_map.capacity() + num_failed);
+
+                // Get the views after resizing
+                node_indicies = m_smoothed_cell_data->GetNodeIndices();
+                node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
+
+                num_tries++;
+                if (num_tries > max_tries) {
+                    aperi::CoutP0() << "Error: Too many tries to set node indicies and map." << std::endl;
+                    Kokkos::abort("Error: Too many tries to set node indicies and map.");
                 }
             }
+        } while (num_failed > 0);
 
-            // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
-            node_lengths(i) = local_index_counter;
+        bool set_start_from_lengths = true;
+        m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnDevice(set_start_from_lengths);
 
-            // Set the start to the start + length of the previous cell, if not the first cell
-            if (i > 0) {
-                node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
-            }
+        // Get the views after potential resizing
+        node_indicies = m_smoothed_cell_data->GetNodeIndices();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartView();
 
-            // Resize the node views if necessary
-            uint64_t node_start = node_starts(i);
-            size_t new_node_indicies_size = node_start + node_lengths(i);
-            size_t current_node_indicies_size = node_indicies.extent(0);
-            bool resized = ResizeNodeViewsAndMap(m_smoothed_cell_data, current_node_indicies_size, new_node_indicies_size, i, e);
-            if (resized) {
-                // Get the new host views of the node local offsets
-                node_indicies = m_smoothed_cell_data->GetNodeIndiciesHost();
-            }
-        }
+        // Get the capacity of the node to view index map
+        size_t map_size = node_to_view_index_map.capacity();
 
         // Set the node indicies
-        for (size_t i = 0, e = node_to_view_index_map.capacity(); i < e; ++i) {
-            if (node_to_view_index_map.valid_at(i)) {
-                auto key = node_to_view_index_map.key_at(i);
-                auto value = node_to_view_index_map.value_at(i);
-                // Note: This is the correct value because the cell were looped over in order.
-                // This will have to change when this function is threaded.
-                node_indicies(value) = aperi::Index(key.bucket_id, key.bucket_ord);
-            }
-        }
-
-        bool set_start_from_lengths = false;  // The start array is already set above.
-        m_smoothed_cell_data->CompleteAddingCellNodeIndicesOnHost(set_start_from_lengths);
-        m_smoothed_cell_data->CopyCellNodeIndiciesToDevice();
+        Kokkos::parallel_for(
+            "set_node_indicies_from_map", map_size, KOKKOS_LAMBDA(const size_t i) {
+                if (node_to_view_index_map.valid_at(i)) {
+                    auto key = node_to_view_index_map.key_at(i);
+                    auto value = node_to_view_index_map.value_at(i);
+                    auto node_start_index = node_starts(key.cell_id);
+                    uint64_t new_value = node_start_index + value;
+                    node_indicies(new_value) = aperi::Index(key.bucket_id, key.bucket_ord);
+                    node_to_view_index_map.value_at(i) = new_value;
+                }
+            });
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
-    void SetFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
-        // Get the bulk data
-        stk::mesh::BulkData &bulk_data = *m_bulk_data;
-
-        // Needed for the one pass method
-        stk::mesh::Field<uint64_t> *neighbors_field = nullptr;
-        stk::mesh::Field<uint64_t> *num_neighbors_field = nullptr;
-        stk::mesh::Field<double> *function_values_field = nullptr;
-
-        if (one_pass_method) {
-            {
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-                // Get the neighbors, num_neighbors, and function_values fields
-                neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-                function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-            }
-            {
-                // Sync the function values field. Other fields are already synced.
-                auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-                auto ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*function_values_field);
-                ngp_function_values_field->sync_to_host();
-            }
-        }
-
-        m_ngp_coordinates_field->sync_to_host();
-        stk::mesh::Field<double> &element_volume_field = *m_element_volume_field;
-        stk::mesh::Field<double> &coordinate_field = *m_coordinates_field;
+    void ComputeFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
+        // Update the fields
+        m_coordinates.UpdateField();
+        m_element_volume.UpdateField();
+        m_neighbors.UpdateField();
+        m_num_neighbors.UpdateField();
+        m_function_values.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
-        // Get host views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeIndices().GetLengthHost();
-        auto node_starts = m_smoothed_cell_data->GetNodeIndices().GetStartHost();
-        node_starts(0) = 0;
+        // Get device views of the node index lengths and starts
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartView();
 
-        // Get host views of the node derivatives
-        auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivativesHost();
+        // Get device view of the node derivatives
+        auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivatives();
 
         // Zero the node derivatives
         Kokkos::deep_copy(node_function_derivatives, 0.0);
 
         // Get the global node index to local index map
-        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMapHost();
+        auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
         // Get the cell volume view and zero it
-        auto cell_volumes = m_smoothed_cell_data->GetCellVolumeHost();
+        auto cell_volumes = m_smoothed_cell_data->GetCellVolumes();
         Kokkos::deep_copy(cell_volumes, 0.0);
 
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
+
+        auto &ngp_mesh = m_ngp_mesh;
+
+        // Get the start and length views
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
+
+        // Get the element indices
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+        Kokkos::parallel_for(
+            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                // Loop over all the cell elements and add the function derivatives to the nodes
+                for (size_t j = 0, je = length(cell_id); j < je; ++j) {
+                    // Get the element index
+                    auto element_index = element_indices(start(cell_id) + j);
 
-            // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 0, je = cell_element_local_offsets.size(); j < je; ++j) {
-                // Get the element using the stk local offset
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
-
-                // Get the nodes for the element
-                stk::mesh::Entity const *element_nodes = bulk_data.begin_nodes(element);
-
-                // Number of nodes in the element
-                size_t num_nodes = bulk_data.num_nodes(element);
-
-                // Get the element function derivatives. TODO(jake): Calculate the element function derivatives here instead of precomputing and storing.
-                // Set up the field data to gather
-                Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
-
-                // Gather the field data for each node
-                for (size_t l = 0; l < num_nodes; ++l) {
-                    for (size_t k = 0; k < 3; ++k) {
-                        cell_node_coordinates(l, k) = stk::mesh::field_data(coordinate_field, element_nodes[l])[k];
+                    // Get the nodes for the element
+                    stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
+                    size_t num_nodes = element_node_entities.size();
+                    Kokkos::Array<aperi::Index, NumElementNodes> element_nodes;
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        element_nodes[i] = aperi::Index(ngp_mesh.fast_mesh_index(element_node_entities[i]));
                     }
-                }
-                Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
-                const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
-                double &element_volume = derivatives_and_weight.second;
 
-                // Set the element volume
-                stk::mesh::field_data(element_volume_field, element)[0] = element_volume;
-                m_smoothed_cell_data->AddToCellVolumeHost(i, element_volume);
+                    // Set up the field data to gather
+                    Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
 
-                // Loop over all the nodes in the element
-                for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
-                    // One pass method: store the function derivatives for the neighbors of the nodes in the cell
-                    if (one_pass_method) {
-                        // Get the number of neighbors
-                        uint64_t num_neighbors = stk::mesh::field_data(*num_neighbors_field, element_nodes[k])[0];
+                    // Gather the field data for each node
+                    for (size_t l = 0; l < num_nodes; ++l) {
+                        cell_node_coordinates.row(l).noalias() = m_coordinates.GetEigenMatrix<1, 3>(element_nodes[l]);
+                    }
+                    Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
+                    const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
+                    double &element_volume = derivatives_and_weight.second;
 
-                        // Loop over the nodes neighbors
-                        for (size_t l = 0; l < num_neighbors; ++l) {
-                            // Get the neighbor
-                            uint64_t neighbor = stk::mesh::field_data(*neighbors_field, element_nodes[k])[l];
+                    // Set the element volume
+                    m_element_volume(element_index, 0) = element_volume;
+                    cell_volumes(cell_id) += element_volume;
 
-                            // Get the function value
-                            double function_value = stk::mesh::field_data(*function_values_field, element_nodes[k])[l];
+                    // Loop over all the nodes in the element
+                    for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
+                        // One pass method: store the function derivatives for the neighbors of the nodes in the cell
+                        if (one_pass_method) {
+                            // Get the number of neighbors
+                            uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
 
-                            // Get the cell index of the neighbor
-                            aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
-                            KOKKOS_ASSERT(node_to_view_index_map.exists({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
-                            auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({i, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+                            // Loop over the nodes neighbors
+                            for (size_t l = 0; l < num_neighbors; ++l) {
+                                // Get the neighbor
+                                uint64_t neighbor = m_neighbors(element_nodes[k], l);
 
-                            // Atomic add to the derivatives and set the node local offsets for the cell
-                            for (size_t m = 0; m < 3; ++m) {
+                                // Get the function value
+                                double function_value = m_function_values(element_nodes[k], l);
+
+                                // Get the cell index of the neighbor
+                                aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
+                                KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
+                                auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+
+                                // Atomic add to the derivatives
+                                for (size_t m = 0; m < 3; ++m) {
+                                    // Will have to divide by the cell volume when we have the full value
+                                    Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
+                                }
+                            }
+                        } else {
+                            // Two pass method: store the function derivatives for the nodes in the cell
+
+                            // Get the node index
+                            KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}));
+                            size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()})) * 3;
+                            // Atomic add to the derivatives
+                            for (size_t l = 0; l < 3; ++l) {
                                 // Will have to divide by the cell volume when we have the full value
-                                Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
+                                Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
                             }
                         }
-                    } else {
-                        // Two pass method: store the function derivatives for the nodes in the cell
-
-                        // Get the node local offset
-                        aperi::Index node_index = EntityToIndex(element_nodes[k]);
-                        KOKKOS_ASSERT(node_to_view_index_map.exists({i, node_index.bucket_id(), node_index.bucket_ord()}));
-                        size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({i, node_index.bucket_id(), node_index.bucket_ord()})) * 3;
-                        // Atomic add to the derivatives and set the node local offsets for the cell
-                        for (size_t l = 0; l < 3; ++l) {
-                            // Will have to divide by the cell volume when we have the full value
-                            Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
-                        }
                     }
                 }
-            }
 
-            // Cell volume
-            double cell_volume = m_smoothed_cell_data->GetCellVolumeHost(i);
+                // Cell volume
+                double cell_volume = cell_volumes(cell_id);
 
-            size_t start_node_index = node_starts(i);
+                size_t start_node_index = node_starts(cell_id);
 
-            // Divide the function derivatives by the cell volume
-            for (size_t j = 0, je = node_lengths(i); j < je; ++j) {
-                size_t j3 = (start_node_index + j) * 3;
-                for (size_t k = 0; k < 3; ++k) {
-                    node_function_derivatives(j3 + k) /= cell_volume;
+                // Divide the function derivatives by the cell volume
+                for (size_t j = 0, je = node_lengths(cell_id); j < je; ++j) {
+                    size_t j3 = (start_node_index + j) * 3;
+                    for (size_t k = 0; k < 3; ++k) {
+                        node_function_derivatives(j3 + k) /= cell_volume;
+                    }
                 }
-            }
-        }
-        // Copy element volumes, function derivatives to device
-        element_volume_field.clear_sync_state();
-        element_volume_field.modify_on_host();
-        element_volume_field.sync_to_device();
-        m_smoothed_cell_data->CopyCellVolumeToDevice();
-        m_smoothed_cell_data->CopyCellFunctionDerivativesToDevice();
+            });
+        m_element_volume.MarkModifiedOnDevice();
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
     }
 
     void PopulateElementOutputs() {
         // Fill in the other elements in the cell with the parent elements values
-        // Fields: pk1_stress, displacement_gradient
+        // Fields: pk1_stress, displacement_gradient, state
 
-        size_t num_tensor_components = 9;
+        // Const expressions for the number of tensor components and the number of state components
+        constexpr size_t num_tensor_components = 9;
+
+        // Get the element indices, start, and length views
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
         // Get the fields
-        stk::mesh::Field<double> *pk1_stress_field = StkGetField(FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
-        stk::mesh::Field<double> *displacement_gradient_field = StkGetField(FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, &m_bulk_data->mesh_meta_data());
-
-        // Create aperi::Field objects for the fields to make sure they are synced to the host
         aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         aperi::Field<double> displacement_gradient(m_mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
-        pk1.MarkModifiedOnDevice();
-        displacement_gradient.MarkModifiedOnDevice();
-        pk1.SyncDeviceToHost();
-        displacement_gradient.SyncDeviceToHost();
 
         // Check for state field
         aperi::FieldQueryData<double> state_query({"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
-        stk::mesh::Field<double> *state = nullptr;
         bool state_field_exists = false;
-        if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
+        aperi::Field<double> state;
+        if (FieldExists(state_query, m_mesh_data)) {
             state_field_exists = true;
             // Get the state field
-            state = StkGetField(state_query, &m_bulk_data->mesh_meta_data());
-            // Create aperi::Field objects for the fields to make sure they are synced to the host
-            aperi::Field<double> state(m_mesh_data, state_query);
-            state.MarkModifiedOnDevice();
-            state.SyncDeviceToHost();
+            state = aperi::Field<double>(m_mesh_data, state_query);
         }
+        const size_t stride = state_field_exists ? state.GetStride() : 0;
+
+        // Get the number of cells
+        size_t num_cells = m_smoothed_cell_data->NumCells();
 
         // Loop over all the cells, set the derivative values for the nodes
-        for (size_t i = 0, e = m_smoothed_cell_data->NumCells(); i < e; ++i) {
-            // Get the cell element local offsets
-            auto cell_element_local_offsets = m_smoothed_cell_data->GetCellElementLocalOffsetsHost(i);
+        Kokkos::parallel_for(
+            "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                // Get the first element
+                const aperi::Index first_element = element_indices(start(cell_id));
 
-            // Get the first element
-            stk::mesh::Entity first_element(cell_element_local_offsets[0]);
+                // Get the pk1_stress and displacement_gradient of the first element as Eigen maps
+                const auto first_element_pk1_stress = pk1.GetConstEigenVectorMap<num_tensor_components>(first_element);
+                const auto first_element_displacement_gradient = displacement_gradient.GetConstEigenVectorMap<num_tensor_components>(first_element);
 
-            // Get the pk1_stress and displacement_gradient of the first element
-            auto first_element_pk1_stress = stk::mesh::field_data(*pk1_stress_field, first_element);
-            auto first_element_displacement_gradient = stk::mesh::field_data(*displacement_gradient_field, first_element);
-            double *first_element_state = nullptr;
-            // Get the state field if it exists
-            if (state_field_exists) {
-                first_element_state = stk::mesh::field_data(*state, first_element);
-            }
+                // Get the state field map if it exists
+                Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
+                size_t num_state_components = state_field_exists ? state.GetNumComponentsPerEntity(first_element) : 0;
+                const auto first_element_state = state_field_exists ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
-            // Loop over all the cell elements and add the function derivatives to the nodes
-            for (size_t j = 1, je = cell_element_local_offsets.size(); j < je; ++j) {
-                // Get the element using the stk local offset
-                auto element_local_offset = cell_element_local_offsets[j];
-                stk::mesh::Entity element(element_local_offset);
+                // Loop over all the cell elements and add the function derivatives to the nodes
+                for (size_t j = 1, je = length(cell_id); j < je; ++j) {
+                    // Get the element index
+                    const aperi::Index element_index = element_indices(start(cell_id) + j);
 
-                // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
-                for (size_t k = 0; k < num_tensor_components; ++k) {
-                    // Set the pk1_stress
-                    stk::mesh::field_data(*pk1_stress_field, element)[k] = first_element_pk1_stress[k];
+                    // Set the pk1_stress and displacement_gradient
+                    for (size_t k = 0; k < num_tensor_components; ++k) {
+                        pk1(element_index, k) = first_element_pk1_stress(k);
+                        displacement_gradient(element_index, k) = first_element_displacement_gradient(k);
+                    }
 
-                    // Set the displacement_gradient
-                    stk::mesh::field_data(*displacement_gradient_field, element)[k] = first_element_displacement_gradient[k];
-                }
-                // Set the state field if it exists
-                if (state_field_exists) {
-                    int num_state_components = stk::mesh::field_scalars_per_entity(*state, element);
-                    for (int k = 0; k < num_state_components; ++k) {
-                        stk::mesh::field_data(*state, element)[k] = first_element_state[k];
+                    // Set the state field if it exists
+                    if (state_field_exists) {
+                        for (size_t k = 0; k < num_state_components; ++k) {
+                            state(element_index, k) = first_element_state(k);
+                        }
                     }
                 }
-            }
+            });
+        pk1.MarkModifiedOnDevice();
+        displacement_gradient.MarkModifiedOnDevice();
+        if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
+            state.MarkModifiedOnDevice();
         }
     }
 
@@ -652,30 +637,18 @@ class StrainSmoothingProcessor {
         // Create the smoothed cell data object
         m_smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_cell, one_pass_method, m_smoothed_cell_timer_manager);
 
-        // Sync the fields
-        {
-            auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-            m_ngp_element_volume_field->sync_to_host();
-        }
-
         // Add the cells number of elements to the smoothed cell data
-        AddCellNumElementsToSmoothedCellData();
+        AddCellNumElements();
 
-        // Set the cell local offsets
-        SetCellLocalOffsets();
+        // Set the cell element indices
+        SetCellElementIndices();
 
         // Set the node indicies and map
-        SetNodeIndiciesAndMap<NumElementNodes>(one_pass_method);
+        SetCellNodeIndices<NumElementNodes>(one_pass_method);
 
         PrintDiagnosticOutput();
 
         return m_smoothed_cell_data;
-    }
-
-    template <size_t NumElementNodes, typename IntegrationFunctor>
-    void ComputeFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method = true) {
-        // Set the function derivatives
-        SetFunctionDerivatives<NumElementNodes>(integration_functor, one_pass_method);
     }
 
     double GetNumElements(const stk::mesh::Selector &selector) const {
@@ -696,18 +669,16 @@ class StrainSmoothingProcessor {
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
-    stk::mesh::BulkData *m_bulk_data;                // The bulk data object.
-    stk::mesh::Selector m_selector;                  // The selector
-    stk::mesh::Selector m_owned_selector;            // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;                   // The ngp mesh object.
-    DoubleField *m_coordinates_field;                // The coordinates field
-    DoubleField *m_element_volume_field;             // The element volume field
-    UnsignedField *m_cell_id_field;                  // The cell id field
-    UnsignedField *m_smoothed_cell_id_field;         // The smoothed cell id field
-    NgpDoubleField *m_ngp_coordinates_field;         // The ngp coordinates field
-    NgpDoubleField *m_ngp_element_volume_field;      // The ngp element volume field
-    NgpUnsignedField *m_ngp_cell_id_field;           // The ngp cell id field
-    NgpUnsignedField *m_ngp_smoothed_cell_id_field;  // The ngp smoothed cell id field
+    stk::mesh::BulkData *m_bulk_data;       // The bulk data object.
+    stk::mesh::Selector m_selector;         // The selector
+    stk::mesh::Selector m_owned_selector;   // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;          // The ngp mesh object.
+    aperi::Field<double> m_coordinates;     // The coordinates field
+    aperi::Field<double> m_element_volume;  // The element volume field
+    aperi::Field<uint64_t> m_neighbors;
+    aperi::Field<uint64_t> m_num_neighbors;
+    aperi::Field<double> m_function_values;     // The function values field
+    aperi::Field<uint64_t> m_smoothed_cell_id;  // The smoothed cell id field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data

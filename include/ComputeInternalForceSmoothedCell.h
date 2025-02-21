@@ -2,9 +2,6 @@
 
 #include <Eigen/Dense>
 #include <memory>
-#include <stk_mesh/base/Entity.hpp>
-#include <stk_mesh/base/GetNgpMesh.hpp>
-#include <stk_mesh/base/NgpMesh.hpp>
 
 #include "ComputeInternalForceBase.h"
 #include "Field.h"
@@ -64,17 +61,16 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         bool has_state = m_has_state;
         bool needs_velocity_gradient = m_needs_velocity_gradient;
 
-        // Loop over all the cells
+        // Loop over all the cells. TODO:(fbar) Loop over subcells in the cells
         Kokkos::parallel_for(
             "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                 // Create a map around the state_old and state_new pointers
-                const auto element_local_offsets = scd.GetCellElementLocalOffsets(cell_id);
-                const stk::mesh::Entity element(element_local_offsets[0]);
-                const stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(element);
+                const auto element_indices = scd.GetCellElementIndices(cell_id);  // TODO: (fbar) GetSubCellElementIndices
+                const aperi::Index elem_index = element_indices(0);
 
-                // Get the node local offsets and function derivatives
-                const auto node_indicies = scd.GetCellNodeIndicies(cell_id);
-                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);
+                // Get the node indices and function derivatives
+                const auto node_indicies = scd.GetCellNodeIndices(cell_id);                      // TODO: (fbar) GetSubCellNodeIndices
+                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);  // TODO: (fbar) GetSubCellFunctionDerivatives
 
                 const size_t num_nodes = node_indicies.extent(0);
 
@@ -90,38 +86,58 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                     this_displacement_gradient += displacement_np1 * b_matrix_map.row(k);
                 }
 
-                // Compute the field gradients
-                ComputeDisplacementGradient(elem_index, this_displacement_gradient);
+                // Compute the field gradients, non-bar version
+                ComputeDisplacementGradient(elem_index(), this_displacement_gradient);
+            });
+
+        // TODO(fbar) Loop over cells. Compute and store F-bar
+
+        // Loop over all the cells
+        Kokkos::parallel_for(
+            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                // Create a map around the state_old and state_new pointers
+                const auto element_indices = scd.GetCellElementIndices(cell_id);  // TODO: (fbar) GetSubCellElementIndices
+                const aperi::Index elem_index = element_indices(0);
+
+                // Get the node indices and function derivatives
+                const auto node_indicies = scd.GetCellNodeIndices(cell_id);                      // TODO: (fbar) GetSubCellNodeIndices
+                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);  // TODO: (fbar) GetSubCellFunctionDerivatives
+
+                const size_t num_nodes = node_indicies.extent(0);
+
+                // Create maps for the function derivatives and displacement
+                Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
 
                 // Get the displacement gradient map
-                const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+                const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());  // TODO: (fbar) use f_bar field if has subcells
 
-                // Compute the velocity gradient if needed
-                const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
+                // Compute the velocity gradient if needed. TODO: (fbar) use f_bar fields to compute velocity gradient?
+                const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index()).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
                 // Get the number of state variables
                 const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
 
                 // Get the state maps
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
-                const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
-                auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index, num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+                const auto state_n_map = has_state ? m_state_n_field.GetConstEigenVectorMap(elem_index(), num_state_variables) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+                auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index(), num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Get the pk1 stress map
-                auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
+                auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index());
 
-                // Compute the stress
+                // Compute the stress, pk1_bar value if using F-bar
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
 
                 // Compute the stress and internal force of the element.
                 double volume = scd.GetCellVolume(cell_id);
 
+                // TODO: (fbar) unbar the stress if using F-bar
                 Eigen::Matrix<double, 3, 3> stress_term = pk1_stress_map.transpose() * -volume;
 
                 // Adjust for the B matrix and weight not being in the original configuration for updated or semi Lagrangian formulations
                 if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
                     // Compute the deformation gradient
-                    const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index);
+                    const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index());
 
                     // Adjust the stress to account for the difference in configuration
                     stress_term = F_reference * stress_term / F_reference.determinant();
