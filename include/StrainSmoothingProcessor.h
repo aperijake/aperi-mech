@@ -515,7 +515,13 @@ class StrainSmoothingProcessor {
         // Fill in the other elements in the cell with the parent elements values
         // Fields: pk1_stress, displacement_gradient, state
 
-        size_t num_tensor_components = 9;
+        // Const expressions for the number of tensor components and the number of state components
+        constexpr size_t num_tensor_components = 9;
+
+        // Get the element indices, start, and length views
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
         // Get the fields
         aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
@@ -525,18 +531,17 @@ class StrainSmoothingProcessor {
         aperi::FieldQueryData<double> state_query({"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         bool state_field_exists = false;
         aperi::Field<double> state;
+        size_t num_state_components = 0;
         if (FieldExists(state_query, m_mesh_data)) {
             state_field_exists = true;
             // Get the state field
             state = aperi::Field<double>(m_mesh_data, state_query);
+            num_state_components = state.GetNumComponentsPerEntity(element_indices(0));
         }
+        const size_t stride = state_field_exists ? state.GetStride() : 0;
 
         // Get the number of cells
         size_t num_cells = m_smoothed_cell_data->NumCells();
-
-        auto element_indices = m_smoothed_cell_data->GetElementIndices();
-        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
-        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
@@ -544,44 +549,37 @@ class StrainSmoothingProcessor {
                 // Get the first element
                 const aperi::Index first_element = element_indices(start(cell_id));
 
-                // Get the pk1_stress and displacement_gradient of the first element
-                double *first_element_pk1_stress = pk1.data(first_element);
-                double *first_element_displacement_gradient = displacement_gradient.data(first_element);
-                double *first_element_state = nullptr;
-                // Get the state field if it exists
-                if (state_field_exists) {
-                    first_element_state = state.data(first_element);
-                }
+                // Get the pk1_stress and displacement_gradient of the first element as Eigen maps
+                const auto first_element_pk1_stress = pk1.GetConstEigenVectorMap<num_tensor_components>(first_element);
+                const auto first_element_displacement_gradient = displacement_gradient.GetConstEigenVectorMap<num_tensor_components>(first_element);
+
+                // Get the state field map if it exists
+                Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
+                const auto first_element_state = state_field_exists ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Loop over all the cell elements and add the function derivatives to the nodes
                 for (size_t j = 1, je = length(cell_id); j < je; ++j) {
                     // Get the element index
                     const aperi::Index element_index = element_indices(start(cell_id) + j);
 
-                    // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
+                    // Set the pk1_stress and displacement_gradient
                     for (size_t k = 0; k < num_tensor_components; ++k) {
-                        // Set the pk1_stress
-                        pk1.data(element_index)[k] = first_element_pk1_stress[k];
-
-                        // Set the displacement_gradient
-                        displacement_gradient.data(element_index)[k] = first_element_displacement_gradient[k];
+                        pk1(element_index, k) = first_element_pk1_stress(k);
+                        displacement_gradient(element_index, k) = first_element_displacement_gradient(k);
                     }
+
                     // Set the state field if it exists
                     if (state_field_exists) {
-                        int num_state_components = state.GetNumComponentsPerEntity(element_index);
-                        for (int k = 0; k < num_state_components; ++k) {
-                            state.data(element_index)[k] = first_element_state[k];
+                        for (size_t k = 0; k < num_state_components; ++k) {
+                            state(element_index, k) = first_element_state(k);
                         }
                     }
                 }
             });
         pk1.MarkModifiedOnDevice();
         displacement_gradient.MarkModifiedOnDevice();
-        pk1.SyncDeviceToHost();
-        displacement_gradient.SyncDeviceToHost();
         if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
             state.MarkModifiedOnDevice();
-            state.SyncDeviceToHost();
         }
     }
 
