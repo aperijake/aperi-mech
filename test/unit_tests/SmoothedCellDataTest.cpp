@@ -25,7 +25,7 @@ TEST(FlattenedRaggedArray, Create) {
     fra.FinishPopulatingOnDevice();
 
     // Get host view with copy of length
-    auto start_host = fra.GetStartHost();
+    auto start_host = fra.GetStartViewHost();
 
     // Create a host view with the expected start values
     Kokkos::View<uint64_t *>::HostMirror expected_start = Kokkos::create_mirror_view(fra.start);
@@ -162,12 +162,12 @@ class SmoothedCellDataFixture : public ::testing::Test {
         Kokkos::fence();
 
         // Add to the cell volume in a kokkos parallel for loop
-        auto add_to_cell_volume_functor = scd.GetAddToCellVolumeFunctor();
+        auto cell_volumes = scd.GetCellVolumes();
         Kokkos::parallel_for(
             "AddToCellVolume", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                add_to_cell_volume_functor(i, element_volume);
+                cell_volumes(i) += element_volume;
                 if (i == 2) {
-                    add_to_cell_volume_functor(i, element_volume);
+                    cell_volumes(i) += element_volume;
                 }
             });
         Kokkos::fence();
@@ -176,14 +176,14 @@ class SmoothedCellDataFixture : public ::testing::Test {
         scd.CopyCellViewsToHost();
 
         // Check the cell volumes
-        auto cell_volume_host = scd.GetCellVolumeHost();
+        auto cell_volume_host = scd.GetCellVolumesHost();
         EXPECT_EQ(cell_volume_host(0), 0.5);
         EXPECT_EQ(cell_volume_host(1), 0.5);
         EXPECT_EQ(cell_volume_host(2), 1.0);
 
         // Get host views of the node index lengths and starts
-        auto node_lengths = scd.GetNodeCSRIndices().GetLengthHost();
-        auto node_starts = scd.GetNodeCSRIndices().GetStartHost();
+        auto node_lengths = scd.GetNodeCSRIndices().GetLengthViewHost();
+        auto node_starts = scd.GetNodeCSRIndices().GetStartViewHost();
         node_starts(0) = 0;  // Set the start for the first cell
 
         // Get host views of the node derivatives and indices

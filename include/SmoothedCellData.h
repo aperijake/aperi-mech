@@ -69,22 +69,22 @@ struct FlattenedRaggedArray {
     }
 
     // Get device view of start.
-    Kokkos::View<uint64_t *> GetStart() const {
+    const Kokkos::View<uint64_t *> &GetStartView() const {
         return start;
     }
 
     // Get device view of length.
-    Kokkos::View<uint64_t *> GetLength() const {
+    const Kokkos::View<uint64_t *> &GetLengthView() const {
         return length;
     }
 
     // Get host view of start.
-    Kokkos::View<uint64_t *>::HostMirror GetStartHost() const {
+    Kokkos::View<uint64_t *>::HostMirror GetStartViewHost() const {
         return start_host;
     }
 
     // Get host view of length.
-    Kokkos::View<uint64_t *>::HostMirror GetLengthHost() const {
+    Kokkos::View<uint64_t *>::HostMirror GetLengthViewHost() const {
         return length_host;
     }
 
@@ -218,7 +218,7 @@ class SmoothedCellData {
         m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
     }
 
-    // Functor to add the number of item for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
+    // Functor to add the number of items for each cell, use the getter GetAddCellNumNodesFunctor or GetAddCellNumElementsFunctor and call in a kokkos parallel for loop
     struct AddCellNumItemsFunctor {
         Kokkos::View<uint64_t *> length;
 
@@ -387,26 +387,6 @@ class SmoothedCellData {
     AddCellElementFunctor GetAddCellElementFunctor() {
         return AddCellElementFunctor(m_element_csr_indices.start, m_element_csr_indices.length, m_element_indices);
     }
-
-    // Functor to add volume to a cell, use the getter GetAddToCellVolumeFunctor and call in a kokkos parallel for loop
-    struct AddToCellVolumeFunctor {
-        Kokkos::View<double *> cell_volume;
-
-        AddToCellVolumeFunctor(Kokkos::View<double *> cell_volume_in)
-            : cell_volume(std::move(cell_volume_in)) {}
-
-        KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &cell_id, const double &element_volume) const {
-            // Atomically add the element volume to the cell volume
-            Kokkos::atomic_add(&cell_volume(cell_id), element_volume);
-        }
-    };
-
-    // Return the AddCellElementFunctor using the member variable m_cell_volume. Call this in a kokkos parallel for loop.
-    AddToCellVolumeFunctor GetAddToCellVolumeFunctor() {
-        return AddToCellVolumeFunctor(m_cell_volume);
-    }
-
     // Get device view of function derivatives
     Kokkos::View<double *> GetFunctionDerivatives() {
         return m_function_derivatives;
@@ -432,13 +412,18 @@ class SmoothedCellData {
         return m_element_indices_host;
     }
 
+    // Get device view of element indices
+    Kokkos::View<aperi::Index *> GetElementIndices() {
+        return m_element_indices;
+    }
+
     // Get device view of cell volume
-    Kokkos::View<double *> GetCellVolume() {
+    Kokkos::View<double *> GetCellVolumes() {
         return m_cell_volume;
     }
 
     // Get host view of cell volume
-    Kokkos::View<double *>::HostMirror GetCellVolumeHost() {
+    Kokkos::View<double *>::HostMirror GetCellVolumesHost() {
         return m_cell_volume_host;
     }
 
@@ -452,18 +437,6 @@ class SmoothedCellData {
     double GetCellVolumeHost(size_t cell_id) {
         return m_cell_volume_host(cell_id);
     }
-
-    // Add to cell volume, host
-    void AddToCellVolumeHost(size_t cell_id, double value) {
-        m_cell_volume_host(cell_id) += value;
-    }
-
-    // Add to cell volume, device
-    KOKKOS_INLINE_FUNCTION
-    void AddToCellVolume(size_t cell_id, double value) const {
-        m_cell_volume(cell_id) += value;
-    }
-
     // Get the indices for the elements in a cell. Return a kokkos subview of the element indices.
     Kokkos::View<aperi::Index *>::HostMirror GetCellElementIndicesHost(size_t cell_id) {
         size_t start = m_element_csr_indices.start_host(cell_id);

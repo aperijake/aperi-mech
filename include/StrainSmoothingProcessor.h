@@ -110,7 +110,7 @@ class StrainSmoothingProcessor {
         size_t num_cells = smoothed_cell_data->NumCells();
 
         // Get the number of nodes
-        auto node_lengths = smoothed_cell_data->GetNodeCSRIndices().GetLength();
+        auto node_lengths = smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
 
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
@@ -161,7 +161,7 @@ class StrainSmoothingProcessor {
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
     }
 
-    void AddCellNumElementsToSmoothedCellData() {
+    void AddCellNumElements() {
         // Update the fields
         m_smoothed_cell_id.UpdateField();
 
@@ -188,8 +188,8 @@ class StrainSmoothingProcessor {
         m_smoothed_cell_data->CompleteAddingCellElementCSRIndicesOnDevice();
     }
 
-    void SetCellLocalOffsets() {
-        // #### Set the cell element local offsets for the smoothed cell data ####
+    void SetCellElementIndices() {
+        // #### Set the cell element indices for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
         m_smoothed_cell_id.UpdateField();
@@ -218,7 +218,7 @@ class StrainSmoothingProcessor {
                 // Add the number of elements to the smoothed cell data
                 add_cell_element_functor(smoothed_cell_id, element_index);
             });
-        // Cell element local offsets (STK offsets) are now set. Copy to host.
+        // Cell element indices are now set. Copy to host.
         m_smoothed_cell_data->CopyCellElementViewsToHost();
     }
 
@@ -250,17 +250,17 @@ class StrainSmoothingProcessor {
     }
 
     template <size_t NumElementNodes>
-    void SetNodeIndiciesAndMap(bool one_pass_method) {
+    void SetCellNodeIndices(bool one_pass_method) {
         m_num_neighbors.UpdateField();
         m_neighbors.UpdateField();
 
         // Create a scoped timer
-        auto time = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
 
         // Get views of the node index lengths starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLength();
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
 
-        // Get views of the node local offsets
+        // Get views of the node indices
         auto node_indicies = m_smoothed_cell_data->GetNodeIndices();
 
         // Get the global node index to local index map
@@ -275,21 +275,22 @@ class StrainSmoothingProcessor {
         size_t num_tries = 0;
         size_t max_tries = 3;
 
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
+
         // Loop over all the cells, set indexes for the nodes
         do {
             // Reset the number of failed insertions
             num_failed = 0;
             Kokkos::parallel_reduce(
                 "set_indices_and_map", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id, size_t &local_fail) {
-                    // Get the cell element local offsets
-                    auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
-
                     // Initialize the local index counter
                     uint64_t local_index_counter = 0;
 
                     // Loop over all elements in the cell to create the short list of nodes or node neighbors
-                    for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                        auto element_index = cell_element_indices[j];
+                    for (size_t j = 0, je = length(cell_id); j < je; ++j) {
+                        auto element_index = element_indices(start(cell_id) + j);
 
                         // Get the nodes for the element
                         stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
@@ -304,9 +305,9 @@ class StrainSmoothingProcessor {
                             if (one_pass_method) {
                                 // Get the node neighbors
                                 uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
-                                uint64_t *neighbors = m_neighbors.data(element_nodes[k]);
                                 for (size_t l = 0; l < num_neighbors; ++l) {
-                                    aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbors[l]);
+                                    uint64_t neighbor = m_neighbors(element_nodes[k], l);
+                                    aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbor);
                                     auto results = node_to_view_index_map.insert({cell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
                                     if (results.success()) {
                                         local_index_counter++;
@@ -338,6 +339,7 @@ class StrainSmoothingProcessor {
                 },
                 num_failed);
 
+            // This is on the host
             if (num_failed > 0) {
                 // Resize the node views and map
                 ResizeNodeViewsAndMap(m_smoothed_cell_data, node_to_view_index_map.capacity(), node_to_view_index_map.capacity() + num_failed);
@@ -359,7 +361,7 @@ class StrainSmoothingProcessor {
 
         // Get the views after potential resizing
         node_indicies = m_smoothed_cell_data->GetNodeIndices();
-        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStart();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartView();
 
         // Get the capacity of the node to view index map
         size_t map_size = node_to_view_index_map.capacity();
@@ -379,7 +381,7 @@ class StrainSmoothingProcessor {
     }
 
     template <size_t NumElementNodes, typename IntegrationFunctor>
-    void SetFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
+    void ComputeFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method) {
         // Update the fields
         m_coordinates.UpdateField();
         m_element_volume.UpdateField();
@@ -392,8 +394,8 @@ class StrainSmoothingProcessor {
 
         // #### Set the smoothed cell node ids from the smoothed cell elements ####
         // Get device views of the node index lengths and starts
-        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLength();
-        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStart();
+        auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
+        auto node_starts = m_smoothed_cell_data->GetNodeCSRIndices().GetStartView();
 
         // Get device view of the node derivatives
         auto node_function_derivatives = m_smoothed_cell_data->GetFunctionDerivatives();
@@ -405,7 +407,7 @@ class StrainSmoothingProcessor {
         auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
         // Get the cell volume view and zero it
-        auto cell_volumes = m_smoothed_cell_data->GetCellVolumeHost();
+        auto cell_volumes = m_smoothed_cell_data->GetCellVolumes();
         Kokkos::deep_copy(cell_volumes, 0.0);
 
         // Get the number of cells
@@ -413,16 +415,20 @@ class StrainSmoothingProcessor {
 
         auto &ngp_mesh = m_ngp_mesh;
 
+        // Get the start and length views
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
+
+        // Get the element indices
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
             "for_each_cell_set_function_derivatives", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
-                // Get the cell element indices
-                auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
-
                 // Loop over all the cell elements and add the function derivatives to the nodes
-                for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                    // Get the element using the stk local offset
-                    auto element_index = cell_element_indices[j];
+                for (size_t j = 0, je = length(cell_id); j < je; ++j) {
+                    // Get the element index
+                    auto element_index = element_indices(start(cell_id) + j);
 
                     // Get the nodes for the element
                     stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
@@ -445,7 +451,7 @@ class StrainSmoothingProcessor {
 
                     // Set the element volume
                     m_element_volume(element_index, 0) = element_volume;
-                    m_smoothed_cell_data->AddToCellVolume(cell_id, element_volume);
+                    cell_volumes(cell_id) += element_volume;
 
                     // Loop over all the nodes in the element
                     for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
@@ -467,7 +473,7 @@ class StrainSmoothingProcessor {
                                 KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
                                 auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
 
-                                // Atomic add to the derivatives and set the node local offsets for the cell
+                                // Atomic add to the derivatives
                                 for (size_t m = 0; m < 3; ++m) {
                                     // Will have to divide by the cell volume when we have the full value
                                     Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
@@ -476,10 +482,10 @@ class StrainSmoothingProcessor {
                         } else {
                             // Two pass method: store the function derivatives for the nodes in the cell
 
-                            // Get the node local offset
+                            // Get the node index
                             KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}));
                             size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()})) * 3;
-                            // Atomic add to the derivatives and set the node local offsets for the cell
+                            // Atomic add to the derivatives
                             for (size_t l = 0; l < 3; ++l) {
                                 // Will have to divide by the cell volume when we have the full value
                                 Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
@@ -489,7 +495,7 @@ class StrainSmoothingProcessor {
                 }
 
                 // Cell volume
-                double cell_volume = m_smoothed_cell_data->GetCellVolume(cell_id);
+                double cell_volume = cell_volumes(cell_id);
 
                 size_t start_node_index = node_starts(cell_id);
 
@@ -501,7 +507,6 @@ class StrainSmoothingProcessor {
                     }
                 }
             });
-        // Copy element volumes, function derivatives to device
         m_element_volume.MarkModifiedOnDevice();
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
     }
@@ -529,14 +534,15 @@ class StrainSmoothingProcessor {
         // Get the number of cells
         size_t num_cells = m_smoothed_cell_data->NumCells();
 
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
+
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
             "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
-                // Get the cell element local offsets
-                auto cell_element_indices = m_smoothed_cell_data->GetCellElementIndices(cell_id);
-
                 // Get the first element
-                const aperi::Index first_element = cell_element_indices[0];
+                const aperi::Index first_element = element_indices(start(cell_id));
 
                 // Get the pk1_stress and displacement_gradient of the first element
                 double *first_element_pk1_stress = pk1.data(first_element);
@@ -548,9 +554,9 @@ class StrainSmoothingProcessor {
                 }
 
                 // Loop over all the cell elements and add the function derivatives to the nodes
-                for (size_t j = 1, je = cell_element_indices.size(); j < je; ++j) {
-                    // Get the element using the stk local offset
-                    const aperi::Index element_index = cell_element_indices[j];
+                for (size_t j = 1, je = length(cell_id); j < je; ++j) {
+                    // Get the element index
+                    const aperi::Index element_index = element_indices(start(cell_id) + j);
 
                     // Loop over all the components in the pk1_stress and displacement_gradient and set them to the first element values
                     for (size_t k = 0; k < num_tensor_components; ++k) {
@@ -571,11 +577,11 @@ class StrainSmoothingProcessor {
             });
         pk1.MarkModifiedOnDevice();
         displacement_gradient.MarkModifiedOnDevice();
-        // pk1.SyncDeviceToHost();
-        // displacement_gradient.SyncDeviceToHost();
+        pk1.SyncDeviceToHost();
+        displacement_gradient.SyncDeviceToHost();
         if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
             state.MarkModifiedOnDevice();
-            // state.SyncDeviceToHost();
+            state.SyncDeviceToHost();
         }
     }
 
@@ -634,31 +640,18 @@ class StrainSmoothingProcessor {
         // Create the smoothed cell data object
         m_smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_cell, one_pass_method, m_smoothed_cell_timer_manager);
 
-        // Sync the fields
-        {
-            auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SyncFields);
-            m_element_volume.UpdateField();
-            m_element_volume.SyncDeviceToHost();
-        }
-
         // Add the cells number of elements to the smoothed cell data
-        AddCellNumElementsToSmoothedCellData();
+        AddCellNumElements();
 
-        // Set the cell local offsets
-        SetCellLocalOffsets();
+        // Set the cell element indices
+        SetCellElementIndices();
 
         // Set the node indicies and map
-        SetNodeIndiciesAndMap<NumElementNodes>(one_pass_method);
+        SetCellNodeIndices<NumElementNodes>(one_pass_method);
 
         PrintDiagnosticOutput();
 
         return m_smoothed_cell_data;
-    }
-
-    template <size_t NumElementNodes, typename IntegrationFunctor>
-    void ComputeFunctionDerivatives(const IntegrationFunctor &integration_functor, bool one_pass_method = true) {
-        // Set the function derivatives
-        SetFunctionDerivatives<NumElementNodes>(integration_functor, one_pass_method);
     }
 
     double GetNumElements(const stk::mesh::Selector &selector) const {
