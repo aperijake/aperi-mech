@@ -531,12 +531,10 @@ class StrainSmoothingProcessor {
         aperi::FieldQueryData<double> state_query({"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         bool state_field_exists = false;
         aperi::Field<double> state;
-        size_t num_state_components = 0;
         if (FieldExists(state_query, m_mesh_data)) {
             state_field_exists = true;
             // Get the state field
             state = aperi::Field<double>(m_mesh_data, state_query);
-            num_state_components = state.GetNumComponentsPerEntity(element_indices(0));
         }
         const size_t stride = state_field_exists ? state.GetStride() : 0;
 
@@ -555,6 +553,7 @@ class StrainSmoothingProcessor {
 
                 // Get the state field map if it exists
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
+                size_t num_state_components = state_field_exists ? state.GetNumComponentsPerEntity(first_element) : 0;
                 const auto first_element_state = state_field_exists ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Loop over all the cell elements and add the function derivatives to the nodes
