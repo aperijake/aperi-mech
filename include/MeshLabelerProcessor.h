@@ -61,10 +61,6 @@ class MeshLabelerProcessor {
         // Get the cell id field
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
-
-        // Get the smoothed cell id field
-        m_smoothed_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_smoothed_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_smoothed_cell_id_field);
     }
 
     void LabelForThexNodalIntegration() {
@@ -123,17 +119,15 @@ class MeshLabelerProcessor {
     void SyncFieldsToHost() {
         m_ngp_active_field->sync_to_host();
         m_ngp_cell_id_field->sync_to_host();
-        m_ngp_smoothed_cell_id_field->sync_to_host();
     }
 
     void SyncFieldsToDevice() {
         m_ngp_active_field->sync_to_device();
         m_ngp_cell_id_field->sync_to_device();
-        m_ngp_smoothed_cell_id_field->sync_to_device();
     }
 
     void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field, m_smoothed_cell_id_field});
+        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
     }
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
@@ -465,9 +459,7 @@ class MeshLabelerProcessor {
                 // Set the smoothed cell id and cell id for the attached elements
                 stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
                 for (size_t i = 0; i < elems.size(); ++i) {
-                    uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, elems[i]);
                     uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
-                    smoothed_cell_id[0] = index;
                     cell_id[0] = index;
                 }
                 index++;
@@ -485,33 +477,14 @@ class MeshLabelerProcessor {
 
     // This should be done after the active node field has been labeled and the active part has been created.
     void LabelCellIdsForElementIntegrationHost() {
-        // Create a map of cell ids to their indices
-        std::unordered_map<uint64_t, uint64_t> cell_id_to_index;
-        uint64_t index = 0;
-
         // Loop over the elements and set the cell id to the element id
+        uint64_t index = 0;
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                cell_id[0] = element.local_offset();
-
-                // Insert the cell id into the map if it doesn't already exist
-                if (cell_id_to_index.find(cell_id[0]) == cell_id_to_index.end()) {
-                    cell_id_to_index[cell_id[0]] = index++;
-                }
-            }
-        }
-
-        // Set the smoothed cell id field
-        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, element);
-
-                // Use the map to find the index of the cell id
-                smoothed_cell_id[0] = cell_id_to_index[cell_id[0]];
+                cell_id[0] = index;
+                index++;
             }
         }
 
@@ -521,18 +494,16 @@ class MeshLabelerProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;    // The mesh data object.
-    std::string m_set;                               // The set to process.
-    stk::mesh::BulkData *m_bulk_data;                // The bulk data object.
-    stk::mesh::Selector m_selector;                  // The selector
-    stk::mesh::Selector m_owned_selector;            // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                   // The ngp mesh object.
-    UnsignedField *m_active_field;                   // The active field
-    UnsignedField *m_cell_id_field;                  // The cell id field
-    UnsignedField *m_smoothed_cell_id_field;         // The smoothed cell id field
-    NgpUnsignedField *m_ngp_active_field;            // The ngp active field
-    NgpUnsignedField *m_ngp_cell_id_field;           // The ngp cell id field
-    NgpUnsignedField *m_ngp_smoothed_cell_id_field;  // The ngp smoothed cell id field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    std::string m_set;                             // The set to process.
+    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
+    stk::mesh::Selector m_selector;                // The selector
+    stk::mesh::Selector m_owned_selector;          // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
+    UnsignedField *m_active_field;                 // The active field
+    UnsignedField *m_cell_id_field;                // The cell id field
+    NgpUnsignedField *m_ngp_active_field;          // The ngp active field
+    NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
 };
 
 }  // namespace aperi

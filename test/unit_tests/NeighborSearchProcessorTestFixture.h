@@ -64,9 +64,6 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
 
         m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
-
-        m_smoothed_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "smoothed_cell_id", 1);
-        stk::mesh::put_field_on_entire_mesh(*m_smoothed_cell_id_field, 1);
     }
 
     template <typename T>

@@ -95,7 +95,7 @@ class StrainSmoothingProcessor {
         m_element_volume = aperi::Field(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the smoothed cell id field
-        m_smoothed_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"smoothed_cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        m_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the neighbors and num_neighbors fields
         m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
@@ -163,7 +163,7 @@ class StrainSmoothingProcessor {
 
     void AddCellNumElements() {
         // Update the fields
-        m_smoothed_cell_id.UpdateField();
+        m_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
@@ -176,11 +176,11 @@ class StrainSmoothingProcessor {
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
+                // Get the cell_id
+                uint64_t cell_id = m_cell_id(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_num_elements_functor(smoothed_cell_id, 1);
+                add_cell_num_elements_functor(cell_id, 1);
             });
         // Number of cell elements ('length') is now set.
         // This populates the 'start' array from the 'length' array and collects other sizes.
@@ -192,7 +192,7 @@ class StrainSmoothingProcessor {
         // #### Set the cell element indices for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
-        m_smoothed_cell_id.UpdateField();
+        m_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
@@ -204,8 +204,8 @@ class StrainSmoothingProcessor {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the smoothed_cell_id
-                uint64_t smoothed_cell_id = m_smoothed_cell_id(elem_index, 0);
+                // Get the cell_id
+                uint64_t cell_id = m_cell_id(elem_index, 0);
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
@@ -216,7 +216,7 @@ class StrainSmoothingProcessor {
                 aperi::Index element_index = aperi::Index(element_fast_mesh_index);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(smoothed_cell_id, element_index);
+                add_cell_element_functor(cell_id, element_index);
             });
         // Cell element indices are now set. Copy to host.
         m_smoothed_cell_data->CopyCellElementViewsToHost();
@@ -677,8 +677,8 @@ class StrainSmoothingProcessor {
     aperi::Field<double> m_element_volume;  // The element volume field
     aperi::Field<uint64_t> m_neighbors;
     aperi::Field<uint64_t> m_num_neighbors;
-    aperi::Field<double> m_function_values;     // The function values field
-    aperi::Field<uint64_t> m_smoothed_cell_id;  // The smoothed cell id field
+    aperi::Field<double> m_function_values;  // The function values field
+    aperi::Field<uint64_t> m_cell_id;        // The smoothed cell id field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data

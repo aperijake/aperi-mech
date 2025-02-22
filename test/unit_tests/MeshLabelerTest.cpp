@@ -126,7 +126,6 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
 
         CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
         CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", false);
-        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "smoothed_cell_id", true);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
