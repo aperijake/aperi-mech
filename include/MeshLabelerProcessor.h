@@ -50,7 +50,6 @@ class MeshLabelerProcessor {
         std::vector<std::string> sets;
         sets.push_back(m_set);
         m_selector = StkGetSelector(sets, meta_data);
-        assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
 
         stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
         m_owned_selector = m_selector & full_owned_selector;
