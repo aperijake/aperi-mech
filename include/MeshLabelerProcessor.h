@@ -84,7 +84,7 @@ class MeshLabelerProcessor {
         LabelCellIdsForNodalIntegrationHost();
 
         // Create the cells part from the cell id field, host operation
-        CreateCellsPartFromCellIdFieldHost();
+        CreateCellsPartFromCellIdFieldHost(true);
 
         // All operations are done on the host, so sync the fields to the device
         SyncFieldsToDevice();
@@ -99,7 +99,7 @@ class MeshLabelerProcessor {
         LabelCellIdsForElementIntegrationHost();
 
         // Create the cells part from the cell id field, host operation
-        CreateCellsPartFromCellIdFieldHost();
+        CreateCellsPartFromCellIdFieldHost(false);
 
         // Sync the fields to the device
         SyncFieldsToDevice();
@@ -114,7 +114,7 @@ class MeshLabelerProcessor {
         LabelCellIdsForElementIntegrationHost();
 
         // Create the cells part from the cell id field, host operation
-        CreateCellsPartFromCellIdFieldHost();
+        CreateCellsPartFromCellIdFieldHost(false);
 
         // Sync the fields to the device
         SyncFieldsToDevice();
@@ -244,25 +244,37 @@ class MeshLabelerProcessor {
         m_bulk_data->modification_end();
     }
 
-    void CreateCellsPartFromCellIdFieldHost() {
+    void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {
         // Host operation and mesh modification
         stk::mesh::EntityVector elems_to_change;
 
-        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                // Get the cell id, which is the local offset to the cell id parent
-                uint64_t *cell_id_field_data = stk::mesh::field_data(*m_cell_id_field, (*bucket)[i_elem]);
+        if (nodal_from_thex) {
+            // Create the active selector
+            std::vector<std::string> active_sets;
+            active_sets.push_back(m_set + "_active");
+            stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
 
-                // Get the local offset of this element
-                stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t local_offset = element.local_offset();
+            // Loop over the active nodes, grab the first element in the connected entities list
+            for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
+                for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                    stk::mesh::Entity node = (*bucket)[i_node];
 
-                // If the cell id is the same as the local offset, add the element to the list
-                if (cell_id_field_data[0] == local_offset) {
+                    // Get the connected elements
+                    stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
+                    if (elems.size() > 0) {
+                        elems_to_change.push_back(elems[0]);
+                    }
+                }
+            }
+        } else {  // All elements are cells
+            for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+                for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                    stk::mesh::Entity element = (*bucket)[i_elem];
                     elems_to_change.push_back(element);
                 }
             }
         }
+
         // Get the MetaData from the bulk data
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
@@ -365,10 +377,7 @@ class MeshLabelerProcessor {
         //    a. get the connected elements, and set the cell id to the minimum cell id that was set for the node above
         // 4. Communicate the cell id to processor map
         // 5. Call function to put all the cell elements on the same processor
-        // 6. Create a map from cell id to local offset
-        // 7. Fill the cell id to local offset map
-        // 8. Change the cell id to the local offset
-        // 9. Set the active nodes active field back to 1
+        // 6. Set the active nodes active field back to 1 and set the smoothed cell id and cell id for the attached elements
 
         // Create the active selector
         std::vector<std::string> active_sets;
@@ -437,51 +446,7 @@ class MeshLabelerProcessor {
         // Put all the cell elements on the same processor
         PutAllCellElementsOnTheSameProcessorHost(cell_id_to_processor_map);
 
-        // Map from cell id to local offset
-        std::unordered_map<uint64_t, uint64_t> cell_id_to_local_offset;
-
-        // Fill the cell id to local offset map
-        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                if (cell_id[0] == m_bulk_data->identifier(element)) {
-                    cell_id_to_local_offset[cell_id[0]] = element.local_offset();
-                }
-            }
-        }
-
-        // Create a map of cell ids to their indices
-        std::unordered_map<uint64_t, uint64_t> cell_id_to_index;
-        uint64_t index = 0;
-
-        // Change the cell id to the local offset and populate the map
-        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                cell_id[0] = cell_id_to_local_offset[cell_id[0]];
-
-                // Insert the cell_id into the map if it doesn't already exist
-                if (cell_id_to_index.find(cell_id[0]) == cell_id_to_index.end()) {
-                    cell_id_to_index[cell_id[0]] = index++;
-                }
-            }
-        }
-
-        // Set the smoothed cell id field
-        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
-            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
-                stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, element);
-
-                // Set the smoothed cell id to the index from the map
-                smoothed_cell_id[0] = cell_id_to_index[cell_id[0]];
-            }
-        }
-
-        // Set the active nodes active field back to 1. Probably not necessary, but just in case.
+        // Loop over the active nodes, set the active field back to 1
         for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                 stk::mesh::Entity node = (*bucket)[i_node];
@@ -489,6 +454,23 @@ class MeshLabelerProcessor {
                 // Get the active value
                 uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, node);
                 active_field_data[0] = 1;
+            }
+        }
+
+        // Loop over the owned active nodes, set the smoothed cell id and cell id for the attached elements
+        uint64_t index = 0;
+        for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                stk::mesh::Entity node = (*bucket)[i_node];
+                // Set the smoothed cell id and cell id for the attached elements
+                stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
+                for (size_t i = 0; i < elems.size(); ++i) {
+                    uint64_t *smoothed_cell_id = stk::mesh::field_data(*m_smoothed_cell_id_field, elems[i]);
+                    uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
+                    smoothed_cell_id[0] = index;
+                    cell_id[0] = index;
+                }
+                index++;
             }
         }
 
