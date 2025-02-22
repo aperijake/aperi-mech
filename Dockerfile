@@ -6,6 +6,8 @@
 #    1. This assume the user has the aperi-mech project cloned in the same directory as the Dockerfile
 #    2. Build the docker image using the following command:
 #        docker build -t aperi-mech:latest .
+#      or, if building on Mac for Linux:
+#        docker buildx build --platform linux/amd64 -t aperi-mech:latest .
 #    3. Run the docker container using the following command (uses the docker-compose.yml file in the aperi-mech project):
 #        docker-compose run --service-ports aperi-mech-development /bin/bash
 #    4. Start working on the aperi-mech project
@@ -121,9 +123,9 @@ RUN spack env create aperi-mech
 # Add packages to the Spack environment, aperi-mech
 # Compadre should be version 1.5.9 (need to update the spack package to get that version as of July 2024)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels@4.5.01 ~cuda ~shared && \
-    spack -e aperi-mech add kokkos@4.5.01 ~cuda ~shared cxxstd=17 && \
+    spack -e aperi-mech add compadre ~tests && \
+    spack -e aperi-mech add kokkos-kernels ~cuda ~shared && \
+    spack -e aperi-mech add kokkos ~cuda ~shared cxxstd=17 && \
     spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
