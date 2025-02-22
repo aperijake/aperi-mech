@@ -48,6 +48,7 @@ class MeshLabelerProcessor {
         // Get the selector
         assert(!m_set.empty());
         std::vector<std::string> sets;
+        sets.push_back(m_set);
         m_selector = StkGetSelector(sets, meta_data);
         assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
 
