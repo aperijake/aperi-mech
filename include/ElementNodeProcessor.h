@@ -40,10 +40,6 @@ class ElementNodeProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         m_selector = StkGetSelector(sets, meta_data);
-        // Warn if the selector is empty.
-        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: ElementNodeProcessor selector is empty." << std::endl;
-        }
         m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
