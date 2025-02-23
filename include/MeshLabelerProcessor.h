@@ -469,9 +469,8 @@ class MeshLabelerProcessor {
                     cell_id[0] = cell_id_index;
                 }
                 cell_id_index++;
-                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[0]);
                 // Label the subcell ids and update the subcell id index
-                LabelSubcellIds(num_subcells, elems, subcell_id, subcell_id_index);
+                LabelSubcellIds(num_subcells, elems, subcell_id_index);
             }
         }
 
@@ -488,18 +487,20 @@ class MeshLabelerProcessor {
         m_ngp_subcell_id_field->modify_on_host();
     }
 
-    void LabelSubcellIds(const int &num_subcells, const stk::mesh::ConnectedEntities &elems, uint64_t *subcell_id, uint64_t &subcell_id_index) {
+    void LabelSubcellIds(const int &num_subcells, const stk::mesh::ConnectedEntities &elems, uint64_t &subcell_id_index) {
         // Label the subcell ids
         // num_subcells < 1 = Each element is a subcell
         // num_subcells >= 1 = Each element is split into num_subcells subcells
         if (num_subcells < 1) {
             for (size_t i = 0; i < elems.size(); ++i) {
-                subcell_id[i] = subcell_id_index++;
+                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
+                subcell_id[0] = subcell_id_index++;
             }
         } else if (num_subcells == 1) {
             // Each element is split into num_subcells subcells
             for (size_t i = 0; i < elems.size(); ++i) {
-                subcell_id[i] = subcell_id_index;
+                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
+                subcell_id[0] = subcell_id_index;
             }
             subcell_id_index++;
         } else {

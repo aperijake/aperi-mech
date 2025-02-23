@@ -123,7 +123,9 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_labeler->LabelPart(mesh_labeler_parameters);
 
         CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
-        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", false);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", true);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "subcell_id", true);
+        CheckThatFieldsMatch<aperi::FieldDataTopologyRank::ELEMENT, uint64_t>(*m_mesh_data, {"block_1"}, "cell_id", "subcell_id", aperi::FieldQueryState::None);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object

@@ -72,10 +72,10 @@ class SmoothedCellDataFixture : public ::testing::Test {
              - element 1: nodes: 1, 4, 3
              - element 2: nodes: 1, 2, 4
              - element 3: nodes: 2, 5, 4
-           - 3 cells:
-             - cell 0: elements: 0     nodes: 0, 1, 3
-             - cell 1: elements: 1     nodes: 1, 4, 3
-             - cell 2: elements: 2, 3  nodes: 1, 2, 4, 5
+           - 3 subcells:
+             - subcell 0: elements: 0     nodes: 0, 1, 3
+             - subcell 1: elements: 1     nodes: 1, 4, 3
+             - subcell 2: elements: 2, 3  nodes: 1, 2, 4, 5
         */
 
         std::vector<std::array<double, 3>> node_coords = {
@@ -94,7 +94,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             {2, 5, 4},
         };
 
-        std::vector<std::vector<uint64_t>> cell_elements = {
+        std::vector<std::vector<uint64_t>> subcell_elements = {
             {0},
             {1},
             {2, 3},
@@ -125,20 +125,20 @@ class SmoothedCellDataFixture : public ::testing::Test {
         };
 
         // Create the SmoothedCellData object
-        aperi::SmoothedCellData scd(m_num_cells, 1, m_num_elements, m_reserved_num_nodes);
+        aperi::SmoothedCellData scd(m_num_cells, m_num_subcells, m_num_elements, m_reserved_num_nodes);
 
-        // Add cell num elements in a kokkos parallel for loop
-        auto add_cell_num_elements_functor = scd.GetAddCellNumElementsFunctor();
+        // Add subcell num elements in a kokkos parallel for loop
+        auto add_subcell_num_elements_functor = scd.GetAddSubcellNumElementsFunctor();
         Kokkos::parallel_for(
-            "AddCellNumElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+            "AddSubcellNumElements", m_num_subcells, KOKKOS_LAMBDA(const size_t i) {
                 if (i < 2) {
-                    add_cell_num_elements_functor(i, 1);
+                    add_subcell_num_elements_functor(i, 1);
                 } else {
-                    add_cell_num_elements_functor(i, 2);
+                    add_subcell_num_elements_functor(i, 2);
                 }
             });
         Kokkos::fence();
-        scd.CompleteAddingCellElementCSRIndicesOnDevice();
+        scd.CompleteAddingSubcellElementCSRIndicesOnDevice();
 
         // Check the element indices before adding elements. Should be all UINT_MAX
         auto element_indices_host_pre = scd.GetElementIndicesHost();
@@ -148,38 +148,38 @@ class SmoothedCellDataFixture : public ::testing::Test {
 
         double element_volume = 0.5;  // Volume of half of a unit cube
 
-        // Add cell elements in a kokkos parallel for loop
-        auto add_cell_element_functor = scd.GetAddCellElementFunctor();
+        // Add subcell elements in a kokkos parallel for loop
+        auto add_subcell_element_functor = scd.GetAddSubcellElementFunctor();
         Kokkos::parallel_for(
-            "AddCellElements", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+            "AddSubcellElements", m_num_subcells, KOKKOS_LAMBDA(const size_t i) {
                 aperi::Index element_index(0, i);
-                add_cell_element_functor(i, element_index);
+                add_subcell_element_functor(i, element_index);
                 if (i == 2) {
                     aperi::Index element_index_2(0, i + 1);
-                    add_cell_element_functor(i, element_index_2);
+                    add_subcell_element_functor(i, element_index_2);
                 }
             });
         Kokkos::fence();
 
-        // Add to the cell volume in a kokkos parallel for loop
-        auto cell_volumes = scd.GetCellVolumes();
+        // Add to the subcell volume in a kokkos parallel for loop
+        auto subcell_volumes = scd.GetSubcellVolumes();
         Kokkos::parallel_for(
-            "AddToCellVolume", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
-                cell_volumes(i) += element_volume;
+            "AddToSubcellVolume", m_num_subcells, KOKKOS_LAMBDA(const size_t i) {
+                subcell_volumes(i) += element_volume;
                 if (i == 2) {
-                    cell_volumes(i) += element_volume;
+                    subcell_volumes(i) += element_volume;
                 }
             });
         Kokkos::fence();
 
-        // Copy the cell data to the host
-        scd.CopyCellViewsToHost();
+        // Copy the subcell data to the host
+        scd.CopySubcellViewsToHost();
 
-        // Check the cell volumes
-        auto cell_volume_host = scd.GetCellVolumesHost();
-        EXPECT_EQ(cell_volume_host(0), 0.5);
-        EXPECT_EQ(cell_volume_host(1), 0.5);
-        EXPECT_EQ(cell_volume_host(2), 1.0);
+        // Check the subcell volumes
+        auto subcell_volume_host = scd.GetSubcellVolumesHost();
+        EXPECT_EQ(subcell_volume_host(0), 0.5);
+        EXPECT_EQ(subcell_volume_host(1), 0.5);
+        EXPECT_EQ(subcell_volume_host(2), 1.0);
 
         // Get host views of the node index lengths and starts
         auto node_lengths = scd.GetNodeCSRIndices().GetLengthViewHost();
@@ -190,26 +190,26 @@ class SmoothedCellDataFixture : public ::testing::Test {
         auto node_function_derivatives = scd.GetFunctionDerivativesHost();
         auto node_indicies = scd.GetNodeIndicesHost();
 
-        // Loop over all the cells
-        for (size_t i = 0, e = scd.NumCells(); i < e; ++i) {
-            // Get the cell element indices
-            auto cell_element_indices = scd.GetCellElementIndicesHost(i);
-            // Check the GetCellElementIndicesHost function returns the correct size and values
+        // Loop over all the subcells
+        for (size_t i = 0, e = scd.NumSubcells(); i < e; ++i) {
+            // Get the subcell element indices
+            auto subcell_element_indices = scd.GetSubcellElementIndicesHost(i);
+            // Check the GetSubcellElementIndicesHost function returns the correct size and values
             if (i < 2) {
-                EXPECT_EQ(cell_element_indices.size(), 1) << "i: " << i;
-                EXPECT_EQ(cell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
+                EXPECT_EQ(subcell_element_indices.size(), 1) << "i: " << i;
+                EXPECT_EQ(subcell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
             } else {
-                EXPECT_EQ(cell_element_indices.size(), 2) << "i: " << i;
-                EXPECT_EQ(cell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
-                EXPECT_EQ(cell_element_indices[1], aperi::Index(0, i + 1)) << "i: " << i;
+                EXPECT_EQ(subcell_element_indices.size(), 2) << "i: " << i;
+                EXPECT_EQ(subcell_element_indices[0], aperi::Index(0, i)) << "i: " << i;
+                EXPECT_EQ(subcell_element_indices[1], aperi::Index(0, i + 1)) << "i: " << i;
             }
 
             // Create a set of node entities. Using a set to ensure no duplicates.
             std::set<uint64_t> node_entities;
 
-            // Loop over all the cell element indices
-            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                auto element_index = cell_element_indices[j];
+            // Loop over all the subcell element indices
+            for (size_t j = 0, je = subcell_element_indices.size(); j < je; ++j) {
+                auto element_index = subcell_element_indices[j];
                 std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
                 for (uint64_t this_element_node : this_element_nodes) {
                     node_entities.insert(this_element_node);
@@ -226,7 +226,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
                 EXPECT_EQ(node_lengths(i), 4) << "i: " << i;
             }
 
-            // Set the start to the start + length of the previous cell, if not the first cell
+            // Set the start to the start + length of the previous subcell, if not the first subcell
             if (i > 0) {
                 node_starts(i) = node_starts(i - 1) + node_lengths(i - 1);
             }
@@ -260,9 +260,9 @@ class SmoothedCellDataFixture : public ::testing::Test {
                 ++node_index;
             }
 
-            // Loop over all the cell elements
-            for (size_t j = 0, je = cell_element_indices.size(); j < je; ++j) {
-                auto element_index = cell_element_indices[j];
+            // Loop over all the subcell elements
+            for (size_t j = 0, je = subcell_element_indices.size(); j < je; ++j) {
+                auto element_index = subcell_element_indices[j];
                 std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
 
                 std::vector<std::vector<double>> element_function_derivatives_data = element_function_derivatives[element_index.bucket_ord()];
@@ -279,8 +279,8 @@ class SmoothedCellDataFixture : public ::testing::Test {
             }
         }
         bool set_start_from_lengths = false;  // The start array is already set above. This can be done as we are on host and looping through sequentially.
-        scd.CompleteAddingCellNodeCSRIndicesOnHost(set_start_from_lengths);
-        scd.CopyCellNodeViewsToDevice();
+        scd.CompleteAddingSubcellNodeCSRIndicesOnHost(set_start_from_lengths);
+        scd.CopySubcellNodeViewsToDevice();
 
         // Get the total number of nodes, element and components
         size_t total_num_nodes = scd.TotalNumNodes();
@@ -288,7 +288,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
         size_t total_num_components = scd.TotalNumComponents();
 
         // Check the number of nodes and components
-        EXPECT_EQ(total_num_nodes, 10);  // 3 for cell 0, 3 for cell 1, 4 for cell 2
+        EXPECT_EQ(total_num_nodes, 10);  // 3 for subcell 0, 3 for subcell 1, 4 for subcell 2
         EXPECT_EQ(total_num_elements, 4);
         EXPECT_EQ(total_num_components, 30);  // 3 for each node
 
@@ -332,21 +332,21 @@ class SmoothedCellDataFixture : public ::testing::Test {
         auto function_derivatives_host = scd.GetFunctionDerivativesHost();
 
         // Check the function derivatives
-        // First cell should have the same as the first element
+        // First subcell should have the same as the first element
         std::vector<size_t> node_order = {0, 1, 2};
         for (size_t i = 0; i < 3; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 EXPECT_EQ(function_derivatives_host(i * 3 + j), element_function_derivatives[0][node_order[i]][j]) << "i: " << i << " j: " << j;
             }
         }
-        // Second cell should have the same as the second element, but with the last two nodes transposed
+        // Second subcell should have the same as the second element, but with the last two nodes transposed
         node_order = {0, 2, 1};
         for (size_t i = 0; i < 3; ++i) {
             for (size_t j = 0; j < 3; ++j) {
                 EXPECT_EQ(function_derivatives_host(9 + i * 3 + j), element_function_derivatives[1][node_order[i]][j]) << "i: " << i << " j: " << j;
             }
         }
-        // Third cell
+        // Third subcell
         std::vector<std::vector<double>> element_function_derivatives_3 = {
             {-1, -1, 0},
             {1, -1, 0},
@@ -361,6 +361,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
     }
 
     size_t m_num_cells = 3;
+    size_t m_num_subcells = 3;
     size_t m_num_elements = 4;
     size_t m_reserved_num_nodes = 6;
 };
