@@ -45,14 +45,16 @@ class ElementReproducingKernel : public ElementBase {
         double kernel_radius_scale_factor,
         bool use_one_pass_method,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
-        const MeshLabelerParameters& mesh_labeler_parameters) : ElementBase(NumCellNodes, material),
-                                                                m_displacement_field_name(displacement_field_name),
-                                                                m_part_names(part_names),
-                                                                m_mesh_data(mesh_data),
-                                                                m_kernel_radius_scale_factor(kernel_radius_scale_factor),
-                                                                m_use_one_pass_method(use_one_pass_method),
-                                                                m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                                                m_mesh_labeler_parameters(mesh_labeler_parameters) {
+        const MeshLabelerParameters& mesh_labeler_parameters)
+        : ElementBase(NumCellNodes,
+                      displacement_field_name,
+                      part_names,
+                      mesh_data,
+                      material,
+                      lagrangian_formulation_type,
+                      mesh_labeler_parameters),
+          m_kernel_radius_scale_factor(kernel_radius_scale_factor),
+          m_use_one_pass_method(use_one_pass_method) {
         // Initialize element data and processors
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -216,17 +218,12 @@ class ElementReproducingKernel : public ElementBase {
     }
 
    protected:
-    const std::string m_displacement_field_name;
-    const std::vector<std::string> m_part_names;
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
     std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
     bool m_use_one_pass_method;
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
-    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
 };
 
 /**

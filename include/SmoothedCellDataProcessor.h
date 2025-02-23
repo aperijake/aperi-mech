@@ -192,7 +192,7 @@ class SmoothedCellDataProcessor {
         // Estimate the total number of nodes in the cells
         size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, 1, num_elements, estimated_num_nodes);
+        return std::make_shared<aperi::SmoothedCellData>(num_cells, m_mesh_labeler_parameters.num_subcells, num_elements, estimated_num_nodes);
     }
 
     void AddCellNumElements() {

@@ -40,12 +40,14 @@ class ElementHexahedron8 : public ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters &mesh_labeler_parameters) : ElementBase(HEX8_NUM_NODES, material),
-                                                                       m_displacement_field_name(displacement_field_name),
-                                                                       m_part_names(part_names),
-                                                                       m_mesh_data(mesh_data),
-                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters) {
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters)
+        : ElementBase(HEX8_NUM_NODES,
+                      displacement_field_name,
+                      part_names,
+                      mesh_data,
+                      material,
+                      lagrangian_formulation_type,
+                      mesh_labeler_parameters) {
         CreateFunctors();
         CreateElementForceProcessor();
         ComputeElementVolume();
@@ -184,11 +186,6 @@ class ElementHexahedron8 : public ElementBase {
     Quadrature<8, HEX8_NUM_NODES> *m_integration_functor;
     std::shared_ptr<aperi::ElementNodeProcessor<HEX8_NUM_NODES>> m_element_node_processor;                                                           // The element node processor.
     std::shared_ptr<aperi::ComputeInternalForceGaussian<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>>> m_compute_force;  // The compute force functor.
-    const std::string m_displacement_field_name;
-    const std::vector<std::string> m_part_names;
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
-    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
 };
 
 }  // namespace aperi

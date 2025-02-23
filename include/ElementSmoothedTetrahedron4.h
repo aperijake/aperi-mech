@@ -41,12 +41,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters& mesh_labeler_parameters) : ElementBase(TET4_NUM_NODES, material),
-                                                                       m_displacement_field_name(displacement_field_name),
-                                                                       m_part_names(part_names),
-                                                                       m_mesh_data(mesh_data),
-                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters) {
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters)
+        : ElementBase(TET4_NUM_NODES,
+                      displacement_field_name,
+                      part_names,
+                      mesh_data,
+                      material,
+                      lagrangian_formulation_type,
+                      mesh_labeler_parameters) {
         // Initialize element processing
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -147,13 +149,8 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
    private:
-    const std::string m_displacement_field_name;
-    const std::vector<std::string> m_part_names;
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
-    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
     std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;
     std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
 };
