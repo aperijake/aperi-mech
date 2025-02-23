@@ -29,11 +29,13 @@ struct MeshLabelerParameters {
             smoothing_cell_type = SmoothingCellType::Element;
             if (part["formulation"]["integration_scheme"]["strain_smoothing"]["nodal_smoothing_cell"]) {
                 smoothing_cell_type = SmoothingCellType::Nodal;
+                num_subcells = part["formulation"]["integration_scheme"]["strain_smoothing"]["nodal_smoothing_cell"]["subdomains"].as<size_t>();
+            } else {
+                num_subcells = part["formulation"]["integration_scheme"]["strain_smoothing"]["element_smoothing_cell"]["subdomains"].as<size_t>();
             }
         } else {
             smoothing_cell_type = SmoothingCellType::None;
         }
-        num_subcells = 1;  // TODO(jake): Add support for multiple subcells
     }
 
     std::shared_ptr<MeshData> mesh_data;    // The mesh data object

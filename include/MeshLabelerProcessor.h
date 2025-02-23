@@ -38,7 +38,7 @@ class MeshLabelerProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set) : m_mesh_data(mesh_data), m_set(set) {
+    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -61,6 +61,10 @@ class MeshLabelerProcessor {
         // Get the cell id field
         m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
+
+        // Get the subcell id field
+        m_subcell_id_field = StkGetField(FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_subcell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_subcell_id_field);
     }
 
     void LabelForThexNodalIntegration() {
@@ -76,8 +80,8 @@ class MeshLabelerProcessor {
         // Create the active part from the active field, host operation
         CreateActivePartFromActiveFieldHost();
 
-        // Label the cell ids for nodal integration
-        LabelCellIdsForNodalIntegrationHost();
+        // Label the cell and subcell ids for nodal integration
+        LabelCellAndSubcellIdsForNodalIntegrationHost(m_num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(true);
@@ -91,8 +95,8 @@ class MeshLabelerProcessor {
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
-        // Label the cell ids for element integration, host operation
-        LabelCellIdsForElementIntegrationHost();
+        // Label the cell and subcell ids for element integration, host operation
+        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -106,8 +110,8 @@ class MeshLabelerProcessor {
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
-        // Label the cell ids for element integration, host operation
-        LabelCellIdsForElementIntegrationHost();
+        // Label the cell and subcell ids for element integration, host operation
+        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -361,7 +365,7 @@ class MeshLabelerProcessor {
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.
-    void LabelCellIdsForNodalIntegrationHost() {
+    void LabelCellAndSubcellIdsForNodalIntegrationHost(int num_subcells = 1) {
         // To make this work in parallel:
         // 1. Loop the owned and active nodes on host
         //    a. Get the connected elements, and set the active node's cell id to the minimum cell id of the connected elements
@@ -372,6 +376,7 @@ class MeshLabelerProcessor {
         // 4. Communicate the cell id to processor map
         // 5. Call function to put all the cell elements on the same processor
         // 6. Set the active nodes active field back to 1 and set the smoothed cell id and cell id for the attached elements
+        // 7. Set the subcell ids
 
         // Create the active selector
         std::vector<std::string> active_sets;
@@ -452,7 +457,8 @@ class MeshLabelerProcessor {
         }
 
         // Loop over the owned active nodes, set the smoothed cell id and cell id for the attached elements
-        uint64_t index = 0;
+        uint64_t cell_id_index = 0;
+        uint64_t subcell_id_index = 0;
         for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                 stk::mesh::Entity node = (*bucket)[i_node];
@@ -460,9 +466,12 @@ class MeshLabelerProcessor {
                 stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
                 for (size_t i = 0; i < elems.size(); ++i) {
                     uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
-                    cell_id[0] = index;
+                    cell_id[0] = cell_id_index;
                 }
-                index++;
+                cell_id_index++;
+                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[0]);
+                // Label the subcell ids and update the subcell id index
+                LabelSubcellIds(num_subcells, elems, subcell_id, subcell_id_index);
             }
         }
 
@@ -473,37 +482,76 @@ class MeshLabelerProcessor {
         // Modified the active field, so clear the sync state and mark as modified
         m_ngp_active_field->clear_sync_state();
         m_ngp_active_field->modify_on_host();
+
+        // Modified the subcell id field, so clear the sync state and mark as modified
+        m_ngp_subcell_id_field->clear_sync_state();
+        m_ngp_subcell_id_field->modify_on_host();
+    }
+
+    void LabelSubcellIds(const int &num_subcells, const stk::mesh::ConnectedEntities &elems, uint64_t *subcell_id, uint64_t &subcell_id_index) {
+        // Label the subcell ids
+        // num_subcells < 1 = Each element is a subcell
+        // num_subcells >= 1 = Each element is split into num_subcells subcells
+        if (num_subcells < 1) {
+            for (size_t i = 0; i < elems.size(); ++i) {
+                subcell_id[i] = subcell_id_index++;
+            }
+        } else if (num_subcells == 1) {
+            // Each element is split into num_subcells subcells
+            for (size_t i = 0; i < elems.size(); ++i) {
+                subcell_id[i] = subcell_id_index;
+            }
+            subcell_id_index++;
+        } else {
+            // TODO(jake): Implement clustering of subcells
+            throw std::runtime_error("num_subcells > 1 is not implemented yet");
+        }
     }
 
     // This should be done after the active node field has been labeled and the active part has been created.
-    void LabelCellIdsForElementIntegrationHost() {
+    void LabelCellAndSubcellIdsForElementIntegrationHost(const int &num_subcells) {
+        // TODO(jake): Implement clustering of subcells
+        if (num_subcells != 1) {
+            aperi::CoutP0() << "Warning: only 1 subdomain is supported for element integration smoothing. Will use 1 subdomain." << std::endl;
+        }
+
         // Loop over the elements and set the cell id to the element id
-        uint64_t index = 0;
+        uint64_t cell_id_index = 0;
+        uint64_t subcell_id_index = 0;
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
-                cell_id[0] = index;
-                index++;
+                cell_id[0] = cell_id_index++;
+                // TODO(jake): This labels each element as a subcell for now. Add more logic later.
+                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, element);
+                subcell_id[0] = subcell_id_index++;
             }
         }
 
         // Modified the cell id field, so clear the sync state and mark as modified
         m_ngp_cell_id_field->clear_sync_state();
         m_ngp_cell_id_field->modify_on_host();
+
+        // Modified the subcell id field, so clear the sync state and mark as modified
+        m_ngp_subcell_id_field->clear_sync_state();
+        m_ngp_subcell_id_field->modify_on_host();
     }
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::string m_set;                             // The set to process.
+    size_t m_num_subcells;                         // The number of subcells.
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector
     stk::mesh::Selector m_owned_selector;          // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
     UnsignedField *m_active_field;                 // The active field
     UnsignedField *m_cell_id_field;                // The cell id field
+    UnsignedField *m_subcell_id_field;             // The subcell id field
     NgpUnsignedField *m_ngp_active_field;          // The ngp active field
     NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
+    NgpUnsignedField *m_ngp_subcell_id_field;      // The ngp subcell id field
 };
 
 }  // namespace aperi
