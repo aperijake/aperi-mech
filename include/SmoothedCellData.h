@@ -155,7 +155,6 @@ class SmoothedCellData {
      */
     SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
         : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_csr_indices(num_cells), m_element_csr_indices(num_cells), m_element_indices("element_indices", num_elements), m_node_indices("node_indices", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
-        // TODO(jake): come up with a better way to estimate the size of m_node_to_index_map
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indices, aperi::Index());
         Kokkos::deep_copy(m_element_indices, aperi::Index(0, UINT_MAX));
