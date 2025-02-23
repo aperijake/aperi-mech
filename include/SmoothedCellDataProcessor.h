@@ -61,14 +61,9 @@ inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data
     {SmoothedCellDataTimerType::SetFunctionDerivatives, "SetFunctionDerivatives"},
     {SmoothedCellDataTimerType::NONE, "NONE"}};
 
-class StrainSmoothingProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
+class SmoothedCellDataProcessor {
    public:
-    StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+    SmoothedCellDataProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -80,7 +75,7 @@ class StrainSmoothingProcessor {
         m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: SmoothedCellDataProcessor selector is empty." << std::endl;
         }
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 

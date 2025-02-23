@@ -18,7 +18,7 @@
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
-#include "StrainSmoothingProcessor.h"
+#include "SmoothedCellDataProcessor.h"
 
 namespace aperi {
 
@@ -94,7 +94,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         m_smoothed_quadrature_host_functor = std::make_shared<SmoothedQuadratureTet4>();
 
         // Build the smoothed cell data
-        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
         m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<TET4_NUM_NODES>(TET4_NUM_NODES, true);
 
         // Add the strain smoothing timer manager to the timer manager
@@ -150,7 +150,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
     std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;
-    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
+    std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
 };
 
 }  // namespace aperi

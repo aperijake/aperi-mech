@@ -19,7 +19,7 @@
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
-#include "StrainSmoothingProcessor.h"
+#include "SmoothedCellDataProcessor.h"
 
 namespace aperi {
 
@@ -41,7 +41,7 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         FindNeighbors();
         CreateFunctionValueStorageProcessor();
-        CreateStrainSmoothingProcessor();
+        CreateSmoothedCellDataProcessor();
         BuildSmoothedCellData();
     }
 
@@ -116,7 +116,7 @@ class ElementReproducingKernel : public ElementBase {
         m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
     }
 
-    void CreateStrainSmoothingProcessor() {
+    void CreateSmoothedCellDataProcessor() {
         if (!m_mesh_data) {
             // Allowing for testing
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
@@ -124,7 +124,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Make the strain smoothing processor
-        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
     }
 
     void FindNeighbors() {
@@ -201,7 +201,7 @@ class ElementReproducingKernel : public ElementBase {
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
-    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
+    std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
     bool m_use_one_pass_method;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
 };
