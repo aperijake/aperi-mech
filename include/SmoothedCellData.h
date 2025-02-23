@@ -151,21 +151,27 @@ class SmoothedCellData {
      * @brief Constructs a SmoothedCellData object.
      *
      * @param num_cells The number of cells to construct the SmoothedCellData object with.
+     * @param num_subcells_per_cell The number of subcells per cell.
      * @param num_elements The number of elements on this part and partition.
+     * @param estimated_total_num_nodes The estimated total number of nodes in the cells.
      */
-    SmoothedCellData(size_t num_cells, size_t num_elements, size_t estimated_total_num_nodes)
-        : m_num_cells(num_cells), m_reserved_nodes(estimated_total_num_nodes), m_node_csr_indices(num_cells), m_element_csr_indices(num_cells), m_element_indices("element_indices", num_elements), m_node_indices("node_indices", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
+    SmoothedCellData(size_t num_cells,
+                     size_t num_subcells_per_cell,
+                     size_t num_elements,
+                     size_t estimated_total_num_nodes)
+        : m_num_cells(num_cells), m_num_subcells_per_cell(num_subcells_per_cell), m_reserved_nodes(estimated_total_num_nodes), m_node_csr_indices(num_cells * num_subcells_per_cell), m_element_csr_indices(num_cells * num_subcells_per_cell), m_element_indices("element_indices", num_elements), m_node_indices("node_indices", estimated_total_num_nodes), m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims), m_cell_volume("cell_volume", num_cells), m_subcell_volume("subcell_volume", num_cells * num_subcells_per_cell), m_node_to_view_index_map(estimated_total_num_nodes * 2), m_total_num_nodes(0), m_total_num_elements(0), m_total_components(0) {
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indices, aperi::Index());
         Kokkos::deep_copy(m_element_indices, aperi::Index(0, UINT_MAX));
         Kokkos::deep_copy(m_cell_volume, 0.0);
+        Kokkos::deep_copy(m_subcell_volume, 0.0);
 
         // Create host views
         m_element_indices_host = Kokkos::create_mirror_view(m_element_indices);
         m_node_indices_host = Kokkos::create_mirror_view(m_node_indices);
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
         m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
-
+        m_subcell_volume_host = Kokkos::create_mirror_view(m_subcell_volume);
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_element_indices_host, aperi::Index(0, UINT_MAX));
 
@@ -298,6 +304,11 @@ class SmoothedCellData {
         Kokkos::deep_copy(m_cell_volume_host, m_cell_volume);
     }
 
+    void CopySubcellVolumeToHost() {
+        m_subcell_volume_host = Kokkos::create_mirror_view(m_subcell_volume);
+        Kokkos::deep_copy(m_subcell_volume_host, m_subcell_volume);
+    }
+
     void CopyCellElementViewsToHost() {
         CopyCellElementIndicesToHost();
         CopyCellVolumeToHost();
@@ -317,6 +328,10 @@ class SmoothedCellData {
 
     void CopyCellVolumeToDevice() {
         Kokkos::deep_copy(m_cell_volume, m_cell_volume_host);
+    }
+
+    void CopySubcellVolumeToDevice() {
+        Kokkos::deep_copy(m_subcell_volume, m_subcell_volume_host);
     }
 
     void CopyCellElementIndicesToDevice() {
@@ -421,9 +436,19 @@ class SmoothedCellData {
         return m_cell_volume;
     }
 
+    // Get device view of subcell volume
+    Kokkos::View<double *> GetSubcellVolumes() {
+        return m_subcell_volume;
+    }
+
     // Get host view of cell volume
     Kokkos::View<double *>::HostMirror GetCellVolumesHost() {
         return m_cell_volume_host;
+    }
+
+    // Get host view of subcell volume
+    Kokkos::View<double *>::HostMirror GetSubcellVolumesHost() {
+        return m_subcell_volume_host;
     }
 
     // Get the cell volume for a cell
@@ -432,10 +457,22 @@ class SmoothedCellData {
         return m_cell_volume(cell_id);
     }
 
+    // Get the subcell volume for a cell
+    KOKKOS_INLINE_FUNCTION
+    double GetSubcellVolume(size_t cell_id, size_t subcell_id) const {
+        return m_subcell_volume(cell_id * m_num_subcells_per_cell + subcell_id);
+    }
+
     // Get the cell volume for a cell
     double GetCellVolumeHost(size_t cell_id) {
         return m_cell_volume_host(cell_id);
     }
+
+    // Get the subcell volume for a cell
+    double GetSubcellVolumeHost(size_t cell_id, size_t subcell_id) {
+        return m_subcell_volume_host(cell_id * m_num_subcells_per_cell + subcell_id);
+    }
+
     // Get the indices for the elements in a cell. Return a kokkos subview of the element indices.
     Kokkos::View<aperi::Index *>::HostMirror GetCellElementIndicesHost(size_t cell_id) {
         size_t start = m_element_csr_indices.start_host(cell_id);
@@ -559,6 +596,14 @@ class SmoothedCellData {
             std::cout << "Cell " << i << ": " << m_cell_volume_host(i) << std::endl;
         }
 
+        // Print the subcell volume
+        std::cout << "Subcell Volume" << std::endl;
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            for (size_t j = 0; j < m_num_subcells_per_cell; ++j) {
+                std::cout << "Cell " << i << ", Subcell " << j << ": " << m_subcell_volume_host(i * m_num_subcells_per_cell + j) << std::endl;
+            }
+        }
+
         // Print the function derivatives
         std::cout << "Function Derivatives" << std::endl;
         for (size_t i = 0; i < m_num_cells; ++i) {
@@ -600,8 +645,9 @@ class SmoothedCellData {
     }
 
    private:
-    size_t m_num_cells;       // Number of cells
-    size_t m_reserved_nodes;  // Estimated total number of nodes
+    size_t m_num_cells;              // Number of cells
+    size_t m_num_subcells_per_cell;  // Number of subcells per cell
+    size_t m_reserved_nodes;         // Estimated total number of nodes
 
     FlattenedRaggedArray m_node_csr_indices;     // Indices for the cells
     FlattenedRaggedArray m_element_csr_indices;  // Indices for the elements
@@ -610,12 +656,13 @@ class SmoothedCellData {
     Kokkos::View<aperi::Index *> m_node_indices;     // Node indices
     Kokkos::View<double *> m_function_derivatives;   // Function derivatives
     Kokkos::View<double *> m_cell_volume;            // Cell volume
+    Kokkos::View<double *> m_subcell_volume;         // Subcell volume
 
-    Kokkos::View<aperi::Index *>::HostMirror m_element_indices_host;  // Host view of element indices
-    Kokkos::View<aperi::Index *>::HostMirror m_node_indices_host;     // Host view of node indices
-    Kokkos::View<double *>::HostMirror m_function_derivatives_host;   // Host view of function derivatives
-    Kokkos::View<double *>::HostMirror m_cell_volume_host;            // Host view of cell volume
-
+    Kokkos::View<aperi::Index *>::HostMirror m_element_indices_host;                                                                                                // Host view of element indices
+    Kokkos::View<aperi::Index *>::HostMirror m_node_indices_host;                                                                                                   // Host view of node indices
+    Kokkos::View<double *>::HostMirror m_function_derivatives_host;                                                                                                 // Host view of function derivatives
+    Kokkos::View<double *>::HostMirror m_cell_volume_host;                                                                                                          // Host view of cell volume
+    Kokkos::View<double *>::HostMirror m_subcell_volume_host;                                                                                                       // Host view of subcell volume
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultExecutionSpace, NodeToViewIndexMapKeyHash> m_node_to_view_index_map;                       // Map from node to local index
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, NodeToViewIndexMapKeyHash>::HostMirror m_node_to_view_index_map_host;  // Host map from node to local index
 

@@ -58,15 +58,6 @@ class ElementBase {
     virtual void ComputeInternalForceAllElements(double time_increment) = 0;
 
     /**
-     * @brief Sets the material of the element.
-     *
-     * @param material The material of the element.
-     */
-    void SetMaterial(std::shared_ptr<Material> material) {
-        m_material = material;
-    }
-
-    /**
      * @brief Gets the SmoothedCellData object.
      *
      * @return A shared pointer to the SmoothedCellData object.

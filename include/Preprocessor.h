@@ -7,7 +7,6 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
-#include "MaxEdgeLengthProcessor.h"
 
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoPreprocessor.h"
@@ -48,10 +47,6 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
             aperi::CopyField(coordinates_field, reference_coordinates_field);
         }
     }
-
-    // Calculate the maximum edge length
-    aperi::MaxEdgeLengthProcessor max_edge_length_processor(io_mesh->GetMeshData());
-    max_edge_length_processor.ComputeMaxEdgeLength();
 
     // Run the other pre-processing steps
 #ifdef USE_PROTEGO_MECH

@@ -12,12 +12,12 @@ namespace aperi {
 
 class MeshLabeler {
    public:
-    MeshLabeler() {}
+    MeshLabeler(std::shared_ptr<MeshData> mesh_data) : m_mesh_data(mesh_data) {}
 
     ~MeshLabeler() = default;
 
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
-        MeshLabelerProcessor mesh_labeler_processor(mesh_labeler_parameters.mesh_data, mesh_labeler_parameters.set, mesh_labeler_parameters.num_subcells);
+        MeshLabelerProcessor mesh_labeler_processor(m_mesh_data, mesh_labeler_parameters.set, mesh_labeler_parameters.num_subcells);
         if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
             mesh_labeler_processor.LabelForThexNodalIntegration();
         } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
@@ -45,8 +45,8 @@ class MeshLabeler {
     std::shared_ptr<MeshData> m_mesh_data;  // The mesh data object
 };
 
-inline std::shared_ptr<MeshLabeler> CreateMeshLabeler() {
-    return std::make_shared<MeshLabeler>();
+inline std::shared_ptr<MeshLabeler> CreateMeshLabeler(std::shared_ptr<MeshData> mesh_data) {
+    return std::make_shared<MeshLabeler>(mesh_data);
 }
 
 }  // namespace aperi

@@ -125,7 +125,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
         };
 
         // Create the SmoothedCellData object
-        aperi::SmoothedCellData scd(m_num_cells, m_num_elements, m_reserved_num_nodes);
+        aperi::SmoothedCellData scd(m_num_cells, 1, m_num_elements, m_reserved_num_nodes);
 
         // Add cell num elements in a kokkos parallel for loop
         auto add_cell_num_elements_functor = scd.GetAddCellNumElementsFunctor();

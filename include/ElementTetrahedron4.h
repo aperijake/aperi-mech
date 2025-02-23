@@ -16,6 +16,7 @@
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureGaussian.h"
 #include "ShapeFunctionsFunctorTet4.h"
@@ -34,9 +35,22 @@ class ElementTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementTetrahedron4 object.
      */
-    ElementTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data), m_lagrangian_formulation_type(lagrangian_formulation_type) {
+    ElementTetrahedron4(
+        const std::string &displacement_field_name,
+        const std::vector<std::string> &part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        const aperi::LagrangianFormulationType &lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters) : ElementBase(TET4_NUM_NODES, material),
+                                                                       m_displacement_field_name(displacement_field_name),
+                                                                       m_part_names(part_names),
+                                                                       m_mesh_data(mesh_data),
+                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
+                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters) {
         CreateFunctors();
         CreateElementForceProcessor();
+        CreateSmoothedCellDataProcessor();
+        LabelParts();
         ComputeElementVolume();
     }
 
@@ -71,6 +85,22 @@ class ElementTetrahedron4 : public ElementBase {
 
         // Create the compute force functor
         m_compute_force = std::make_shared<aperi::ComputeInternalForceGaussian<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material, m_lagrangian_formulation_type);
+    }
+
+    void CreateSmoothedCellDataProcessor() {
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+    }
+
+    void LabelParts() {
+        // Check that the mesh data is provided
+        if (!m_mesh_data) {
+            // Allowing for testing
+            aperi::CoutP0() << "No mesh data provided. Cannot label parts. Skipping." << std::endl;
+            return;
+        }
+
+        // Label the parts
+        m_strain_smoothing_processor->LabelParts();
     }
 
     // Create and destroy functors. Must be public to run on device.
@@ -167,6 +197,8 @@ class ElementTetrahedron4 : public ElementBase {
     const std::vector<std::string> m_part_names;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;
+    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
+    std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
 };
 
 }  // namespace aperi
