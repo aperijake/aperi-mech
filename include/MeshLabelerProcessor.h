@@ -123,11 +123,13 @@ class MeshLabelerProcessor {
     void SyncFieldsToHost() {
         m_ngp_active_field->sync_to_host();
         m_ngp_cell_id_field->sync_to_host();
+        m_ngp_subcell_id_field->sync_to_host();
     }
 
     void SyncFieldsToDevice() {
         m_ngp_active_field->sync_to_device();
         m_ngp_cell_id_field->sync_to_device();
+        m_ngp_subcell_id_field->sync_to_device();
     }
 
     void CommunicateAllFieldData() const {

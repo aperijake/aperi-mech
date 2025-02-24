@@ -750,6 +750,9 @@ class SmoothedCellDataProcessor {
         */
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, "Build Smoothed Cell Data");
 
+        // Update the ngp mesh
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // Initialize the fields
         InitializeFields();
 

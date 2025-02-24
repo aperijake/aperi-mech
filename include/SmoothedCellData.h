@@ -178,7 +178,7 @@ class SmoothedCellData {
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indices, aperi::Index());
         Kokkos::deep_copy(m_element_indices, aperi::Index(0, UINT_MAX));
-        Kokkos::deep_copy(m_cell_subcells, UINT_MAX);
+        Kokkos::deep_copy(m_cell_subcells, UINT64_MAX);
         Kokkos::deep_copy(m_cell_volume, 0.0);
         Kokkos::deep_copy(m_subcell_volume, 0.0);
 
@@ -332,22 +332,18 @@ class SmoothedCellData {
     }
 
     void CopySubcellElementIndicesToHost() {
-        m_element_indices_host = Kokkos::create_mirror_view(m_element_indices);
         Kokkos::deep_copy(m_element_indices_host, m_element_indices);
     }
 
     void CopyCellSubcellsToHost() {
-        m_cell_subcells_host = Kokkos::create_mirror_view(m_cell_subcells);
         Kokkos::deep_copy(m_cell_subcells_host, m_cell_subcells);
     }
 
     void CopyCellVolumeToHost() {
-        m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         Kokkos::deep_copy(m_cell_volume_host, m_cell_volume);
     }
 
     void CopySubcellVolumeToHost() {
-        m_subcell_volume_host = Kokkos::create_mirror_view(m_subcell_volume);
         Kokkos::deep_copy(m_subcell_volume_host, m_subcell_volume);
     }
 
@@ -357,8 +353,6 @@ class SmoothedCellData {
     }
 
     void CopySubcellNodeViewsToHost() {
-        m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
-        m_node_indices_host = Kokkos::create_mirror_view(m_node_indices);
         Kokkos::deep_copy(m_function_derivatives_host, m_function_derivatives);
         Kokkos::deep_copy(m_node_indices_host, m_node_indices);
     }
