@@ -31,14 +31,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                                      std::string displacements_field_name,
                                      const std::string &force_field_name,
                                      const Material &material,
-                                     const LagrangianFormulationType &lagrangian_formulation_type)
-        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type),
-          m_mesh_data(mesh_data) {
-        // Throw an exception if the mesh data is null.
-        if (m_mesh_data == nullptr) {
-            throw std::runtime_error("Mesh data is null.");
-        }
-    }
+                                     const LagrangianFormulationType &lagrangian_formulation_type,
+                                     bool use_f_bar)
+        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {}
 
     /**
      * @brief Computes the internal force for each cell.
@@ -51,6 +46,10 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
         const size_t num_subcells = scd.NumSubcells();
+        assert(num_subcells >= num_cells);
+
+        // If using f_bar, only use it if there are more subcells than cells
+        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
 
         // Get the stride
         const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
@@ -92,6 +91,13 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
             });
 
         // TODO(fbar) Loop over cells. Compute and store F-bar
+        if (use_f_bar) {
+            Kokkos::parallel_for(
+                "for_each_cell_compute_f_bar", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                    // Get the subcell indices
+                    const auto subcell_indices = scd.GetCellSubcells(cell_id);
+                });
+        }
 
         // Loop over all the subcells
         Kokkos::parallel_for(
@@ -156,9 +162,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 }
             });
     }
-
-   private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
 };
 
 }  // namespace aperi

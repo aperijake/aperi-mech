@@ -41,14 +41,16 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters& mesh_labeler_parameters)
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters,
+        bool use_f_bar)
         : ElementBase(TET4_NUM_NODES,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters) {
+                      mesh_labeler_parameters),
+          m_use_f_bar(use_f_bar) {
         // Initialize element processing
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -84,7 +86,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type, m_use_f_bar);
     }
 
     void FindNeighbors() {
@@ -149,6 +151,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
    private:
+    bool m_use_f_bar;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;

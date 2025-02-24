@@ -30,13 +30,16 @@ class ComputeInternalForceBase {
      * @param force_field_name The name of the force field.
      * @param material The material object.
      * @param lagrangian_formulation_type The Lagrangian formulation type.
+     * @param use_f_bar Whether to use f_bar.
      */
     ComputeInternalForceBase(std::shared_ptr<aperi::MeshData> mesh_data,
                              std::string displacements_field_name,
                              const std::string &force_field_name,
                              const Material &material,
-                             const LagrangianFormulationType &lagrangian_formulation_type)
+                             const LagrangianFormulationType &lagrangian_formulation_type,
+                             bool use_f_bar = false)
         : m_mesh_data(mesh_data),
+          m_use_f_bar(use_f_bar),
           m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
@@ -44,6 +47,11 @@ class ComputeInternalForceBase {
           m_stress_functor(*material.GetStressFunctor()) {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
+
+        // Throw an exception if the mesh data is null.
+        if (m_mesh_data == nullptr) {
+            throw std::runtime_error("Mesh data is null.");
+        }
 
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             displacements_field_name += "_inc";
@@ -172,7 +180,8 @@ class ComputeInternalForceBase {
         }
     }
 
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    bool m_use_f_bar;
     bool m_has_state;                                                      // Whether the material has state.
     bool m_needs_velocity_gradient;                                        // Whether the material needs the velocity gradient.
     const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type.

@@ -416,6 +416,10 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema force_two_pass_method_schema("force_two_pass_method", "bool", "force the two pass method");
     YAML::Node force_two_pass_method_node = force_two_pass_method_schema.GetInputSchema();
 
+    // Use f_bar node
+    aperi::InputSchema use_f_bar_schema("use_f_bar", "bool", "use f_bar");
+    YAML::Node use_f_bar_node = use_f_bar_schema.GetInputSchema();
+
     // Nodal smoothing cell node
     aperi::InputSchema nodal_smoothing_cell_schema("nodal_smoothing_cell", "map", "a nodal smoothing cell");
     nodal_smoothing_cell_schema.AddAllOf(subdomains_node);
@@ -432,6 +436,7 @@ YAML::Node GetInputSchema() {
     strain_smoothing_schema.AddOneOf(element_smoothing_cell_node);
     strain_smoothing_schema.AddOptional(force_one_pass_method_node);
     strain_smoothing_schema.AddOptional(force_two_pass_method_node);
+    strain_smoothing_schema.AddOptional(use_f_bar_node);
     YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
 
     // Integration scheme node
