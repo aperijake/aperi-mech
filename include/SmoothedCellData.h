@@ -156,26 +156,29 @@ class SmoothedCellData {
      * @param estimated_total_num_nodes The estimated total number of nodes in the cells.
      */
     SmoothedCellData(size_t num_cells,
-                     size_t num_subcells,
+                     size_t reserved_num_subcells,
                      size_t num_elements,
                      size_t estimated_total_num_nodes)
         : m_num_cells(num_cells),
-          m_num_subcells(num_subcells),
           m_reserved_nodes(estimated_total_num_nodes),
-          m_node_csr_indices(num_subcells),
-          m_element_csr_indices(num_subcells),
+          m_node_csr_indices(reserved_num_subcells),
+          m_element_csr_indices(reserved_num_subcells),
+          m_subcell_csr_indices(num_cells),
           m_element_indices("element_indices", num_elements),
           m_node_indices("node_indices", estimated_total_num_nodes),
+          m_cell_subcells("cell_subcells", num_cells),
           m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims),
           m_cell_volume("cell_volume", num_cells),
-          m_subcell_volume("subcell_volume", num_subcells),
+          m_subcell_volume("subcell_volume", reserved_num_subcells),
           m_node_to_view_index_map(estimated_total_num_nodes * 2),
           m_total_num_nodes(0),
           m_total_num_elements(0),
+          m_num_subcells(reserved_num_subcells),
           m_total_components(0) {
         // Fill the new elements with the maximum uint64_t value
         Kokkos::deep_copy(m_node_indices, aperi::Index());
         Kokkos::deep_copy(m_element_indices, aperi::Index(0, UINT_MAX));
+        Kokkos::deep_copy(m_cell_subcells, UINT_MAX);
         Kokkos::deep_copy(m_cell_volume, 0.0);
         Kokkos::deep_copy(m_subcell_volume, 0.0);
 
@@ -185,8 +188,10 @@ class SmoothedCellData {
         m_function_derivatives_host = Kokkos::create_mirror_view(m_function_derivatives);
         m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         m_subcell_volume_host = Kokkos::create_mirror_view(m_subcell_volume);
-        // Fill the new elements with the maximum uint64_t value
+        m_cell_subcells_host = Kokkos::create_mirror_view(m_cell_subcells);
+        // Fill the new elements with the maximum value
         Kokkos::deep_copy(m_element_indices_host, aperi::Index(0, UINT_MAX));
+        Kokkos::deep_copy(m_cell_subcells_host, UINT64_MAX);
 
         // Initialize the unordered maps on the host
         m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
@@ -237,10 +242,10 @@ class SmoothedCellData {
     }
 
     // Functor to add the number of items for each subcell, use the getter GetAddSubcellNumNodesFunctor or GetAddSubcellNumElementsFunctor and call in a kokkos parallel for loop
-    struct AddSubcellNumItemsFunctor {
+    struct AddNumItemsFunctor {
         Kokkos::View<uint64_t *> length;
 
-        explicit AddSubcellNumItemsFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
+        explicit AddNumItemsFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const size_t &subcell_id, const size_t &num_items) const {
@@ -250,13 +255,18 @@ class SmoothedCellData {
     };
 
     // Return the AddSubcellNumNodesFunctor using the member variable m_node_csr_indices.length. Call this in a kokkos parallel for loop.
-    AddSubcellNumItemsFunctor GetAddSubcellNumNodesFunctor() const {
-        return AddSubcellNumItemsFunctor(m_node_csr_indices.length);
+    AddNumItemsFunctor GetAddSubcellNumNodesFunctor() const {
+        return AddNumItemsFunctor(m_node_csr_indices.length);
     }
 
     // Return the AddSubcellNumElementsFunctor using the member variable m_element_csr_indices.length. Call this in a kokkos parallel for loop.
-    AddSubcellNumItemsFunctor GetAddSubcellNumElementsFunctor() const {
-        return AddSubcellNumItemsFunctor(m_element_csr_indices.length);
+    AddNumItemsFunctor GetAddSubcellNumElementsFunctor() const {
+        return AddNumItemsFunctor(m_element_csr_indices.length);
+    }
+
+    // Return the AddCellNumSubcellsFunctor using the member variable m_subcell_csr_indices.length. Call this in a kokkos parallel for loop.
+    AddNumItemsFunctor GetAddCellNumSubcellsFunctor() const {
+        return AddNumItemsFunctor(m_subcell_csr_indices.length);
     }
 
     // Should be called after AddSubcellNumNodesFunctor has been called for all subcells and should not be called in a loop.
@@ -267,6 +277,13 @@ class SmoothedCellData {
         m_total_num_elements = m_element_csr_indices.RaggedArraySize();
     }
 
+    void CompleteAddingCellNumSubcellsOnDevice() {
+        m_subcell_csr_indices.FinishPopulatingOnDevice();
+
+        // Get the total number of subcells
+        m_num_subcells = m_subcell_csr_indices.RaggedArraySize();
+    }
+
     void CompleteAddingSubcellElementCSRIndicesOnHost(bool set_starts_from_lengths = true) {
         m_element_csr_indices.FinishPopulatingOnHost(set_starts_from_lengths);
 
@@ -274,7 +291,14 @@ class SmoothedCellData {
         m_total_num_elements = m_element_csr_indices.RaggedArraySize();
     }
 
-    // Should be called after AddSubcellNumNodesFunctor has been called for all subcells and should not be called in a loop.
+    void CompleteAddingSubcellNumSubcellsOnHost() {
+        m_subcell_csr_indices.FinishPopulatingOnHost();
+
+        // Get the total number of subcells
+        m_num_subcells = m_subcell_csr_indices.RaggedArraySize();
+    }
+
+    // Should be called after node lengths has been set for all subcells and should not be called in a loop.
     void CompleteAddingSubcellNodeCSRIndicesOnDevice(bool set_starts_from_lengths = true) {
         m_node_csr_indices.FinishPopulatingOnDevice(set_starts_from_lengths);
 
@@ -444,6 +468,16 @@ class SmoothedCellData {
         return m_element_indices;
     }
 
+    // Get host view of cell subcells
+    Kokkos::View<uint64_t *>::HostMirror GetCellSubcellsHost() {
+        return m_cell_subcells_host;
+    }
+
+    // Get device view of cell subcells
+    Kokkos::View<uint64_t *> GetCellSubcells() {
+        return m_cell_subcells;
+    }
+
     // Get device view of cell volume
     Kokkos::View<double *> GetCellVolumes() {
         return m_cell_volume;
@@ -579,6 +613,11 @@ class SmoothedCellData {
         return m_element_csr_indices;
     }
 
+    // Get a reference to the subcell indices
+    FlattenedRaggedArray &GetSubcellCSRIndices() {
+        return m_subcell_csr_indices;
+    }
+
     // Debug print on host
     void DebugPrint() {
         // Set the precision
@@ -665,14 +704,15 @@ class SmoothedCellData {
 
    private:
     size_t m_num_cells;       // Number of cells
-    size_t m_num_subcells;    // Number of subcells
     size_t m_reserved_nodes;  // Estimated total number of nodes
 
-    FlattenedRaggedArray m_node_csr_indices;     // Indices for the cells
-    FlattenedRaggedArray m_element_csr_indices;  // Indices for the elements
+    FlattenedRaggedArray m_node_csr_indices;     // Indices for the nodes covering the subcells
+    FlattenedRaggedArray m_element_csr_indices;  // Indices for the elements in the subcells
+    FlattenedRaggedArray m_subcell_csr_indices;  // Indices for the subcells in the cells
 
     Kokkos::View<aperi::Index *> m_element_indices;  // Element indices
     Kokkos::View<aperi::Index *> m_node_indices;     // Node indices
+    Kokkos::View<uint64_t *> m_cell_subcells;        // Subcell ids for the cells
     Kokkos::View<double *> m_function_derivatives;   // Function derivatives
     Kokkos::View<double *> m_cell_volume;            // Cell volume
     Kokkos::View<double *> m_subcell_volume;         // Subcell volume
@@ -682,11 +722,13 @@ class SmoothedCellData {
     Kokkos::View<double *>::HostMirror m_function_derivatives_host;                                                                                                 // Host view of function derivatives
     Kokkos::View<double *>::HostMirror m_cell_volume_host;                                                                                                          // Host view of cell volume
     Kokkos::View<double *>::HostMirror m_subcell_volume_host;                                                                                                       // Host view of subcell volume
+    Kokkos::View<uint64_t *>::HostMirror m_cell_subcells_host;                                                                                                      // Host view of cell subcells
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultExecutionSpace, NodeToViewIndexMapKeyHash> m_node_to_view_index_map;                       // Map from node to local index
     Kokkos::UnorderedMap<NodeToViewIndexMapKey, uint64_t, Kokkos::DefaultHostExecutionSpace, NodeToViewIndexMapKeyHash>::HostMirror m_node_to_view_index_map_host;  // Host map from node to local index
 
     size_t m_total_num_nodes = 0;            // Total number of nodes
     size_t m_total_num_elements = 0;         // Total number of elements
+    size_t m_num_subcells = 0;               // Total number of subcells
     size_t m_total_components = 0;           // Total number of components (total number of nodes * number of dimensions)
     size_t m_number_of_resizes = 0;          // Number of resizes
     static constexpr size_t k_num_dims = 3;  // Number of dimensions

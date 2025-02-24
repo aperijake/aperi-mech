@@ -76,6 +76,9 @@ class SmoothedCellDataFixture : public ::testing::Test {
              - subcell 0: elements: 0     nodes: 0, 1, 3
              - subcell 1: elements: 1     nodes: 1, 4, 3
              - subcell 2: elements: 2, 3  nodes: 1, 2, 4, 5
+           - 2 cells:
+             - cell 0: subcells: 0, 1
+             - cell 1: subcells: 2
         */
 
         std::vector<std::array<double, 3>> node_coords = {
@@ -98,6 +101,11 @@ class SmoothedCellDataFixture : public ::testing::Test {
             {0},
             {1},
             {2, 3},
+        };
+
+        std::vector<std::vector<uint64_t>> cell_subcells = {
+            {0, 1},
+            {2},
         };
 
         // Element function derivatives, 3 components for each node on each element
@@ -160,6 +168,25 @@ class SmoothedCellDataFixture : public ::testing::Test {
                 }
             });
         Kokkos::fence();
+
+        // Add cell num subcells in a kokkos parallel for loop
+        auto add_cell_num_subcells_functor = scd.GetAddCellNumSubcellsFunctor();
+        Kokkos::parallel_for(
+            "AddCellNumSubcells", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                if (i == 0) {
+                    add_cell_num_subcells_functor(i, 2);
+                } else {
+                    add_cell_num_subcells_functor(i, 1);
+                }
+            });
+        Kokkos::fence();
+        scd.CompleteAddingCellNumSubcellsOnDevice();
+
+        // Check the cell subcells before adding subcells. Should be all UINT64_MAX
+        auto cell_subcells_host_pre = scd.GetCellSubcellsHost();
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            EXPECT_EQ(cell_subcells_host_pre(i), UINT64_MAX) << "i: " << i;
+        }
 
         // Add to the subcell volume in a kokkos parallel for loop
         auto subcell_volumes = scd.GetSubcellVolumes();
@@ -286,11 +313,15 @@ class SmoothedCellDataFixture : public ::testing::Test {
         size_t total_num_nodes = scd.TotalNumNodes();
         size_t total_num_elements = scd.TotalNumElements();
         size_t total_num_components = scd.TotalNumComponents();
+        size_t total_num_subcells = scd.NumSubcells();
+        size_t total_num_cells = scd.NumCells();
 
         // Check the number of nodes and components
         EXPECT_EQ(total_num_nodes, 10);  // 3 for subcell 0, 3 for subcell 1, 4 for subcell 2
         EXPECT_EQ(total_num_elements, 4);
         EXPECT_EQ(total_num_components, 30);  // 3 for each node
+        EXPECT_EQ(total_num_subcells, 3);
+        EXPECT_EQ(total_num_cells, 2);
 
         // Copy the node indices to host
         auto node_indicies_host = scd.GetNodeIndicesHost();
@@ -360,7 +391,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
         }
     }
 
-    size_t m_num_cells = 3;
+    size_t m_num_cells = 2;
     size_t m_num_subcells = 3;
     size_t m_num_elements = 4;
     size_t m_reserved_num_nodes = 6;
