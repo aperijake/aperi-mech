@@ -96,6 +96,21 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 "for_each_cell_compute_f_bar", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                     // Get the subcell indices
                     const auto subcell_indices = scd.GetCellSubcells(cell_id);
+
+                    // Loop over all the subcells
+                    for (size_t i = 0; i < subcell_indices.extent(0); ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell element indices
+                        const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+
+                        // Get the displacement gradient maps
+                        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetEigenMatrixMap<3, 3>(element_indices(0));
+                        auto displacement_gradient_bar_np1_map = m_displacement_gradient_bar_np1_field.GetEigenMatrixMap<3, 3>(element_indices(0));
+
+                        // For now, set the barred displacement gradient to the non-barred displacement gradient (no barring)
+                        displacement_gradient_bar_np1_map = displacement_gradient_np1_map;
+                    }
                 });
         }
 
@@ -116,7 +131,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
 
                 // Get the displacement gradient map
-                const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());  // TODO: (fbar) use f_bar field if has subcells
+                const auto displacement_gradient_np1_map = m_use_f_bar ? m_displacement_gradient_bar_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());
 
                 // Compute the velocity gradient if needed
                 const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index()).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
