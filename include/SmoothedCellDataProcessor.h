@@ -194,7 +194,7 @@ class SmoothedCellDataProcessor {
 
         // Get the number of subcells
         size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
-        size_t num_subcells = num_subcells_per_cell < 1 ? num_cells : num_subcells_per_cell * num_cells;
+        size_t num_subcells = num_subcells_per_cell < 1 ? num_elements : num_subcells_per_cell * num_cells;
 
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes);
     }
