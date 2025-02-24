@@ -9,7 +9,6 @@
 #include "InternalForceContribution.h"
 #include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
-#include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
 #include "UnitTestUtils.h"
 
@@ -51,8 +50,7 @@ class MassMatrixTest : public CaptureOutputTest {
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing, formulation_type, true /* output_coefficients */);
 
         // Add field data from mesh labeler
-        aperi::MeshLabeler mesh_labeler;
-        std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
+        std::vector<aperi::FieldData> mesh_labeler_field_data = aperi::MeshLabeler::GetFieldData();
         field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
 
         // Write the mesh to a temporary file and check that it is written correctly
@@ -79,16 +77,6 @@ class MassMatrixTest : public CaptureOutputTest {
             SplitMeshIntoTwoBlocks(*m_io_mesh->GetMeshData(), z_mid);
         }
 
-        // Label the mesh for element integration
-        for (auto &part : m_part_parameters) {
-            part.mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
-            mesh_labeler.LabelPart(part.mesh_labeler_parameters);
-        }
-
-        // Create a max edge length processor
-        aperi::MaxEdgeLengthProcessor max_edge_length_processor(m_io_mesh->GetMeshData(), std::vector<std::string>{});
-        max_edge_length_processor.ComputeMaxEdgeLength();
-
         // Create an internal force contribution in order to populate the volume field, needed for the mass matrix computation
         for (auto &part : m_part_parameters) {
             aperi::InternalForceContributionParameters internal_force_contribution_parameters;
@@ -108,6 +96,7 @@ class MassMatrixTest : public CaptureOutputTest {
             material_node["elastic"]["poissons_ratio"] = 0.3;
             material_node["elastic"]["density"] = part.density;
             internal_force_contribution_parameters.material = aperi::CreateMaterial(material_node);
+            internal_force_contribution_parameters.mesh_labeler_parameters = part.mesh_labeler_parameters;
             auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
             internal_force_contrib->Preprocess();
         }

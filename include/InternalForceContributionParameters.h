@@ -9,6 +9,7 @@
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 
 namespace aperi {
 
@@ -216,6 +217,9 @@ struct InternalForceContributionParameters {
         } else {
             integration_scheme_parameters = std::make_shared<IntegrationSchemeGaussQuadratureParameters>();
         }
+        if (part["formulation"]) {
+            mesh_labeler_parameters = MeshLabelerParameters(part);
+        }
     }
 
     virtual ~InternalForceContributionParameters() = default;
@@ -226,6 +230,7 @@ struct InternalForceContributionParameters {
     std::shared_ptr<ApproximationSpaceParameters> approximation_space_parameters = nullptr;
     std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters = nullptr;
     LagrangianFormulationType lagrangian_formulation_type = LagrangianFormulationType::Total;
+    MeshLabelerParameters mesh_labeler_parameters;
 };
 
 }  // namespace aperi

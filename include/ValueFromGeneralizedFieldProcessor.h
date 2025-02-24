@@ -110,6 +110,8 @@ class ValueFromGeneralizedFieldProcessor {
     // Compute the value of the destination fields from the source fields and function values.
     // This is the construction of the field from the shape functions and their coefficients.
     void compute_value_from_generalized_field() {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
         assert(check_partition_of_unity());
 
@@ -172,6 +174,7 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Loop over all evaluation points and scatter the values to their neighbors (active nodes) using the function values as weights.
     void scatter_local_values(const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         assert(check_partition_of_unity());
 
         auto ngp_mesh = m_ngp_mesh;

@@ -24,7 +24,10 @@
 #include "FieldData.h"
 #include "Index.h"
 #include "LogUtils.h"
+#include "MaxEdgeLengthProcessor.h"
 #include "MeshData.h"
+#include "MeshLabeler.h"
+#include "MeshLabelerParameters.h"
 #include "SmoothedCellData.h"
 
 namespace aperi {
@@ -43,6 +46,7 @@ inline const std::map<StrainSmoothingTimerType, std::string> strain_smoothing_ti
     {StrainSmoothingTimerType::NONE, "NONE"}};
 
 enum class SmoothedCellDataTimerType {
+    LabelParts,
     Instantiate,
     SyncFields,
     AddCellNumElements,
@@ -53,6 +57,7 @@ enum class SmoothedCellDataTimerType {
 };
 
 inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data_timer_map = {
+    {SmoothedCellDataTimerType::LabelParts, "LabelParts"},
     {SmoothedCellDataTimerType::Instantiate, "Instantiate"},
     {SmoothedCellDataTimerType::SyncFields, "SyncFields"},
     {SmoothedCellDataTimerType::AddCellNumElements, "AddCellNumElements"},
@@ -61,14 +66,17 @@ inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data
     {SmoothedCellDataTimerType::SetFunctionDerivatives, "SetFunctionDerivatives"},
     {SmoothedCellDataTimerType::NONE, "NONE"}};
 
-class StrainSmoothingProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
+class SmoothedCellDataProcessor {
    public:
-    StrainSmoothingProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type = aperi::LagrangianFormulationType::Total) : m_mesh_data(mesh_data), m_sets(sets), m_lagrangian_formulation_type(lagrangian_formulation_type), m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+    SmoothedCellDataProcessor(
+        std::shared_ptr<aperi::MeshData> mesh_data,
+        const std::vector<std::string> &sets,
+        const aperi::LagrangianFormulationType &lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters) : m_mesh_data(mesh_data),
+                                                                       m_sets(sets),
+                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
+                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters),
+                                                                       m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -80,15 +88,23 @@ class StrainSmoothingProcessor {
         m_selector = StkGetSelector(sets, meta_data);
         // Warn if the selector is empty.
         if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: StrainSmoothingProcessor selector is empty." << std::endl;
+            aperi::CoutP0() << "Warning: SmoothedCellDataProcessor selector is empty." << std::endl;
         }
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
+        // Create the smoothed cell timer manager
+        m_smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map);
+
+        // Add the smoothed cell timer manager to the timer manager
+        m_timer_manager.AddChild(m_smoothed_cell_timer_manager);
+    }
+
+    void InitializeFields() {
         // Get the coordinates field
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE});
         } else {
-            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
+            m_coordinates = aperi::Field(m_mesh_data, FieldQueryData<double>{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
         }
 
         // Get the element volume field
@@ -96,6 +112,9 @@ class StrainSmoothingProcessor {
 
         // Get the smoothed cell id field
         m_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+
+        // Get the subcell id field
+        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the neighbors and num_neighbors fields
         m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
@@ -106,31 +125,46 @@ class StrainSmoothingProcessor {
     }
 
     bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
-        // Get the number of cells
-        size_t num_cells = smoothed_cell_data->NumCells();
+        // Get the number of subcells
+        size_t num_subcells = smoothed_cell_data->NumSubcells();
 
         // Get the number of nodes
         auto node_lengths = smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
 
-        // Loop over all the cells, set the derivative values for the nodes
+        // Loop over all the subcells, set the derivative values for the nodes
         Kokkos::parallel_for(
-            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_LAMBDA(const size_t cell_id) {
+            "for_each_subcell_set_function_derivatives", num_subcells, KOKKOS_LAMBDA(const size_t subcell_id) {
                 // Get the function derivatives
-                auto cell_function_derivatives = smoothed_cell_data->GetCellFunctionDerivatives(cell_id);
-                Kokkos::Array<double, 3> cell_function_derivatives_sum{0.0, 0.0, 0.0};
-                for (size_t j = 0, je = node_lengths[cell_id] * 3; j < je; ++j) {
-                    cell_function_derivatives_sum[j % 3] += cell_function_derivatives[j];
+                auto subcell_function_derivatives = smoothed_cell_data->GetSubcellFunctionDerivatives(subcell_id);
+                Kokkos::Array<double, 3> subcell_function_derivatives_sum{0.0, 0.0, 0.0};
+                for (size_t j = 0, je = node_lengths[subcell_id] * 3; j < je; ++j) {
+                    subcell_function_derivatives_sum[j % 3] += subcell_function_derivatives[j];
                 }
                 for (size_t j = 0; j < 3; ++j) {
                     // Compare the sum of the function derivatives to the tolerance on device
-                    if (Kokkos::abs(cell_function_derivatives_sum[j]) > tolerance) {
-                        // Print the cell id and the sum of the function derivatives
-                        printf("Cell %lu: Sum of function derivatives: %f\n", cell_id, cell_function_derivatives_sum[j]);
+                    if (Kokkos::abs(subcell_function_derivatives_sum[j]) > tolerance) {
+                        // Print the subcell id and the sum of the function derivatives
+                        printf("Subcell %lu: Sum of function derivatives: %f\n", subcell_id, subcell_function_derivatives_sum[j]);
                         Kokkos::abort("Partition of nullity check failed");
                     }
                 }
             });
         return true;
+    }
+
+    void LabelParts() {
+        // Create a scoped timer
+        auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::LabelParts);
+
+        // Create a mesh labeler
+        std::shared_ptr<aperi::MeshLabeler> mesh_labeler = CreateMeshLabeler(m_mesh_data);
+
+        // Label the part
+        mesh_labeler->LabelPart(m_mesh_labeler_parameters);
+
+        // Calculate the maximum edge length
+        aperi::MaxEdgeLengthProcessor max_edge_length_processor(m_mesh_data);
+        max_edge_length_processor.ComputeMaxEdgeLength();
     }
 
     std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
@@ -158,54 +192,57 @@ class StrainSmoothingProcessor {
         // Estimate the total number of nodes in the cells
         size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_elements, estimated_num_nodes);
+        // Get the number of subcells
+        size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
+        size_t num_subcells = num_subcells_per_cell < 1 ? num_cells : num_subcells_per_cell * num_cells;
+
+        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes);
     }
 
-    void AddCellNumElements() {
+    void AddSubcellNumElements() {
         // Update the fields
-        m_cell_id.UpdateField();
+        m_subcell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
 
-        // #### Set length and start for the elements in the smoothed cell data ####
         // Get the functor to add the number of elements to the smoothed cell data
-        auto add_cell_num_elements_functor = m_smoothed_cell_data->GetAddCellNumElementsFunctor();
+        auto add_subcell_num_elements_functor = m_smoothed_cell_data->GetAddSubcellNumElementsFunctor();
 
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the cell_id
-                uint64_t cell_id = m_cell_id(elem_index, 0);
+                // Get the subcell_id
+                uint64_t subcell_id = m_subcell_id(elem_index, 0);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_num_elements_functor(cell_id, 1);
+                add_subcell_num_elements_functor(subcell_id, 1);
             });
-        // Number of cell elements ('length') is now set.
+        // Number of subcell elements ('length') is now set.
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
-        m_smoothed_cell_data->CompleteAddingCellElementCSRIndicesOnDevice();
+        m_smoothed_cell_data->CompleteAddingSubcellElementCSRIndicesOnDevice();
     }
 
-    void SetCellElementIndices() {
-        // #### Set the cell element indices for the smoothed cell data ####
+    void SetSubcellElementIndices() {
+        // #### Set the subcell element indices for the smoothed cell data ####
 
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
-        m_cell_id.UpdateField();
+        m_subcell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
 
         // Get the functor to add the element to the smoothed cell data
-        auto add_cell_element_functor = m_smoothed_cell_data->GetAddCellElementFunctor();
+        auto add_subcell_element_functor = m_smoothed_cell_data->GetAddSubcellElementFunctor();
 
         // Loop over all the elements
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the cell_id
-                uint64_t cell_id = m_cell_id(elem_index, 0);
+                // Get the subcell_id
+                uint64_t subcell_id = m_subcell_id(elem_index, 0);
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
@@ -216,10 +253,75 @@ class StrainSmoothingProcessor {
                 aperi::Index element_index = aperi::Index(element_fast_mesh_index);
 
                 // Add the number of elements to the smoothed cell data
-                add_cell_element_functor(cell_id, element_index);
+                add_subcell_element_functor(subcell_id, element_index);
             });
         // Cell element indices are now set. Copy to host.
-        m_smoothed_cell_data->CopyCellElementViewsToHost();
+        m_smoothed_cell_data->CopySubcellElementViewsToHost();
+    }
+
+    void SetCellNumSubcells() {
+        // Update the fields
+        m_cell_id.UpdateField();
+
+        auto add_cell_num_subcells_functor = m_smoothed_cell_data->GetAddCellNumSubcellsFunctor();
+
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
+
+        // Get the element indices
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+
+        // Get the start view
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+
+        // Loop over all the subcells
+        Kokkos::parallel_for(
+            "set_cell_num_subcells", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Get the first element in the subcell
+                auto element_index = element_indices(start(subcell_id));
+
+                // Get the cell id for the element
+                uint64_t cell_id = m_cell_id(element_index(), 0);
+
+                // Add the number of subcells to the cell
+                add_cell_num_subcells_functor(cell_id, 1);
+            });
+        // Number of cell subcells ('length') is now set.
+        // This populates the 'start' array from the 'length' array and collects other sizes.
+        // Also copies the 'length' and 'start' arrays to host.
+        m_smoothed_cell_data->CompleteAddingCellNumSubcellsOnDevice();
+    }
+
+    void SetCellSubcells() {
+        // Update the fields
+        m_cell_id.UpdateField();
+
+        // Get the functor to add the subcells to the cell
+        auto add_cell_subcells_functor = m_smoothed_cell_data->GetAddCellSubcellsFunctor();
+
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
+
+        // Get the element indices
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+
+        // Get the start view
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+
+        // Loop over all the subcells
+        Kokkos::parallel_for(
+            "set_cell_subcells", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Get the first element in the subcell
+                auto element_index = element_indices(start(subcell_id));
+
+                // Get the cell id for the element
+                uint64_t cell_id = m_cell_id(element_index(), 0);
+
+                // Add the subcell to the cell
+                add_cell_subcells_functor(cell_id, subcell_id);
+            });
+        // Cell subcell indices are now set. Copy to host.
+        m_smoothed_cell_data->CopyCellSubcellsToHost();
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -250,7 +352,7 @@ class StrainSmoothingProcessor {
     }
 
     template <size_t NumElementNodes>
-    void SetCellNodeIndices(bool one_pass_method) {
+    void SetSubcellNodeIndices(bool one_pass_method) {
         m_num_neighbors.UpdateField();
         m_neighbors.UpdateField();
 
@@ -266,8 +368,8 @@ class StrainSmoothingProcessor {
         // Get the global node index to local index map
         auto &node_to_view_index_map = m_smoothed_cell_data->GetNodeToViewIndexMap();
 
-        // Get the number of cells
-        size_t num_cells = m_smoothed_cell_data->NumCells();
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
 
         auto &ngp_mesh = m_ngp_mesh;
 
@@ -279,18 +381,18 @@ class StrainSmoothingProcessor {
         auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
         auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
-        // Loop over all the cells, set indexes for the nodes
+        // Loop over all the subcells, set indexes for the nodes
         do {
             // Reset the number of failed insertions
             num_failed = 0;
             Kokkos::parallel_reduce(
-                "set_indices_and_map", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id, size_t &local_fail) {
+                "set_indices_and_map", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id, size_t &local_fail) {
                     // Initialize the local index counter
                     uint64_t local_index_counter = 0;
 
-                    // Loop over all elements in the cell to create the short list of nodes or node neighbors
-                    for (size_t j = 0, je = length(cell_id); j < je; ++j) {
-                        auto element_index = element_indices(start(cell_id) + j);
+                    // Loop over all elements in the subcell to create the short list of nodes or node neighbors
+                    for (size_t j = 0, je = length(subcell_id); j < je; ++j) {
+                        auto element_index = element_indices(start(subcell_id) + j);
 
                         // Get the nodes for the element
                         stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
@@ -308,26 +410,26 @@ class StrainSmoothingProcessor {
                                 for (size_t l = 0; l < num_neighbors; ++l) {
                                     uint64_t neighbor = m_neighbors(element_nodes[k], l);
                                     aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbor);
-                                    auto results = node_to_view_index_map.insert({cell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
+                                    auto results = node_to_view_index_map.insert({subcell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
                                     if (results.success()) {
                                         local_index_counter++;
                                     } else if (results.failed()) {
                                         local_fail++;
                                         if (num_tries > 0) {
                                             // Should have sized things properly after the first pass, so this should not happen.
-                                            printf("Warning: Failed to insert neighbor (%u, %u) into the map on cell %lu\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord(), cell_id);
+                                            printf("Warning: Failed to insert neighbor (%u, %u) into the map on subcell %lu\n", neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord(), subcell_id);
                                         }
                                     }
                                 }
                             } else {
-                                auto results = node_to_view_index_map.insert({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}, local_index_counter);
+                                auto results = node_to_view_index_map.insert({subcell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}, local_index_counter);
                                 if (results.success()) {
                                     local_index_counter++;
                                 } else if (results.failed()) {
                                     local_fail++;
                                     if (num_tries > 0) {
                                         // Should have sized things properly after the first pass, so this should not happen.
-                                        printf("Warning: Failed to insert node (%u, %u) into the map on cell %lu\n", element_nodes[k].bucket_id(), element_nodes[k].bucket_ord(), cell_id);
+                                        printf("Warning: Failed to insert node (%u, %u) into the map on subcell %lu\n", element_nodes[k].bucket_id(), element_nodes[k].bucket_ord(), subcell_id);
                                     }
                                 }
                             }
@@ -335,7 +437,7 @@ class StrainSmoothingProcessor {
                     }
 
                     // Set the length to the size of the map. This is the number of nodes or node neighbors in the cell
-                    node_lengths(cell_id) = local_index_counter;
+                    node_lengths(subcell_id) = local_index_counter;
                 },
                 num_failed);
 
@@ -357,7 +459,7 @@ class StrainSmoothingProcessor {
         } while (num_failed > 0);
 
         bool set_start_from_lengths = true;
-        m_smoothed_cell_data->CompleteAddingCellNodeCSRIndicesOnDevice(set_start_from_lengths);
+        m_smoothed_cell_data->CompleteAddingSubcellNodeCSRIndicesOnDevice(set_start_from_lengths);
 
         // Get the views after potential resizing
         node_indicies = m_smoothed_cell_data->GetNodeIndices();
@@ -410,8 +512,12 @@ class StrainSmoothingProcessor {
         auto cell_volumes = m_smoothed_cell_data->GetCellVolumes();
         Kokkos::deep_copy(cell_volumes, 0.0);
 
-        // Get the number of cells
-        size_t num_cells = m_smoothed_cell_data->NumCells();
+        // Get the subcell volume view and zero it
+        auto subcell_volumes = m_smoothed_cell_data->GetSubcellVolumes();
+        Kokkos::deep_copy(subcell_volumes, 0.0);
+
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
 
         auto &ngp_mesh = m_ngp_mesh;
 
@@ -424,11 +530,11 @@ class StrainSmoothingProcessor {
 
         // Loop over all the cells, set the derivative values for the nodes
         Kokkos::parallel_for(
-            "for_each_cell_set_function_derivatives", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
-                // Loop over all the cell elements and add the function derivatives to the nodes
-                for (size_t j = 0, je = length(cell_id); j < je; ++j) {
+            "for_each_subcell_set_function_derivatives", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Loop over all the subcell elements and add the function derivatives to the nodes
+                for (size_t j = 0, je = length(subcell_id); j < je; ++j) {
                     // Get the element index
-                    auto element_index = element_indices(start(cell_id) + j);
+                    auto element_index = element_indices(start(subcell_id) + j);
 
                     // Get the nodes for the element
                     stk::mesh::NgpMesh::ConnectedNodes element_node_entities = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, element_index());
@@ -439,19 +545,19 @@ class StrainSmoothingProcessor {
                     }
 
                     // Set up the field data to gather
-                    Eigen::Matrix<double, NumElementNodes, 3> cell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
+                    Eigen::Matrix<double, NumElementNodes, 3> subcell_node_coordinates = Eigen::Matrix<double, NumElementNodes, 3>::Zero();
 
                     // Gather the field data for each node
                     for (size_t l = 0; l < num_nodes; ++l) {
-                        cell_node_coordinates.row(l).noalias() = m_coordinates.GetEigenMatrix<1, 3>(element_nodes[l]);
+                        subcell_node_coordinates.row(l).noalias() = m_coordinates.GetEigenMatrix<1, 3>(element_nodes[l]);
                     }
-                    Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(cell_node_coordinates);
+                    Kokkos::pair<Eigen::Matrix<double, NumElementNodes, 3>, double> derivatives_and_weight = integration_functor.ComputeBMatrixAndWeight(subcell_node_coordinates);
                     const Eigen::Matrix<double, NumElementNodes, 3> &element_function_derivatives = derivatives_and_weight.first;
                     double &element_volume = derivatives_and_weight.second;
 
                     // Set the element volume
                     m_element_volume(element_index, 0) = element_volume;
-                    cell_volumes(cell_id) += element_volume;
+                    subcell_volumes(subcell_id) += element_volume;
 
                     // Loop over all the nodes in the element
                     for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
@@ -468,42 +574,42 @@ class StrainSmoothingProcessor {
                                 // Get the function value
                                 double function_value = m_function_values(element_nodes[k], l);
 
-                                // Get the cell index of the neighbor
+                                // Get the subcell index of the neighbor
                                 aperi::Index neighbor_index = LocalOffsetToIndex(neighbor);
-                                KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
-                                auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
+                                KOKKOS_ASSERT(node_to_view_index_map.exists({subcell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()}));
+                                auto neighbor_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({subcell_id, neighbor_index.bucket_id(), neighbor_index.bucket_ord()})) * 3;
 
                                 // Atomic add to the derivatives
                                 for (size_t m = 0; m < 3; ++m) {
-                                    // Will have to divide by the cell volume when we have the full value
+                                    // Will have to divide by the subcell volume when we have the full value
                                     Kokkos::atomic_add(&node_function_derivatives(neighbor_component_index + m), element_function_derivatives(k, m) * element_volume * function_value);
                                 }
                             }
                         } else {
-                            // Two pass method: store the function derivatives for the nodes in the cell
+                            // Two pass method: store the function derivatives for the nodes in the subcell
 
                             // Get the node index
-                            KOKKOS_ASSERT(node_to_view_index_map.exists({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}));
-                            size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({cell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()})) * 3;
+                            KOKKOS_ASSERT(node_to_view_index_map.exists({subcell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()}));
+                            size_t node_component_index = node_to_view_index_map.value_at(node_to_view_index_map.find({subcell_id, element_nodes[k].bucket_id(), element_nodes[k].bucket_ord()})) * 3;
                             // Atomic add to the derivatives
                             for (size_t l = 0; l < 3; ++l) {
-                                // Will have to divide by the cell volume when we have the full value
+                                // Will have to divide by the subcell volume when we have the full value
                                 Kokkos::atomic_add(&node_function_derivatives(node_component_index + l), element_function_derivatives(k, l) * element_volume);
                             }
                         }
                     }
                 }
 
-                // Cell volume
-                double cell_volume = cell_volumes(cell_id);
+                // Subcell volume
+                double subcell_volume = subcell_volumes(subcell_id);
 
-                size_t start_node_index = node_starts(cell_id);
+                size_t start_node_index = node_starts(subcell_id);
 
-                // Divide the function derivatives by the cell volume
-                for (size_t j = 0, je = node_lengths(cell_id); j < je; ++j) {
+                // Divide the function derivatives by the subcell volume
+                for (size_t j = 0, je = node_lengths(subcell_id); j < je; ++j) {
                     size_t j3 = (start_node_index + j) * 3;
                     for (size_t k = 0; k < 3; ++k) {
-                        node_function_derivatives(j3 + k) /= cell_volume;
+                        node_function_derivatives(j3 + k) /= subcell_volume;
                     }
                 }
             });
@@ -538,14 +644,14 @@ class StrainSmoothingProcessor {
         }
         const size_t stride = state_field_exists ? state.GetStride() : 0;
 
-        // Get the number of cells
-        size_t num_cells = m_smoothed_cell_data->NumCells();
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
 
-        // Loop over all the cells, set the derivative values for the nodes
+        // Loop over all the subcells, set the derivative values for the nodes
         Kokkos::parallel_for(
-            "for_each_cell_populate_cell_outputs", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+            "for_each_subcell_populate_subcell_outputs", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Get the first element
-                const aperi::Index first_element = element_indices(start(cell_id));
+                const aperi::Index first_element = element_indices(start(subcell_id));
 
                 // Get the pk1_stress and displacement_gradient of the first element as Eigen maps
                 const auto first_element_pk1_stress = pk1.GetConstEigenVectorMap<num_tensor_components>(first_element);
@@ -556,10 +662,10 @@ class StrainSmoothingProcessor {
                 size_t num_state_components = state_field_exists ? state.GetNumComponentsPerEntity(first_element) : 0;
                 const auto first_element_state = state_field_exists ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
-                // Loop over all the cell elements and add the function derivatives to the nodes
-                for (size_t j = 1, je = length(cell_id); j < je; ++j) {
+                // Loop over all the subcell elements and add the function derivatives to the nodes
+                for (size_t j = 1, je = length(subcell_id); j < je; ++j) {
                     // Get the element index
-                    const aperi::Index element_index = element_indices(start(cell_id) + j);
+                    const aperi::Index element_index = element_indices(start(subcell_id) + j);
 
                     // Set the pk1_stress and displacement_gradient
                     for (size_t k = 0; k < num_tensor_components; ++k) {
@@ -585,26 +691,35 @@ class StrainSmoothingProcessor {
     void PrintDiagnosticOutput() {
         // Collect the cell counts on each rank
         size_t num_cells = m_smoothed_cell_data->NumCells();
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
         size_t num_ranks = m_bulk_data->parallel_size();
         std::vector<size_t> num_cells_per_rank(num_ranks);
+        std::vector<size_t> num_subcells_per_rank(num_ranks);
         num_cells_per_rank[m_bulk_data->parallel_rank()] = num_cells;
+        num_subcells_per_rank[m_bulk_data->parallel_rank()] = num_subcells;
         MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, num_cells_per_rank.data(), 1, MPI_UNSIGNED_LONG, m_bulk_data->parallel());
+        MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, num_subcells_per_rank.data(), 1, MPI_UNSIGNED_LONG, m_bulk_data->parallel());
 
-        // Get the total number of cells
+        // Get the total number of cells and subcells
         size_t total_num_cells = std::accumulate(num_cells_per_rank.begin(), num_cells_per_rank.end(), 0);
+        size_t total_num_subcells = std::accumulate(num_subcells_per_rank.begin(), num_subcells_per_rank.end(), 0);
 
-        // Get the average number of cells
+        // Get the average number of cells and subcells
         double avg_num_cells = static_cast<double>(total_num_cells) / static_cast<double>(num_ranks);
+        double avg_num_subcells = static_cast<double>(total_num_subcells) / static_cast<double>(num_ranks);
 
-        // Get the min and max number of cells
+        // Get the min and max number of cells and subcells
         size_t min_num_cells = *std::min_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
         size_t max_num_cells = *std::max_element(num_cells_per_rank.begin(), num_cells_per_rank.end());
+        size_t min_num_subcells = *std::min_element(num_subcells_per_rank.begin(), num_subcells_per_rank.end());
+        size_t max_num_subcells = *std::max_element(num_subcells_per_rank.begin(), num_subcells_per_rank.end());
 
         // Get the number of resizes that occurred. Should be at least one due to the final resize.
         size_t num_resizes = m_smoothed_cell_data->NumberOfResizes();
 
         // Calculate the percent unbalance = (max - avg) / avg
         double percent_unbalance = (static_cast<double>(max_num_cells) - avg_num_cells) / avg_num_cells * 100.0;
+        double percent_unbalance_subcells = (static_cast<double>(max_num_subcells) - avg_num_subcells) / avg_num_subcells * 100.0;
 
         // Print the cell counts
         std::stringstream ss;
@@ -616,35 +731,48 @@ class StrainSmoothingProcessor {
            << "\n";
         ss << "----------------------------------------------------\n";
         ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
+        ss << "*** Subcell Counts ************************************\n";
+        ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Unbalance%"
+           << "\n";
+        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+           << "\n";
+        ss << "----------------------------------------------------\n";
+        ss << std::setw(width) << total_num_subcells << std::setw(width) << avg_num_subcells << std::setw(width) << min_num_subcells << std::setw(width) << max_num_subcells << std::setw(width) << percent_unbalance_subcells << "%\n";
         ss << "***************************************************\n";
         ss << "Number of resizes: " << num_resizes << std::endl;
         aperi::CoutP0() << ss.str();
     }
 
     template <size_t NumElementNodes>
-    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method = true) {
+    std::shared_ptr<aperi::SmoothedCellData> BuildSmoothedCellData(size_t estimated_num_nodes_per_subcell, bool one_pass_method = true) {
         /* This needs a few things to be completed first:
-           - The mesh labeler needs to be run to get the cell ids and create the _cells parts.
+           - The mesh labeler needs to be run to get the cell ids, subcell ids, and create the _cells parts.
         */
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, "Build Smoothed Cell Data");
 
-        // Create the smoothed cell timer manager
-        m_smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map);
+        // Update the ngp mesh
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
 
-        // Add the smoothed cell timer manager to the timer manager
-        m_timer_manager.AddChild(m_smoothed_cell_timer_manager);
+        // Initialize the fields
+        InitializeFields();
 
         // Create the smoothed cell data object
-        m_smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_cell, one_pass_method, m_smoothed_cell_timer_manager);
+        m_smoothed_cell_data = InstantiateSmoothedCellData(estimated_num_nodes_per_subcell, one_pass_method, m_smoothed_cell_timer_manager);
 
-        // Add the cells number of elements to the smoothed cell data
-        AddCellNumElements();
+        // Add the subcells number of elements to the smoothed cell data
+        AddSubcellNumElements();
 
-        // Set the cell element indices
-        SetCellElementIndices();
+        // Set the subcell element indices
+        SetSubcellElementIndices();
+
+        // Set the number of subcells for each cell
+        SetCellNumSubcells();
+
+        // Set the cell subcells
+        SetCellSubcells();
 
         // Set the node indicies and map
-        SetCellNodeIndices<NumElementNodes>(one_pass_method);
+        SetSubcellNodeIndices<NumElementNodes>(one_pass_method);
 
         PrintDiagnosticOutput();
 
@@ -667,18 +795,20 @@ class StrainSmoothingProcessor {
     std::shared_ptr<aperi::MeshData> m_mesh_data;                    // The mesh data object.
     std::vector<std::string> m_sets;                                 // The sets to process.
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
+    aperi::MeshLabelerParameters m_mesh_labeler_parameters;          // The mesh labeler parameters.
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
-    stk::mesh::BulkData *m_bulk_data;       // The bulk data object.
-    stk::mesh::Selector m_selector;         // The selector
-    stk::mesh::Selector m_owned_selector;   // The selector for owned entities
-    stk::mesh::NgpMesh m_ngp_mesh;          // The ngp mesh object.
-    aperi::Field<double> m_coordinates;     // The coordinates field
-    aperi::Field<double> m_element_volume;  // The element volume field
-    aperi::Field<uint64_t> m_neighbors;
-    aperi::Field<uint64_t> m_num_neighbors;
+    stk::mesh::BulkData *m_bulk_data;        // The bulk data object.
+    stk::mesh::Selector m_selector;          // The selector
+    stk::mesh::Selector m_owned_selector;    // The selector for owned entities
+    stk::mesh::NgpMesh m_ngp_mesh;           // The ngp mesh object.
+    aperi::Field<double> m_coordinates;      // The coordinates field
+    aperi::Field<double> m_element_volume;   // The element volume field
+    aperi::Field<uint64_t> m_neighbors;      // The neighbors field
+    aperi::Field<uint64_t> m_num_neighbors;  // The number of neighbors field
     aperi::Field<double> m_function_values;  // The function values field
     aperi::Field<uint64_t> m_cell_id;        // The smoothed cell id field
+    aperi::Field<uint64_t> m_subcell_id;     // The subcell id field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data

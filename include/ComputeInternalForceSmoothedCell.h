@@ -48,8 +48,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Get the NGP mesh
         stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_mesh_data->GetBulkData());
 
-        // Get the number of cells
+        // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
+        const size_t num_subcells = scd.NumSubcells();
 
         // Get the stride
         const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
@@ -61,16 +62,16 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         bool has_state = m_has_state;
         bool needs_velocity_gradient = m_needs_velocity_gradient;
 
-        // Loop over all the cells. TODO:(fbar) Loop over subcells in the cells
+        // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
-                const auto element_indices = scd.GetCellElementIndices(cell_id);  // TODO: (fbar) GetSubCellElementIndices
+                const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 
                 // Get the node indices and function derivatives
-                const auto node_indicies = scd.GetCellNodeIndices(cell_id);                      // TODO: (fbar) GetSubCellNodeIndices
-                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);  // TODO: (fbar) GetSubCellFunctionDerivatives
+                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
+                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
 
                 const size_t num_nodes = node_indicies.extent(0);
 
@@ -92,16 +93,16 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
         // TODO(fbar) Loop over cells. Compute and store F-bar
 
-        // Loop over all the cells
+        // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_cell_gather_scatter_nodal_data", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
-                const auto element_indices = scd.GetCellElementIndices(cell_id);  // TODO: (fbar) GetSubCellElementIndices
+                const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 
                 // Get the node indices and function derivatives
-                const auto node_indicies = scd.GetCellNodeIndices(cell_id);                      // TODO: (fbar) GetSubCellNodeIndices
-                const auto node_function_derivatives = scd.GetCellFunctionDerivatives(cell_id);  // TODO: (fbar) GetSubCellFunctionDerivatives
+                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
+                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
 
                 const size_t num_nodes = node_indicies.extent(0);
 
@@ -111,7 +112,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 // Get the displacement gradient map
                 const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());  // TODO: (fbar) use f_bar field if has subcells
 
-                // Compute the velocity gradient if needed. TODO: (fbar) use f_bar fields to compute velocity gradient?
+                // Compute the velocity gradient if needed
                 const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index()).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
                 // Get the number of state variables
@@ -129,7 +130,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
 
                 // Compute the stress and internal force of the element.
-                double volume = scd.GetCellVolume(cell_id);
+                double volume = scd.GetSubcellVolume(subcell_id);
 
                 // TODO: (fbar) unbar the stress if using F-bar
                 Eigen::Matrix<double, 3, 3> stress_term = pk1_stress_map.transpose() * -volume;

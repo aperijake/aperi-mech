@@ -15,11 +15,12 @@
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
-#include "StrainSmoothingProcessor.h"
+#include "SmoothedCellDataProcessor.h"
 
 namespace aperi {
 
@@ -36,12 +37,30 @@ class ElementReproducingKernel : public ElementBase {
     /**
      * @brief Constructs a ElementReproducingKernel object.
      */
-    ElementReproducingKernel(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, double kernel_radius_scale_factor, bool use_one_pass_method, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementBase(NumCellNodes, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data), m_kernel_radius_scale_factor(kernel_radius_scale_factor), m_use_one_pass_method(use_one_pass_method), m_lagrangian_formulation_type(lagrangian_formulation_type) {
-        // Find and store the element neighbors
+    ElementReproducingKernel(
+        const std::string& displacement_field_name,
+        const std::vector<std::string>& part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        double kernel_radius_scale_factor,
+        bool use_one_pass_method,
+        const aperi::LagrangianFormulationType& lagrangian_formulation_type,
+        const MeshLabelerParameters& mesh_labeler_parameters)
+        : ElementBase(NumCellNodes,
+                      displacement_field_name,
+                      part_names,
+                      mesh_data,
+                      material,
+                      lagrangian_formulation_type,
+                      mesh_labeler_parameters),
+          m_kernel_radius_scale_factor(kernel_radius_scale_factor),
+          m_use_one_pass_method(use_one_pass_method) {
+        // Initialize element data and processors
         CreateElementForceProcessor();
+        CreateSmoothedCellDataProcessor();
+        LabelParts();
         FindNeighbors();
         CreateFunctionValueStorageProcessor();
-        CreateStrainSmoothingProcessor();
         BuildSmoothedCellData();
     }
 
@@ -116,7 +135,7 @@ class ElementReproducingKernel : public ElementBase {
         m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
     }
 
-    void CreateStrainSmoothingProcessor() {
+    void CreateSmoothedCellDataProcessor() {
         if (!m_mesh_data) {
             // Allowing for testing
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
@@ -124,7 +143,12 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Make the strain smoothing processor
-        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+    }
+
+    void LabelParts() {
+        // Label the parts
+        m_strain_smoothing_processor->LabelParts();
     }
 
     void FindNeighbors() {
@@ -144,7 +168,7 @@ class ElementReproducingKernel : public ElementBase {
     // but works fine in Debug mode or on the CPU. Spent a lot of time trying to figure out why, but couldn't find the issue.
     template <size_t MaxNumNeighbors, typename Bases>
     struct FunctionFunctorWrapper {
-        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1> &kernel_values, const Bases &bases, const Eigen::Matrix<double, MaxNumNeighbors, 3> &shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
+        KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, MaxNumNeighbors, 1> Values(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Bases& bases, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates, size_t actual_num_neighbors) const {
             return compute_node_functions_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, actual_num_neighbors);
         }
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
@@ -194,16 +218,12 @@ class ElementReproducingKernel : public ElementBase {
     }
 
    protected:
-    const std::string m_displacement_field_name;
-    const std::vector<std::string> m_part_names;
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
     std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
-    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
+    std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
     bool m_use_one_pass_method;
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
 };
 
 /**
@@ -218,7 +238,22 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
     /**
      * @brief Constructs a ElementReproducingKernelTet4 object.
      */
-    ElementReproducingKernelTet4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, double kernel_radius_scale_factor, bool use_one_pass_method, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type) {
+    ElementReproducingKernelTet4(
+        const std::string& displacement_field_name,
+        const std::vector<std::string>& part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        double kernel_radius_scale_factor,
+        bool use_one_pass_method,
+        const aperi::LagrangianFormulationType& lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(displacement_field_name,
+                                                                                                                       part_names,
+                                                                                                                       mesh_data,
+                                                                                                                       material,
+                                                                                                                       kernel_radius_scale_factor,
+                                                                                                                       use_one_pass_method,
+                                                                                                                       lagrangian_formulation_type,
+                                                                                                                       mesh_labeler_parameters) {
         BuildQuadratureFunctor();
         UpdateShapeFunctions();
     }
@@ -268,7 +303,22 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
     /**
      * @brief Constructs a ElementReproducingKernelHex8 object.
      */
-    ElementReproducingKernelHex8(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, double kernel_radius_scale_factor, bool use_one_pass_method, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type) {
+    ElementReproducingKernelHex8(
+        const std::string& displacement_field_name,
+        const std::vector<std::string>& part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        double kernel_radius_scale_factor,
+        bool use_one_pass_method,
+        const aperi::LagrangianFormulationType& lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(displacement_field_name,
+                                                                                                                       part_names,
+                                                                                                                       mesh_data,
+                                                                                                                       material,
+                                                                                                                       kernel_radius_scale_factor,
+                                                                                                                       use_one_pass_method,
+                                                                                                                       lagrangian_formulation_type,
+                                                                                                                       mesh_labeler_parameters) {
         BuildQuadratureFunctor();
         UpdateShapeFunctions();
     }

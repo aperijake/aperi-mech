@@ -188,20 +188,6 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
     io_mesh->CompleteInitialization();
 }
 
-void LabelMesh(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<YAML::Node>& parts, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
-    // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::LabelMesh, "Labeling Mesh");
-
-    // Create a mesh labeler
-    std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
-
-    // Label the mesh
-    for (const auto& part : parts) {
-        MeshLabelerParameters mesh_labeler_parameters(part, io_mesh->GetMeshData());
-        mesh_labeler->LabelPart(mesh_labeler_parameters);
-    }
-}
-
 std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalForceContribution(const std::vector<YAML::Node>& loads, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Create a scoped timer
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::CreateExternalForceContribution, "Creating External Force Contributions");
@@ -322,9 +308,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Add fields to the mesh
     AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients, timer_manager);
-
-    // Label the mesh
-    LabelMesh(io_mesh, parts, timer_manager);
 
     // Create external force contributions
     std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);

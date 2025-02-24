@@ -44,6 +44,7 @@ class ElementNodeProcessor {
     }
 
     bool CheckNumNodes(size_t max_allowed_nodes) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         stk::mesh::for_each_entity_run(
@@ -64,6 +65,7 @@ class ElementNodeProcessor {
 
     template <typename ActionFunc>
     void for_each_element_and_nodes(ActionFunc &action_func) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         auto func = action_func;

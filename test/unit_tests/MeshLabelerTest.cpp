@@ -13,9 +13,6 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_capture_output = false;
         // Run IoMeshTestFixture::SetUp first
         IoMeshTestFixture::SetUp();
-
-        // Create a mesh labeler
-        m_mesh_labeler = aperi::CreateMeshLabeler();
     }
 
     void TearDown() override {
@@ -31,6 +28,8 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_io_mesh->AddFields(field_data);
         m_io_mesh->CompleteInitialization();
         m_mesh_data = m_io_mesh->GetMeshData();
+        // Create a mesh labeler
+        m_mesh_labeler = aperi::CreateMeshLabeler(m_mesh_data);
     }
 
     void CheckThexNodeLabels(uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {
@@ -118,14 +117,15 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
     void CheckThexMeshLabels(const aperi::SmoothingCellType& smoothing_cell_type, uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes, uint64_t expected_num_elements, uint64_t expected_num_unique_cell_ids) {
         // Set the node active values
         aperi::MeshLabelerParameters mesh_labeler_parameters;
-        mesh_labeler_parameters.mesh_data = m_mesh_data;
         mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
         mesh_labeler_parameters.num_subcells = 1;
         mesh_labeler_parameters.set = "block_1";
         m_mesh_labeler->LabelPart(mesh_labeler_parameters);
 
         CheckThexNodeLabels(expected_num_total_nodes, expected_num_active_nodes);
-        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", false);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "cell_id", true);
+        CheckThexCellLabels(expected_num_elements, expected_num_unique_cell_ids, "subcell_id", true);
+        CheckThatFieldsMatch<aperi::FieldDataTopologyRank::ELEMENT, uint64_t>(*m_mesh_data, {"block_1"}, "cell_id", "subcell_id", aperi::FieldQueryState::None);
     }
 
     std::shared_ptr<aperi::MeshLabeler> m_mesh_labeler;  ///< The mesh labeler object
@@ -134,6 +134,9 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
 
 // Basic test to check that the mesh labeler can be created
 TEST_F(MeshLabelerTestFixture, CreateMeshLabeler) {
+    // Read the mesh
+    ReadThexMesh();
+
     // Check that the mesh labeler object is not null
     ASSERT_NE(m_mesh_labeler, nullptr);
 
@@ -150,10 +153,7 @@ TEST_F(MeshLabelerTestFixture, CreateMeshLabelerParameters) {
     part["formulation"]["integration_scheme"]["strain_smoothing"]["nodal_smoothing_cell"]["subdomains"] = 1;
 
     // Create a mesh labeler parameters object
-    aperi::MeshLabelerParameters mesh_labeler_parameters(part, m_mesh_data);
-
-    // Check the mesh data
-    ASSERT_EQ(mesh_labeler_parameters.mesh_data, m_mesh_data);
+    aperi::MeshLabelerParameters mesh_labeler_parameters(part);
 
     // Check the smoothing cell type
     ASSERT_EQ(mesh_labeler_parameters.smoothing_cell_type, aperi::SmoothingCellType::Nodal);

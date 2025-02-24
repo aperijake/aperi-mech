@@ -78,6 +78,7 @@ class MaxEdgeLengthProcessor {
     }
 
     void ComputeMaxEdgeLength() {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         // Get the ngp fields
