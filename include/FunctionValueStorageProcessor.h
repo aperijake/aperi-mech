@@ -105,6 +105,7 @@ class FunctionValueStorageProcessor {
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
 
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;

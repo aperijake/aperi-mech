@@ -150,6 +150,7 @@ class NeighborSearchProcessor {
         DoubleField *m_neighbor_coordinates_z_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_z", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
         NgpDoubleField *m_ngp_coordinates_z_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_z_field);
 
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -175,6 +176,7 @@ class NeighborSearchProcessor {
     }
 
     bool CheckAllNeighborsAreWithinKernelRadius() {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
@@ -264,6 +266,7 @@ class NeighborSearchProcessor {
 
     void SetKernelRadius(double kernel_radius) {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
@@ -286,6 +289,7 @@ class NeighborSearchProcessor {
         if (scale_factor == 1.0) {
             scale_factor += 1.0e-6;
         }
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
@@ -312,6 +316,7 @@ class NeighborSearchProcessor {
         DomainViewType node_points("node_points", num_local_nodes);
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
@@ -337,6 +342,7 @@ class NeighborSearchProcessor {
 
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
         auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
         // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
@@ -440,6 +446,7 @@ class NeighborSearchProcessor {
 
     // Loop over each element and add the element's nodes to the neighbors field
     void add_nodes_ring_0_nodes(bool set_first_function_value_to_one = false) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;

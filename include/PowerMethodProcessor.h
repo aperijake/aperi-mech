@@ -335,6 +335,8 @@ class PowerMethodProcessor {
             - tolerance:             The tolerance for the power method convergence
         */
 
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         assert(m_solver != nullptr);
 
         // Copy the displacement coefficients to the displacement temp field
