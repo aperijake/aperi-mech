@@ -166,7 +166,7 @@ class SmoothedCellData {
           m_subcell_csr_indices(num_cells),
           m_element_indices("element_indices", num_elements),
           m_node_indices("node_indices", estimated_total_num_nodes),
-          m_cell_subcells("cell_subcells", num_cells),
+          m_cell_subcells("cell_subcells", reserved_num_subcells),
           m_function_derivatives("function_derivatives", estimated_total_num_nodes * k_num_dims),
           m_cell_volume("cell_volume", num_cells),
           m_subcell_volume("subcell_volume", reserved_num_subcells),
@@ -336,6 +336,11 @@ class SmoothedCellData {
         Kokkos::deep_copy(m_element_indices_host, m_element_indices);
     }
 
+    void CopyCellSubcellsToHost() {
+        m_cell_subcells_host = Kokkos::create_mirror_view(m_cell_subcells);
+        Kokkos::deep_copy(m_cell_subcells_host, m_cell_subcells);
+    }
+
     void CopyCellVolumeToHost() {
         m_cell_volume_host = Kokkos::create_mirror_view(m_cell_volume);
         Kokkos::deep_copy(m_cell_volume_host, m_cell_volume);
@@ -402,42 +407,49 @@ class SmoothedCellData {
         CopySubcellNodeViewsToDevice();
     }
 
-    // Functor to add an element to a cell, use the getter GetAddSubcellElementFunctor and call in a kokkos parallel for loop
-    struct AddSubcellElementFunctor {
+    // Functor to add an item to a ragged array, use the getter GetAddItemsFunctor and call in a kokkos parallel for loop
+    template <typename ItemType>
+    struct AddItemsFunctor {
         Kokkos::View<uint64_t *> start_view;
         Kokkos::View<uint64_t *> length_view;
-        Kokkos::View<aperi::Index *> element_indices_view;
+        Kokkos::View<ItemType *> item_view;
+        ItemType expected;
 
-        AddSubcellElementFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<aperi::Index *> element_indices_view_in)
-            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), element_indices_view(std::move(element_indices_view_in)) {}
+        AddItemsFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<ItemType *> item_view_in, ItemType expected_in)
+            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), item_view(std::move(item_view_in)), expected(expected_in) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &subcell_id, const aperi::Index &element_index) const {
+        void operator()(const size_t &subcell_id, const ItemType &item) const {
             // Get the start and length for the cell
             uint64_t start = start_view(subcell_id);
             uint64_t length = length_view(subcell_id);
             uint64_t end = start + length;
 
-            aperi::Index expected(0, UINT_MAX);
             // Find the first slot that is the maximum uint value
             bool found = false;
             for (size_t i = start; i <= end; i++) {
-                if (Kokkos::atomic_compare_exchange(&element_indices_view(i), expected, element_index) == expected) {
+                if (Kokkos::atomic_compare_exchange(&item_view(i), expected, item) == expected) {
                     found = true;
                     break;
                 }
             }
             // Throw with kokkos if not found
             if (!found) {
-                Kokkos::abort("Could not find an empty slot to add the element to the cell.");
+                Kokkos::abort("Could not find an empty slot to add the item to the ragged array.");
             }
         }
     };
 
-    // Return the AddSubcellElementFunctor using the member variables m_element_csr_indices.start, m_element_csr_indices.length, and m_element_indices. Call this in a kokkos parallel for loop.
-    AddSubcellElementFunctor GetAddSubcellElementFunctor() {
-        return AddSubcellElementFunctor(m_element_csr_indices.start, m_element_csr_indices.length, m_element_indices);
+    // Return the AddItemsFunctor using the member variables m_element_csr_indices.start, m_element_csr_indices.length, and m_element_indices. Call this in a kokkos parallel for loop.
+    AddItemsFunctor<aperi::Index> GetAddSubcellElementFunctor() {
+        return AddItemsFunctor<aperi::Index>(m_element_csr_indices.start, m_element_csr_indices.length, m_element_indices, aperi::Index(0, UINT_MAX));
     }
+
+    // Return the AddItemsFunctor using the member variables m_subcell_csr_indices.start, m_subcell_csr_indices.length, and m_cell_subcells. Call this in a kokkos parallel for loop.
+    AddItemsFunctor<uint64_t> GetAddCellSubcellsFunctor() {
+        return AddItemsFunctor<uint64_t>(m_subcell_csr_indices.start, m_subcell_csr_indices.length, m_cell_subcells, UINT64_MAX);
+    }
+
     // Get device view of function derivatives
     Kokkos::View<double *> GetFunctionDerivatives() {
         return m_function_derivatives;
@@ -561,6 +573,21 @@ class SmoothedCellData {
         size_t length = m_node_csr_indices.length_host(subcell_id) * k_num_dims;
         size_t end = start + length;
         return Kokkos::subview(m_function_derivatives_host, Kokkos::make_pair(start, end));
+    }
+
+    // Get the cell subcells for a cell
+    Kokkos::View<uint64_t *>::HostMirror GetCellSubcellsHost(size_t cell_id) {
+        size_t start = m_subcell_csr_indices.start_host(cell_id);
+        size_t length = m_subcell_csr_indices.length_host(cell_id);
+        return Kokkos::subview(m_cell_subcells_host, Kokkos::make_pair(start, start + length));
+    }
+
+    // Get the cell subcells for a cell
+    KOKKOS_INLINE_FUNCTION
+    Kokkos::View<uint64_t *> GetCellSubcells(size_t cell_id) const {
+        size_t start = m_subcell_csr_indices.start(cell_id);
+        size_t length = m_subcell_csr_indices.length(cell_id);
+        return Kokkos::subview(m_cell_subcells, Kokkos::make_pair(start, start + length));
     }
 
     // Get the map from node to local index, device

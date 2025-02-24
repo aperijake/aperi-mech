@@ -188,6 +188,29 @@ class SmoothedCellDataFixture : public ::testing::Test {
             EXPECT_EQ(cell_subcells_host_pre(i), UINT64_MAX) << "i: " << i;
         }
 
+        // Add the subcells to the cells in a kokkos parallel for loop
+        auto add_cell_subcells_functor = scd.GetAddCellSubcellsFunctor();
+        Kokkos::parallel_for(
+            "AddCellSubcells", m_num_cells, KOKKOS_LAMBDA(const size_t i) {
+                if (i == 0) {
+                    add_cell_subcells_functor(i, 0);
+                    add_cell_subcells_functor(i, 1);
+                } else {
+                    add_cell_subcells_functor(i, 2);
+                }
+            });
+        Kokkos::fence();
+        scd.CopyCellSubcellsToHost();
+
+        // Check the cell subcells after adding subcells
+        auto cell_subcells_host_post = scd.GetCellSubcellsHost();
+        for (size_t i = 0; i < m_num_cells; ++i) {
+            auto cell_subcells_host_post_subview = scd.GetCellSubcellsHost(i);
+            for (size_t j = 0; j < cell_subcells[i].size(); ++j) {
+                EXPECT_EQ(cell_subcells_host_post_subview(j), cell_subcells[i][j]) << "i: " << i << " j: " << j;
+            }
+        }
+
         // Add to the subcell volume in a kokkos parallel for loop
         auto subcell_volumes = scd.GetSubcellVolumes();
         Kokkos::parallel_for(

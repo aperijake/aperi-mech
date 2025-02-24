@@ -271,9 +271,8 @@ class SmoothedCellDataProcessor {
         // Get the element indices
         auto element_indices = m_smoothed_cell_data->GetElementIndices();
 
-        // Get the start and length views
+        // Get the start view
         auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
-        auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
         // Loop over all the subcells
         Kokkos::parallel_for(
@@ -291,6 +290,38 @@ class SmoothedCellDataProcessor {
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
         m_smoothed_cell_data->CompleteAddingCellNumSubcellsOnDevice();
+    }
+
+    void SetCellSubcells() {
+        // Update the fields
+        m_cell_id.UpdateField();
+
+        // Get the functor to add the subcells to the cell
+        auto add_cell_subcells_functor = m_smoothed_cell_data->GetAddCellSubcellsFunctor();
+
+        // Get the number of subcells
+        size_t num_subcells = m_smoothed_cell_data->NumSubcells();
+
+        // Get the element indices
+        auto element_indices = m_smoothed_cell_data->GetElementIndices();
+
+        // Get the start view
+        auto start = m_smoothed_cell_data->GetElementCSRIndices().GetStartView();
+
+        // Loop over all the subcells
+        Kokkos::parallel_for(
+            "set_cell_subcells", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Get the first element in the subcell
+                auto element_index = element_indices(start(subcell_id));
+
+                // Get the cell id for the element
+                uint64_t cell_id = m_cell_id(element_index(), 0);
+
+                // Add the subcell to the cell
+                add_cell_subcells_functor(cell_id, subcell_id);
+            });
+        // Cell subcell indices are now set. Copy to host.
+        m_smoothed_cell_data->CopyCellSubcellsToHost();
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -733,6 +764,9 @@ class SmoothedCellDataProcessor {
 
         // Set the number of subcells for each cell
         SetCellNumSubcells();
+
+        // Set the cell subcells
+        SetCellSubcells();
 
         // Set the node indicies and map
         SetSubcellNodeIndices<NumElementNodes>(one_pass_method);
