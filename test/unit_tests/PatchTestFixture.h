@@ -60,7 +60,7 @@ class PatchTest : public SolverTest {
         SolverTest::TearDown();
     }
 
-    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set, const std::string& second_surface_set, const PatchTestIntegrationScheme& integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE, bool use_reproducing_kernel = false, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, int num_subcells = 1) {
+    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set, const std::string& second_surface_set, const PatchTestIntegrationScheme& integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE, bool use_reproducing_kernel = false, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, int num_subcells = 1, bool f_bar = false) {
         // Create the mesh
         if (generate_mesh) {
             CreateTestMesh(mesh_string);
@@ -120,6 +120,9 @@ class PatchTest : public SolverTest {
                 strain_smoothing_node["force_two_pass_method"] = true;
             } else {
                 throw std::runtime_error("Invalid integration scheme");
+            }
+            if (f_bar) {
+                strain_smoothing_node["use_f_bar"] = true;
             }
             m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["formulation"]["integration_scheme"]["strain_smoothing"] = strain_smoothing_node;
             // Remove the gauss_quadrature node

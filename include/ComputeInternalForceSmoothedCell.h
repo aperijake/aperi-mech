@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Kokkos_Core.hpp>
 #include <memory>
 
 #include "ComputeInternalForceBase.h"
@@ -109,6 +110,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                     // Get the cell J value reference
                     double &cell_j_bar = scd.GetCellJBar(cell_id);
+                    cell_j_bar = 0.0;
 
                     // Get the cell volume
                     const double cell_volume = scd.GetCellVolume(cell_id);
