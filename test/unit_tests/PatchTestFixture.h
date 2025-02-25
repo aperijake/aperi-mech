@@ -303,7 +303,7 @@ class PatchTest : public SolverTest {
         }
     }
 
-    void RunTensionPatchTests(bool tets, PatchTestIntegrationScheme integration_scheme, bool reproducing_kernel, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, std::string mesh_filename = "") {
+    void RunTensionPatchTests(bool tets, PatchTestIntegrationScheme integration_scheme, bool reproducing_kernel, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, std::string mesh_filename = "", int num_subcells = 1) {
         // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
         if (m_num_procs > 1) {
             return;
@@ -324,7 +324,7 @@ class PatchTest : public SolverTest {
         std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
         // Run the problem, apply the displacement boundary conditions on the x faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
@@ -341,7 +341,7 @@ class PatchTest : public SolverTest {
         displacement_direction = {0.0, 1.0, 0.0};
 
         // Run the problem, apply the displacement boundary conditions on the y faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
@@ -358,7 +358,7 @@ class PatchTest : public SolverTest {
         displacement_direction = {0.0, 0.0, 1.0};
 
         // Run the problem, apply the displacement boundary conditions on the z faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
@@ -369,7 +369,7 @@ class PatchTest : public SolverTest {
         ResetSolverTest(keep_mesh);
     }
 
-    void RunCompressionPatchTests(bool tets, PatchTestIntegrationScheme integration_scheme, bool reproducing_kernel, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, std::string mesh_filename = "") {
+    void RunCompressionPatchTests(bool tets, PatchTestIntegrationScheme integration_scheme, bool reproducing_kernel, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, std::string mesh_filename = "", int num_subcells = 1) {
         // Return if running in parallel. Need larger blocks to run in parallel and there are too many dynamic oscillations with explicit dynamics
         if (m_num_procs > 1) {
             return;
@@ -390,7 +390,7 @@ class PatchTest : public SolverTest {
         std::array<double, 3> displacement_direction = {1.0, 0.0, 0.0};
 
         // Run the problem, apply the displacement boundary conditions on the x faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_1", "surface_2", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(0, 0) = 2.0 * magnitude / m_elements_x;
@@ -407,7 +407,7 @@ class PatchTest : public SolverTest {
         displacement_direction = {0.0, 1.0, 0.0};
 
         // Run the problem, apply the displacement boundary conditions on the y faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_3", "surface_4", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(1, 1) = 2.0 * magnitude / m_elements_y;
@@ -424,7 +424,7 @@ class PatchTest : public SolverTest {
         displacement_direction = {0.0, 0.0, 1.0};
 
         // Run the problem, apply the displacement boundary conditions on the z faces
-        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh);
+        RunFullyPrescribedBoundaryConditionProblem(m_mesh_string, displacement_direction, magnitude, "surface_5", "surface_6", integration_scheme, reproducing_kernel, lagrangian_formulation_type, generate_mesh, num_subcells);
 
         // Set the deformation gradient
         m_displacement_gradient(2, 2) = 2.0 * magnitude / m_elements_z;
