@@ -63,7 +63,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
         // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+            "for_each_subcell_compute_displacement_gradient", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
@@ -158,19 +158,10 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
         // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+            "for_each_subcell_compute_stress", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
-
-                // Get the node indices and function derivatives
-                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
-                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
-
-                const size_t num_nodes = node_indicies.extent(0);
-
-                // Create maps for the function derivatives and displacement
-                Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
 
                 // Get the displacement gradient map
                 const auto displacement_gradient_np1_map = m_use_f_bar ? m_displacement_gradient_bar_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());
@@ -191,9 +182,29 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Compute the stress, pk1_bar value if using F-bar
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
+            });
+
+        // Loop over all the subcells
+        Kokkos::parallel_for(
+            "for_each_subcell_compute_internal_force", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Create a map around the state_old and state_new pointers
+                const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+                const aperi::Index elem_index = element_indices(0);
+
+                // Get the node indices and function derivatives
+                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
+                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
+
+                const size_t num_nodes = node_indicies.extent(0);
+
+                // Create maps for the function derivatives and displacement
+                Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
 
                 // Compute the stress and internal force of the element.
-                double volume = scd.GetSubcellVolume(subcell_id);
+                const double volume = scd.GetSubcellVolume(subcell_id);
+
+                // Get the pk1 stress map
+                const auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index());
 
                 // TODO: (fbar) unbar the stress if using F-bar
                 Eigen::Matrix<double, 3, 3> stress_term = pk1_stress_map.transpose() * -volume;
