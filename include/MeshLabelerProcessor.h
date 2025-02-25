@@ -38,7 +38,7 @@ class MeshLabelerProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
 
    public:
-    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells) {
+    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells, bool activate_center_node) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells), m_activate_center_node(activate_center_node) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -85,6 +85,11 @@ class MeshLabelerProcessor {
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(true);
+
+        // Add the center node part to the active part, if the center node is to be activated
+        if (m_activate_center_node) {
+            CreateActivePartFromActiveFieldHost(2);
+        }
 
         // All operations are done on the host, so sync the fields to the device
         SyncFieldsToDevice();
@@ -136,6 +141,28 @@ class MeshLabelerProcessor {
         stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
     }
 
+    size_t GetCenterNodeIndex(const size_t &minimum_index) {
+        if (minimum_index == 0) {
+            return 6;
+        } else if (minimum_index == 1) {
+            return 7;
+        } else if (minimum_index == 2) {
+            return 4;
+        } else if (minimum_index == 3) {
+            return 5;
+        } else if (minimum_index == 4) {
+            return 2;
+        } else if (minimum_index == 5) {
+            return 3;
+        } else if (minimum_index == 6) {
+            return 0;
+        } else if (minimum_index == 7) {
+            return 1;
+        } else {
+            throw std::runtime_error("Minimum index is out of range");
+        }
+    }
+
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
     void SetActiveFieldForNodalIntegrationHost() {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
@@ -166,6 +193,12 @@ class MeshLabelerProcessor {
                 // Set the active value to 1 for the minimum id
                 active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
                 active_field_data[0] = 1;
+
+                // If the center node is to be activated, set the active value to 1 for the center node
+                if (m_activate_center_node) {
+                    active_field_data = stk::mesh::field_data(*m_active_field, nodes[GetCenterNodeIndex(minimum_index)]);
+                    active_field_data[0] = 2;
+                }
             }
         }
 
@@ -186,15 +219,26 @@ class MeshLabelerProcessor {
 
                 // Throw an exception if an element has something other than 1 active node
                 uint64_t num_active_nodes = 0;
+                uint64_t num_center_nodes = 0;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
                     if (active_field_data[0] == 1) {
                         num_active_nodes++;
+                    } else if (active_field_data[0] == 2) {
+                        num_center_nodes++;
                     }
                 }
                 if (num_active_nodes != 1) {
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes in element " + std::to_string(element_id) + ". Nodes: \n";
+                    for (size_t i = 0; i < num_nodes; ++i) {
+                        uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                        message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
+                    }
+                    throw std::runtime_error(message);
+                } else if (num_center_nodes != 1 && m_activate_center_node) {
+                    size_t element_id = m_bulk_data->identifier(element);
+                    std::string message = "Nodal integration requires exactly one center node per element. Found " + std::to_string(num_center_nodes) + " center nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
                         uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
                         message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
@@ -206,14 +250,14 @@ class MeshLabelerProcessor {
         return true;
     }
 
-    void CreateActivePartFromActiveFieldHost() {
+    void CreateActivePartFromActiveFieldHost(uint64_t active_value = 1) {
         // Host operation and mesh modification
         stk::mesh::EntityVector nodes_to_change;
 
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                 uint64_t *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
-                if (active_field_data[0] == 1) {
+                if (active_field_data[0] == active_value) {
                     nodes_to_change.push_back((*bucket)[i_node]);
                 }
             }
@@ -231,10 +275,13 @@ class MeshLabelerProcessor {
         }
 
         // Declare the active part for the current set
-        stk::mesh::Part &active_part = meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
+        stk::mesh::Part *active_part = meta_data->get_part(m_set + "_active");
+        if (active_part == nullptr) {
+            active_part = &meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
+        }
 
         // Prepare the parts to add and remove
-        stk::mesh::PartVector add_parts = {&active_part, universal_active_part};
+        stk::mesh::PartVector add_parts = {active_part, universal_active_part};
         stk::mesh::PartVector remove_parts;  // No parts to remove
 
         // Change entity parts
@@ -545,6 +592,7 @@ class MeshLabelerProcessor {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::string m_set;                             // The set to process.
     size_t m_num_subcells;                         // The number of subcells.
+    bool m_activate_center_node;                   // Whether to activate the center node
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
     stk::mesh::Selector m_selector;                // The selector
     stk::mesh::Selector m_owned_selector;          // The local selector

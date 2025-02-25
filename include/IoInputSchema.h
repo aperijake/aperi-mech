@@ -420,6 +420,10 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema use_f_bar_schema("use_f_bar", "bool", "use f_bar");
     YAML::Node use_f_bar_node = use_f_bar_schema.GetInputSchema();
 
+    // Activate center node node
+    aperi::InputSchema activate_center_node_schema("activate_center_node", "bool", "activate the center node");
+    YAML::Node activate_center_node_node = activate_center_node_schema.GetInputSchema();
+
     // Nodal smoothing cell node
     aperi::InputSchema nodal_smoothing_cell_schema("nodal_smoothing_cell", "map", "a nodal smoothing cell");
     nodal_smoothing_cell_schema.AddAllOf(subdomains_node);
@@ -437,6 +441,7 @@ YAML::Node GetInputSchema() {
     strain_smoothing_schema.AddOptional(force_one_pass_method_node);
     strain_smoothing_schema.AddOptional(force_two_pass_method_node);
     strain_smoothing_schema.AddOptional(use_f_bar_node);
+    strain_smoothing_schema.AddOptional(activate_center_node_node);
     YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
 
     // Integration scheme node
