@@ -60,7 +60,7 @@ class PatchTest : public SolverTest {
         SolverTest::TearDown();
     }
 
-    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set, const std::string& second_surface_set, const PatchTestIntegrationScheme& integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE, bool use_reproducing_kernel = false, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true) {
+    void RunFullyPrescribedBoundaryConditionProblem(const std::string& mesh_string, const std::array<double, 3>& displacement_direction, double magnitude, const std::string& first_surface_set, const std::string& second_surface_set, const PatchTestIntegrationScheme& integration_scheme = PatchTestIntegrationScheme::GAUSS_QUADRATURE, bool use_reproducing_kernel = false, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, int num_subcells = 1) {
         // Create the mesh
         if (generate_mesh) {
             CreateTestMesh(mesh_string);
@@ -106,7 +106,7 @@ class PatchTest : public SolverTest {
         if (integration_scheme != PatchTestIntegrationScheme::GAUSS_QUADRATURE) {
             // Create strain smoothing node
             YAML::Node element_smoothing_cell_node;
-            element_smoothing_cell_node["subdomains"] = 1;
+            element_smoothing_cell_node["subdomains"] = num_subcells;
             YAML::Node strain_smoothing_node;
             if (integration_scheme == PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING) {
                 strain_smoothing_node["element_smoothing_cell"] = element_smoothing_cell_node;
@@ -144,6 +144,7 @@ class PatchTest : public SolverTest {
         CreateInputFile();
 
         RunSolver();
+        m_displacement_gradient = Eigen::Matrix3d::Zero();
     }
 
     Eigen::Matrix3d GetExpectedFirstPKStress(const Eigen::Matrix3d& expected_displacement_gradient) {
@@ -332,7 +333,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
 
         // -----------------------
         // Tension in y
@@ -350,7 +350,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
 
         // -----------------------
         // Tension in z
@@ -368,7 +367,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
     }
 
     void RunCompressionPatchTests(bool tets, PatchTestIntegrationScheme integration_scheme, bool reproducing_kernel, aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total, bool generate_mesh = true, std::string mesh_filename = "") {
@@ -401,7 +399,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
 
         // -----------------------
         // Compression in y
@@ -419,7 +416,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
 
         // -----------------------
         // Compression in z
@@ -437,7 +433,6 @@ class PatchTest : public SolverTest {
         CheckPatchTest();
 
         ResetSolverTest(keep_mesh);
-        m_displacement_gradient = Eigen::Matrix3d::Zero();
     }
 
     void SetFieldNamesWithoutCoefficients() {
