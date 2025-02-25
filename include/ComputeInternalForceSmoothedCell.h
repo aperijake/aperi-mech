@@ -31,14 +31,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                                      std::string displacements_field_name,
                                      const std::string &force_field_name,
                                      const Material &material,
-                                     const LagrangianFormulationType &lagrangian_formulation_type)
-        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type),
-          m_mesh_data(mesh_data) {
-        // Throw an exception if the mesh data is null.
-        if (m_mesh_data == nullptr) {
-            throw std::runtime_error("Mesh data is null.");
-        }
-    }
+                                     const LagrangianFormulationType &lagrangian_formulation_type,
+                                     bool use_f_bar)
+        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {}
 
     /**
      * @brief Computes the internal force for each cell.
@@ -51,6 +46,10 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
         const size_t num_subcells = scd.NumSubcells();
+        assert(num_subcells >= num_cells);
+
+        // If using f_bar, only use it if there are more subcells than cells
+        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
 
         // Get the stride
         const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
@@ -64,7 +63,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
         // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+            "for_each_subcell_compute_displacement_gradient", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
@@ -89,28 +88,85 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Compute the field gradients, non-bar version
                 ComputeDisplacementGradient(elem_index(), this_displacement_gradient);
+
+                // Compute the J value for the subcell
+                if (use_f_bar) {
+                    if (m_lagrangian_formulation_type == LagrangianFormulationType::Total) {
+                        scd.GetSubcellJ(subcell_id) = aperi::DetApIm1(this_displacement_gradient) + 1.0;
+                    } else {
+                        auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetEigenMatrixMap<3, 3>(elem_index());
+                        scd.GetSubcellJ(subcell_id) = aperi::DetApIm1(displacement_gradient_np1_map) + 1.0;
+                    }
+                }
             });
 
-        // TODO(fbar) Loop over cells. Compute and store F-bar
+        // Loop over cells. Compute and store F-bar
+        if (use_f_bar) {
+            Kokkos::parallel_for(
+                "for_each_cell_compute_f_bar", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                    // Get the subcell indices
+                    const auto subcell_indices = scd.GetCellSubcells(cell_id);
+
+                    // Get the cell J value reference
+                    double &cell_j_bar = scd.GetCellJBar(cell_id);
+
+                    // Get the cell volume
+                    const double cell_volume = scd.GetCellVolume(cell_id);
+
+                    // Loop over all the subcells to compute J-bar
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell J value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Get the subcell volume
+                        const double subcell_volume = scd.GetSubcellVolume(subcell_id);
+
+                        // Add the unscaled subcell J value to the cell J-bar value
+                        cell_j_bar = cell_j_bar + subcell_j * subcell_volume;
+                    }
+
+                    // Scale the cell J-bar value by the cell volume
+                    cell_j_bar = cell_j_bar / cell_volume;
+
+                    // Loop over all the subcells
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell J-bar value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Compute the scale factor
+                        const double j_scale = Kokkos::cbrt(cell_j_bar / subcell_j);
+
+                        // Get the subcell element indices
+                        const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+                        const auto element_index = element_indices(0);
+
+                        // Get the displacement gradient maps
+                        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(element_index());
+                        auto displacement_gradient_bar_np1_map = m_displacement_gradient_bar_np1_field.GetEigenMatrixMap<3, 3>(element_index());
+
+                        // Scale the displacement gradient
+                        // F_bar = F * j_scale
+                        // H = F - I
+                        // H_bar = F_bar - I = (F * j_scale - I) = (H + I) * j_scale - I = H * j_scale + I * (j_scale - 1)
+                        // displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale + Eigen::Matrix3d::Identity();
+                        displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale + Eigen::Matrix3d::Identity() * (j_scale - 1.0);
+                    }
+                });
+        }
 
         // Loop over all the subcells
         Kokkos::parallel_for(
-            "for_each_subcell_gather_scatter_nodal_data", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+            "for_each_subcell_compute_stress", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
                 // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 
-                // Get the node indices and function derivatives
-                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
-                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
-
-                const size_t num_nodes = node_indicies.extent(0);
-
-                // Create maps for the function derivatives and displacement
-                Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
-
                 // Get the displacement gradient map
-                const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());  // TODO: (fbar) use f_bar field if has subcells
+                const auto displacement_gradient_np1_map = use_f_bar ? m_displacement_gradient_bar_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());
 
                 // Compute the velocity gradient if needed
                 const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index()).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
@@ -124,15 +180,123 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 auto state_np1_map = has_state ? m_state_np1_field.GetEigenVectorMap(elem_index(), num_state_variables) : Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Get the pk1 stress map
-                auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index());
+                auto pk1_stress_map = use_f_bar ? m_pk1_stress_bar_field.GetEigenMatrixMap<3, 3>(elem_index()) : m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index());
 
                 // Compute the stress, pk1_bar value if using F-bar
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
+            });
+
+        // If using f_bar, unbar the stress
+        if (use_f_bar) {
+            // Loop over all the cells
+            Kokkos::parallel_for(
+                "for_each_cell_unbar_stress", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
+                    // Get the subcell indices
+                    const auto subcell_indices = scd.GetCellSubcells(cell_id);
+
+                    // Get the cell J value reference
+                    const double cell_j_bar = scd.GetCellJBar(cell_id);
+
+                    // Get the cell volume
+                    const double cell_volume = scd.GetCellVolume(cell_id);
+
+                    // Dual pressure
+                    double dual_pressure = 0.0;
+
+                    // Loop over all the subcells, calculate the dual pressure
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell element indices
+                        const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+                        const auto element_index = element_indices(0);
+
+                        // Get the subcell J value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Get the subcell volume
+                        const double subcell_volume = scd.GetSubcellVolume(subcell_id);
+
+                        // Get the J scale factor
+                        const double j_scale = Kokkos::cbrt(cell_j_bar / subcell_j);
+
+                        // Get the d_jscale_d_jbar value
+                        const double d_jscale_d_jbar = j_scale / (3.0 * cell_j_bar);
+
+                        // Get the pk1_stress_bar map
+                        const auto pk1_stress_bar_map = m_pk1_stress_bar_field.GetConstEigenMatrixMap<3, 3>(element_index());
+
+                        // Get the displacement gradient map
+                        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(element_index());
+
+                        // Add to the dual pressure
+                        dual_pressure += d_jscale_d_jbar * subcell_volume * pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map + Eigen::Matrix3d::Identity()).sum();
+                    }
+
+                    // Scale the dual pressure by the cell volume
+                    dual_pressure = dual_pressure / cell_volume;
+
+                    // Loop over all the subcells, calculate the pk1 stress
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell element indices
+                        const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+                        const auto element_index = element_indices(0);
+
+                        // Get the subcell J value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Compute the J scale factor
+                        const double j_scale = Kokkos::cbrt(cell_j_bar / subcell_j);
+
+                        // Get the pk1 stress map
+                        auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(element_index());
+
+                        // Get the pk1_stress_bar map
+                        const auto pk1_stress_bar_map = m_pk1_stress_bar_field.GetConstEigenMatrixMap<3, 3>(element_index());
+
+                        // Compute the pk1 stress
+                        pk1_stress_map = pk1_stress_bar_map * j_scale;
+
+                        // Calculate the d_j_scale_d_j value
+                        const double d_j_scale_d_j = -j_scale / (3.0 * subcell_j);
+
+                        // Deformation gradient
+                        const Eigen::Matrix3d F = Eigen::Matrix3d::Identity() + m_displacement_gradient_np1_field.GetEigenMatrix<3, 3>(element_index());
+
+                        // Calculate the d_j_d_f value
+                        const auto d_j_d_f = subcell_j * aperi::InvertMatrix(F).transpose();
+
+                        // Add to the pk1 stress
+                        pk1_stress_map = pk1_stress_map + (dual_pressure + d_j_scale_d_j * pk1_stress_bar_map.cwiseProduct(F).sum()) * d_j_d_f;
+                    }
+                });
+        }
+
+        // Loop over all the subcells
+        Kokkos::parallel_for(
+            "for_each_subcell_compute_internal_force", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
+                // Create a map around the state_old and state_new pointers
+                const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
+                const aperi::Index elem_index = element_indices(0);
+
+                // Get the node indices and function derivatives
+                const auto node_indicies = scd.GetSubcellNodeIndices(subcell_id);
+                const auto node_function_derivatives = scd.GetSubcellFunctionDerivatives(subcell_id);
+
+                const size_t num_nodes = node_indicies.extent(0);
+
+                // Create maps for the function derivatives and displacement
+                Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> b_matrix_map(node_function_derivatives.data(), num_nodes, 3);
 
                 // Compute the stress and internal force of the element.
-                double volume = scd.GetSubcellVolume(subcell_id);
+                const double volume = scd.GetSubcellVolume(subcell_id);
 
-                // TODO: (fbar) unbar the stress if using F-bar
+                // Get the pk1 stress map
+                const auto pk1_stress_map = m_pk1_stress_field.GetConstEigenMatrixMap<3, 3>(elem_index());
+
+                // Compute the stress term
                 Eigen::Matrix<double, 3, 3> stress_term = pk1_stress_map.transpose() * -volume;
 
                 // Adjust for the B matrix and weight not being in the original configuration for updated or semi Lagrangian formulations
@@ -156,9 +320,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 }
             });
     }
-
-   private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
 };
 
 }  // namespace aperi

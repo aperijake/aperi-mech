@@ -115,10 +115,15 @@ class IntegrationSchemeParameters {
         return uses_one_pass_method;
     }
 
+    bool UsesFBar() const {
+        return uses_f_bar;
+    }
+
    protected:
     std::string integration_scheme = "gauss_quadrature";
     IntegrationSchemeType integration_scheme_type = IntegrationSchemeType::GaussQuadrature;
     bool uses_one_pass_method = true;
+    bool uses_f_bar = false;
 };
 
 class IntegrationSchemeGaussQuadratureParameters : public IntegrationSchemeParameters {
@@ -182,6 +187,10 @@ class IntegrationSchemeStrainSmoothingParameters : public IntegrationSchemeParam
         }
         if (force_one_pass && force_two_pass) {
             throw std::runtime_error("Cannot force both one pass and two pass methods");
+        }
+
+        if (strain_smoothing_node["use_f_bar"]) {
+            uses_f_bar = strain_smoothing_node["use_f_bar"].as<bool>();
         }
     }
     virtual ~IntegrationSchemeStrainSmoothingParameters() = default;

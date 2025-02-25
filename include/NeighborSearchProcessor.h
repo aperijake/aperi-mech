@@ -383,7 +383,7 @@ class NeighborSearchProcessor {
     }
 
     bool NodeIsActive(stk::mesh::Entity node) {
-        return stk::mesh::field_data(*m_node_active_field, node)[0] == 1;
+        return stk::mesh::field_data(*m_node_active_field, node)[0] != 0;
     }
 
     // Put the search results into the neighbors field. The neighbors field is a field of global node ids. The neighbors are sorted by distance. Near to far.

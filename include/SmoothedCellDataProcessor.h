@@ -72,11 +72,13 @@ class SmoothedCellDataProcessor {
         std::shared_ptr<aperi::MeshData> mesh_data,
         const std::vector<std::string> &sets,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters &mesh_labeler_parameters) : m_mesh_data(mesh_data),
-                                                                       m_sets(sets),
-                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters),
-                                                                       m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters,
+        bool use_f_bar = false) : m_mesh_data(mesh_data),
+                                  m_sets(sets),
+                                  m_lagrangian_formulation_type(lagrangian_formulation_type),
+                                  m_mesh_labeler_parameters(mesh_labeler_parameters),
+                                  m_use_f_bar(use_f_bar),
+                                  m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -152,6 +154,38 @@ class SmoothedCellDataProcessor {
         return true;
     }
 
+    bool CheckCellVolumes(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+        // Get the cell volumes
+        auto cell_volumes = smoothed_cell_data->GetCellVolumes();
+
+        // Get the subcell volumes
+        auto subcell_volumes = smoothed_cell_data->GetSubcellVolumes();
+
+        // Loop over all the cells and make sure the cell volume is the sum of the subcell volumes
+        Kokkos::parallel_for(
+            "check_cell_volumes", smoothed_cell_data->NumCells(), KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the cell volume
+                double cell_volume = cell_volumes(cell_id);
+
+                // Get the cells subcells
+                auto cell_subcells = smoothed_cell_data->GetCellSubcells(cell_id);
+
+                // Get the subcell volumes
+                double subcell_volume_sum = 0.0;
+                for (size_t i = 0; i < cell_subcells.size(); ++i) {
+                    subcell_volume_sum += subcell_volumes(cell_subcells[i]);
+                }
+
+                // Check the cell volume
+                if (Kokkos::abs(cell_volume - subcell_volume_sum) > 1.0e-10) {
+                    printf("Cell %lu: Cell volume %f does not match subcell volume sum %f\n", cell_id, cell_volume, subcell_volume_sum);
+                    Kokkos::abort("Cell volume check failed");
+                }
+            });
+
+        return true;
+    }
+
     void LabelParts() {
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::LabelParts);
@@ -194,9 +228,11 @@ class SmoothedCellDataProcessor {
 
         // Get the number of subcells
         size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
-        size_t num_subcells = num_subcells_per_cell < 1 ? num_cells : num_subcells_per_cell * num_cells;
+        size_t num_subcells = num_subcells_per_cell < 1 ? num_elements : num_subcells_per_cell * num_cells;
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes);
+        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
+
+        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
     }
 
     void AddSubcellNumElements() {
@@ -490,6 +526,7 @@ class SmoothedCellDataProcessor {
         m_neighbors.UpdateField();
         m_num_neighbors.UpdateField();
         m_function_values.UpdateField();
+        m_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
@@ -558,6 +595,7 @@ class SmoothedCellDataProcessor {
                     // Set the element volume
                     m_element_volume(element_index, 0) = element_volume;
                     subcell_volumes(subcell_id) += element_volume;
+                    cell_volumes(m_cell_id(element_index, 0)) += element_volume;
 
                     // Loop over all the nodes in the element
                     for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
@@ -615,6 +653,7 @@ class SmoothedCellDataProcessor {
             });
         m_element_volume.MarkModifiedOnDevice();
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
+        assert(CheckCellVolumes(m_smoothed_cell_data));
     }
 
     void PopulateElementOutputs() {
@@ -796,6 +835,7 @@ class SmoothedCellDataProcessor {
     std::vector<std::string> m_sets;                                 // The sets to process.
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
     aperi::MeshLabelerParameters m_mesh_labeler_parameters;          // The mesh labeler parameters.
+    bool m_use_f_bar;                                                // Whether to use f_bar
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
     stk::mesh::BulkData *m_bulk_data;        // The bulk data object.

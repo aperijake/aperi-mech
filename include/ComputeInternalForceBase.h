@@ -30,13 +30,16 @@ class ComputeInternalForceBase {
      * @param force_field_name The name of the force field.
      * @param material The material object.
      * @param lagrangian_formulation_type The Lagrangian formulation type.
+     * @param use_f_bar Whether to use f_bar.
      */
     ComputeInternalForceBase(std::shared_ptr<aperi::MeshData> mesh_data,
                              std::string displacements_field_name,
                              const std::string &force_field_name,
                              const Material &material,
-                             const LagrangianFormulationType &lagrangian_formulation_type)
+                             const LagrangianFormulationType &lagrangian_formulation_type,
+                             bool use_f_bar = false)
         : m_mesh_data(mesh_data),
+          m_use_f_bar(use_f_bar),
           m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
@@ -44,6 +47,11 @@ class ComputeInternalForceBase {
           m_stress_functor(*material.GetStressFunctor()) {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
+
+        // Throw an exception if the mesh data is null.
+        if (m_mesh_data == nullptr) {
+            throw std::runtime_error("Mesh data is null.");
+        }
 
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             displacements_field_name += "_inc";
@@ -57,6 +65,13 @@ class ComputeInternalForceBase {
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
 
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+
+        if (m_use_f_bar) {
+            m_displacement_gradient_bar_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+            m_displacement_gradient_bar_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+            m_pk1_stress_bar_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+        }
+
         SetCoordinateField(mesh_data);
         SetReferenceDisplacementGradientField(mesh_data);
         SetStateFields(mesh_data);
@@ -80,6 +95,11 @@ class ComputeInternalForceBase {
         m_displacement_gradient_n_field.UpdateField();
         m_displacement_gradient_np1_field.UpdateField();
         m_pk1_stress_field.UpdateField();
+        if (m_use_f_bar) {
+            m_displacement_gradient_bar_n_field.UpdateField();
+            m_displacement_gradient_bar_np1_field.UpdateField();
+            m_pk1_stress_bar_field.UpdateField();
+        }
         if (m_has_state) {
             m_state_n_field.UpdateField();
             m_state_np1_field.UpdateField();
@@ -96,6 +116,10 @@ class ComputeInternalForceBase {
         m_force_field.MarkModifiedOnDevice();
         m_displacement_gradient_np1_field.MarkModifiedOnDevice();
         m_pk1_stress_field.MarkModifiedOnDevice();
+        if (m_use_f_bar) {
+            m_displacement_gradient_bar_np1_field.MarkModifiedOnDevice();
+            m_pk1_stress_bar_field.MarkModifiedOnDevice();
+        }
         if (m_has_state) {
             m_state_np1_field.MarkModifiedOnDevice();
         }
@@ -129,8 +153,8 @@ class ComputeInternalForceBase {
      */
     KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3> ComputeVelocityGradient(const aperi::Index &elem_index) const {
         // (F_n+1 - F_n) / dt * F_n_inv
-        const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
-        const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        const auto displacement_gradient_n_map = m_use_f_bar ? m_displacement_gradient_bar_n_field.GetConstEigenMatrixMap<3, 3>(elem_index) : m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+        const auto displacement_gradient_np1_map = m_use_f_bar ? m_displacement_gradient_bar_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index) : m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index);
         return (displacement_gradient_np1_map - displacement_gradient_n_map) / m_time_increment_device(0) * InvertMatrix<3>(displacement_gradient_n_map + Eigen::Matrix3d::Identity());
     }
 
@@ -172,22 +196,26 @@ class ComputeInternalForceBase {
         }
     }
 
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                          // The mesh data object.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    bool m_use_f_bar;
     bool m_has_state;                                                      // Whether the material has state.
     bool m_needs_velocity_gradient;                                        // Whether the material needs the velocity gradient.
     const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type.
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device.
 
-    aperi::Field<double> m_displacement_np1_field;                   // The field for the node displacements.
-    mutable aperi::Field<double> m_force_field;                      // The field for the node mass from elements.
-    aperi::Field<double> m_coordinates_field;                        // The field for the node coordinates.
-    aperi::Field<double> m_state_n_field;                            // The field for the node state at time n.
-    mutable aperi::Field<double> m_state_np1_field;                  // The field for the node state at time n+1.
-    aperi::Field<double> m_displacement_gradient_n_field;            // The field for the element displacement gradient.
-    aperi::Field<double> m_reference_displacement_gradient_field;    // The field for the element reference displacement gradient.
-    mutable aperi::Field<double> m_displacement_gradient_np1_field;  // The field for the element displacement gradient at time n+1.
-    mutable aperi::Field<double> m_pk1_stress_field;                 // The field for the element pk1 stress.
+    aperi::Field<double> m_displacement_np1_field;                       // The field for the node displacements.
+    mutable aperi::Field<double> m_force_field;                          // The field for the node mass from elements.
+    aperi::Field<double> m_coordinates_field;                            // The field for the node coordinates.
+    aperi::Field<double> m_state_n_field;                                // The field for the node state at time n.
+    mutable aperi::Field<double> m_state_np1_field;                      // The field for the node state at time n+1.
+    aperi::Field<double> m_displacement_gradient_n_field;                // The field for the element displacement gradient.
+    aperi::Field<double> m_displacement_gradient_bar_n_field;            // The field for the element displacement gradient bar.
+    aperi::Field<double> m_reference_displacement_gradient_field;        // The field for the element reference displacement gradient.
+    mutable aperi::Field<double> m_displacement_gradient_np1_field;      // The field for the element displacement gradient at time n+1.
+    mutable aperi::Field<double> m_displacement_gradient_bar_np1_field;  // The field for the element displacement gradient bar at time n+1.
+    mutable aperi::Field<double> m_pk1_stress_field;                     // The field for the element pk1 stress.
+    mutable aperi::Field<double> m_pk1_stress_bar_field;                 // The field for the element pk1 stress bar.
 
     const StressFunctor &m_stress_functor;  // Functor for computing the stress of the material
 };
