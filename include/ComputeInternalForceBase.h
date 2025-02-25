@@ -64,12 +64,14 @@ class ComputeInternalForceBase {
         m_displacement_gradient_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
         m_displacement_gradient_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
 
+        m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+
         if (m_use_f_bar) {
             m_displacement_gradient_bar_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
             m_displacement_gradient_bar_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+            m_pk1_stress_bar_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         }
 
-        m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         SetCoordinateField(mesh_data);
         SetReferenceDisplacementGradientField(mesh_data);
         SetStateFields(mesh_data);
@@ -96,6 +98,7 @@ class ComputeInternalForceBase {
         if (m_use_f_bar) {
             m_displacement_gradient_bar_n_field.UpdateField();
             m_displacement_gradient_bar_np1_field.UpdateField();
+            m_pk1_stress_bar_field.UpdateField();
         }
         if (m_has_state) {
             m_state_n_field.UpdateField();
@@ -113,6 +116,10 @@ class ComputeInternalForceBase {
         m_force_field.MarkModifiedOnDevice();
         m_displacement_gradient_np1_field.MarkModifiedOnDevice();
         m_pk1_stress_field.MarkModifiedOnDevice();
+        if (m_use_f_bar) {
+            m_displacement_gradient_bar_np1_field.MarkModifiedOnDevice();
+            m_pk1_stress_bar_field.MarkModifiedOnDevice();
+        }
         if (m_has_state) {
             m_state_np1_field.MarkModifiedOnDevice();
         }
@@ -208,6 +215,7 @@ class ComputeInternalForceBase {
     mutable aperi::Field<double> m_displacement_gradient_np1_field;      // The field for the element displacement gradient at time n+1.
     mutable aperi::Field<double> m_displacement_gradient_bar_np1_field;  // The field for the element displacement gradient bar at time n+1.
     mutable aperi::Field<double> m_pk1_stress_field;                     // The field for the element pk1 stress.
+    mutable aperi::Field<double> m_pk1_stress_bar_field;                 // The field for the element pk1 stress bar.
 
     const StressFunctor &m_stress_functor;  // Functor for computing the stress of the material
 };

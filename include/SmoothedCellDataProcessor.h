@@ -494,6 +494,7 @@ class SmoothedCellDataProcessor {
         m_neighbors.UpdateField();
         m_num_neighbors.UpdateField();
         m_function_values.UpdateField();
+        m_cell_id.UpdateField();
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetFunctionDerivatives);
@@ -562,6 +563,7 @@ class SmoothedCellDataProcessor {
                     // Set the element volume
                     m_element_volume(element_index, 0) = element_volume;
                     subcell_volumes(subcell_id) += element_volume;
+                    cell_volumes(m_cell_id(element_index, 0)) += element_volume;
 
                     // Loop over all the nodes in the element
                     for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
