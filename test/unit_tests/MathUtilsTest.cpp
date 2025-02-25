@@ -369,3 +369,11 @@ TEST(MathUtilsTest, KernelValue) {
     kernel_value = aperi::ComputeKernel(vector_neighbor_to_point, r * alpha);
     EXPECT_NEAR(kernel_value, 0.25, epsilon);
 }
+
+TEST(MathUtilsTest, DetApIm1) {
+    Eigen::Matrix3d matrix = Eigen::Matrix3d::Random();
+    Eigen::Matrix3d matrix_ap_i = matrix + Eigen::Matrix3d::Identity();
+    double det = matrix_ap_i.determinant();
+    double det_ap_i = aperi::DetApIm1(matrix) + 1.0;
+    EXPECT_NEAR(det_ap_i, det, 1.0e-12);
+}

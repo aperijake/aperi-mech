@@ -154,6 +154,38 @@ class SmoothedCellDataProcessor {
         return true;
     }
 
+    bool CheckCellVolumes(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data) {
+        // Get the cell volumes
+        auto cell_volumes = smoothed_cell_data->GetCellVolumes();
+
+        // Get the subcell volumes
+        auto subcell_volumes = smoothed_cell_data->GetSubcellVolumes();
+
+        // Loop over all the cells and make sure the cell volume is the sum of the subcell volumes
+        Kokkos::parallel_for(
+            "check_cell_volumes", smoothed_cell_data->NumCells(), KOKKOS_LAMBDA(const size_t cell_id) {
+                // Get the cell volume
+                double cell_volume = cell_volumes(cell_id);
+
+                // Get the cells subcells
+                auto cell_subcells = smoothed_cell_data->GetCellSubcells(cell_id);
+
+                // Get the subcell volumes
+                double subcell_volume_sum = 0.0;
+                for (size_t i = 0; i < cell_subcells.size(); ++i) {
+                    subcell_volume_sum += subcell_volumes(cell_subcells[i]);
+                }
+
+                // Check the cell volume
+                if (Kokkos::abs(cell_volume - subcell_volume_sum) > 1.0e-10) {
+                    printf("Cell %lu: Cell volume %f does not match subcell volume sum %f\n", cell_id, cell_volume, subcell_volume_sum);
+                    Kokkos::abort("Cell volume check failed");
+                }
+            });
+
+        return true;
+    }
+
     void LabelParts() {
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::LabelParts);
@@ -621,6 +653,7 @@ class SmoothedCellDataProcessor {
             });
         m_element_volume.MarkModifiedOnDevice();
         assert(CheckPartitionOfNullity(m_smoothed_cell_data));
+        assert(CheckCellVolumes(m_smoothed_cell_data));
     }
 
     void PopulateElementOutputs() {
