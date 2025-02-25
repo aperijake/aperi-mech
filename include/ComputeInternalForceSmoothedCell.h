@@ -88,18 +88,57 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Compute the field gradients, non-bar version
                 ComputeDisplacementGradient(elem_index(), this_displacement_gradient);
+
+                // Compute the J value for the subcell
+                if (use_f_bar) {
+                    if (m_lagrangian_formulation_type == LagrangianFormulationType::Total) {
+                        scd.GetSubcellJ(subcell_id) = aperi::DetApIm1(this_displacement_gradient) + 1.0;
+                    } else {
+                        auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetEigenMatrixMap<3, 3>(elem_index());
+                        scd.GetSubcellJ(subcell_id) = aperi::DetApIm1(displacement_gradient_np1_map) + 1.0;
+                    }
+                }
             });
 
-        // TODO(fbar) Loop over cells. Compute and store F-bar
+        // Loop over cells. Compute and store F-bar
         if (use_f_bar) {
             Kokkos::parallel_for(
                 "for_each_cell_compute_f_bar", num_cells, KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                     // Get the subcell indices
                     const auto subcell_indices = scd.GetCellSubcells(cell_id);
 
-                    // Loop over all the subcells
-                    for (size_t i = 0; i < subcell_indices.extent(0); ++i) {
+                    // Get the cell J value reference
+                    double &cell_j_bar = scd.GetCellJBar(cell_id);
+
+                    // Get the cell volume
+                    const double cell_volume = scd.GetCellVolume(cell_id);
+
+                    // Loop over all the subcells to compute J-bar
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
                         const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell J value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Get the subcell volume
+                        const double subcell_volume = scd.GetSubcellVolume(subcell_id);
+
+                        // Add the unscaled subcell J value to the cell J-bar value
+                        cell_j_bar = cell_j_bar + subcell_j * subcell_volume;
+                    }
+
+                    // Scale the cell J-bar value by the cell volume
+                    cell_j_bar = cell_j_bar / cell_volume;
+
+                    // Loop over all the subcells
+                    for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
+                        const size_t subcell_id = subcell_indices(i);
+
+                        // Get the subcell J-bar value
+                        const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+                        // Compute the scale factor
+                        const double j_scale = Kokkos::cbrt(cell_j_bar / subcell_j);
 
                         // Get the subcell element indices
                         const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
@@ -110,6 +149,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                         // For now, set the barred displacement gradient to the non-barred displacement gradient (no barring)
                         displacement_gradient_bar_np1_map = displacement_gradient_np1_map;
+
+                        // Scale the displacement gradient
+                        // displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale;
                     }
                 });
         }

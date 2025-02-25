@@ -72,11 +72,13 @@ class SmoothedCellDataProcessor {
         std::shared_ptr<aperi::MeshData> mesh_data,
         const std::vector<std::string> &sets,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters &mesh_labeler_parameters) : m_mesh_data(mesh_data),
-                                                                       m_sets(sets),
-                                                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                                                       m_mesh_labeler_parameters(mesh_labeler_parameters),
-                                                                       m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters,
+        bool use_f_bar = false) : m_mesh_data(mesh_data),
+                                  m_sets(sets),
+                                  m_lagrangian_formulation_type(lagrangian_formulation_type),
+                                  m_mesh_labeler_parameters(mesh_labeler_parameters),
+                                  m_use_f_bar(use_f_bar),
+                                  m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -196,7 +198,9 @@ class SmoothedCellDataProcessor {
         size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
         size_t num_subcells = num_subcells_per_cell < 1 ? num_elements : num_subcells_per_cell * num_cells;
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes);
+        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
+
+        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
     }
 
     void AddSubcellNumElements() {
@@ -796,6 +800,7 @@ class SmoothedCellDataProcessor {
     std::vector<std::string> m_sets;                                 // The sets to process.
     aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The lagrangian formulation type.
     aperi::MeshLabelerParameters m_mesh_labeler_parameters;          // The mesh labeler parameters.
+    bool m_use_f_bar;                                                // Whether to use f_bar
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
 
     stk::mesh::BulkData *m_bulk_data;        // The bulk data object.

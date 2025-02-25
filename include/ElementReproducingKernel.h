@@ -145,7 +145,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Make the strain smoothing processor
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar);
     }
 
     void LabelParts() {

@@ -158,7 +158,8 @@ class SmoothedCellData {
     SmoothedCellData(size_t num_cells,
                      size_t reserved_num_subcells,
                      size_t num_elements,
-                     size_t estimated_total_num_nodes)
+                     size_t estimated_total_num_nodes,
+                     bool use_f_bar = false)
         : m_num_cells(num_cells),
           m_reserved_nodes(estimated_total_num_nodes),
           m_node_csr_indices(reserved_num_subcells),
@@ -196,6 +197,14 @@ class SmoothedCellData {
         // Initialize the unordered maps on the host
         m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
         Kokkos::deep_copy(m_node_to_view_index_map_host, m_node_to_view_index_map);
+
+        // Initialize the F-bar fields
+        if (use_f_bar) {
+            m_subcell_j = Kokkos::View<double *>("subcell_j", reserved_num_subcells);
+            m_cell_j_bar = Kokkos::View<double *>("cell_j_bar", num_cells);
+            Kokkos::deep_copy(m_subcell_j, 0.0);
+            Kokkos::deep_copy(m_cell_j_bar, 0.0);
+        }
     }
 
     // Function to resize views
@@ -504,6 +513,18 @@ class SmoothedCellData {
         return m_subcell_volume_host;
     }
 
+    // Get device view of subcell J
+    KOKKOS_INLINE_FUNCTION
+    double &GetSubcellJ(const size_t subcell_id) const {
+        return m_subcell_j(subcell_id);
+    }
+
+    // Get device view of cell J-bar
+    KOKKOS_INLINE_FUNCTION
+    double &GetCellJBar(const size_t cell_id) const {
+        return m_cell_j_bar(cell_id);
+    }
+
     // Get the cell volume for a cell
     KOKKOS_INLINE_FUNCTION
     double GetCellVolume(size_t cell_id) const {
@@ -753,6 +774,10 @@ class SmoothedCellData {
     size_t m_total_components = 0;           // Total number of components (total number of nodes * number of dimensions)
     size_t m_number_of_resizes = 0;          // Number of resizes
     static constexpr size_t k_num_dims = 3;  // Number of dimensions
+
+    // F-bar fields
+    Kokkos::View<double *> m_subcell_j;   // J for each subcell
+    Kokkos::View<double *> m_cell_j_bar;  // J-bar for each cell
 };
 
 }  // namespace aperi

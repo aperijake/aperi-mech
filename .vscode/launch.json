@@ -106,7 +106,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/protego-mech/build/Debug/aperi-mech",
       "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/beam/crk_nodal/plasticity",
+      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/cooks_membrane/crk_subnodal",
       "preLaunchTask": "make_debug_protego"
     },
     {
