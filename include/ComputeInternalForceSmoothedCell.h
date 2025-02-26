@@ -239,8 +239,20 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         // Get the displacement gradient map
                         const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(element_index());
 
-                        // Add to the dual pressure
-                        dual_pressure += d_jscale_d_jbar * subcell_volume * (pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map).sum() + pk1_stress_bar_map.trace());
+                        // Print intermediate values for dual pressure calculation
+                        const double stress_product = pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map).sum();
+                        const double stress_trace = pk1_stress_bar_map.trace();
+                        const double subcell_contribution = d_jscale_d_jbar * subcell_volume * (stress_product + stress_trace);
+
+                        printf(
+                            "  Subcell %zu Dual Pressure Components:\n"
+                            "    d_jscale_d_jbar = %.17g\n"
+                            "    stress_product = %.17g\n"
+                            "    stress_trace = %.17g\n"
+                            "    subcell_contribution = %.17g\n",
+                            subcell_id, d_jscale_d_jbar, stress_product, stress_trace, subcell_contribution);
+
+                        dual_pressure += subcell_contribution;
                     }
 
                     // Scale the dual pressure by the cell volume
