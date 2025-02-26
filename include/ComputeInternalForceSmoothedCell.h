@@ -114,6 +114,8 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                     // Get the cell volume
                     const double cell_volume = scd.GetCellVolume(cell_id);
 
+                    printf("Cell %zu: Volume = %.17g\n", cell_id, cell_volume);
+
                     // Loop over all the subcells to compute J-bar
                     for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
                         const size_t subcell_id = subcell_indices(i);
@@ -124,12 +126,15 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         // Get the subcell volume
                         const double subcell_volume = scd.GetSubcellVolume(subcell_id);
 
-                        // Add the unscaled subcell J value to the cell J-bar value
+                        printf("  Subcell %zu: J = %.17g, Volume = %.17g\n",
+                               subcell_id, subcell_j, subcell_volume);
+
                         cell_j_bar = cell_j_bar + subcell_j * subcell_volume;
                     }
 
                     // Scale the cell J-bar value by the cell volume
                     cell_j_bar = cell_j_bar / cell_volume;
+                    printf("  Cell %zu: J_bar = %.17g\n", cell_id, cell_j_bar);
 
                     // Store the cell J-bar value
                     scd.GetCellJBar(cell_id) = cell_j_bar;
@@ -158,6 +163,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         // H_bar = F_bar - I = (F * j_scale - I) = (H + I) * j_scale - I = H * j_scale + I * (j_scale - 1)
                         displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale;
                         displacement_gradient_bar_np1_map.diagonal().array() += (j_scale - 1.0);
+                        printf("  Subcell %zu: J_scale = %.17g (J_bar/J = %.17g)\n", subcell_id, j_scale, cell_j_bar / subcell_j);
                     }
                 });
         }
@@ -240,6 +246,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                     // Scale the dual pressure by the cell volume
                     dual_pressure = dual_pressure / cell_volume;
 
+                    printf("Cell %zu: Final J_bar = %.17g, Dual pressure = %.17g\n", cell_id, cell_j_bar, dual_pressure);
                     // Loop over all the subcells, calculate the pk1 stress
                     for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
                         const size_t subcell_id = subcell_indices(i);
@@ -275,6 +282,14 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                         // Add to the pk1 stress
                         pk1_stress_map = pk1_stress_map + (dual_pressure + d_j_scale_d_j * pk1_stress_bar_map.cwiseProduct(F).sum()) * d_j_d_f;
+
+                        // Print PK1 stress before and after unbar
+                        const auto pk1_stress_bar = m_pk1_stress_bar_field.GetConstEigenMatrixMap<3, 3>(element_index());
+                        printf("  Subcell %zu: PK1_bar[0,0] = %.17g\n", subcell_id, pk1_stress_bar(0, 0));
+
+                        // After unbar operation
+                        const auto pk1_stress = m_pk1_stress_field.GetConstEigenMatrixMap<3, 3>(element_index());
+                        printf("  Subcell %zu: Final PK1[0,0] = %.17g\n", subcell_id, pk1_stress(0, 0));
                     }
                 });
         }
