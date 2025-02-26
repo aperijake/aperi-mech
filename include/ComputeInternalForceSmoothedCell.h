@@ -108,9 +108,8 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                     // Get the subcell indices
                     const auto subcell_indices = scd.GetCellSubcells(cell_id);
 
-                    // Get the cell J value reference
-                    double &cell_j_bar = scd.GetCellJBar(cell_id);
-                    cell_j_bar = 0.0;
+                    // Cell J value
+                    double cell_j_bar = 0.0;
 
                     // Get the cell volume
                     const double cell_volume = scd.GetCellVolume(cell_id);
@@ -131,6 +130,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                     // Scale the cell J-bar value by the cell volume
                     cell_j_bar = cell_j_bar / cell_volume;
+
+                    // Store the cell J-bar value
+                    scd.GetCellJBar(cell_id) = cell_j_bar;
 
                     // Loop over all the subcells
                     for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
