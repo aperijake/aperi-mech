@@ -594,8 +594,8 @@ class SmoothedCellDataProcessor {
 
                     // Set the element volume
                     m_element_volume(element_index, 0) = element_volume;
-                    subcell_volumes(subcell_id) += element_volume;
-                    cell_volumes(m_cell_id(element_index, 0)) += element_volume;
+                    subcell_volumes(subcell_id) += element_volume;                                   // No need to atomic because we are looping over subcells
+                    Kokkos::atomic_add(&cell_volumes(m_cell_id(element_index, 0)), element_volume);  // Atomic because we are looping over subcells
 
                     // Loop over all the nodes in the element
                     for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
