@@ -1,0 +1,37 @@
+# Define common settings
+defaults: &defaults
+  num_processors: 1
+  input_file: input.yaml
+  cleanup:
+    remove: [results.exo, "*.log"]
+
+# List of tests using the defaults
+tests:
+  - <<: *defaults
+    hardware: cpu
+    args: [--dump-performance-data, rkpm_fbar_taylor_bar_cpu_np_1]
+    peak_memory_check:
+      value: 10500.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 500.0 # Gold run time in seconds
+      percent_tolerance: 10
+  - <<: *defaults
+    hardware: gpu
+    args: [--dump-performance-data, rkpm_fbar_taylor_bar_gpu_np_1]
+    peak_memory_check:
+      value: 7500.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 200.0 # Gold run time in seconds
+      percent_tolerance: 10
+  - <<: *defaults
+    num_processors: 4 # Override the default num_processors for this test
+    args: [--dump-performance-data, rkpm_fbar_taylor_bar_cpu_np_4]
+    hardware: cpu
+    peak_memory_check:
+      value: 11500.0 # Gold peak memory usage in MB
+      percent_tolerance: 10
+    run_time_check:
+      value: 160.0 # Gold run time in seconds
+      percent_tolerance: 10

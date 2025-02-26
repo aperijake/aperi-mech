@@ -594,6 +594,58 @@ jobs:
           fail-on-alert: false
           fail-threshold: 300%
 
+      # Store detailed benchmark results for aperi-mech rkpm_fbar tests
+      - name: Store aperi-mech detailed benchmark result for rkpm_fbar create_solver
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Benchmark
+          tool: customSmallerIsBetter
+          output-file-path: performance_rkpm_fbar_create_solver.json
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_fbar/create_solver
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: 120%
+          comment-on-alert: true
+          summary-always: true
+          alert-comment-cc-users: "@aperijake"
+          fail-on-alert: false
+          fail-threshold: 300%
+
+      - name: Store aperi-mech detailed benchmark result for rkpm_fbar create_element
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Benchmark
+          tool: customSmallerIsBetter
+          output-file-path: performance_rkpm_fbar_create_element.json
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_fbar/create_element
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: 120%
+          comment-on-alert: true
+          summary-always: true
+          alert-comment-cc-users: "@aperijake"
+          fail-on-alert: false
+          fail-threshold: 300%
+
+      - name: Store aperi-mech detailed benchmark result for rkpm_fbar solver
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Benchmark
+          tool: customSmallerIsBetter
+          output-file-path: performance_rkpm_fbar_solver.json
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_fbar/solver
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: 120%
+          comment-on-alert: true
+          summary-always: true
+          alert-comment-cc-users: "@aperijake"
+          fail-on-alert: false
+          fail-threshold: 300%
+
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
