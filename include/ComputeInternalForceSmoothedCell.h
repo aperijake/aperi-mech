@@ -156,8 +156,8 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         // F_bar = F * j_scale
                         // H = F - I
                         // H_bar = F_bar - I = (F * j_scale - I) = (H + I) * j_scale - I = H * j_scale + I * (j_scale - 1)
-                        // displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale + Eigen::Matrix3d::Identity();
-                        displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale + Eigen::Matrix3d::Identity() * (j_scale - 1.0);
+                        displacement_gradient_bar_np1_map = displacement_gradient_np1_map * j_scale;
+                        displacement_gradient_bar_np1_map.diagonal().array() += (j_scale - 1.0);
                     }
                 });
         }
@@ -234,7 +234,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(element_index());
 
                         // Add to the dual pressure
-                        dual_pressure += d_jscale_d_jbar * subcell_volume * pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map + Eigen::Matrix3d::Identity()).sum();
+                        dual_pressure += d_jscale_d_jbar * subcell_volume * (pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map).sum() + pk1_stress_bar_map.trace());
                     }
 
                     // Scale the dual pressure by the cell volume
@@ -267,7 +267,8 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         const double d_j_scale_d_j = -j_scale / (3.0 * subcell_j);
 
                         // Deformation gradient
-                        const Eigen::Matrix3d F = Eigen::Matrix3d::Identity() + m_displacement_gradient_np1_field.GetEigenMatrix<3, 3>(element_index());
+                        Eigen::Matrix3d F = m_displacement_gradient_np1_field.GetEigenMatrix<3, 3>(element_index());
+                        F.diagonal().array() += 1.0;
 
                         // Calculate the d_j_d_f value
                         const auto d_j_d_f = subcell_j * aperi::InvertMatrix(F).transpose();
@@ -306,7 +307,8 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 // Adjust for the B matrix and weight not being in the original configuration for updated or semi Lagrangian formulations
                 if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
                     // Compute the deformation gradient
-                    const Eigen::Matrix<double, 3, 3> F_reference = Eigen::Matrix3d::Identity() + m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index());
+                    Eigen::Matrix<double, 3, 3> F_reference = m_reference_displacement_gradient_field.GetEigenMatrix<3, 3>(elem_index());
+                    F_reference.diagonal().array() += 1.0;
 
                     // Adjust the stress to account for the difference in configuration
                     stress_term = F_reference * stress_term / F_reference.determinant();
