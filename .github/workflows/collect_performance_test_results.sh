@@ -40,8 +40,8 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
     mv performance_aperi_mech_all_results.json ~/aperi-mech/build/performance_aperi_mech_all_results.json
 
     echo "Converting CSV to JSON..."
-    # Subdirs are [fem, fem_strain_smoothing, rkpm, rkpm_nodal]
-    subdirs=(fem fem_strain_smoothing rkpm rkpm_nodal)
+    # Subdirs are [fem, fem_strain_smoothing, rkpm, rkpm_nodal rkpm_fbar]
+    subdirs=(fem fem_strain_smoothing rkpm rkpm_nodal rkpm_fbar)
 
     # Performance types are [create_solver, create_element, solver]
     types=(create_solver create_element solver)
