@@ -40,7 +40,6 @@ void AddDisplacementBoundaryConditionsComponents(YAML::Node& root, const std::st
 void AddDisplacementBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
 void AddVelocityBoundaryConditions(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
 void AddVelocityBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
-void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);

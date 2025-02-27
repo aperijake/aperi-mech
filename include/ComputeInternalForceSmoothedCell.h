@@ -270,11 +270,11 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                         Eigen::Matrix3d F = m_displacement_gradient_np1_field.GetEigenMatrix<3, 3>(element_index());
                         F.diagonal().array() += 1.0;
 
-                        // Calculate the d_j_d_f value
-                        const auto d_j_d_f = subcell_j * aperi::InvertMatrix(F).transpose();
+                        // Calculate the scalar multiplier first
+                        const double scalar_term = (dual_pressure + d_j_scale_d_j * pk1_stress_bar_map.cwiseProduct(F).sum()) * subcell_j;
 
                         // Add to the pk1 stress
-                        pk1_stress_map = pk1_stress_map + (dual_pressure + d_j_scale_d_j * pk1_stress_bar_map.cwiseProduct(F).sum()) * d_j_d_f;
+                        pk1_stress_map = pk1_stress_map + scalar_term * aperi::InvertMatrix(F).transpose();
                     }
                 });
         }
