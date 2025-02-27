@@ -14,7 +14,6 @@ procedures:
                 integration_scheme:
                   strain_smoothing:
                     use_f_bar: true
-                    activate_center_node: true
                     nodal_smoothing_cell:
                       subdomains: 0
                 approximation_space:

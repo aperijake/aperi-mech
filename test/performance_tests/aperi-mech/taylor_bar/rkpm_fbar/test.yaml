@@ -14,7 +14,7 @@ tests:
       value: 10500.0 # Gold peak memory usage in MB
       percent_tolerance: 10
     run_time_check:
-      value: 500.0 # Gold run time in seconds
+      value: 600.0 # Gold run time in seconds
       percent_tolerance: 10
   - <<: *defaults
     hardware: gpu
@@ -33,5 +33,5 @@ tests:
       value: 11500.0 # Gold peak memory usage in MB
       percent_tolerance: 10
     run_time_check:
-      value: 160.0 # Gold run time in seconds
+      value: 100.0 # Gold run time in seconds
       percent_tolerance: 10
