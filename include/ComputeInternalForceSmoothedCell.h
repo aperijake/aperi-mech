@@ -172,8 +172,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 // Get the displacement gradient map
                 const auto displacement_gradient_np1_map = use_f_bar ? m_displacement_gradient_bar_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index());
 
-                // Compute the velocity gradient if needed
-                const auto velocity_gradient_map = needs_velocity_gradient ? Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(ComputeVelocityGradient(elem_index()).data(), 3, 3, mat3_stride) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
+                // Store the velocity gradient in a local variable to extend its lifetime
+                const Eigen::Matrix<double, 3, 3> velocity_gradient = needs_velocity_gradient ? ComputeVelocityGradient(elem_index()) : Eigen::Matrix<double, 3, 3>::Zero();
+                const auto velocity_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(velocity_gradient.data(), 3, 3, mat3_stride);
 
                 // Get the number of state variables
                 const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
