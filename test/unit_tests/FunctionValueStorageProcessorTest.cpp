@@ -51,9 +51,8 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    std::vector<double> kernel_radius_scale_factors = {1.9};
-    std::vector<std::string> part_names = {"block_1"};
-    m_search_processor->add_nodes_neighbors_within_constant_ball(part_names, kernel_radius_scale_factors);
+    double kernel_radius_scale_factor = 1.9;
+    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius_scale_factor);
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionValueStorageProcessor();
