@@ -9,7 +9,7 @@
 
 namespace aperi {
 
-using FieldDataType = std::variant<uint64_t, double>;
+using FieldDataType = std::variant<uint64_t, unsigned long, double>;
 
 /**
  * @enum FieldDataRank

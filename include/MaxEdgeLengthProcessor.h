@@ -33,8 +33,8 @@ namespace aperi {
 class MaxEdgeLengthProcessor {
     using DoubleField = stk::mesh::Field<double>;
     using NgpDoubleField = stk::mesh::NgpField<double>;
-    using UnsignedField = stk::mesh::Field<uint64_t>;
-    using NgpUnsignedField = stk::mesh::NgpField<uint64_t>;
+    using UnsignedField = stk::mesh::Field<unsigned long>;
+    using NgpUnsignedField = stk::mesh::NgpField<unsigned long>;
 
    public:
     MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
@@ -65,8 +65,8 @@ class MaxEdgeLengthProcessor {
         }
 
         // Get the node active field
-        m_node_active_field = StkGetField(FieldQueryData<uint64_t>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_active_field);
+        m_node_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_node_active_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);

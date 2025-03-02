@@ -181,6 +181,11 @@ class SmoothedCellDataProcessor {
                     printf("Cell %lu: Cell volume %f does not match subcell volume sum %f\n", cell_id, cell_volume, subcell_volume_sum);
                     Kokkos::abort("Cell volume check failed");
                 }
+
+                // Verbose output
+                if (m_verbose) {
+                    printf("Cell %lu: Cell volume %f matches subcell volume sum %f\n", cell_id, cell_volume, subcell_volume_sum);
+                }
             });
 
         return true;
@@ -232,6 +237,14 @@ class SmoothedCellDataProcessor {
 
         bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
 
+        if (m_verbose) {
+            aperi::CoutP0() << "Number of cells: " << num_cells << std::endl;
+            aperi::CoutP0() << "Number of subcells: " << num_subcells << std::endl;
+            aperi::CoutP0() << "Number of elements: " << num_elements << std::endl;
+            aperi::CoutP0() << "Estimated number of node-cell pairs: " << estimated_num_nodes << std::endl;
+            aperi::CoutP0() << "Use f_bar: " << (use_f_bar ? "true" : "false") << std::endl;
+        }
+
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
     }
 
@@ -259,6 +272,10 @@ class SmoothedCellDataProcessor {
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
         m_smoothed_cell_data->CompleteAddingSubcellElementCSRIndicesOnDevice();
+
+        if (m_verbose) {
+            aperi::CoutP0() << "Number of subcell elements added: " << m_smoothed_cell_data->TotalNumElements() << std::endl;
+        }
     }
 
     void SetSubcellElementIndices() {
@@ -326,6 +343,10 @@ class SmoothedCellDataProcessor {
         // This populates the 'start' array from the 'length' array and collects other sizes.
         // Also copies the 'length' and 'start' arrays to host.
         m_smoothed_cell_data->CompleteAddingCellNumSubcellsOnDevice();
+
+        if (m_verbose) {
+            aperi::CoutP0() << "Number of cell subcells added: " << m_smoothed_cell_data->NumSubcells() << std::endl;
+        }
     }
 
     void SetCellSubcells() {
@@ -496,6 +517,10 @@ class SmoothedCellDataProcessor {
 
         bool set_start_from_lengths = true;
         m_smoothed_cell_data->CompleteAddingSubcellNodeCSRIndicesOnDevice(set_start_from_lengths);
+
+        if (m_verbose) {
+            aperi::CoutP0() << "Number of subcell-neighbor pairs added: " << m_smoothed_cell_data->TotalNumNodes() << std::endl;
+        }
 
         // Get the views after potential resizing
         node_indicies = m_smoothed_cell_data->GetNodeIndices();
@@ -788,7 +813,11 @@ class SmoothedCellDataProcessor {
         /* This needs a few things to be completed first:
            - The mesh labeler needs to be run to get the cell ids, subcell ids, and create the _cells parts.
         */
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, "Build Smoothed Cell Data");
+        std::string timer_name = "Build Smoothed Cell Data for Sets: ";
+        for (const auto &set : m_sets) {
+            timer_name += set + " ";
+        }
+        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, timer_name);
 
         // Update the ngp mesh
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -838,6 +867,7 @@ class SmoothedCellDataProcessor {
     aperi::MeshLabelerParameters m_mesh_labeler_parameters;          // The mesh labeler parameters.
     bool m_use_f_bar;                                                // Whether to use f_bar
     aperi::TimerManager<StrainSmoothingTimerType> m_timer_manager;   // The timer manager.
+    bool m_verbose = false;                                          // Whether to print verbose output
 
     stk::mesh::BulkData *m_bulk_data;        // The bulk data object.
     stk::mesh::Selector m_selector;          // The selector
