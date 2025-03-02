@@ -16,13 +16,20 @@ namespace aperi {
 template <typename T>
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
 isotropic_part(const T& a) {
-    return a.trace() / 3.0 * Eigen::Matrix<double, 3, 3>::Identity();
+    double one_third_tr = a.trace() / 3.0;
+    Eigen::Matrix<double, 3, 3> result = Eigen::Matrix<double, 3, 3>::Zero();
+    for (int i = 0; i < 3; ++i) {
+        result(i, i) = one_third_tr;
+    }
+    return result;
 }
 
 template <typename T>
 KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
 deviatoric_part(const T& a) {
-    return a - isotropic_part(a);
+    Eigen::Matrix<double, 3, 3> result = a;
+    result -= isotropic_part(a);
+    return result;
 }
 
 template <typename T>
@@ -51,7 +58,8 @@ KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& s
     E: Basis tensor of deviatoric part of A
     */
 
-    z = a.trace() / Kokkos::sqrt(3.0);
+    double tr = a.trace();
+    z = tr / Kokkos::sqrt(3.0);
     auto dev = deviatoric_part(a);
     s = magnitude(dev);
     E.setZero();
@@ -156,8 +164,8 @@ class DruckerPragerMaterial : public Material {
             Eigen::Matrix<double, 3, 3> tau = pk1_stress * F.transpose();
 
             // Trial stress
-            auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
-            auto trde = de.trace();
+            Eigen::Matrix<double, 3, 3> de = (0.5 * timestep) * (*velocity_gradient_np1 + velocity_gradient_np1->transpose());
+            double trde = de.trace();
             auto dedev = deviatoric_part(de);
             tau += m_bulk_modulus * trde * I + 2 * m_shear_modulus * dedev;
 
@@ -250,11 +258,12 @@ class DruckerPragerMaterial : public Material {
             }
 
             auto depdev = deviatoric_part(dep);
-            auto deqps = Kokkos::sqrt(double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
+            const double dep_trace = dep.trace();
+            auto deqps = Kokkos::sqrt(double_dot(depdev, depdev) + (dep_trace * dep_trace) / 3.0);
 
             // Update the state
             state_new->coeffRef(PLASTIC_STRAIN) += deqps;
-            state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) += dep.trace();
+            state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) += dep_trace;
 
             pk1_stress = tau * F.inverse().transpose();
         }
