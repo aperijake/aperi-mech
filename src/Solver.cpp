@@ -30,16 +30,9 @@ void ExplicitSolver::UpdateFieldStates() {
 }
 
 void Solver::UpdateFieldsFromGeneralizedFields() {
-    // Make sure all source fields are up to date on the device
-    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
-    m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
-    m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
-    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
-
-    // Compute the values of the destination fields from the source fields
-    m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
-    m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-    m_output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+    for (const auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->ComputeValuesFromGeneralizedFields();
+    }
 }
 
 /*

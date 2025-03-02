@@ -106,7 +106,8 @@
       "request": "launch",
       "program": "${workspaceFolder}/protego-mech/build/Debug/aperi-mech",
       "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/cooks_membrane/crk_fbar",
+      //"cwd": "${workspaceFolder}/protego-mech/test/regression_tests/column_collapse/crk_nodal_w_building_2d",
+      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/single_tet/crk_nodal",
       "preLaunchTask": "make_debug_protego"
     },
     {

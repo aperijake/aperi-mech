@@ -296,8 +296,9 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         auto start = std::chrono::high_resolution_clock::now();
         // Perform non-Compadre neighbor search
         auto search_start_time = std::chrono::high_resolution_clock::now();  // benchmark
+        std::vector<std::string> part_names = {"block_1"};
         if (use_variable_ball) {
-            m_search_processor->add_nodes_neighbors_within_variable_ball(m_kernel_factor);
+            m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, {m_kernel_factor});
         } else {
             m_search_processor->add_nodes_neighbors_within_constant_ball(m_kernel_factor);
         }

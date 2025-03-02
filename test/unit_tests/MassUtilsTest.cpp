@@ -10,6 +10,7 @@
 #include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
 #include "MeshLabeler.h"
+#include "Preprocessor.h"
 #include "UnitTestUtils.h"
 
 // Fixture for mass matrix tests
@@ -78,6 +79,8 @@ class MassMatrixTest : public CaptureOutputTest {
         }
 
         // Create an internal force contribution in order to populate the volume field, needed for the mass matrix computation
+        aperi::ReproducingKernelInfo reproducing_kernel_infos;
+        std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions;
         for (auto &part : m_part_parameters) {
             aperi::InternalForceContributionParameters internal_force_contribution_parameters;
             internal_force_contribution_parameters.part_name = part.mesh_labeler_parameters.set;
@@ -99,6 +102,17 @@ class MassMatrixTest : public CaptureOutputTest {
             internal_force_contribution_parameters.mesh_labeler_parameters = part.mesh_labeler_parameters;
             auto internal_force_contrib = CreateInternalForceContribution(internal_force_contribution_parameters);
             internal_force_contrib->Preprocess();
+            internal_force_contributions.push_back(internal_force_contrib);
+            aperi::ReproducingKernelInfo this_reproducing_kernel_infos = internal_force_contrib->GetReproducingKernelInfo();
+            if (!this_reproducing_kernel_infos.part_names.empty()) {
+                reproducing_kernel_infos.part_names.insert(reproducing_kernel_infos.part_names.end(), this_reproducing_kernel_infos.part_names.begin(), this_reproducing_kernel_infos.part_names.end());
+                reproducing_kernel_infos.kernel_radius_scale_factors.insert(reproducing_kernel_infos.kernel_radius_scale_factors.end(), this_reproducing_kernel_infos.kernel_radius_scale_factors.begin(), this_reproducing_kernel_infos.kernel_radius_scale_factors.end());
+            }
+        }
+        // Do the neighbor search
+        aperi::FindNeighbors(m_io_mesh->GetMeshData(), reproducing_kernel_infos);
+        for (auto &internal_force_contribution : internal_force_contributions) {
+            internal_force_contribution->FinishPreprocessing();
         }
 
         // Check element volume

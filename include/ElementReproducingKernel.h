@@ -16,7 +16,6 @@
 #include "Material.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
-#include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "ShapeFunctionsFunctorTet4.h"
@@ -61,9 +60,17 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
         LabelParts();
-        FindNeighbors();
         CreateFunctionValueStorageProcessor();
+    }
+
+    void FinishPreprocessing() override {
+        // Run neighbor search on all parts before doing this
         BuildSmoothedCellData();
+        UpdateShapeFunctions();
+    }
+
+    ReproducingKernelInfo GetReproducingKernelInfo() const override {
+        return ReproducingKernelInfo{m_part_names, {m_kernel_radius_scale_factor}};
     }
 
     /**
@@ -151,17 +158,6 @@ class ElementReproducingKernel : public ElementBase {
     void LabelParts() {
         // Label the parts
         m_strain_smoothing_processor->LabelParts();
-    }
-
-    void FindNeighbors() {
-        // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names);
-        search_processor.add_nodes_neighbors_within_variable_ball(m_kernel_radius_scale_factor, false /*add debug fields*/);
-
-        search_processor.SyncFieldsToHost();  // Just needed for output
-        search_processor.PrintNumNeighborsStats();
-
-        m_timer_manager->AddChild(search_processor.GetTimerManager());
     }
 
     // TODO(jake): Get rid of this wrapper class. It is only here because of some strange compiling issues that lead to a segfault.
@@ -260,7 +256,6 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
                                                                           mesh_labeler_parameters,
                                                                           use_f_bar) {
         BuildQuadratureFunctor();
-        UpdateShapeFunctions();
     }
 
     void BuildQuadratureFunctor() override {
@@ -327,7 +322,6 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
                                                                           mesh_labeler_parameters,
                                                                           use_f_bar) {
         BuildQuadratureFunctor();
-        UpdateShapeFunctions();
     }
 
     void BuildQuadratureFunctor() override {

@@ -119,6 +119,7 @@ class FunctionValueStorageProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+                assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
                 Eigen::Matrix<double, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {

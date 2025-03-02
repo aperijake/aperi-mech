@@ -85,7 +85,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 // If there are no neighbors then the partition of unity is satisfied in compute_value_from_generalized_field
                 if (num_neighbors == 0) {
                     return;
@@ -132,7 +132,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
                 // If there are no neighbors, set the destination field to the source field
@@ -194,7 +194,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
                 // If there are no neighbors, set the destination field to the source field as there is nothing to scatter

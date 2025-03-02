@@ -16,7 +16,6 @@
 #include "Material.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
-#include "NeighborSearchProcessor.h"
 #include "QuadratureGaussian.h"
 #include "ShapeFunctionsFunctorHex8.h"
 
