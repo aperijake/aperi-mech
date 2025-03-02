@@ -142,6 +142,10 @@ class NeighborSearchProcessor {
         m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
     }
 
+    std::vector<std::string> GetPartNames() const {
+        return m_sets;
+    }
+
     void PopulateDebugFields() {
         DoubleField *m_neighbor_coordinates_x_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_x", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
         NgpDoubleField *m_ngp_coordinates_x_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_x_field);
@@ -164,6 +168,7 @@ class NeighborSearchProcessor {
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(neighbor);
@@ -191,6 +196,7 @@ class NeighborSearchProcessor {
                 double kernel_radius = ngp_kernel_radius_field(node_index, 0);
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
                 uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
@@ -240,6 +246,7 @@ class NeighborSearchProcessor {
             for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
                 size_t i_neighbor_start = i_entity * len_neighbors;
                 uint64_t num_neighbors = node_num_neighbors[i_entity];
+                assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 if (num_neighbors == 0) {
                     all_nodes_have_neighbors = false;
                     if (print_failures) {
@@ -282,7 +289,7 @@ class NeighborSearchProcessor {
         ngp_kernel_radius_field.sync_to_host();
     }
 
-    void ComputeKernelRadius(double scale_factor) {
+    void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector) {
         // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
         // If the in/out check can flip one way or the other if a neighbor is right on the edge.
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Compute Kernel Radius");
@@ -296,7 +303,7 @@ class NeighborSearchProcessor {
         auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
+            ngp_mesh, stk::topology::NODE_RANK, selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the max edge length
                 double max_edge_length = ngp_max_edge_length_field(node_index, 0);
@@ -401,6 +408,7 @@ class NeighborSearchProcessor {
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
                 uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
                 uint64_t &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+                assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
 
                 // Calculate the squared distance between the node and the neighbor
@@ -435,6 +443,7 @@ class NeighborSearchProcessor {
                 // Insert the new neighbor
                 p_function_values[insert_index] = distance_squared;
                 p_neighbor_data[insert_index] = (double)neighbor.local_offset();
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
             }
         }
         // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
@@ -460,6 +469,7 @@ class NeighborSearchProcessor {
                 // Get the node entity
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
                 double starting_num_nodes = ngp_node_num_neighbors_field(node_index, 0);
+                KOKKOS_ASSERT(starting_num_nodes < MAX_NODE_NUM_NEIGHBORS);
                 ngp_node_num_neighbors_field(node_index, 0) += 1;
                 ngp_node_neighbors_field(node_index, (size_t)starting_num_nodes) = (double)node.local_offset();
                 if (set_first_function_value_to_one) {
@@ -511,8 +521,23 @@ class NeighborSearchProcessor {
         }
     }
 
-    void add_nodes_neighbors_within_variable_ball(double scale_factor, bool populate_debug_fields = false) {
-        ComputeKernelRadius(scale_factor);
+    void add_nodes_neighbors_within_variable_ball(const std::vector<std::string> &sets, const std::vector<double> &kernel_radius_scale_factors, bool populate_debug_fields = false) {
+        // Create the selector for the sets
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        // Append "_active" to each set name and create a selector for the active entities
+        std::vector<std::string> active_sets;
+        for (const std::string &set : sets) {
+            active_sets.push_back(set + "_active");
+        }
+        stk::mesh::Selector active_selector = StkGetSelector(active_sets, meta_data);
+        // Warn if the active selector is empty.
+        if (active_selector.is_empty(stk::topology::ELEMENT_RANK)) {
+            aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
+        }
+
+        for (double scale_factor : kernel_radius_scale_factors) {
+            ComputeKernelRadius(scale_factor, active_selector);
+        }
         DoBallSearch(populate_debug_fields);
     }
 

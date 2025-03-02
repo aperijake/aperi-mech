@@ -23,6 +23,11 @@ inline const std::map<ElementTimerType, std::string> element_timer_map = {
     {ElementTimerType::Other, "Other"},
     {ElementTimerType::NONE, "NONE"}};
 
+struct ReproducingKernelInfo {
+    std::vector<std::string> part_names;
+    std::vector<double> kernel_radius_scale_factors;
+};
+
 /**
  * @brief Represents an element in a mesh.
  *
@@ -94,6 +99,16 @@ class ElementBase {
     std::shared_ptr<aperi::TimerManager<ElementTimerType>> GetTimerManager() const {
         return m_timer_manager;
     }
+
+    std::vector<std::string> GetPartNames() const {
+        return m_part_names;
+    }
+
+    virtual ReproducingKernelInfo GetReproducingKernelInfo() const {
+        return ReproducingKernelInfo{{}, {}};
+    }
+
+    virtual void FinishPreprocessing() {}
 
    protected:
     size_t m_num_nodes;                                                      ///< The number of nodes in the element.

@@ -603,6 +603,7 @@ class SmoothedCellDataProcessor {
                         if (one_pass_method) {
                             // Get the number of neighbors
                             uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
+                            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
                             // Loop over the nodes neighbors
                             for (size_t l = 0; l < num_neighbors; ++l) {
