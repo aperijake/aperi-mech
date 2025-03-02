@@ -34,7 +34,7 @@ class ExternalForceContribution : public ForceContribution {
      * @param mesh_data The mesh data object.
      * @param components_and_values The components and values of the force.
      */
-    ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : m_mesh_data(mesh_data), m_components_and_values(components_and_values), m_time_function(time_function) {}
+    ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::string> set_names, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : m_mesh_data(mesh_data), m_set_names(set_names), m_components_and_values(components_and_values), m_time_function(time_function) {}
 
     virtual ~ExternalForceContribution() = default;
 
@@ -47,6 +47,7 @@ class ExternalForceContribution : public ForceContribution {
 
    protected:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                   /**< The mesh data object. */
+    std::vector<std::string> m_set_names;                           /**< The set names of the force. */
     std::vector<std::pair<size_t, double>> m_components_and_values; /**< The components and values of the force. */
     std::function<double(double)> m_time_function;                  /**< The time function for the force. */
 };
@@ -65,7 +66,7 @@ class ExternalForceContributionTraction : public ExternalForceContribution {
      * @param magnitude The magnitude of the traction force.
      * @param direction The direction of the traction force.
      */
-    ExternalForceContributionTraction(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, components_and_values, time_function) {
+    ExternalForceContributionTraction(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::string> set_names, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, set_names, components_and_values, time_function) {
         // Throw error because this is not implemented yet
         throw std::runtime_error("Error: Traction not implemented yet");
     }
@@ -103,11 +104,11 @@ class ExternalForceContributionGravity : public ExternalForceContribution {
      * @param mesh_data The mesh data object.
      * @param components_and_values The components and values of the gravity force.
      */
-    ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, components_and_values, time_function) {
+    ExternalForceContributionGravity(std::shared_ptr<aperi::MeshData> mesh_data, std::vector<std::string> set_names, std::vector<std::pair<size_t, double>> components_and_values, std::function<double(double)> time_function) : ExternalForceContribution(mesh_data, set_names, components_and_values, time_function) {
         std::array<FieldQueryData<double>, 2> field_query_data;
         field_query_data[0] = {"force_coefficients", FieldQueryState::None};
         field_query_data[1] = {"mass", FieldQueryState::None};
-        m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data, m_mesh_data);
+        m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data, m_mesh_data, m_set_names);
     }
 
     virtual ~ExternalForceContributionGravity() = default;
@@ -162,10 +163,17 @@ inline std::shared_ptr<ExternalForceContribution> CreateExternalForceContributio
     // Get the time function
     std::function<double(double)> time_function = GetTimeFunction(load_node);
 
+    // Get the set names
+    // Loop over sets from boundary condition
+    std::vector<std::string> sets;
+    if (load_node["sets"]) {
+        sets = load_node["sets"].as<std::vector<std::string>>();
+    }
+
     if (type == "traction_load") {
-        return std::make_shared<ExternalForceContributionTraction>(mesh_data, components_and_values, time_function);
+        return std::make_shared<ExternalForceContributionTraction>(mesh_data, sets, components_and_values, time_function);
     } else if (type == "gravity_load") {
-        return std::make_shared<ExternalForceContributionGravity>(mesh_data, components_and_values, time_function);
+        return std::make_shared<ExternalForceContributionGravity>(mesh_data, sets, components_and_values, time_function);
     } else {
         return nullptr;
     }
