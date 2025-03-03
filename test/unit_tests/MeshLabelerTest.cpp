@@ -34,7 +34,7 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
 
     void CheckThexNodeLabels(uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {
         // Check the active node field
-        auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+        auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, unsigned long, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
         if (m_num_procs == 1) {
             ASSERT_EQ(active_nodes.rows(), expected_num_total_nodes);
             ASSERT_EQ(active_nodes.cols(), 1);
@@ -47,7 +47,7 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
                 num_active_nodes++;
             }
         }
-        uint64_t num_active_nodes_global = 0;
+        unsigned long num_active_nodes_global = 0;
         MPI_Allreduce(&num_active_nodes, &num_active_nodes_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
         EXPECT_EQ(num_active_nodes_global, expected_num_active_nodes);
 
@@ -174,7 +174,7 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     ReadThexMesh();
 
     // Check the active node field
-    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, unsigned long, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
 
     size_t num_rows = active_nodes.rows();
     size_t num_rows_global = 0;

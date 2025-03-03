@@ -9,7 +9,10 @@
 
 namespace aperi {
 
-using FieldDataType = std::variant<uint64_t, double>;
+template <typename>
+inline constexpr bool always_false_v = false;
+
+using FieldDataType = std::variant<uint64_t, unsigned long, double>;
 
 /**
  * @enum FieldDataRank
@@ -34,17 +37,28 @@ enum class FieldDataTopologyRank { NODE,
  * @brief Represents the data of a field.
  */
 struct FieldData {
-    // For non-custom fields
+    template <typename T>
+    static constexpr size_t GetVariantIndex() {
+        if constexpr (std::is_same_v<T, uint64_t>)
+            return 0;
+        else if constexpr (std::is_same_v<T, unsigned long>)
+            return 1;
+        else if constexpr (std::is_same_v<T, double>)
+            return 2;
+        else
+            static_assert(always_false_v<T>, "Unsupported type for FieldData");
+    }
+
     template <typename T>
     FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in, bool output_in = true)
-        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}), output(output_in) {
+        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(std::in_place_index<GetVariantIndex<T>()>, T{}), output(output_in) {
         number_of_components = FieldDataRankToNumberComponents(data_rank);
         AssignInitialValues(initial_values_in);
     }
 
     template <typename T>
     FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, std::vector<T> initial_values_in, bool output_in = true)
-        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(T{}), output(output_in) {
+        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), data_type(std::in_place_index<GetVariantIndex<T>()>, T{}), output(output_in) {
         number_of_components = FieldDataRankToNumberComponents(data_rank);
         AssignInitialValues(initial_values_in);
     }
@@ -52,13 +66,13 @@ struct FieldData {
     // Mainly for custom fields
     template <typename T>
     FieldData(std::string name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in, bool output_in = true)
-        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}), output(output_in) {
+        : name(name_in), output_name(name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(std::in_place_index<GetVariantIndex<T>()>, T{}), output(output_in) {
         AssignInitialValues(initial_values_in);
     }
 
     template <typename T>
     FieldData(std::string name_in, std::string output_name_in, FieldDataRank data_rank_in, FieldDataTopologyRank data_topology_rank_in, size_t number_of_states_in, size_t number_of_components_in, std::vector<T> initial_values_in, bool output_in = true)
-        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(T{}), output(output_in) {
+        : name(name_in), output_name(output_name_in), data_rank(data_rank_in), data_topology_rank(data_topology_rank_in), number_of_states(number_of_states_in), number_of_components(number_of_components_in), data_type(std::in_place_index<GetVariantIndex<T>()>, T{}), output(output_in) {
         AssignInitialValues(initial_values_in);
     }
 
@@ -67,13 +81,13 @@ struct FieldData {
         initial_values.resize(number_of_components);
         if (initial_values_in.size() == 0) {
             for (size_t i = 0; i < number_of_components; ++i) {
-                initial_values[i] = T{};
+                initial_values[i] = FieldDataType(std::in_place_index<GetVariantIndex<T>()>, T{});
             }
         } else if (initial_values_in.size() != number_of_components) {
             throw std::invalid_argument("FieldData: Size of initial values does not match number of components.");
         } else {
             for (size_t i = 0; i < number_of_components; ++i) {
-                initial_values[i] = initial_values_in[i];
+                initial_values[i] = FieldDataType(std::in_place_index<GetVariantIndex<T>()>, initial_values_in[i]);
             }
         }
     }

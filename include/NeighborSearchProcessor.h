@@ -42,6 +42,8 @@ class NeighborSearchProcessor {
     using NgpDoubleField = stk::mesh::NgpField<double>;
     using UnsignedField = stk::mesh::Field<uint64_t>;
     using NgpUnsignedField = stk::mesh::NgpField<uint64_t>;
+    using UnsignedLongField = stk::mesh::Field<unsigned long>;
+    using NgpUnsignedLongField = stk::mesh::NgpField<unsigned long>;
     using ExecSpace = stk::ngp::ExecSpace;
     using NodeIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
     using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<double>, NodeIdentProc>;
@@ -122,8 +124,8 @@ class NeighborSearchProcessor {
         m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
 
         // Get the node active field
-        m_node_active_field = StkGetField(FieldQueryData<uint64_t>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_active_field);
+        m_node_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_node_active_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -258,7 +260,7 @@ class NeighborSearchProcessor {
                     uint64_t neighbor_index = node_neighbors[i_neighbor_start + i];
                     stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
                     // Active value of the neighbor
-                    uint64_t neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
+                    unsigned long neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
                     if (neighbor_active == 0) {
                         all_neighbors_active = false;
                         if (print_failures) {
@@ -660,14 +662,14 @@ class NeighborSearchProcessor {
     DoubleField *m_coordinates_field;                  // The coordinates field
     UnsignedField *m_node_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_node_neighbors_field;             // The neighbors field
-    UnsignedField *m_node_active_field;                // The active field
+    UnsignedLongField *m_node_active_field;            // The active field
     DoubleField *m_kernel_radius_field;                // The kernel radius field
     DoubleField *m_max_edge_length_field;              // The max edge length field
     DoubleField *m_node_function_values_field;         // The function values field
     NgpDoubleField *m_ngp_coordinates_field;           // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
-    NgpUnsignedField *m_ngp_node_active_field;         // The ngp active field
+    NgpUnsignedLongField *m_ngp_node_active_field;     // The ngp active field
     NgpDoubleField *m_ngp_kernel_radius_field;         // The ngp kernel radius field
     NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
     NgpDoubleField *m_ngp_node_function_values_field;  // The ngp function values field

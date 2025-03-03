@@ -31,7 +31,7 @@ class MeshLabeler {
         std::vector<FieldData> field_data;
 
         // Node data
-        std::vector<uint64_t> initial_active_values(1, 1);
+        std::vector<unsigned long> initial_active_values(1, 1);
         field_data.push_back(FieldData("active", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, initial_active_values));  // Active nodes
 
         // Cell data, cell_id and subcell_id

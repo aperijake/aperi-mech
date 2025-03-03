@@ -42,6 +42,9 @@ class MassMatrixTest : public CaptureOutputTest {
         m_part_parameters[0].density = 1.23;
         m_part_parameters[0].mesh_labeler_parameters.set = "block_1";
         m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+
+        // Set the kernel radius scale factor
+        m_kernel_radius_scale_factor = 1.5;
     }
 
     void TestComputeMassMatrix(const bool uses_generalized_fields, bool split_mesh_in_two = false, const std::string &override_mesh_string = "") {
@@ -86,8 +89,7 @@ class MassMatrixTest : public CaptureOutputTest {
             internal_force_contribution_parameters.part_name = part.mesh_labeler_parameters.set;
             internal_force_contribution_parameters.mesh_data = m_io_mesh->GetMeshData();
             if (uses_generalized_fields) {
-                double kernel_radius_scale_factor = 1.5;
-                internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(kernel_radius_scale_factor);
+                internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceReproducingKernelParameters>(m_kernel_radius_scale_factor);
                 internal_force_contribution_parameters.integration_scheme_parameters = std::make_shared<aperi::IntegrationSchemeStrainSmoothingParameters>();
             } else {
                 internal_force_contribution_parameters.approximation_space_parameters = std::make_shared<aperi::ApproximationSpaceFiniteElementParameters>();
@@ -186,6 +188,7 @@ class MassMatrixTest : public CaptureOutputTest {
     std::shared_ptr<aperi::IoMesh> m_io_mesh;
     MPI_Comm m_comm;
     int m_num_procs;
+    double m_kernel_radius_scale_factor;
 };
 
 // Test ComputeMassMatrix
@@ -226,4 +229,30 @@ TEST_F(MassMatrixTest, ComputeMassMatrixTwoParts) {
     m_part_parameters[1].mesh_labeler_parameters.set = "block_2";
     m_part_parameters[1].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
     TestComputeMassMatrix(uses_generalized_fields, true);
+}
+
+// Test ComputeMassMatrix with generalized fields on two parts
+TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsTwoParts) {
+    m_mesh_string += "|tets";
+    bool uses_generalized_fields = true;
+    m_part_parameters.resize(2);
+    m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+    m_part_parameters[1].density = 2.34;
+    m_part_parameters[1].mesh_labeler_parameters.set = "block_2";
+    m_part_parameters[1].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
+    TestComputeMassMatrix(uses_generalized_fields, true);
+}
+
+// Test ComputeMassMatrix with generalized fields on two parts nodal integration
+TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsTwoPartsNodalIntegration) {
+    bool uses_generalized_fields = true;
+    std::string override_mesh_string = "test_inputs/thex_2_blocks_2x2x2_brick.exo";
+    m_volume = 16.0;  // Volume per block
+    m_kernel_radius_scale_factor = 1.1;
+    m_part_parameters.resize(2);
+    m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    m_part_parameters[1].density = 2.34;
+    m_part_parameters[1].mesh_labeler_parameters.set = "block_2";
+    m_part_parameters[1].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
+    TestComputeMassMatrix(uses_generalized_fields, false, override_mesh_string);
 }
