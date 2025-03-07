@@ -61,13 +61,32 @@
 #          TODO(jake) implement: make run_all_performance_tests
 
 # Base image with CUDA support
-FROM nvidia/cuda:12.6.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Set CUDA architecture, 90 is for the Hopper H100
 ENV CUDA_ARCH=90
+
+# Find CUDA installation path and check its structure
+RUN find /usr -name cuda.h | head -n 1 || echo "cuda.h not found" && \
+    find /usr -name cuda_runtime_api.h | head -n 1 || echo "cuda_runtime_api.h not found" && \
+    find /usr -name libcudart.so | head -n 1 || echo "libcudart.so not found" && \
+    ls -la /usr/local/ && \
+    echo "CUDA installation check complete"
+
+# Set CUDA environment variables (use standard symlink location)
+ENV CUDA_HOME=/usr/local/cuda
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+
+# Verify CUDA headers and libraries using reliable paths from symlinks
+RUN ls -l ${CUDA_HOME} && \
+    if [ -f "${CUDA_HOME}/include/cuda.h" ]; then echo "Found cuda.h"; else echo "cuda.h not found in expected location"; fi && \
+    if [ -f "${CUDA_HOME}/include/cuda_runtime_api.h" ]; then echo "Found cuda_runtime_api.h"; else echo "cuda_runtime_api.h not found in expected location"; fi && \
+    if [ -f "${CUDA_HOME}/lib64/libcudart.so" ]; then echo "Found libcudart.so"; else echo "libcudart.so not found in expected location"; fi && \
+    echo "CUDA verification complete"
 
 #################### System Packages from apt ####################
 # Install necessary packages
@@ -159,15 +178,33 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh
 RUN spack compiler find && \
     spack external find
 
+# Manually add CUDA to Spack packages.yaml
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    mkdir -p ~/.spack && \
+    echo "  cuda:" >> ~/.spack/packages.yaml && \
+    echo "    externals:" >> ~/.spack/packages.yaml && \
+    echo "    - spec: cuda@12.8.0" >> ~/.spack/packages.yaml && \
+    echo "      prefix: /usr/local/cuda" >> ~/.spack/packages.yaml && \
+    echo "    buildable: false" >> ~/.spack/packages.yaml
+
+# Create a custom repository with a modified trilinos package for a specific commit
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    mkdir -p ${HOME}/custom-repo/packages/trilinos && \
+    cp -r ${SPACK_ROOT}/var/spack/repos/builtin/packages/trilinos/* ${HOME}/custom-repo/packages/trilinos/ && \
+    echo 'repo:' > ${HOME}/custom-repo/repo.yaml && \
+    echo '  namespace: aperi_mech_repo' >> ${HOME}/custom-repo/repo.yaml && \
+    sed -i 's/version("develop", branch="develop")/version("develop", branch="develop", commit="05e0df15f66b685667cf61c64c3a7abb59eb642c")/' ${HOME}/custom-repo/packages/trilinos/package.py && \
+    spack repo add ${HOME}/custom-repo
+
 # Create a new Spack environment, cpu build
 RUN spack env create aperi-mech
 
 # Add packages to the Spack environment, aperi-mech
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels@4.3.01 +cuda ~shared cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add kokkos@4.3.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos-kernels +cuda ~shared cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master
