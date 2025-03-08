@@ -1,0 +1,182 @@
+# Dockerfile for building a CPU-only environment for the aperi-mech project on Ubuntu 24.04
+
+# Base image, Ubuntu 24.04
+FROM ubuntu:24.04
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+#################### System Packages from apt ####################
+# Install necessary packages
+# trunk-ignore(hadolint/DL3008)
+# trunk-ignore(checkov/CKV2_DOCKER_1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    coreutils \
+    curl \
+    environment-modules \
+    file \
+    gfortran \
+    git \
+    git-lfs \
+    gpg \
+    htop \
+    lcov \
+    libcurl4-openssl-dev \
+    libgl1 \
+    libglu1-mesa \
+    libssl-dev \
+    lsb-release \
+    openssh-client \
+    openssl \
+    python3 \
+    python3-full \
+    python3-venv \
+    python3-pip \
+    sudo \
+    unzip \
+    vim \
+    xorg \
+    zip \
+    && rm -rf /var/lib/apt/lists/*
+
+#################### User Setup ####################
+# Create a non-root user
+RUN useradd -m aperi-mech_docker
+
+# Switch back to root user
+USER root
+
+# Configure passwordless sudo for the user
+RUN echo "aperi-mech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Change to the new user
+USER aperi-mech_docker
+
+# Make the working directory
+WORKDIR /home/aperi-mech_docker
+
+# Set the HOME environment variable
+ENV HOME=/home/aperi-mech_docker
+
+# Create a virtual environment
+RUN python3 -m venv ${HOME}/venv
+
+# Use the virtual environment for pip installations
+RUN ${HOME}/venv/bin/pip install --no-input --no-cache-dir \
+    pytest==8.3.2 \
+    testbook==0.4.2 \
+    jupyter==1.0.0 \
+    jupyterlab==4.2.4 \
+    numpy==2.0.1 \
+    scipy==1.14.0 \
+    matplotlib==3.9.1 \
+    ipykernel==6.29.5 \
+    meshio==5.3.5 \
+    netCDF4==1.7.1.post1 \
+    pandas==2.2.3 \
+    && rm -rf ~/.cache/pip
+
+# Add environment to Jupyter from the virtual environment
+RUN ${HOME}/venv/bin/python -m ipykernel install --user --name aperi-mech --display-name "aperi-mech"
+
+# Add virtual environment to the PATH
+ENV PATH="${HOME}/venv/bin:${HOME}/.local/bin:$PATH"
+
+#################### Spack Installation and Setup ####################
+# Clone Spack repo
+RUN git clone --depth=2 https://github.com/spack/spack.git ${HOME}/spack
+
+# Set up Spack environment
+ENV SPACK_ROOT=${HOME}/spack
+ENV PATH="$SPACK_ROOT/bin:$PATH"
+RUN . $SPACK_ROOT/share/spack/setup-env.sh
+
+# Find compilers and externals for Spack
+RUN spack compiler find && \
+    spack external find
+
+# Create a new Spack environment, cpu build
+RUN spack env create aperi-mech
+
+# Add packages to the Spack environment, aperi-mech
+# Compadre should be version 1.5.9 (need to update the spack package to get that version as of July 2024)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech add compadre ~tests && \
+    spack -e aperi-mech add kokkos-kernels ~cuda ~shared && \
+    spack -e aperi-mech add kokkos ~cuda ~shared cxxstd=17 && \
+    spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
+    spack -e aperi-mech add googletest@1.14.0 && \
+    spack -e aperi-mech add yaml-cpp@0.7.0 && \
+    spack -e aperi-mech add eigen@master
+# eigen@master is used as eigen@4.3 has a lot of GPU related warnings
+
+# Install Packages with parallel builds
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    NPROC=$(nproc) && \
+    if [ "$NPROC" -gt 1 ]; then \
+        spack -e aperi-mech install -j $(expr $NPROC - 1) --fresh; \
+    else \
+        spack -e aperi-mech install -j 1 --fresh; \
+    fi
+
+# Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
+RUN spack env create seacas
+
+# Add packages to the Spack environment, seacas
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e seacas add openmpi && \
+    spack -e seacas add seacas ~mpi ~tests ~x11
+
+# Install Packages, seacas, with parallel builds
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    NPROC=$(nproc) && \
+    if [ "$NPROC" -gt 1 ]; then \
+        spack -e seacas install -j $(expr $NPROC - 1) --fresh; \
+    else \
+        spack -e seacas install -j 1 --fresh; \
+    fi
+
+# Add the spack source command to the bashrc
+RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
+
+ENV APERI_MECH_CPU_ENV="aperi-mech"
+
+# Download and install the aperi-mech project
+RUN git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+
+# Set the working directory to the aperi-mech project
+WORKDIR ${HOME}/aperi-mech
+
+# Configure the project, setting the spack environment first
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack env activate ${APERI_MECH_CPU_ENV} && \
+    ./do_configure --build-type Release
+
+# Build the project
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack env activate ${APERI_MECH_CPU_ENV} && \
+    cd build/Release && \
+    # Use all but one CPU core for the build to avoid overloading the system
+    NPROC=$(nproc) && \
+    if [ "$NPROC" -gt 1 ]; then \
+        make -j $(expr $NPROC - 1); \
+    else \
+        make -j 1; \
+    fi
+
+# Run the unit tests
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack env activate ${APERI_MECH_CPU_ENV} && \
+    cd build/Release && \
+    ./unit_tests
+
+# Set the default command to bash
+CMD ["/bin/bash"]
+
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# HEALTHCHECK to verify Spack and Python availability
+HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"
