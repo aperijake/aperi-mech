@@ -9,9 +9,6 @@ SHELL ["/bin/bash", "-c"]
 # Whether to pull the aperi-mech project or not
 ARG PULL_APERI_MECH=false
 
-# Number of processors to use for building
-ARG NPROC=0
-
 # Define a build argument for the CUDA architecture, defaulting to 75 (T4)
 ARG CUDA_ARCH=75
 
@@ -25,26 +22,6 @@ RUN PULL_APERI_MECH_LOWER="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]
 
 # Store the lowercase version as an environment variable for later use
 ENV PULL_APERI_MECH_VALIDATED="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')"
-
-# Calculate the number of processors to use and set it as an environment variable
-RUN if [ "$NPROC" -eq 0 ]; then \
-        NPROCS=$(nproc) && \
-        if [ "$NPROCS" -gt 1 ]; then \
-            echo "Setting processors to: $(expr $NPROCS - 1)" && \
-            echo "NPROC_TO_USE=$(expr $NPROCS - 1)" > /tmp/nprocs; \
-        else \
-            echo "Setting processors to: 1" && \
-            echo "NPROC_TO_USE=1" > /tmp/nprocs; \
-        fi; \
-    else \
-        echo "Using specified processor count: $NPROC" && \
-        echo "NPROC_TO_USE=$NPROC" > /tmp/nprocs; \
-    fi && \
-    cat /tmp/nprocs >> /etc/environment && \
-    . /tmp/nprocs && \
-    echo "NPROC_TO_USE = $NPROC_TO_USE"
-
-ENV NPROC_TO_USE=${NPROC_TO_USE:-1}
 
 # Validate CUDA_ARCH input
 RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
@@ -212,19 +189,21 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 
 # Install in logical groups (for better caching)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install --only package:googletest,yaml-cpp,eigen -j ${NPROC_TO_USE}
+    spack -e aperi-mech install googletest && \
+    spack -e aperi-mech install yaml-cpp && \
+    spack -e aperi-mech install eigen
 
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install --only package:kokkos -j ${NPROC_TO_USE}
+    spack -e aperi-mech install kokkos
 
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install --only package:kokkos-kernels -j ${NPROC_TO_USE}
+    spack -e aperi-mech install kokkos-kernels
 
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install --only package:compadre -j ${NPROC_TO_USE}
+    spack -e aperi-mech install compadre
 
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install --only package:trilinos -j ${NPROC_TO_USE}
+    spack -e aperi-mech install trilinos
 
 # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
 RUN spack env create seacas
@@ -236,7 +215,7 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 
 # Install Packages, seacas, with parallel builds
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e seacas install -j ${NPROC_TO_USE} --fresh
+    spack -e seacas install --fresh
 
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
