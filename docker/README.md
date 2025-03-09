@@ -86,15 +86,15 @@ make -j 4
 
 ```bash
 # Arm, change `arm64` to `amd64` if that is the target platform
-docker buildx build --platform linux/arm64 -t aperi-mech:latest -f Dockerfile . \
+docker buildx build --platform linux/arm64 --load -t aperi-mech:latest -f Dockerfile . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 
 # For Tesla T4 (compute capability 7.5)
-docker buildx build --platform linux/amd64 -t aperi-mech:cuda-t4 --build-arg CUDA_ARCH=75 -f Dockerfile_Nvidia . \
+docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-t4 --build-arg CUDA_ARCH=75 -f Dockerfile_Nvidia . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 
 # For H100 (compute capability 9.0)
-docker buildx build --platform linux/amd64 -t aperi-mech:cuda-h100 --build-arg CUDA_ARCH=90 -f Dockerfile_Nvidia . \
+docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-h100 --build-arg CUDA_ARCH=90 -f Dockerfile_Nvidia . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 ```
 

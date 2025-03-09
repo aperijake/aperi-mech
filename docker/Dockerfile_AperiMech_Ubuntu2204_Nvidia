@@ -3,14 +3,72 @@
 # Base image with CUDA support. Note that cuda 12.8 had ncurses linking issues in Trilinos/SEACAS/Aprepro
 FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
 
-# Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Whether to pull the aperi-mech project or not
+ARG PULL_APERI_MECH=false
+
+# Number of processors to use for building
+ARG NPROC=0
 
 # Define a build argument for the CUDA architecture, defaulting to 75 (T4)
 ARG CUDA_ARCH=75
 
+# Validate PULL_APERI_MECH input
+RUN PULL_APERI_MECH_LOWER="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')" && \
+    if [ "${PULL_APERI_MECH_LOWER}" != "true" ] && [ "${PULL_APERI_MECH_LOWER}" != "false" ]; then \
+        echo "Error: PULL_APERI_MECH must be 'true' or 'false' (case insensitive), not '${PULL_APERI_MECH}'" && \
+        exit 1; \
+    fi && \
+    echo "PULL_APERI_MECH set to: ${PULL_APERI_MECH_LOWER}"
+
+# Store the lowercase version as an environment variable for later use
+ENV PULL_APERI_MECH_VALIDATED="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')"
+
+# Calculate the number of processors to use and set it as an environment variable
+RUN if [ "$NPROC" -eq 0 ]; then \
+        NPROCS=$(nproc) && \
+        if [ "$NPROCS" -gt 1 ]; then \
+            echo "Setting processors to: $(expr $NPROCS - 1)" && \
+            echo "NPROC_TO_USE=$(expr $NPROCS - 1)" > /tmp/nprocs; \
+        else \
+            echo "Setting processors to: 1" && \
+            echo "NPROC_TO_USE=1" > /tmp/nprocs; \
+        fi; \
+    else \
+        echo "Using specified processor count: $NPROC" && \
+        echo "NPROC_TO_USE=$NPROC" > /tmp/nprocs; \
+    fi && \
+    cat /tmp/nprocs >> /etc/environment && \
+    . /tmp/nprocs && \
+    echo "NPROC_TO_USE = $NPROC_TO_USE"
+
+ENV NPROC_TO_USE=${NPROC_TO_USE:-1}
+
+# Validate CUDA_ARCH input
+RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
+        echo "Error: CUDA_ARCH must be a number, not '${CUDA_ARCH}'" && \
+        exit 1; \
+    fi && \
+    # Check if architecture is supported
+    if [[ ! " 60 61 62 70 72 75 80 86 87 89 90 " =~ " $CUDA_ARCH " ]]; then \
+        echo "Warning: CUDA_ARCH=${CUDA_ARCH} might not be a valid architecture code." && \
+        echo "Common values are:" && \
+        echo "  60, 61, 62 (Pascal: P100, GTX 1080)" && \
+        echo "  70, 72 (Volta: V100)" && \
+        echo "  75 (Turing: T4, RTX 2080)" && \
+        echo "  80, 86 (Ampere: A100, RTX 3080/3090)" && \
+        echo "  87 (Ampere: RTX 3050/3060)" && \
+        echo "  89 (Ada Lovelace: RTX 4090)" && \
+        echo "  90 (Hopper: H100)"; \
+    fi && \
+    echo "CUDA_ARCH set to: ${CUDA_ARCH}"
 # Set CUDA architecture
 ENV CUDA_ARCH=${CUDA_ARCH}
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set CUDA environment variables
 ENV CUDA_HOME=/usr/local/cuda
@@ -58,18 +116,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install NVIDIA utilities (nvidia-smi) based on CUDA architecture
+# Install NVIDIA utilities (nvidia-smi)
 RUN apt-get update && \
-    if [ "$CUDA_ARCH" -le 75 ]; then \
-        # For T4 and older (compute capability ≤ 7.5)
-        apt-get install -y --no-install-recommends nvidia-utils-535; \
-    elif [ "$CUDA_ARCH" -le 86 ]; then \
-        # For A100, RTX 3000 series (compute capability 8.0-8.6)
-        apt-get install -y --no-install-recommends nvidia-utils-535; \
-    else \
-        # For RTX 4000 series and newer (compute capability ≥ 8.9)
-        apt-get install -y --no-install-recommends nvidia-utils-550; \
+    # Find the latest nvidia-utils-server package compatible with the installed CUDA
+    NVIDIA_UTILS=$(apt-cache search nvidia-utils | grep -o "nvidia-utils-[0-9]*-server" | sort -V | tail -n 1) && \
+    if [ -z "$NVIDIA_UTILS" ]; then \
+        echo "No server version found, falling back to regular version" && \
+        NVIDIA_UTILS=$(apt-cache search nvidia-utils | grep -o "nvidia-utils-[0-9]*" | grep -v "server" | sort -V | tail -n 1); \
     fi && \
+    echo "Installing $NVIDIA_UTILS" && \
+    apt-get install -y --no-install-recommends $NVIDIA_UTILS && \
     rm -rf /var/lib/apt/lists/*
 
 #################### User Setup ####################
@@ -149,16 +205,26 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master
-# eigen@master is used as eigen@4.3 has a lot of GPU related warnings
 
-# Install Packages with parallel builds
+# Explicitly concretize (saves the full dependency plan)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    NPROC=$(nproc) && \
-    if [ "$NPROC" -gt 1 ]; then \
-        spack -e aperi-mech install -j $(expr $NPROC - 1) --fresh; \
-    else \
-        spack -e aperi-mech install -j 1 --fresh; \
-    fi
+    spack -e aperi-mech concretize -f
+
+# Install in logical groups (for better caching)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:googletest,yaml-cpp,eigen -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos-kernels -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:compadre -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:trilinos -j ${NPROC_TO_USE}
 
 # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
 RUN spack env create seacas
@@ -170,23 +236,31 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 
 # Install Packages, seacas, with parallel builds
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    NPROC=$(nproc) && \
-    if [ "$NPROC" -gt 1 ]; then \
-        spack -e seacas install -j $(expr $NPROC - 1) --fresh; \
-    else \
-        spack -e seacas install -j 1 --fresh; \
-    fi
+    spack -e seacas install -j ${NPROC_TO_USE} --fresh
 
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
 
+ENV APERI_MECH_ENV="aperi-mech"
 ENV APERI_MECH_GPU_ENV="aperi-mech"
+
+# Set the working directory to the aperi-mech project
+WORKDIR ${HOME}/aperi-mech
+
+RUN if [ "${PULL_APERI_MECH_VALIDATED}" = "true" ]; then \
+        echo "Building aperi-mech project"; \
+        . $SPACK_ROOT/share/spack/setup-env.sh && \
+        # Activate the Spack environment
+        spack env activate ${APERI_MECH_ENV} && \
+        # Download and install the aperi-mech project
+        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+        # Only clone the repository - don't build or run tests as this would require GPU access during build
+    else \
+        echo "Skipping build of aperi-mech project"; \
+    fi
 
 # Set the default command to bash
 CMD ["/bin/bash"]
-
-# Set the default shell to bash
-SHELL ["/bin/bash", "-c"]
 
 # HEALTHCHECK to verify Spack and Python availability
 HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"

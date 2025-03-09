@@ -3,6 +3,47 @@
 # Base image, Ubuntu 24.04
 FROM ubuntu:24.04
 
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Whether to build the aperi-mech project or not
+ARG BUILD_APERI_MECH=false
+
+# Number of processors to use for building
+ARG NPROC=0
+
+# Validate BUILD_APERI_MECH input
+RUN BUILD_APERI_MECH_LOWER="$(echo ${BUILD_APERI_MECH} | tr '[:upper:]' '[:lower:]')" && \
+    if [ "${BUILD_APERI_MECH_LOWER}" != "true" ] && [ "${BUILD_APERI_MECH_LOWER}" != "false" ]; then \
+        echo "Error: BUILD_APERI_MECH must be 'true' or 'false' (case insensitive), not '${BUILD_APERI_MECH}'" && \
+        exit 1; \
+    fi && \
+    echo "BUILD_APERI_MECH set to: ${BUILD_APERI_MECH_LOWER}"
+
+# Store the lowercase version as an environment variable for later use
+ENV BUILD_APERI_MECH_VALIDATED="$(echo ${BUILD_APERI_MECH} | tr '[:upper:]' '[:lower:]')"
+
+# Calculate the number of processors to use and set it as an environment variable
+RUN if [ "$NPROC" -eq 0 ]; then \
+        NPROCS=$(nproc) && \
+        if [ "$NPROCS" -gt 1 ]; then \
+            echo "Setting processors to: $(expr $NPROCS - 1)" && \
+            echo "NPROC_TO_USE=$(expr $NPROCS - 1)" > /tmp/nprocs; \
+        else \
+            echo "Setting processors to: 1" && \
+            echo "NPROC_TO_USE=1" > /tmp/nprocs; \
+        fi; \
+    else \
+        echo "Using specified processor count: $NPROC" && \
+        echo "NPROC_TO_USE=$NPROC" > /tmp/nprocs; \
+    fi && \
+    cat /tmp/nprocs >> /etc/environment && \
+    . /tmp/nprocs && \
+    echo "NPROC_TO_USE = $NPROC_TO_USE"
+
+ENV NPROC_TO_USE=${NPROC_TO_USE:-1}
+
+
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -101,7 +142,6 @@ RUN spack compiler find && \
 RUN spack env create aperi-mech
 
 # Add packages to the Spack environment, aperi-mech
-# Compadre should be version 1.5.9 (need to update the spack package to get that version as of July 2024)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add compadre ~tests && \
     spack -e aperi-mech add kokkos-kernels ~cuda ~shared && \
@@ -110,16 +150,26 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master
-# eigen@master is used as eigen@4.3 has a lot of GPU related warnings
 
-# Install Packages with parallel builds
+# Explicitly concretize (saves the full dependency plan)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    NPROC=$(nproc) && \
-    if [ "$NPROC" -gt 1 ]; then \
-        spack -e aperi-mech install -j $(expr $NPROC - 1) --fresh; \
-    else \
-        spack -e aperi-mech install -j 1 --fresh; \
-    fi
+    spack -e aperi-mech concretize -f
+
+# Install in logical groups (for better caching)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:googletest,yaml-cpp,eigen -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos-kernels -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:compadre -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:trilinos -j ${NPROC_TO_USE}
 
 # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
 RUN spack env create seacas
@@ -131,52 +181,37 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 
 # Install Packages, seacas, with parallel builds
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    NPROC=$(nproc) && \
-    if [ "$NPROC" -gt 1 ]; then \
-        spack -e seacas install -j $(expr $NPROC - 1) --fresh; \
-    else \
-        spack -e seacas install -j 1 --fresh; \
-    fi
+    spack -e seacas install -j ${NPROC_TO_USE} --fresh
 
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
 
+ENV APERI_MECH_ENV="aperi-mech"
 ENV APERI_MECH_CPU_ENV="aperi-mech"
-
-# Download and install the aperi-mech project
-RUN git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
 
 # Set the working directory to the aperi-mech project
 WORKDIR ${HOME}/aperi-mech
 
-# Configure the project, setting the spack environment first
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack env activate ${APERI_MECH_CPU_ENV} && \
-    ./do_configure --build-type Release
-
-# Build the project
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack env activate ${APERI_MECH_CPU_ENV} && \
-    cd build/Release && \
-    # Use all but one CPU core for the build to avoid overloading the system
-    NPROC=$(nproc) && \
-    if [ "$NPROC" -gt 1 ]; then \
-        make -j $(expr $NPROC - 1); \
+RUN if [ "${BUILD_APERI_MECH_VALIDATED}" = "true" ]; then \
+        echo "Building aperi-mech project"; \
+        . $SPACK_ROOT/share/spack/setup-env.sh && \
+        # Activate the Spack environment
+        spack env activate ${APERI_MECH_ENV} && \
+        # Download and install the aperi-mech project
+        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+        # Configure the project
+        ./do_configure --build-type Release && \
+        # Build the project
+        cd build/Release && \
+        make -j ${NPROC_TO_USE} && \
+        # Run the unit tests
+        ./unit_tests; \
     else \
-        make -j 1; \
+        echo "Skipping build of aperi-mech project"; \
     fi
-
-# Run the unit tests
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack env activate ${APERI_MECH_CPU_ENV} && \
-    cd build/Release && \
-    ./unit_tests
 
 # Set the default command to bash
 CMD ["/bin/bash"]
-
-# Set the default shell to bash
-SHELL ["/bin/bash", "-c"]
 
 # HEALTHCHECK to verify Spack and Python availability
 HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"
