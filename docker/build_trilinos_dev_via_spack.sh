@@ -5,7 +5,7 @@ GPU=0
 spack_env_name=aperi-mech-trilinos-dev
 
 # Flag for GPU support, -g or --gpu, and flag for the GPU architecture, -a or --arch
-while [ "$1" != "" ]; do
+while [[ $1 != "" ]]; do
 	case $1 in
 	-g | --gpu)
 		shift
@@ -22,8 +22,8 @@ while [ "$1" != "" ]; do
 done
 
 # Create the environment
-spack env create $spack_env_name
-spack env activate $spack_env_name
+spack env create "${spack_env_name}"
+spack env activate "${spack_env_name}"
 
 # Add packages that don't need any special GPU-related flags
 spack add compadre@master ~tests &&
@@ -34,11 +34,11 @@ spack add compadre@master ~tests &&
 # Use spack develop for Trilinos
 spack develop -p /home/aperi-mech_docker/Trilinos trilinos@16.0.0
 
-if [ $GPU -eq 1 ]; then
+if [[ ${GPU} -eq 1 ]]; then
 	# Add flags for GPU support
-	spack add kokkos-kernels@4.3.01 +cuda ~shared cuda_arch=${CUDA_ARCH}
-	spack add kokkos@4.3.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH}
-	spack add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH}
+	spack add kokkos-kernels@4.3.01 +cuda ~shared cuda_arch="${CUDA_ARCH}"
+	spack add kokkos@4.3.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch="${CUDA_ARCH}"
+	spack add trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch="${CUDA_ARCH}"
 else
 	# Add packages as before, but exclude Trilinos for now
 	spack add kokkos-kernels@4.3.01 ~cuda ~shared
