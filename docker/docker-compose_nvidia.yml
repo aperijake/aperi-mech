@@ -1,7 +1,7 @@
 # The main purpose of this container is to run a development environment for
 # the Aperi-Mech project. It is used in CI/CD pipelines and for local development.
 # To start the container, run the following command:
-#   docker-compose -f docker-compose-nvidia.yml run --service-ports aperi-mech-gpu-development /bin/bash
+#   docker-compose -f docker-compose_nvidia.yml run --service-ports aperi-mech-gpu-development /bin/bash
 # This will start the container and open a bash shell.
 
 version: "3.8"
@@ -13,7 +13,7 @@ services:
     network_mode: host
     build:
       context: .
-      dockerfile: Dockerfile_Nvidia_T4_GPU
+      dockerfile: Dockerfile_AperiMechDev_Ubuntu2204_Nvidia
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
       - /home/azureuser/eigen:/home/aperi-mech_docker/eigen

@@ -1,32 +1,22 @@
 # The main purpose of this container is to run a development environment for
 # the Aperi-Mech project. It is used in CI/CD pipelines and for local development.
 # To start the container, run the following command:
-#   docker-compose -f docker-compose-nvidia.yml run --service-ports aperi-mech-gpu-development /bin/bash
+#   docker-compose run --service-ports aperi-mech-development /bin/bash
 # This will start the container and open a bash shell.
 
 version: "3.8"
 
 services:
-  aperi-mech-gpu-development:
-    image: aperi-mech-gpu:latest
+  aperi-mech-development:
+    image: aperi-mech:latest
+    shm_size: 2gb # Shared memory size
     network_mode: host
     build:
       context: .
-      dockerfile: Dockerfile_Nvidia_H100_GPU
+      dockerfile: Dockerfile_AperiMechDev_Ubuntu2204
     volumes:
       - .:/home/aperi-mech_docker/aperi-mech
       - /home/azureuser/eigen:/home/aperi-mech_docker/eigen
       - /home/azureuser/eigen_install:/home/aperi-mech_docker/eigen_install
-      - /home/azureuser/Trilinos:/home/aperi-mech_docker/Trilinos
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
     working_dir: /home/aperi-mech_docker/aperi-mech
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
