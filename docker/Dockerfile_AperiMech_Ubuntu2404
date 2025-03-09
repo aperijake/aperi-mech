@@ -171,19 +171,15 @@ ENV APERI_MECH_CPU_ENV="aperi-mech"
 # Set the working directory to the aperi-mech project
 WORKDIR ${HOME}/aperi-mech
 
+# Download and install the aperi-mech project
 RUN if [ "${BUILD_APERI_MECH_VALIDATED}" = "true" ]; then \
         echo "Building aperi-mech project"; \
         . $SPACK_ROOT/share/spack/setup-env.sh && \
-        # Activate the Spack environment
         spack env activate ${APERI_MECH_ENV} && \
-        # Download and install the aperi-mech project
         git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
-        # Configure the project
         ./do_configure --build-type Release && \
-        # Build the project
         cd build/Release && \
         make -j && \
-        # Run the unit tests
         ./unit_tests; \
     else \
         echo "Skipping build of aperi-mech project"; \

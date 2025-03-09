@@ -226,14 +226,13 @@ ENV APERI_MECH_GPU_ENV="aperi-mech"
 # Set the working directory to the aperi-mech project
 WORKDIR ${HOME}/aperi-mech
 
+# Download and install the aperi-mech project
+# Only clone the repository - don't build or run tests as this would require GPU access during build
 RUN if [ "${PULL_APERI_MECH_VALIDATED}" = "true" ]; then \
         echo "Building aperi-mech project"; \
         . $SPACK_ROOT/share/spack/setup-env.sh && \
-        # Activate the Spack environment
         spack env activate ${APERI_MECH_ENV} && \
-        # Download and install the aperi-mech project
-        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
-        # Only clone the repository - don't build or run tests as this would require GPU access during build
+        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech; \
     else \
         echo "Skipping build of aperi-mech project"; \
     fi
