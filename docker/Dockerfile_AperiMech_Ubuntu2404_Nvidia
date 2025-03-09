@@ -1,7 +1,7 @@
 # Dockerfile for building a GPU-enabled environment for the aperi-mech project on Ubuntu 24.04
 
-# Base image with CUDA support
-FROM nvidia/cuda:12.8.0-devel-ubuntu24.04
+# Base image with CUDA support. Note that cuda 12.8 had ncurses linking issues in Trilinos/SEACAS/Aprepro
+FROM nvidia/cuda:12.6.3-devel-ubuntu24.04
 
 # Set the default shell to bash
 SHELL ["/bin/bash", "-c"]
@@ -189,7 +189,7 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     mkdir -p ~/.spack && \
     echo "  cuda:" >> ~/.spack/packages.yaml && \
     echo "    externals:" >> ~/.spack/packages.yaml && \
-    echo "    - spec: cuda@12.8.0" >> ~/.spack/packages.yaml && \
+    echo "    - spec: cuda@12.6.3" >> ~/.spack/packages.yaml && \
     echo "      prefix: /usr/local/cuda" >> ~/.spack/packages.yaml && \
     echo "    buildable: false" >> ~/.spack/packages.yaml
 
@@ -205,11 +205,26 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
     spack -e aperi-mech add eigen@master
-# eigen@master is used as eigen@4.3 has a lot of GPU related warnings
 
-# Install Packages with parallel builds
+# Explicitly concretize (saves the full dependency plan)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install -j ${NPROC_TO_USE} --fresh
+    spack -e aperi-mech concretize -f
+
+# Install in logical groups (for better caching)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:googletest,yaml-cpp,eigen -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:kokkos-kernels -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:compadre -j ${NPROC_TO_USE}
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install --only package:trilinos -j ${NPROC_TO_USE}
 
 # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
 RUN spack env create seacas
