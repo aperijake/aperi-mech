@@ -12,6 +12,10 @@ ARG PULL_APERI_MECH=false
 # Define a build argument for the CUDA architecture, defaulting to 75 (T4)
 ARG CUDA_ARCH=75
 
+# Define the user and group id
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
 # Validate PULL_APERI_MECH input
 RUN PULL_APERI_MECH_LOWER="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')" && \
     if [ "${PULL_APERI_MECH_LOWER}" != "true" ] && [ "${PULL_APERI_MECH_LOWER}" != "false" ]; then \
@@ -44,6 +48,14 @@ RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
 # Set CUDA architecture
 ENV CUDA_ARCH=${CUDA_ARCH}
 
+# Verify user and group IDs are numbers
+RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
+        echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
+        exit 1; \
+    fi && \
+    echo "USER_ID set to: ${USER_ID}" && \
+    echo "GROUP_ID set to: ${GROUP_ID}"
+
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -63,8 +75,11 @@ RUN nvcc --version && \
 # trunk-ignore(hadolint/DL3008)
 # trunk-ignore(checkov/CKV2_DOCKER_1)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
     build-essential \
     ca-certificates \
+    cmake \
     coreutils \
     curl \
     environment-modules \
@@ -75,13 +90,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gpg \
     htop \
     lcov \
+    libaec-dev \
+    libbz2-dev \
     libcurl4-openssl-dev \
     libgl1 \
     libglu1-mesa \
+    libhwloc-dev \
+    liblz4-dev \
+    libncurses-dev \
+    libopenblas-dev \
+    libsnappy-dev \
     libssl-dev \
+    libtool \
+    libxml2-dev \
+    libzstd-dev \
     lsb-release \
     openssh-client \
     openssl \
+    pkgconf \
     python3 \
     python3-full \
     python3-venv \
@@ -106,8 +132,20 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 #################### User Setup ####################
-# Create a non-root user
-RUN useradd -m aperi-mech_docker
+# Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
+RUN if getent passwd ${USER_ID} > /dev/null; then \
+      echo "UID ${USER_ID} already exists, modifying existing user" && \
+      existing_user=$(getent passwd ${USER_ID} | cut -d: -f1) && \
+      usermod -l aperi-mech_docker $existing_user && \
+      groupmod -n aperi-mech_docker $(id -gn $USER_ID) && \
+      usermod -d /home/aperi-mech_docker -m aperi-mech_docker; \
+    else \
+      # Create the group first if it doesn't exist
+      if ! getent group ${GROUP_ID}; then \
+        groupadd -g ${GROUP_ID} aperi-mech_docker; \
+      fi && \
+      useradd -u ${USER_ID} -g ${GROUP_ID} -m aperi-mech_docker; \
+    fi
 
 # Switch back to root user
 USER root
@@ -159,7 +197,8 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh
 
 # Find compilers and externals for Spack
 RUN spack compiler find && \
-    spack external find
+    spack external find && \
+    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
 
 # Manually add CUDA to Spack packages.yaml
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
