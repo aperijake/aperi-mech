@@ -32,10 +32,10 @@ runs:
           set -e # Exit on error
           cd ~/aperi-mech
 
-          compose_file=docker-compose.yml
+          compose_file=docker/docker-compose.yml
           service_name=aperi-mech-development
           if [ ${{ inputs.gpu }} == 'true' ]; then
-            compose_file=docker-compose_nvidia_t4_gpu.yml
+            compose_file=docker/docker-compose_nvidia.yml
             service_name=aperi-mech-gpu-development
           fi
           # Debugging
