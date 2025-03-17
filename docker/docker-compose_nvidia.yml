@@ -8,7 +8,7 @@ version: "3.8"
 
 services:
   aperi-mech-gpu-development:
-    image: aperi-mech:cuda-h100
+    image: aperi-mech-cuda
     shm_size: 2gb # Shared memory size
     network_mode: host
     build:
