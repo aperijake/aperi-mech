@@ -4,6 +4,8 @@ if (CHECK_CODE_COVERAGE)
     include(CodeCoverage)
     append_coverage_compiler_flags()
 
+    set(LCOV_EXTRA_FLAGS "--rc=geninfo_ignore_errors=mismatch")
+
     set(COVERAGE_EXCLUDES
         "/Applications/*"
         "src/main.cpp"
@@ -34,5 +36,10 @@ if (CHECK_CODE_COVERAGE)
     # Print exclude paths
     message(STATUS "Coverage excludes: ${COVERAGE_EXCLUDES}")
 
-    setup_target_for_coverage_lcov(NAME coverage EXECUTABLE unit_tests DEPENDENCIES unit_tests)
+    setup_target_for_coverage_lcov(
+        NAME coverage
+        EXECUTABLE unit_tests
+        DEPENDENCIES unit_tests
+        LCOV_ARGS ${LCOV_EXTRA_FLAGS}
+    )
 endif ()

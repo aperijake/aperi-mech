@@ -17,10 +17,10 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
     parallel = str_to_bool(parallel)
 
     # Construct the compose file and service name
-    compose_file = "docker-compose.yml"
+    compose_file = "docker/docker-compose.yml"
     service_name = "aperi-mech-development"
     if gpu:
-        compose_file = "docker-compose_nvidia_t4_gpu.yml"
+        compose_file = "docker/docker-compose_nvidia.yml"
         service_name = "aperi-mech-gpu-development"
 
     # Construct the test flags

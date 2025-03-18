@@ -7,7 +7,7 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
   set -e # Exit on error
   cd ~/aperi-mech
 
-  compose_file=docker-compose.yml
+  compose_file=docker/docker-compose.yml
   service_name=aperi-mech-development
   # Debugging
   echo "On VM, Compose file: $compose_file"

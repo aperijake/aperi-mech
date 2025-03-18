@@ -163,7 +163,7 @@ class SmoothedCellDataProcessor {
 
         // Loop over all the cells and make sure the cell volume is the sum of the subcell volumes
         Kokkos::parallel_for(
-            "check_cell_volumes", smoothed_cell_data->NumCells(), KOKKOS_LAMBDA(const size_t cell_id) {
+            "check_cell_volumes", smoothed_cell_data->NumCells(), KOKKOS_CLASS_LAMBDA(const size_t cell_id) {
                 // Get the cell volume
                 double cell_volume = cell_volumes(cell_id);
 

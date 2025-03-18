@@ -1,0 +1,229 @@
+# Dockerfile for building a CPU-only environment for the aperi-mech project on Ubuntu 22.04
+
+# Base image, Ubuntu 22.04
+FROM ubuntu:22.04
+
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Whether to build the aperi-mech project or not
+ARG BUILD_APERI_MECH=false
+
+# Define the user and group id
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+# Validate BUILD_APERI_MECH input
+RUN BUILD_APERI_MECH_LOWER="$(echo ${BUILD_APERI_MECH} | tr '[:upper:]' '[:lower:]')" && \
+    if [ "${BUILD_APERI_MECH_LOWER}" != "true" ] && [ "${BUILD_APERI_MECH_LOWER}" != "false" ]; then \
+        echo "Error: BUILD_APERI_MECH must be 'true' or 'false' (case insensitive), not '${BUILD_APERI_MECH}'" && \
+        exit 1; \
+    fi && \
+    echo "BUILD_APERI_MECH set to: ${BUILD_APERI_MECH_LOWER}"
+
+# Store the lowercase version as an environment variable for later use
+ENV BUILD_APERI_MECH_VALIDATED="$(echo ${BUILD_APERI_MECH} | tr '[:upper:]' '[:lower:]')"
+
+# Verify user and group IDs are numbers
+RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
+        echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
+        exit 1; \
+    fi && \
+    echo "USER_ID set to: ${USER_ID}" && \
+    echo "GROUP_ID set to: ${GROUP_ID}"
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+#################### System Packages from apt ####################
+# Install necessary packages
+# trunk-ignore(hadolint/DL3008)
+# trunk-ignore(checkov/CKV2_DOCKER_1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
+    build-essential \
+    ca-certificates \
+    cmake \
+    coreutils \
+    curl \
+    environment-modules \
+    file \
+    gfortran \
+    git \
+    git-lfs \
+    gpg \
+    htop \
+    lcov \
+    libaec-dev \
+    libbz2-dev \
+    libcurl4-openssl-dev \
+    libgl1 \
+    libglu1-mesa \
+    libhwloc-dev \
+    liblz4-dev \
+    libncurses-dev \
+    libopenblas-dev \
+    libsnappy-dev \
+    libssl-dev \
+    libtool \
+    libxml2-dev \
+    libzstd-dev \
+    lsb-release \
+    openssh-client \
+    openssl \
+    pkgconf \
+    python3 \
+    python3-distutils \
+    python3-venv \
+    python3-pip \
+    sudo \
+    unzip \
+    vim \
+    xorg \
+    zip \
+    && rm -rf /var/lib/apt/lists/*
+
+#################### User Setup ####################
+# Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
+RUN if getent passwd ${USER_ID} > /dev/null; then \
+      echo "UID ${USER_ID} already exists, modifying existing user" && \
+      existing_user=$(getent passwd ${USER_ID} | cut -d: -f1) && \
+      usermod -l aperi-mech_docker $existing_user && \
+      groupmod -n aperi-mech_docker $(id -gn $USER_ID) && \
+      usermod -d /home/aperi-mech_docker -m aperi-mech_docker; \
+    else \
+      # Create the group first if it doesn't exist
+      if ! getent group ${GROUP_ID}; then \
+        groupadd -g ${GROUP_ID} aperi-mech_docker; \
+      fi && \
+      useradd -u ${USER_ID} -g ${GROUP_ID} -m aperi-mech_docker; \
+    fi
+
+# Switch back to root user
+USER root
+
+# Configure passwordless sudo for the user
+RUN echo "aperi-mech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Change to the new user
+USER aperi-mech_docker
+
+# Make the working directory
+WORKDIR /home/aperi-mech_docker
+
+# Set the HOME environment variable
+ENV HOME=/home/aperi-mech_docker
+
+#################### Python Packages ####################
+# Install python packages using pip
+RUN pip3 install --no-input --no-cache-dir \
+    pytest==8.3.2 \
+    testbook==0.4.2 \
+    jupyter==1.0.0 \
+    jupyterlab==4.2.4 \
+    numpy==2.0.1 \
+    scipy==1.14.0 \
+    matplotlib==3.9.1 \
+    ipykernel==6.29.5 \
+    meshio==5.3.5 \
+    gmsh==4.13.1 \
+    netCDF4==1.7.1.post1 \
+    pandas==2.2.3 \
+    && rm -rf ~/.cache/pip
+
+# Add environment to Jupyter
+RUN python3 -m ipykernel install --user --name aperi-mech --display-name "aperi-mech"
+
+# Add .local/bin to the PATH
+ENV PATH="${HOME}/.local/bin:$PATH"
+
+#################### Spack Installation and Setup ####################
+# Clone Spack repo
+RUN git clone --depth=2 https://github.com/spack/spack.git ${HOME}/spack
+
+# Set up Spack environment
+ENV SPACK_ROOT=${HOME}/spack
+ENV PATH="$SPACK_ROOT/bin:$PATH"
+RUN . $SPACK_ROOT/share/spack/setup-env.sh
+
+# Find compilers and externals for Spack
+RUN spack compiler find && \
+    spack external find && \
+    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
+
+# Create a new Spack environment, cpu build
+RUN spack env create aperi-mech
+
+# Add packages to the Spack environment, aperi-mech
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech add compadre ~tests && \
+    spack -e aperi-mech add kokkos-kernels ~cuda ~shared && \
+    spack -e aperi-mech add kokkos ~cuda ~shared cxxstd=17 && \
+    spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
+    spack -e aperi-mech add googletest@1.14.0 && \
+    spack -e aperi-mech add yaml-cpp@0.7.0 && \
+    spack -e aperi-mech add eigen@master
+
+# Explicitly concretize (saves the full dependency plan)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech concretize -f
+
+# Install in logical groups (for better caching)
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install googletest && \
+    spack -e aperi-mech install yaml-cpp && \
+    spack -e aperi-mech install eigen
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install kokkos
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install kokkos-kernels
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install compadre
+
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e aperi-mech install trilinos
+
+# Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
+RUN spack env create seacas
+
+# Add packages to the Spack environment, seacas
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e seacas add openmpi && \
+    spack -e seacas add seacas ~mpi ~tests ~x11
+
+# Install Packages, seacas, with parallel builds
+RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    spack -e seacas install --fresh
+
+# Add the spack source command to the bashrc
+RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
+
+ENV APERI_MECH_ENV="aperi-mech"
+ENV APERI_MECH_CPU_ENV="aperi-mech"
+
+# Set the working directory to the aperi-mech project
+WORKDIR ${HOME}/aperi-mech
+
+# Download and install the aperi-mech project
+RUN if [ "${BUILD_APERI_MECH_VALIDATED}" = "true" ]; then \
+        echo "Building aperi-mech project"; \
+        . $SPACK_ROOT/share/spack/setup-env.sh && \
+        spack env activate ${APERI_MECH_ENV} && \
+        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+        ./do_configure --build-type Release && \
+        cd build/Release && \
+        make -j && \
+        ./unit_tests; \
+    else \
+        echo "Skipping build of aperi-mech project"; \
+    fi
+
+# Set the default command to bash
+CMD ["/bin/bash"]
+
+# HEALTHCHECK to verify Spack and Python availability
+HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"
