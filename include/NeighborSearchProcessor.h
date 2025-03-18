@@ -429,6 +429,11 @@ class NeighborSearchProcessor {
                     }
                 }
 
+                // If we're at max neighbors and the new neighbor is further than all existing ones, skip it
+                if (num_neighbors == MAX_NODE_NUM_NEIGHBORS && insert_index == MAX_NODE_NUM_NEIGHBORS) {
+                    continue;  // Skip to the next node in the loop
+                }
+
                 // Shift the function values and neighbors to make room for the new neighbor
                 size_t reverse_start_index = (size_t)num_neighbors;
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
