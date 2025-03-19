@@ -695,7 +695,7 @@ class SmoothedCellDataProcessor {
         auto length = m_smoothed_cell_data->GetElementCSRIndices().GetLengthView();
 
         // Get the fields
-        aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        aperi::Field<double> pk1(m_mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         aperi::Field<double> displacement_gradient(m_mesh_data, FieldQueryData<double>{"displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Check for state field

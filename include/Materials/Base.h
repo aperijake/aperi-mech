@@ -73,6 +73,7 @@ class Material {
                                const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
                                Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
                                const double& timestep,
+                               const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
                                Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const = 0;
 
         KOKKOS_INLINE_FUNCTION
@@ -92,6 +93,11 @@ class Material {
 
         KOKKOS_INLINE_FUNCTION
         virtual bool NeedsVelocityGradient() const {
+            return false;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual bool NeedsOldStress() const {
             return false;
         }
     };
@@ -124,10 +130,13 @@ class Material {
         return false;
     }
 
+    virtual bool NeedsOldStress() const {
+        return false;
+    }
+
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
     StressFunctor* m_stress_functor;                           /**< The stress functor of the elastic material */
 };
-
 
 }  // namespace aperi

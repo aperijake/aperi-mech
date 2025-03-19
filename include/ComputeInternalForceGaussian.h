@@ -101,9 +101,10 @@ struct ComputeInternalForceGaussian : public ComputeInternalForceBase<aperi::Mat
 
             // Get the pk1 stress map
             auto pk1_stress_map = m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index);
+            const auto pk1_stress_n_map = m_needs_old_stress ? m_pk1_stress_n_field.GetConstEigenMatrixMap<3, 3>(elem_index) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
             // Compute the stress
-            m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, pk1_stress_map);
+            m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, time_increment, &pk1_stress_n_map, pk1_stress_map);
 
             // Adjust the B matrix and weight for updated or semi Lagrangian formulations
             if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {

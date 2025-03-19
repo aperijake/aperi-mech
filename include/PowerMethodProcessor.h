@@ -103,6 +103,10 @@ class PowerMethodProcessor {
                       MAX_EDGE_LENGTH,
                       NUM_FIELDS };
 
+    enum StateIndex { STATE_N = 0,
+                      STATE_NP1,
+                      NUM_STATE_FIELDS };
+
    public:
     PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<aperi::ExplicitSolver> solver) : m_mesh_data(mesh_data), m_solver(solver) {
         assert(mesh_data != nullptr);
@@ -126,7 +130,7 @@ class PowerMethodProcessor {
         m_active_selector = StkGetSelector(active_sets, meta_data);
 
         // Get the displacement_temp field, temporary field to store the displacement at n+1
-        m_displacement_in_field = StkGetField(FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_displacement_in_field = StkGetField(FieldQueryData<double>{displacement_field_name, FieldQueryState::N, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_displacement_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_in_field);
 
         // Get the displacement_coefficients field, field to store the displacement coefficients
@@ -152,6 +156,9 @@ class PowerMethodProcessor {
         // Get the essential_boundary field, indicator for if the dof is in the essential boundary set
         m_essential_boundary_field = StkGetField(FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_essential_boundary_field);
+
+        // Check if the state field exists
+        m_has_state = StkFieldExists(FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT}, meta_data);
 
         // Initialize the EntityProcessor
         InitializeEntityProcessor(displacement_field_name);
@@ -189,6 +196,13 @@ class PowerMethodProcessor {
             FieldQueryData<double>{"max_edge_length", FieldQueryState::None}};
         std::vector<std::string> sets = {};
         m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, sets);
+
+        if (m_has_state) {
+            std::array<FieldQueryData<double>, StateIndex::NUM_STATE_FIELDS> state_query_data_vec = {
+                FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT},
+                FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}};
+            m_state_processor = std::make_unique<aperi::ElementProcessor<StateIndex::NUM_STATE_FIELDS, double>>(state_query_data_vec, m_mesh_data, sets);
+        }
     }
 
     void InitializeEigenvector(double epsilon) {
@@ -199,19 +213,22 @@ class PowerMethodProcessor {
 
         // Get the ngp fields
         auto ngp_displacement_field = *m_ngp_displacement_field;
+        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the max edge length
-                double l = ngp_displacement_field(node_index, 0);
+                // double l = ngp_max_edge_length_field(node_index, 0);
+                double l = ngp_displacement_field(node_index, 0);  // TODO remove this line and use one above
 
                 // Number of components
                 const size_t num_components = ngp_displacement_field.get_num_components_per_entity(node_index);
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
                     // Scale the eigenvector to be epsilon * max_edge_length * random value
+                    // ngp_displacement_field is the eigenvector and was randomized in the constructor
                     ngp_displacement_field(node_index, i) *= epsilon * l;
                 }
             });
@@ -245,7 +262,7 @@ class PowerMethodProcessor {
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
                     // Get the displacement input to the power method
-                    double u = ngp_displacement_in_field(node_index, i);
+                    double u = ngp_displacement_in_field(node_index, i);  // NOTE: should be latest disp
 
                     // If the node is in the essential boundary set, do not perturb the displacement coefficients
                     if (ngp_essential_boundary_field(node_index, i) == 1) {
@@ -340,7 +357,9 @@ class PowerMethodProcessor {
         assert(m_solver != nullptr);
 
         // Copy the displacement coefficients to the displacement temp field
-        m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
+        if (time == 0.0) {
+            m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
+        }
 
         // Copy the eigenvector to the displacement coefficients field
         // Eigenvector is randomized in the constructor. Will be overwritten by the power method for the next time this is called.
@@ -420,7 +439,12 @@ class PowerMethodProcessor {
         m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::EIGENVECTOR);
 
         // Copy the displacement temp to the displacement coefficients field. Force will be cleared in the next iteration so no need to copy it
-        m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT_IN, FieldIndex::DISPLACEMENT);
+        if (time == 0.0) {
+            m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT_IN, FieldIndex::DISPLACEMENT);
+            if (m_has_state) {
+                m_node_processor->CopyFieldData(StateIndex::STATE_N, StateIndex::STATE_NP1);
+            }
+        }
 
         return stable_time_increment;
     }
@@ -452,7 +476,9 @@ class PowerMethodProcessor {
     NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
-    std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The node processor
+    std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;             // The node processor
+    std::unique_ptr<aperi::ElementProcessor<StateIndex::NUM_STATE_FIELDS, double>> m_state_processor;  // The node processor
+    bool m_has_state;
 
     PowerMethodStats m_power_method_stats;  // Stats for the last power method run
 };

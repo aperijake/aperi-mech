@@ -61,6 +61,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Get the boolean values
         bool has_state = m_has_state;
         bool needs_velocity_gradient = m_needs_velocity_gradient;
+        bool needs_old_stress = m_needs_old_stress;
 
         // Loop over all the subcells
         Kokkos::parallel_for(
@@ -186,9 +187,10 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Get the pk1 stress map
                 auto pk1_stress_map = use_f_bar ? m_pk1_stress_bar_field.GetEigenMatrixMap<3, 3>(elem_index()) : m_pk1_stress_field.GetEigenMatrixMap<3, 3>(elem_index());
+                const auto pk1_stress_n_map = needs_old_stress ? use_f_bar ? m_pk1_stress_bar_n_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : m_pk1_stress_n_field.GetConstEigenMatrixMap<3, 3>(elem_index()) : Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(nullptr, 3, 3, mat3_stride);
 
                 // Compute the stress, pk1_bar value if using F-bar
-                m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), pk1_stress_map);
+                m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), &pk1_stress_n_map, pk1_stress_map);
             });
 
         // If using f_bar, unbar the stress
