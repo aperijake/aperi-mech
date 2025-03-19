@@ -73,8 +73,8 @@ class MeshLabelerProcessor {
         // Set the active field for nodal integration
         SetActiveFieldForNodalIntegrationHost();
 
-        // Communicate the active field so that it is up to date across all processors
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field});
+        // Parallel sum the active field
+        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
 
         // After setting the active field, check that the nodal integration mesh is correct
         CheckNodalIntegrationOnRefinedMeshHost();
@@ -167,6 +167,14 @@ class MeshLabelerProcessor {
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
     void SetActiveFieldForNodalIntegrationHost() {
+        // Set the active field to 0 for all nodes
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
+                active_field_data[0] = 0;
+            }
+        }
+
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 size_t num_nodes = bucket->num_nodes(i_elem);
@@ -178,8 +186,6 @@ class MeshLabelerProcessor {
 
                 // Get the minimum id
                 uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
-                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[0]);
-                active_field_data[0] = 0;  // Set active value to 0 for the first node
                 size_t minimum_index = 0;
                 for (size_t i = 1; i < num_nodes; ++i) {
                     uint64_t id = m_bulk_data->identifier(nodes[i]);
@@ -187,13 +193,10 @@ class MeshLabelerProcessor {
                         minimum_id = id;
                         minimum_index = i;
                     }
-                    // Set active value to 0
-                    active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
-                    active_field_data[0] = 0;
                 }
 
                 // Set the active value to 1 for the minimum id
-                active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
+                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
                 active_field_data[0] = 1;
 
                 // If the center node is to be activated, set the active value to 1 for the center node
