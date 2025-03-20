@@ -124,4 +124,19 @@ inline Kokkos::View<stk::mesh::FastMeshIndex *, stk::ngp::ExecSpace> GetLocalEnt
     return mesh_indices;
 }
 
+// Check if a field exists on a part
+template <typename T>
+inline bool StkFieldExistsOn(const FieldQueryData<T> &field_query_data, const std::string &part_name, stk::mesh::MetaData *meta_data) {
+    assert(meta_data != nullptr);
+    stk::topology::rank_t topology_rank = GetTopologyRank(field_query_data.topology_rank);
+    stk::mesh::Part *part = meta_data->get_part(part_name);
+    assert(part != nullptr);
+
+    stk::mesh::Field<T> *field = meta_data->get_field<T>(topology_rank, field_query_data.name);
+    if (field == nullptr) {
+        return false;
+    }
+    return field->defined_on(*part);
+}
+
 }  // namespace aperi

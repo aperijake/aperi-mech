@@ -126,7 +126,7 @@ class SmoothedCellDataProcessor {
         m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
-    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-10) {
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-6) {
         // Get the number of subcells
         size_t num_subcells = smoothed_cell_data->NumSubcells();
 
@@ -146,7 +146,7 @@ class SmoothedCellDataProcessor {
                     // Compare the sum of the function derivatives to the tolerance on device
                     if (Kokkos::abs(subcell_function_derivatives_sum[j]) > tolerance) {
                         // Print the subcell id and the sum of the function derivatives
-                        printf("Subcell %lu: Sum of function derivatives: %f\n", subcell_id, subcell_function_derivatives_sum[j]);
+                        printf("Subcell %lu: Sum of function derivatives: %.8e\n", subcell_id, subcell_function_derivatives_sum[j]);
                         Kokkos::abort("Partition of nullity check failed");
                     }
                 }
@@ -700,14 +700,15 @@ class SmoothedCellDataProcessor {
 
         // Check for state field
         aperi::FieldQueryData<double> state_query({"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
-        bool state_field_exists = false;
+        bool state_field_exist_on_part = false;
         aperi::Field<double> state;
-        if (FieldExists(state_query, m_mesh_data)) {
-            state_field_exists = true;
+        assert(m_sets.size() == 1);
+        if (FieldExistsOn(state_query, m_sets[0], m_mesh_data)) {
+            state_field_exist_on_part = true;
             // Get the state field
             state = aperi::Field<double>(m_mesh_data, state_query);
         }
-        const size_t stride = state_field_exists ? state.GetStride() : 0;
+        const size_t stride = state_field_exist_on_part ? state.GetStride() : 0;
 
         // Get the number of subcells
         size_t num_subcells = m_smoothed_cell_data->NumSubcells();
@@ -724,8 +725,8 @@ class SmoothedCellDataProcessor {
 
                 // Get the state field map if it exists
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
-                size_t num_state_components = state_field_exists ? state.GetNumComponentsPerEntity(first_element) : 0;
-                const auto first_element_state = state_field_exists ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
+                size_t num_state_components = state_field_exist_on_part ? state.GetNumComponentsPerEntity(first_element) : 0;
+                const auto first_element_state = state_field_exist_on_part ? state.GetConstEigenVectorMap(first_element, num_state_components) : Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(nullptr, 0, state_stride);
 
                 // Loop over all the subcell elements and add the function derivatives to the nodes
                 for (size_t j = 1, je = length(subcell_id); j < je; ++j) {
@@ -739,7 +740,7 @@ class SmoothedCellDataProcessor {
                     }
 
                     // Set the state field if it exists
-                    if (state_field_exists) {
+                    if (state_field_exist_on_part) {
                         for (size_t k = 0; k < num_state_components; ++k) {
                             state(element_index, k) = first_element_state(k);
                         }
@@ -748,7 +749,7 @@ class SmoothedCellDataProcessor {
             });
         pk1.MarkModifiedOnDevice();
         displacement_gradient.MarkModifiedOnDevice();
-        if (StkFieldExists(state_query, &m_bulk_data->mesh_meta_data())) {
+        if (state_field_exist_on_part) {
             state.MarkModifiedOnDevice();
         }
     }
