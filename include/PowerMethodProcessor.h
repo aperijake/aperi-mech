@@ -189,7 +189,7 @@ class PowerMethodProcessor {
         // Order of the fields in the field_query_data_vec must match the FieldIndex enum
         std::array<FieldQueryData<double>, FieldIndex::NUM_FIELDS> field_query_data_vec = {
             FieldQueryData<double>{displacement_field_name, FieldQueryState::NP1},
-            FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
+            FieldQueryData<double>{displacement_field_name, FieldQueryState::N},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
             FieldQueryData<double>{"eigenvector", FieldQueryState::None},
@@ -220,8 +220,7 @@ class PowerMethodProcessor {
             ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the max edge length
-                // double l = ngp_max_edge_length_field(node_index, 0);
-                double l = ngp_displacement_field(node_index, 0);  // TODO remove this line and use one above
+                double l = ngp_max_edge_length_field(node_index, 0);
 
                 // Number of components
                 const size_t num_components = ngp_displacement_field.get_num_components_per_entity(node_index);
