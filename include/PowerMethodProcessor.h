@@ -41,23 +41,20 @@ namespace aperi {
 
 // Power method convergence stats
 struct PowerMethodStats {
-    double eigenvalue = 0;
     double stable_time_step = 0;
     size_t num_iterations = 0;
     bool converged = false;
-    std::vector<double> eigenvalues_for_iterations;
+    std::vector<double> stable_time_step_for_iterations;
 
     void Reset(size_t max_num_iterations) {
-        eigenvalue = 0;
         stable_time_step = 0;
         num_iterations = 0;
         converged = false;
-        eigenvalues_for_iterations.clear();
-        eigenvalues_for_iterations.resize(max_num_iterations, 0.0);
+        stable_time_step_for_iterations.clear();
+        stable_time_step_for_iterations.resize(max_num_iterations, 0.0);
     }
 
-    void SetStats(double eigenvalue, double stable_time_step, size_t num_iterations, bool converged) {
-        this->eigenvalue = eigenvalue;
+    void SetStats(double stable_time_step, size_t num_iterations, bool converged) {
         this->stable_time_step = stable_time_step;
         this->num_iterations = num_iterations;
         this->converged = converged;
@@ -73,7 +70,6 @@ struct PowerMethodStats {
 
     void PrintStats() {
         aperi::CoutP0() << "Power method stats:" << std::endl;
-        aperi::CoutP0() << "  Eigenvalue: " << eigenvalue << std::endl;
         aperi::CoutP0() << "  Stable time step: " << stable_time_step << std::endl;
         aperi::CoutP0() << "  Number of iterations: " << num_iterations << std::endl;
         aperi::CoutP0() << "  Converged: " << converged << std::endl;
@@ -81,8 +77,8 @@ struct PowerMethodStats {
 
     void PrintHistory() {
         aperi::CoutP0() << "Power method history:" << std::endl;
-        for (size_t i = 0; i < eigenvalues_for_iterations.size(); i++) {
-            aperi::CoutP0() << "  Iteration " << i << ": " << eigenvalues_for_iterations[i] << std::endl;
+        for (size_t i = 0; i < stable_time_step_for_iterations.size(); i++) {
+            aperi::CoutP0() << "  Iteration " << i << ": " << stable_time_step_for_iterations[i] << std::endl;
         }
     }
 };
@@ -341,7 +337,7 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement(double time, double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
+    double ComputeStableTimeIncrement(double time, double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-3, double variation_tolerance = 1.e-7) {
         /*
             Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
             The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
@@ -373,65 +369,109 @@ class PowerMethodProcessor {
             m_eigenvector_is_initialized = true;
         }
 
-        // Convergence tolerance squared
-        double tolerance_squared = tolerance * tolerance;
-
-        // Initialize the eigenvalue
-        double lambda_n = m_power_method_stats.eigenvalue;
-        double lambda_np1 = lambda_n;
+        // Initialize the stable time step
+        double stable_time_step_n = m_power_method_stats.stable_time_step;
+        double stable_time_step_np1 = time_increment == 0.0 ? 1.0 : time_increment;
 
         // Initialize the power method stats
         m_power_method_stats.Reset(num_iterations);
 
-        // Set the current stable time increment to the input time increment
-        double current_stable_time_increment = time_increment == 0.0 ? 1.0 : time_increment;
-
         bool converged = false;
         size_t num_iterations_required = num_iterations;
 
+        // Parameters for window averaging
+        const size_t window_size = 5;  // Size of the averaging window
+        Eigen::VectorXd recent_values(window_size);
+        recent_values.setZero();
+
+        // Flag for oscillation detection
+        bool is_oscillating = false;
+
         // Loop over the power iterations
         for (size_t k = 0; k < num_iterations; ++k) {
-            // Update lambda_n
-            lambda_n = lambda_np1;
+            // Update stable time increment
+            stable_time_step_n = stable_time_step_np1;
 
             // Perturb the displacement coefficients by epsilon, u + v * \epsilon
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce(time, current_stable_time_increment);
+            m_solver->ComputeForce(time, stable_time_step_n);
             m_solver->CommunicateForce();
 
             // Compute the next eigenvector
             ComputeNextEigenvector(epsilon);
 
             // Normalize the eigenvector
-            lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
+            double lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
 
             // Compute the stable time increment
-            current_stable_time_increment = 2.0 / std::sqrt(lambda_np1);
+            stable_time_step_np1 = 2.0 / std::sqrt(lambda_np1);
 
-            // Add the eigenvalue to the stats
-            m_power_method_stats.eigenvalues_for_iterations[k] = lambda_np1;
+            recent_values(k % window_size) = stable_time_step_np1;
+
+            // Add the stable time increment to the stats
+            m_power_method_stats.stable_time_step_for_iterations[k] = stable_time_step_np1;
 
             // Check for convergence
-            if (std::abs(lambda_np1 - lambda_n) < tolerance_squared * lambda_np1) {
+            if (std::abs(stable_time_step_np1 - stable_time_step_n) < tolerance * stable_time_step_np1) {
                 converged = true;
                 num_iterations_required = k + 1;
                 break;
             }
+
+            // Also check for convergence using window standard deviation
+            if (k >= window_size) {
+                // Calculate mean of recent values
+                double mean = recent_values.mean();
+
+                // Calculate variance
+                assert(window_size > 1);
+                double variance = (recent_values.array() - mean).square().sum() / (window_size - 1);
+
+                // Check for oscillation pattern
+                if (k > window_size + 1) {
+                    // Look for alternating pattern in recent values
+                    double alt_diff = 0.0;
+                    for (int i = 0; i < window_size - 1; i++) {
+                        double diff = recent_values(i + 1) - recent_values(i);
+                        // If sign changes consistently, we have oscillation
+                        if (i > 0 && diff * alt_diff < 0) {
+                            is_oscillating = true;
+                        } else {
+                            is_oscillating = false;
+                            break;
+                        }
+                        alt_diff = diff;
+                    }
+                }
+
+                // If standard deviation is small relative to mean or we detect stable oscillation, consider converged
+                if (variance < variation_tolerance * mean || (is_oscillating && variance < variation_tolerance * mean * 2.0)) {
+                    converged = true;
+                    num_iterations_required = k + 1;
+                    break;
+                }
+            }
         }
 
-        double lambda_max = lambda_np1;
+        double stable_time_increment = 0.0;
 
-        if (!converged) {
-            lambda_max = std::max(lambda_n, lambda_np1);
+        if (converged) {
+            if (is_oscillating) {
+                // For oscillating pattern, use the maximum for safety
+                stable_time_increment = recent_values.maxCoeff();
+            } else {
+                // For normal convergence, use the last value
+                stable_time_increment = stable_time_step_np1;
+            }
+        } else {
+            // If not converged, use the maximum from the window for safety
+            stable_time_increment = recent_values.maxCoeff();
         }
-
-        // Compute the stable time increment
-        double stable_time_increment = 2.0 / std::sqrt(lambda_max);
 
         // Update the power method stats
-        m_power_method_stats.SetStats(lambda_max, stable_time_increment, num_iterations_required, converged);
+        m_power_method_stats.SetStats(stable_time_increment, num_iterations_required, converged);
         // m_power_method_stats.PrintStats();
 
         // Copy the displacement coefficient field to the eigenvector field
