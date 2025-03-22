@@ -101,6 +101,9 @@ void IoMesh::SetIoProperties() const {
         mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_DB", m_integer_size));
         mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_API", m_integer_size));
     }
+
+    // Close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
+    mp_io_broker->property_add(Ioss::Property("MINIMIZE_OPEN_FILES", 1));
 }
 
 void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names) {
