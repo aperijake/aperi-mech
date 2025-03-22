@@ -20,6 +20,7 @@ struct IoMeshParameters {
     int compression_level = 0;              // compression level [1..9] to use
     bool compression_shuffle = false;       // use shuffle filter prior to compressing data: true|false
     bool lower_case_variable_names = true;  // convert variable names to lowercase and replace spaces in names with underscore
+    bool minimize_open_files = true;        // close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
     int integer_size = 8;                   // use 4 or 8-byte integers for input and output
     int initial_bucket_capacity = 0;
     int maximum_bucket_capacity = 0;
@@ -61,6 +62,7 @@ class IoMesh {
     int m_compression_level;           // compression level [1..9] to use
     bool m_compression_shuffle;        // use shuffle filter prior to compressing data: true|false
     bool m_lower_case_variable_names;  // convert variable names to lowercase and replace spaces in names with underscore
+    bool m_minimize_open_files;        // close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
     int m_integer_size;                // use 4 or 8-byte integers for input and output
     int m_initial_bucket_capacity;
     int m_maximum_bucket_capacity;

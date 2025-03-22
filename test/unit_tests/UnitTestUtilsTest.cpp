@@ -32,6 +32,7 @@ class UnitTestUtilsTestFixture : public ::testing::Test {
         io_mesh_parameters.compose_output = true;
 
         io_mesh_parameters.mesh_type = "generated";
+        io_mesh_parameters.minimize_open_files = false;
         m_io_mesh = std::make_shared<aperi::IoMesh>(MPI_COMM_WORLD, io_mesh_parameters);
         WriteTestMesh(m_mesh_filename, *m_io_mesh, m_mesh_string, m_field_data);
     }

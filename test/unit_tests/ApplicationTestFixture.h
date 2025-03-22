@@ -54,6 +54,7 @@ class ApplicationTest : public CaptureOutputTest {
         aperi::IoMeshParameters io_mesh_parameters;
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.compose_output = true;
+        io_mesh_parameters.minimize_open_files = false;
         m_io_mesh = CreateIoMesh(m_comm, io_mesh_parameters);
         WriteTestMesh(m_mesh_filename, *m_io_mesh, mesh_string, field_data);
     }
@@ -86,6 +87,7 @@ class ApplicationTest : public CaptureOutputTest {
     }
 
     void TearDown() override {
+        m_io_mesh.reset();
         TearDownApplicationTest();
 
         // Run CaptureOutputTest::TearDown last

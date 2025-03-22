@@ -70,6 +70,7 @@ class MassMatrixTest : public CaptureOutputTest {
             m_io_mesh->CompleteInitialization();
         } else {
             io_mesh_parameters.mesh_type = "generated";
+            io_mesh_parameters.minimize_open_files = false;
             m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
             WriteTestMesh(m_mesh_filename, *m_io_mesh, m_mesh_string, field_data);
         }

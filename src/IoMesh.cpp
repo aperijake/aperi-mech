@@ -35,6 +35,7 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
       m_compression_level(io_mesh_parameters.compression_level),
       m_compression_shuffle(io_mesh_parameters.compression_shuffle),
       m_lower_case_variable_names(io_mesh_parameters.lower_case_variable_names),
+      m_minimize_open_files(io_mesh_parameters.minimize_open_files),
       m_integer_size(io_mesh_parameters.integer_size),
       m_initial_bucket_capacity(io_mesh_parameters.initial_bucket_capacity),
       m_maximum_bucket_capacity(io_mesh_parameters.maximum_bucket_capacity) {
@@ -103,7 +104,9 @@ void IoMesh::SetIoProperties() const {
     }
 
     // Close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
-    mp_io_broker->property_add(Ioss::Property("MINIMIZE_OPEN_FILES", 1));
+    if (m_minimize_open_files) {
+        mp_io_broker->property_add(Ioss::Property("MINIMIZE_OPEN_FILES", 1));
+    }
 }
 
 void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names) {
