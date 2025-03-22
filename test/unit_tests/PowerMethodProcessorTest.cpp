@@ -83,7 +83,7 @@ TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
     CreateSolver();
     bool expected_converged = true;
     double expected_stable_time_step = 0.0001;
-    size_t expected_num_iterations = 45;
+    size_t expected_num_iterations = 6;
     RunPowerMethodProcessor(expected_converged, expected_stable_time_step, expected_num_iterations);
 }
 

@@ -42,6 +42,7 @@ class ComputeInternalForceBase {
           m_use_f_bar(use_f_bar),
           m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
+          m_needs_old_stress(material.NeedsOldStress()),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_time_increment_device("TimeIncrementDevice"),
           m_stress_functor(*material.GetStressFunctor()) {
@@ -66,10 +67,17 @@ class ComputeInternalForceBase {
 
         m_pk1_stress_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
 
+        if (m_needs_old_stress) {
+            m_pk1_stress_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+        }
+
         if (m_use_f_bar) {
             m_displacement_gradient_bar_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
             m_displacement_gradient_bar_np1_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"displacement_gradient_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
             m_pk1_stress_bar_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress_bar", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+            if (m_needs_old_stress) {
+                m_pk1_stress_bar_n_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"pk1_stress_bar", FieldQueryState::N, FieldDataTopologyRank::ELEMENT});
+            }
         }
 
         SetCoordinateField(mesh_data);
@@ -95,10 +103,16 @@ class ComputeInternalForceBase {
         m_displacement_gradient_n_field.UpdateField();
         m_displacement_gradient_np1_field.UpdateField();
         m_pk1_stress_field.UpdateField();
+        if (m_needs_old_stress) {
+            m_pk1_stress_n_field.UpdateField();
+        }
         if (m_use_f_bar) {
             m_displacement_gradient_bar_n_field.UpdateField();
             m_displacement_gradient_bar_np1_field.UpdateField();
             m_pk1_stress_bar_field.UpdateField();
+            if (m_needs_old_stress) {
+                m_pk1_stress_bar_n_field.UpdateField();
+            }
         }
         if (m_has_state) {
             m_state_n_field.UpdateField();
@@ -200,6 +214,7 @@ class ComputeInternalForceBase {
     bool m_use_f_bar;
     bool m_has_state;                                                      // Whether the material has state.
     bool m_needs_velocity_gradient;                                        // Whether the material needs the velocity gradient.
+    bool m_needs_old_stress;                                               // Whether the material needs the old stress.
     const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type.
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device.
@@ -214,6 +229,8 @@ class ComputeInternalForceBase {
     aperi::Field<double> m_reference_displacement_gradient_field;        // The field for the element reference displacement gradient.
     mutable aperi::Field<double> m_displacement_gradient_np1_field;      // The field for the element displacement gradient at time n+1.
     mutable aperi::Field<double> m_displacement_gradient_bar_np1_field;  // The field for the element displacement gradient bar at time n+1.
+    aperi::Field<double> m_pk1_stress_n_field;                           // The field for the element pk1 stress.
+    aperi::Field<double> m_pk1_stress_bar_n_field;                       // The field for the element pk1 stress bar.
     mutable aperi::Field<double> m_pk1_stress_field;                     // The field for the element pk1 stress.
     mutable aperi::Field<double> m_pk1_stress_bar_field;                 // The field for the element pk1 stress bar.
 

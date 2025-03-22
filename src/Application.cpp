@@ -162,7 +162,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
         // If uses f_bar, add displacement_gradient to the field data. TODO(jake): Move this somewhere else
         if (internal_force_contribution_parameters.integration_scheme_parameters->UsesFBar()) {
             part_field_data.push_back(aperi::FieldData("displacement_gradient_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
-            part_field_data.push_back(aperi::FieldData("pk1_stress_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+            part_field_data.push_back(aperi::FieldData("pk1_stress_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
         }
         io_mesh->AddFields(part_field_data, {part_name});
         io_mesh->AddFieldResultsOutput(part_field_data);

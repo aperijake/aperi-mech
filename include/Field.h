@@ -401,6 +401,15 @@ bool FieldExists(const aperi::FieldQueryData<T> &field_query_data, const std::sh
     return aperi::StkFieldExists(field_query_data, meta_data->GetMetaData());
 }
 
+// Check if a field exists on a part
+template <typename T>
+bool FieldExistsOn(const aperi::FieldQueryData<T> &field_query_data, const std::string &part_name, const std::shared_ptr<aperi::MeshData> &meta_data) {
+    if (meta_data == nullptr) {
+        return false;
+    }
+    return aperi::StkFieldExistsOn(field_query_data, part_name, meta_data->GetMetaData());
+}
+
 // Get a field if it exists
 template <typename T>
 std::shared_ptr<aperi::Field<T>> GetField(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data) {

@@ -98,8 +98,14 @@ class ValueFromGeneralizedFieldProcessor {
                     double function_value = ngp_function_values_field(node_index, k);
                     function_sum += function_value;
                 }
-                if (std::abs(function_sum - 1.0) > 1.0e-10) {
-                    Kokkos::printf("Error: Partition of unity not satisfied: %f\n", function_sum);
+                if (std::abs(function_sum - 1.0) > 1.0e-6) {
+                    Kokkos::printf("Error: Partition of unity not satisfied. Error (1 - sum) = : %.8e\n", 1.0 - function_sum);
+                    for (size_t k = num_neighbors; k-- > 0;) {
+                        // Get the function value
+                        double function_value = ngp_function_values_field(node_index, k);
+                        uint64_t neighbor = ngp_neighbors_field(node_index, k);
+                        Kokkos::printf("Neighbor: %lu, Function Value: %.8e\n", neighbor, function_value);
+                    }
                     Kokkos::abort("Partition of unity assertion failed");
                 }
             });

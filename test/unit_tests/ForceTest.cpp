@@ -89,7 +89,7 @@ class ForceTest : public PatchTest {
             std::shared_ptr<aperi::MeshData> mesh_data = m_solver->GetMeshData();
             EXPECT_NE(mesh_data, nullptr);
             CheckThatFieldsMatch<aperi::FieldDataTopologyRank::ELEMENT, double>(*mesh_data, {"block_1"}, "displacement_gradient", "displacement_gradient_bar", aperi::FieldQueryState::NP1);
-            CheckThatFieldsMatch<aperi::FieldDataTopologyRank::ELEMENT, double>(*mesh_data, {"block_1"}, "pk1_stress", "pk1_stress_bar", aperi::FieldQueryState::None);
+            CheckThatFieldsMatch<aperi::FieldDataTopologyRank::ELEMENT, double>(*mesh_data, {"block_1"}, "pk1_stress", "pk1_stress_bar", aperi::FieldQueryState::NP1);
         }
 
         // Check the acceleration, should be zero

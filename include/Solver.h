@@ -226,7 +226,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"velocity_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
         m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"acceleration_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
         m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
-        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"pk1_stress", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}));
+        m_temporal_varying_output_fields.push_back(aperi::Field<double>(mp_mesh_data, aperi::FieldQueryData<double>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
 
         std::shared_ptr<aperi::Field<double>> state_field_ptr = aperi::GetField<double>(mp_mesh_data, aperi::FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
         if (state_field_ptr != nullptr) {

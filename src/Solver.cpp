@@ -203,6 +203,11 @@ double ExplicitSolver::Solve() {
     double total_runtime = 0.0;
     double average_runtime = 0.0;
 
+    // Print the table header before the loop
+    aperi::CoutP0() << std::endl
+                    << "Marching through time steps:" << std::endl;
+    LogHeader();
+
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
     {
@@ -221,11 +226,6 @@ double ExplicitSolver::Solve() {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
         explicit_time_integrator->ComputeAcceleration();
     }
-
-    // Print the table header before the loop
-    aperi::CoutP0() << std::endl
-                    << "Marching through time steps:" << std::endl;
-    LogHeader();
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
@@ -246,6 +246,9 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Swap states n and np1
+        UpdateFieldStates();
+
         // Get the next time step, Δt^{n+½}
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
@@ -260,9 +263,6 @@ double ExplicitSolver::Solve() {
         double time_midstep = time + 0.5 * time_increment;
         double time_next = time + time_increment;
         explicit_time_integrator->SetTimeIncrement(time_increment);
-
-        // Move state n+1 to state n
-        UpdateFieldStates();
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         {
