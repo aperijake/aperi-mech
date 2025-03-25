@@ -514,14 +514,13 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
     stk::mesh::NgpMesh& ngp_mesh = stk::mesh::get_updated_ngp_mesh(bulk);
 
     // Loop over the nodes in the part
-    for (stk::mesh::Bucket* bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
         // Loop over each entity in the bucket
-        for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+        for (auto node : *p_bucket) {
             // Get the node
-            stk::mesh::Entity node = (*bucket)[i_entity];
             // Get the coordinates of the node
-            double* node_coords = stk::mesh::field_data(coordinates_field, node);
-            Eigen::Vector3d node_coordinates(node_coords[0], node_coords[1], node_coords[2]);
+            double* p_node_coords = stk::mesh::field_data(coordinates_field, node);
+            Eigen::Vector3d node_coordinates(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
 
             // Check if the coordinates match
             if ((node_coordinates - coordinates).norm() < 1.0e-12) {
