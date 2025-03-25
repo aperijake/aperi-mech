@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
 #include "Constants.h"
+#include "Field.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "IoMesh.h"
 #include "UnitTestUtils.h"
 
@@ -95,4 +97,50 @@ TEST_F(UnitTestUtilsTestFixture, SplitMeshIntoTwoBlocks) {
     // Check that the mesh has the correct number of nodes
     CheckNumNodesInPart("block_1", (m_num_procs + 1) * 4);
     CheckNumNodesInPart("block_2", (m_num_procs + 1) * 4);
+}
+
+// Test find node index at coordinates
+TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
+    // Write the mesh
+    m_mesh_string = "1x1x" + std::to_string(m_num_procs);
+    WriteMesh();
+
+    // Get the mesh data
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Get the coordinates of the first node
+    aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.0, 0.0, 0.0));
+
+    // Check that the node index is valid
+    ASSERT_FALSE(node_index == aperi::Index::Invalid()) << "Node index is invalid";
+
+    // Get the coordinates field
+    aperi::Field coordinates_field = aperi::Field<double>(mesh_data, aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+    // Get the coordinates of the node
+    Eigen::Matrix<double, 1, 3> node_coords = coordinates_field.GetEigenMatrix<1, 3>(node_index);
+
+    // Check that the coordinates are correct
+    EXPECT_NEAR(node_coords(0, 0), 0.0, 1.0e-12);
+    EXPECT_NEAR(node_coords(0, 1), 0.0, 1.0e-12);
+    EXPECT_NEAR(node_coords(0, 2), 0.0, 1.0e-12);
+
+    // Check that the node index is correct
+    EXPECT_EQ(node_index, aperi::Index(0, 0));
+}
+
+// Test find node index at coordinates, invalid case
+TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndexAtCoordinates) {
+    // Write the mesh
+    m_mesh_string = "1x1x" + std::to_string(m_num_procs);
+    WriteMesh();
+
+    // Get the mesh data
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Get the coordinates of the first node
+    aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.0, 0.0));
+
+    // Check that the node index is valid
+    EXPECT_TRUE(node_index == aperi::Index::Invalid()) << "Node index is valid and should be invalid";
 }

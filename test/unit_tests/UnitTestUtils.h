@@ -19,6 +19,7 @@
 #include "MeshData.h"
 
 namespace aperi {
+struct Index;
 class IoMesh;
 class MeshData;
 }  // namespace aperi
@@ -53,6 +54,7 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
 void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const double z_plane_offset);
 size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
+aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
