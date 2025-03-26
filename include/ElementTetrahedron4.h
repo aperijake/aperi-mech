@@ -82,7 +82,7 @@ class ElementTetrahedron4 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the element node processor
-        m_element_node_processor = std::make_shared<aperi::ElementNodeProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
+        m_element_node_processor = std::make_shared<aperi::ConnectedEntityProcessor<TET4_NUM_NODES>>(m_mesh_data, m_part_names);
 
         // Create the compute force functor
         m_compute_force = std::make_shared<aperi::ComputeInternalForceGaussian<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material, m_lagrangian_formulation_type);
@@ -168,7 +168,7 @@ class ElementTetrahedron4 : public ElementBase {
         auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
 
         // Loop over all elements and compute the volume
-        m_element_node_processor->for_each_element_and_nodes(compute_volume_functor);
+        m_element_node_processor->ForEachElementAndNodes(compute_volume_functor);
 
         auto element_volume_field = aperi::Field<double>(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         element_volume_field.MarkModifiedOnDevice();
@@ -185,14 +185,14 @@ class ElementTetrahedron4 : public ElementBase {
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
-        m_element_node_processor->for_each_element_and_nodes(*m_compute_force);
+        m_element_node_processor->ForEachElementAndNodes(*m_compute_force);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
    private:
     ShapeFunctionsFunctorTet4 *m_shape_functions_functor;
     Quadrature<1, TET4_NUM_NODES> *m_integration_functor;
-    std::shared_ptr<aperi::ElementNodeProcessor<TET4_NUM_NODES>> m_element_node_processor;
+    std::shared_ptr<aperi::ConnectedEntityProcessor<TET4_NUM_NODES>> m_element_node_processor;
     std::shared_ptr<aperi::ComputeInternalForceGaussian<TET4_NUM_NODES, ShapeFunctionsFunctorTet4, Quadrature<1, TET4_NUM_NODES>>> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
 };

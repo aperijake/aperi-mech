@@ -23,15 +23,15 @@
 
 namespace aperi {
 
-template <size_t NumNodes>
-class ElementNodeProcessor {
+template <size_t NumEntities>
+class ConnectedEntityProcessor {
    public:
     /**
-     * @brief Constructs an ElementNodeProcessor object.
+     * @brief Constructs an ConnectedEntityProcessor object.
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ElementNodeProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
+    ConnectedEntityProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -43,53 +43,57 @@ class ElementNodeProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
-    bool CheckNumNodes(size_t max_allowed_nodes) {
+    bool CheckNumEntities(size_t max_allowed_entities) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the nodes of the element
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                size_t num_nodes = nodes.size();
+                // Get the entites of the element
+                stk::mesh::NgpMesh::ConnectedEntities entities = ngp_mesh.get_connected_entities(stk::topology::ELEM_RANK, elem_index, stk::topology::NODE_RANK);
+                size_t num_entities = entities.size();
 
-                // Allocate for the node indices
-                if (num_nodes > NumNodes) {
-                    Kokkos::abort("Error: num_nodes > max_allowed_nodes");
+                if (num_entities > NumEntities) {
+                    Kokkos::abort("Error: num_entities > max_allowed_entities");
                 }
             });
 
         return true;
     }
 
-    template <typename ActionFunc>
-    void for_each_element_and_nodes(ActionFunc &action_func) {
+    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, typename ActionFunc>
+    void ForEachEntityAndConnected(ActionFunc &action_func) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         auto func = action_func;
 
-        assert(CheckNumNodes(NumNodes));
+        assert(CheckNumEntities(NumEntities));
 
         stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the nodes of the element
-                stk::mesh::NgpMesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                size_t num_nodes = nodes.size();
+            ngp_mesh, EntityType, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity_index) {
+                // Get the entities of the element
+                stk::mesh::NgpMesh::ConnectedEntities connected_entities = ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
+                size_t num_connected_entities = connected_entities.size();
 
-                // Allocate for the node indices
-                Kokkos::Array<aperi::Index, NumNodes> node_indices;
+                // Allocate for the connected indices
+                Kokkos::Array<aperi::Index, NumEntities> connected_indices;
 
                 // Get the node indices
-                for (size_t i = 0; i < num_nodes; ++i) {
-                    node_indices[i] = aperi::Index(ngp_mesh.fast_mesh_index(nodes[i]));
+                for (size_t i = 0; i < num_connected_entities; ++i) {
+                    connected_indices[i] = aperi::Index(ngp_mesh.fast_mesh_index(connected_entities[i]));
                 }
 
                 // Call the action function
-                func(aperi::Index(elem_index), node_indices, num_nodes);
+                func(aperi::Index(entity_index), connected_indices, num_connected_entities);
             });
+    }
+
+    template <typename ActionFunc>
+    void ForEachElementAndNodes(ActionFunc &action_func) {
+        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(action_func);
     }
 
     std::shared_ptr<aperi::MeshData> GetMeshData() {
