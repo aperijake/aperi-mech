@@ -17,10 +17,13 @@ TEST_F(IoMeshTestFixture, ReadWrite) {
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
     aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
-    std::vector<size_t> expected_owned = {4U * static_cast<size_t>(m_num_procs + 1), 0U, 0U, static_cast<size_t>(m_num_procs)};
+    size_t expected_num_nodes = 4U * static_cast<size_t>(m_num_procs + 1);
+    size_t expected_num_faces = 5U * static_cast<size_t>(m_num_procs) + 1U;
+    size_t expected_num_elements = static_cast<size_t>(m_num_procs);
+    std::vector<size_t> expected = {expected_num_nodes, 0U, expected_num_faces, expected_num_elements};
     io_mesh_read.ReadMesh(m_mesh_filename, {"block_1"});
     io_mesh_read.CompleteInitialization();
-    CheckMeshCounts(*io_mesh_read.GetMeshData(), expected_owned);
+    CheckMeshCounts(*io_mesh_read.GetMeshData(), expected);
 }
 
 // Test that the IoMesh reading a mesh with bad parts throws an error

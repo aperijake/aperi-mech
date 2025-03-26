@@ -29,7 +29,7 @@ class ConnectedEntityProcessorFixture : public ::testing::Test {
         m_mesh_string = "1x2x4";
     }
 
-    void CreateAndRun() {
+    void CreateMesh() {
         // Make a mesh
         m_io_mesh = CreateIoMesh(MPI_COMM_WORLD, *m_io_mesh_parameters);
 
@@ -48,31 +48,12 @@ class ConnectedEntityProcessorFixture : public ::testing::Test {
     int m_num_procs;
 };
 
-// Test that ConnectedEntityProcessor correctly identifies the right number of nodes per element
-TEST_F(ConnectedEntityProcessorFixture, TestCheckNumNodes) {
-    CreateAndRun();
+// Test the ForEachElementAndConnectedNodes method
+TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedNodes) {
+    CreateMesh();
 
-    // Check that the mesh was created correctly
-    ASSERT_NE(m_mesh_data, nullptr);
-    EXPECT_EQ(GetNumElementsInPart(*m_mesh_data, "block_1"), 8);
-    EXPECT_EQ(GetNumNodesInPart(*m_mesh_data, "block_1"), 30);
-
-    // Create an ConnectedEntityProcessor with 8 nodes (hex elements)
-    aperi::ConnectedEntityProcessor<8> processor(m_mesh_data, {"block_1"});
-
-    // This should pass because hex elements have 8 nodes
-    EXPECT_TRUE(processor.CheckNumEntities(8)) << "CheckNumEntities failed for 8 nodes";
-
-    // This should also pass as we're allowing more nodes than needed
-    EXPECT_TRUE(processor.CheckNumEntities(10)) << "CheckNumEntities failed for 10 nodes";
-}
-
-// Test the ForEachElementAndNodes method
-TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndNodes) {
-    CreateAndRun();
-
-    // Create an ConnectedEntityProcessor with 8 nodes (hex elements)
-    aperi::ConnectedEntityProcessor<8> processor(m_mesh_data, {"block_1"});
+    // Create an ConnectedEntityProcessor
+    aperi::ConnectedEntityProcessor processor(m_mesh_data, {"block_1"});
 
     // Create a counter to keep track of the number of elements processed
     int element_count = 0;
@@ -87,11 +68,56 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndNodes) {
     };
 
     // Process the elements
-    processor.ForEachElementAndNodes(count_elements_and_nodes);
+    processor.ForEachElementAndConnectedNodes<8>(count_elements_and_nodes);
+
+    int global_element_count = 0;
+    int global_node_count = 0;
+
+    // Use MPI to sum the counts across all processes
+    MPI_Allreduce(&element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&total_node_count, &global_node_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     // Should have processed 8 elements with 8 nodes each
-    EXPECT_EQ(element_count, 8) << "Incorrect number of elements processed";
-    EXPECT_EQ(total_node_count, 64) << "Incorrect total number of nodes processed";
+    EXPECT_EQ(global_element_count, 8) << "Incorrect number of elements processed";
+    EXPECT_EQ(global_node_count, 64) << "Incorrect total number of nodes processed";
+
+    // Verify that GetMeshData and GetSets return the expected values
+    EXPECT_EQ(processor.GetMeshData(), m_mesh_data);
+    EXPECT_EQ(processor.GetSets(), std::vector<std::string>({"block_1"}));
+}
+
+// Test the ForEachElementAndConnectedFaces method
+TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedFaces) {
+    CreateMesh();
+
+    // Create an ConnectedEntityProcessor
+    aperi::ConnectedEntityProcessor processor(m_mesh_data, {"block_1"});
+
+    // Create a counter to keep track of the number of elements processed
+    int element_count = 0;
+    int total_face_count = 0;
+
+    // Create a host-side callback to count elements and faces
+    auto count_elements_and_faces = [&](const aperi::Index& elem_index,
+                                        const Kokkos::Array<aperi::Index, 6>& face_indices,
+                                        const size_t num_faces) {
+        element_count++;
+        total_face_count += num_faces;
+    };
+
+    // Process the elements
+    processor.ForEachElementAndConnectedFaces<6>(count_elements_and_faces);
+
+    int global_element_count = 0;
+    int global_face_count = 0;
+
+    // Use MPI to sum the counts across all processes
+    MPI_Allreduce(&element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&total_face_count, &global_face_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    // Should have processed 8 elements with 6 faces each
+    EXPECT_EQ(global_element_count, 8) << "Incorrect number of elements processed";
+    EXPECT_EQ(global_face_count, 48) << "Incorrect total number of faces processed";
 
     // Verify that GetMeshData and GetSets return the expected values
     EXPECT_EQ(processor.GetMeshData(), m_mesh_data);

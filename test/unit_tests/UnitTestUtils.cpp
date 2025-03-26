@@ -298,7 +298,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
     EXPECT_EQ(global_counts.size(), 4U);
     EXPECT_EQ(expected_owned.size(), 4U);
     for (int i = 0, e = expected_owned.size(); i < e; ++i) {
-        EXPECT_EQ(global_counts[i], expected_owned[i]);
+        EXPECT_EQ(global_counts[i], expected_owned[i]) << " for rank " << i;
     }
 }
 

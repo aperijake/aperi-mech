@@ -5,7 +5,6 @@
 #include <chrono>
 #include <memory>
 
-#include "ConnectedEntityProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "LogUtils.h"

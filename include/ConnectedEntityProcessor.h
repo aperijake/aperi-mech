@@ -23,7 +23,6 @@
 
 namespace aperi {
 
-template <size_t NumEntities>
 class ConnectedEntityProcessor {
    public:
     /**
@@ -43,33 +42,12 @@ class ConnectedEntityProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
-    bool CheckNumEntities(size_t max_allowed_entities) {
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        auto ngp_mesh = m_ngp_mesh;
-
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
-                // Get the entites of the element
-                stk::mesh::NgpMesh::ConnectedEntities entities = ngp_mesh.get_connected_entities(stk::topology::ELEM_RANK, elem_index, stk::topology::NODE_RANK);
-                size_t num_entities = entities.size();
-
-                if (num_entities > NumEntities) {
-                    Kokkos::abort("Error: num_entities > max_allowed_entities");
-                }
-            });
-
-        return true;
-    }
-
-    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, typename ActionFunc>
+    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
     void ForEachEntityAndConnected(ActionFunc &action_func) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         auto func = action_func;
-
-        assert(CheckNumEntities(NumEntities));
 
         stk::mesh::for_each_entity_run(
             ngp_mesh, EntityType, m_owned_selector,
@@ -77,9 +55,10 @@ class ConnectedEntityProcessor {
                 // Get the entities of the element
                 stk::mesh::NgpMesh::ConnectedEntities connected_entities = ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
                 size_t num_connected_entities = connected_entities.size();
+                KOKKOS_ASSERT(num_connected_entities <= MaxNumConnectedEntities);
 
                 // Allocate for the connected indices
-                Kokkos::Array<aperi::Index, NumEntities> connected_indices;
+                Kokkos::Array<aperi::Index, MaxNumConnectedEntities> connected_indices;
 
                 // Get the node indices
                 for (size_t i = 0; i < num_connected_entities; ++i) {
@@ -91,9 +70,14 @@ class ConnectedEntityProcessor {
             });
     }
 
-    template <typename ActionFunc>
-    void ForEachElementAndNodes(ActionFunc &action_func) {
-        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(action_func);
+    template <size_t MaxNumConnectedEntities, typename ActionFunc>
+    void ForEachElementAndConnectedNodes(ActionFunc &action_func) {
+        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(action_func);
+    }
+
+    template <size_t MaxNumConnectedEntities, typename ActionFunc>
+    void ForEachElementAndConnectedFaces(ActionFunc &action_func) {
+        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(action_func);
     }
 
     std::shared_ptr<aperi::MeshData> GetMeshData() {

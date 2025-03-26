@@ -192,6 +192,9 @@ void IoMesh::CompleteInitialization() {
         throw std::runtime_error("CompleteInitialization called before ReadMesh");
     }
     mp_io_broker->populate_bulk_data();  // committing here
+
+    // Create faces
+    stk::mesh::create_faces(mp_io_broker->bulk_data());
 }
 
 void IoMesh::CreateFieldResultsFile(const std::string &filename) {

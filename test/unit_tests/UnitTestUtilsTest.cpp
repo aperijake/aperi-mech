@@ -110,23 +110,36 @@ TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
 
     // Get the coordinates of the first node
     aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.0, 0.0, 0.0));
+    // Parallel accumulate the neighbor index
+    std::vector<aperi::Index> node_indices(m_num_procs);
+    MPI_Allgather(&node_index, sizeof(aperi::Index), MPI_BYTE, node_indices.data(), sizeof(aperi::Index), MPI_BYTE, MPI_COMM_WORLD);
 
-    // Check that the node index is valid
-    ASSERT_FALSE(node_index == aperi::Index::Invalid()) << "Node index is invalid";
+    // Make sure one of the neighbor indices is valid
+    bool found_valid_index = false;
+    for (const auto& index : node_indices) {
+        if (index.IsValid()) {
+            found_valid_index = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_valid_index) << "No valid neighbor index found";
 
-    // Get the coordinates field
-    aperi::Field coordinates_field = aperi::Field<double>(mesh_data, aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    // Check that the node index is valid. The processor that owns the node will have a valid index
+    if (node_index.IsValid()) {
+        // Get the coordinates field
+        aperi::Field coordinates_field = aperi::Field<double>(mesh_data, aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
 
-    // Get the coordinates of the node
-    Eigen::Matrix<double, 1, 3> node_coords = coordinates_field.GetEigenMatrix<1, 3>(node_index);
+        // Get the coordinates of the node
+        Eigen::Matrix<double, 1, 3> node_coords = coordinates_field.GetEigenMatrix<1, 3>(node_index);
 
-    // Check that the coordinates are correct
-    EXPECT_NEAR(node_coords(0, 0), 0.0, 1.0e-12);
-    EXPECT_NEAR(node_coords(0, 1), 0.0, 1.0e-12);
-    EXPECT_NEAR(node_coords(0, 2), 0.0, 1.0e-12);
+        // Check that the coordinates are correct
+        EXPECT_NEAR(node_coords(0, 0), 0.0, 1.0e-12);
+        EXPECT_NEAR(node_coords(0, 1), 0.0, 1.0e-12);
+        EXPECT_NEAR(node_coords(0, 2), 0.0, 1.0e-12);
 
-    // Check that the node index is correct
-    EXPECT_EQ(node_index, aperi::Index(0, 0));
+        // Check that the node index is correct
+        EXPECT_EQ(node_index, aperi::Index(0, 0));
+    }
 }
 
 // Test find node index at coordinates, invalid case
