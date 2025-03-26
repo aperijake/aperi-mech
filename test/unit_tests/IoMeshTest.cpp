@@ -16,6 +16,7 @@ TEST_F(IoMeshTestFixture, ReadWrite) {
 
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
+    io_mesh_read_parameters.add_faces = true;
     aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
     size_t expected_num_nodes = 4U * static_cast<size_t>(m_num_procs + 1);
     size_t expected_num_faces = 5U * static_cast<size_t>(m_num_procs) + 1U;

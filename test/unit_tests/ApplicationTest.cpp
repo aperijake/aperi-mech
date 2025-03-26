@@ -13,10 +13,12 @@ void RunValidInputFile(const std::string &filename, const std::string &results_f
     aperi::Application app(comm);
 
     // Run application
-    app.CreateSolverAndRun(filename);
+    bool add_faces = true;
+    app.CreateSolverAndRun(filename, add_faces);
 
     // Read in the written mesh and check that it matches the expected mesh
     aperi::IoMeshParameters io_mesh_read_parameters;
+    io_mesh_read_parameters.add_faces = add_faces;
     aperi::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
     size_t expected_num_nodes = 4U * static_cast<size_t>(num_procs + 1);
     size_t expected_num_faces = 16U * static_cast<size_t>(num_procs) + 2U;  // tet4 faces

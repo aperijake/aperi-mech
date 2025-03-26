@@ -25,6 +25,7 @@ class ConnectedEntityProcessorFixture : public ::testing::Test {
         m_io_mesh_parameters->compose_output = true;
         m_io_mesh_parameters->aura_option = true;
         m_io_mesh_parameters->mesh_type = "generated";
+        m_io_mesh_parameters->add_faces = true;
 
         // We'll use a simple 1x2x4 hex mesh (8 elements with 8 nodes each)
         m_mesh_string = "1x2x4";

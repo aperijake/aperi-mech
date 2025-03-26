@@ -36,6 +36,7 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
       m_compression_shuffle(io_mesh_parameters.compression_shuffle),
       m_lower_case_variable_names(io_mesh_parameters.lower_case_variable_names),
       m_minimize_open_files(io_mesh_parameters.minimize_open_files),
+      m_add_faces(io_mesh_parameters.add_faces),
       m_integer_size(io_mesh_parameters.integer_size),
       m_initial_bucket_capacity(io_mesh_parameters.initial_bucket_capacity),
       m_maximum_bucket_capacity(io_mesh_parameters.maximum_bucket_capacity) {
@@ -194,7 +195,9 @@ void IoMesh::CompleteInitialization() {
     mp_io_broker->populate_bulk_data();  // committing here
 
     // Create faces
-    stk::mesh::create_faces(mp_io_broker->bulk_data());
+    if (m_add_faces) {
+        stk::mesh::create_faces(mp_io_broker->bulk_data());
+    }
 }
 
 void IoMesh::CreateFieldResultsFile(const std::string &filename) {
