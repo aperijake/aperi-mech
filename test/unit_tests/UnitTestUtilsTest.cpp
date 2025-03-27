@@ -99,6 +99,21 @@ TEST_F(UnitTestUtilsTestFixture, SplitMeshIntoTwoBlocks) {
     CheckNumNodesInPart("block_2", (m_num_procs + 1) * 4);
 }
 
+struct GetCoordinatesFunctor {
+    aperi::Field<double> coordinates_field;
+    aperi::Index node_index;
+    Kokkos::View<double*> coordinates_view;
+
+    GetCoordinatesFunctor(const aperi::Field<double>& field, const aperi::Index& idx, Kokkos::View<double*> view)
+        : coordinates_field(field), node_index(idx), coordinates_view(view) {}
+
+    KOKKOS_FUNCTION void operator()(const int&) const {
+        coordinates_view(0) = coordinates_field(node_index, 0);
+        coordinates_view(1) = coordinates_field(node_index, 1);
+        coordinates_view(2) = coordinates_field(node_index, 2);
+    }
+};
+
 // Test find node index at coordinates
 TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
     // Write the mesh
@@ -129,8 +144,16 @@ TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
         // Get the coordinates field
         aperi::Field coordinates_field = aperi::Field<double>(mesh_data, aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
 
+        Kokkos::View<double*> coordinates_view("found_node_coords", 3);
+        Kokkos::View<double*>::HostMirror coordinates_view_host = Kokkos::create_mirror_view(coordinates_view);
+
         // Get the coordinates of the node
-        Eigen::Matrix<double, 1, 3> node_coords = coordinates_field.GetEigenMatrix<1, 3>(node_index);
+        GetCoordinatesFunctor get_coordinates_functor(coordinates_field, node_index, coordinates_view);
+        Kokkos::parallel_for("GetCoordinates", 1, get_coordinates_functor);
+
+        Eigen::Matrix<double, 1, 3> node_coords;
+        Kokkos::deep_copy(coordinates_view_host, coordinates_view);
+        node_coords = Eigen::Map<Eigen::Matrix<double, 1, 3>>(coordinates_view_host.data());
 
         // Check that the coordinates are correct
         EXPECT_NEAR(node_coords(0, 0), 0.0, 1.0e-12);

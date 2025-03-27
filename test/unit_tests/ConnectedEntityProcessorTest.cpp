@@ -50,6 +50,108 @@ class ConnectedEntityProcessorFixture : public ::testing::Test {
     int m_num_procs;
 };
 
+struct ElementNodeCounter {
+    Kokkos::View<int*> element_count;
+    Kokkos::View<int*> total_node_count;
+
+    ElementNodeCounter() : element_count("element_count", 1),
+                           total_node_count("total_node_count", 1) {
+        // Initialize to zero
+        Kokkos::deep_copy(element_count, 0);
+        Kokkos::deep_copy(total_node_count, 0);
+    }
+
+    KOKKOS_FUNCTION
+    void operator()(const aperi::Index& elem_index,
+                    const Kokkos::Array<aperi::Index, 8>& node_indices,
+                    const size_t num_nodes) const {
+        Kokkos::atomic_inc(&element_count(0));
+        Kokkos::atomic_add(&total_node_count(0), num_nodes);
+    }
+
+    int get_element_count() const {
+        // Create a host mirror of the view
+        auto element_count_h = Kokkos::create_mirror_view(element_count);
+        // Copy data from device to host
+        Kokkos::deep_copy(element_count_h, element_count);
+        // Return the host value
+        return element_count_h(0);
+    }
+
+    int get_total_node_count() const {
+        // Create a host mirror of the view
+        auto total_node_count_h = Kokkos::create_mirror_view(total_node_count);
+        // Copy data from device to host
+        Kokkos::deep_copy(total_node_count_h, total_node_count);
+        // Return the host value
+        return total_node_count_h(0);
+    }
+};
+
+struct ElementFaceCounter {
+    aperi::ConnectedEntityProcessor processor;
+    Kokkos::View<int*> element_count;
+    Kokkos::View<int*> total_face_count;
+    Kokkos::View<int*> total_face_node_count;
+    Kokkos::View<int*> total_face_element_count;
+
+    ElementFaceCounter(const std::shared_ptr<aperi::MeshData>& mesh_data) : processor(mesh_data, {"block_1"}),
+                                                                            element_count("element_count", 1),
+                                                                            total_face_count("total_face_count", 1),
+                                                                            total_face_node_count("total_face_node_count", 1),
+                                                                            total_face_element_count("total_face_element_count", 1) {
+        // Initialize to zero
+        Kokkos::deep_copy(element_count, 0);
+        Kokkos::deep_copy(total_face_count, 0);
+        Kokkos::deep_copy(total_face_node_count, 0);
+        Kokkos::deep_copy(total_face_element_count, 0);
+    }
+
+    KOKKOS_FUNCTION
+    void operator()(const aperi::Index& elem_index,
+                    const Kokkos::Array<aperi::Index, 6>& face_indices,
+                    const size_t num_faces) const {
+        Kokkos::atomic_inc(&element_count(0));
+        Kokkos::atomic_add(&total_face_count(0), num_faces);
+
+        // For each face, we can get the connected nodes and elements
+        for (size_t i = 0; i < num_faces; ++i) {
+            Kokkos::Array<aperi::Index, 4> face_nodes;
+            size_t num_nodes = processor.GetFaceNodes(face_indices[i], face_nodes);
+            Kokkos::atomic_add(&total_face_node_count(0), num_nodes);
+
+            Kokkos::Array<aperi::Index, 2> face_elements;
+            size_t num_elements = processor.GetFaceElements(face_indices[i], face_elements);
+            Kokkos::atomic_add(&total_face_element_count(0), num_elements);
+        }
+    }
+
+    // Getter methods that use host mirrors
+    int get_element_count() const {
+        auto host_view = Kokkos::create_mirror_view(element_count);
+        Kokkos::deep_copy(host_view, element_count);
+        return host_view(0);
+    }
+
+    int get_total_face_count() const {
+        auto host_view = Kokkos::create_mirror_view(total_face_count);
+        Kokkos::deep_copy(host_view, total_face_count);
+        return host_view(0);
+    }
+
+    int get_total_face_node_count() const {
+        auto host_view = Kokkos::create_mirror_view(total_face_node_count);
+        Kokkos::deep_copy(host_view, total_face_node_count);
+        return host_view(0);
+    }
+
+    int get_total_face_element_count() const {
+        auto host_view = Kokkos::create_mirror_view(total_face_element_count);
+        Kokkos::deep_copy(host_view, total_face_element_count);
+        return host_view(0);
+    }
+};
+
 // Test the ForEachElementAndConnectedNodes method
 TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedNodes) {
     CreateMesh();
@@ -61,27 +163,20 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedNodes) {
     EXPECT_EQ(processor.GetMeshData(), m_mesh_data);
     EXPECT_EQ(processor.GetSets(), std::vector<std::string>({"block_1"}));
 
-    // Create a counter to keep track of the number of elements processed
-    int element_count = 0;
-    int total_node_count = 0;
-
-    // Create a host-side callback to count elements and nodes
-    auto count_elements_and_nodes = [&](const aperi::Index& elem_index,
-                                        const Kokkos::Array<aperi::Index, 8>& node_indices,
-                                        const size_t num_nodes) {
-        element_count++;
-        total_node_count += num_nodes;
-    };
+    // Create the counter with a pointer to processor
+    ElementNodeCounter counter;
 
     // Process the elements
-    processor.ForEachElementAndConnectedNodes<8>(count_elements_and_nodes);
+    processor.ForEachElementAndConnectedNodes<8>(counter);
 
     int global_element_count = 0;
     int global_node_count = 0;
 
     // Use MPI to sum the counts across all processes
-    MPI_Allreduce(&element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&total_node_count, &global_node_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    int local_element_count = counter.get_element_count();
+    int local_node_count = counter.get_total_node_count();
+    MPI_Allreduce(&local_element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_node_count, &global_node_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     // Should have processed 8 elements with 8 nodes each
     EXPECT_EQ(global_element_count, 8) << "Incorrect number of elements processed";
@@ -100,28 +195,7 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedFaces) {
     EXPECT_EQ(processor.GetSets(), std::vector<std::string>({"block_1"}));
 
     // Create a counter to keep track of the number of elements processed
-    int element_count = 0;
-    int total_face_count = 0;
-    int total_face_node_count = 0;
-    int total_face_element_count = 0;
-
-    // Create a host-side callback to count elements and faces
-    auto count_elements_and_faces = [&](const aperi::Index& elem_index,
-                                        const Kokkos::Array<aperi::Index, 6>& face_indices,
-                                        const size_t num_faces) {
-        element_count++;
-        total_face_count += num_faces;
-        // For each face, we can get the connected nodes and elements
-        for (size_t i = 0; i < num_faces; ++i) {
-            Kokkos::Array<aperi::Index, 4> face_nodes;
-            size_t num_nodes = processor.GetFaceNodes(face_indices[i], face_nodes);
-            total_face_node_count += num_nodes;
-
-            Kokkos::Array<aperi::Index, 2> face_elements;
-            size_t num_elements = processor.GetFaceElements(face_indices[i], face_elements);
-            total_face_element_count += num_elements;
-        }
-    };
+    ElementFaceCounter count_elements_and_faces(m_mesh_data);
 
     // Process the elements
     processor.ForEachElementAndConnectedFaces<6>(count_elements_and_faces);
@@ -132,10 +206,14 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedFaces) {
     int global_face_element_count = 0;
 
     // Use MPI to sum the counts across all processes
-    MPI_Allreduce(&element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&total_face_count, &global_face_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&total_face_node_count, &global_face_node_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&total_face_element_count, &global_face_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    int local_element_count = count_elements_and_faces.get_element_count();
+    int local_face_count = count_elements_and_faces.get_total_face_count();
+    int local_face_node_count = count_elements_and_faces.get_total_face_node_count();
+    int local_face_element_count = count_elements_and_faces.get_total_face_element_count();
+    MPI_Allreduce(&local_element_count, &global_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_face_count, &global_face_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_face_node_count, &global_face_node_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_face_element_count, &global_face_element_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     // Should have processed 8 elements with 6 faces each
     EXPECT_EQ(global_element_count, 8) << "Incorrect number of elements processed";                   // As set in the test, 1x2x4 mesh

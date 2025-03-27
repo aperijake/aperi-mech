@@ -111,8 +111,15 @@ class ConnectedEntityProcessor {
             m_ngp_mesh, EntityType, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &entity_index) {
                 // Get the entities of the element
+                stk::mesh::NgpMesh::ConnectedEntities connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
+                size_t num_connected_entities = connected_entities.size();
+                KOKKOS_ASSERT(num_connected_entities <= MaxNumConnectedEntities);
+
+                // Get the node indices
                 Kokkos::Array<aperi::Index, MaxNumConnectedEntities> connected_indices;
-                size_t num_connected_entities = this->GetConnectedEntities<EntityType, ConnectedType, MaxNumConnectedEntities>(entity_index, connected_indices);
+                for (size_t i = 0; i < num_connected_entities; ++i) {
+                    connected_indices[i] = aperi::Index(m_ngp_mesh.fast_mesh_index(connected_entities[i]));
+                }
 
                 // Call the action function
                 func(aperi::Index(entity_index), connected_indices, num_connected_entities);
