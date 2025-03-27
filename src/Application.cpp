@@ -22,32 +22,32 @@
 
 namespace aperi {
 
-void Application::CreateSolverAndRun(const std::string& input_filename) {
+void Application::CreateSolverAndRun(const std::string& input_filename, bool add_faces) {
     // Create the solver
-    std::shared_ptr<Solver> solver = CreateSolver(input_filename);
+    std::shared_ptr<Solver> solver = CreateSolver(input_filename, add_faces);
 
     // Run the solver
     Run(solver);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_data) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_data, bool add_faces) {
     aperi::CoutP0() << "Reading Input YAML Data" << std::endl;
 
     // Create an IO input file object and read the input file
     std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(yaml_data);
 
     // Create the solver
-    return CreateSolver(io_input_file);
+    return CreateSolver(io_input_file, add_faces);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename, bool add_faces) {
     aperi::CoutP0() << "Reading Input File '" << input_filename << "'" << std::endl;
 
     // Create an IO input file object and read the input file
     std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(input_filename);
 
     // Create the solver
-    return CreateSolver(io_input_file);
+    return CreateSolver(io_input_file, add_faces);
 }
 
 std::vector<std::string> GetPartNames(const std::vector<YAML::Node>& parts) {
@@ -98,7 +98,7 @@ std::string FindFileInDirectories(const std::string& file, const std::vector<std
     throw std::runtime_error("File '" + file + "' not found in directories: " + search_directories);
 }
 
-std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, bool add_faces, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Find the mesh file in the search directories
     std::string mesh_file_path = aperi::FindFileInDirectories(mesh_file, mesh_search_directories);
 
@@ -108,6 +108,7 @@ std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_f
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
     io_mesh_parameters.compose_output = true;
+    io_mesh_parameters.add_faces = add_faces;
     std::shared_ptr<aperi::IoMesh> io_mesh = aperi::CreateIoMesh(comm, io_mesh_parameters);
 
     // Read the mesh
@@ -260,7 +261,7 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
     aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << "\n\n############################################" << std::endl;
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
@@ -282,7 +283,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<std::string> mesh_search_directories = io_input_file->GetMeshSearchDirectories(procedure_id);
 
     // Create the IO mesh object and read the mesh
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, m_comm, timer_manager);
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, add_faces, m_comm, timer_manager);
 
     // Create the field results file
     std::string output_file = io_input_file->GetOutputFile(procedure_id);

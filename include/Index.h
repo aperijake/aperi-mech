@@ -11,6 +11,9 @@ namespace aperi {
  * constructors and an operator to access the encapsulated index.
  */
 struct Index {
+    // Constant for invalid index value
+    static constexpr unsigned INVALID_ID = ~0u;  // Equivalent to max unsigned value (all bits set)
+
     /**
      * @brief Constructor that initializes the index with a given value.
      *
@@ -62,6 +65,26 @@ struct Index {
     KOKKOS_INLINE_FUNCTION
     unsigned bucket_ord() const {
         return m_index.bucket_ord;
+    }
+
+    /**
+     * @brief Creates an invalid index.
+     *
+     * @return An Index object that represents an invalid state.
+     */
+    KOKKOS_FUNCTION
+    static Index Invalid() {
+        return Index(INVALID_ID, INVALID_ID);
+    }
+
+    /**
+     * @brief Checks if the index is valid.
+     *
+     * @return True if the index is valid, false otherwise.
+     */
+    KOKKOS_INLINE_FUNCTION
+    bool IsValid() const {
+        return m_index.bucket_id != INVALID_ID || m_index.bucket_ord != INVALID_ID;
     }
 
     /**
