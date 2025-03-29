@@ -507,3 +507,186 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_EQ(entry_distance, 0.0);
     EXPECT_EQ(exit_distance, 0.5);
 }
+
+// Test the NearPoint function
+TEST(MathUtilsTest, NearPoint) {
+    // Test case 1: A point that is exactly equal to one of the points in the array
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 0.0, 0.0),
+            Eigen::Vector3d(0.0, 1.0, 0.0)};
+        Eigen::Vector3d test_point(1.0, 0.0, 0.0);
+        int result = aperi::NearPoint<3>(test_point, points);
+        EXPECT_EQ(result, 1);  // Should find the second point (index 1)
+    }
+
+    // Test case 2: A point that is close to one of the points (within tolerance)
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 0.0, 0.0),
+            Eigen::Vector3d(0.0, 1.0, 0.0)};
+        // With custom tolerance and ball radius squared 5/9
+        Eigen::Vector3d test_point(1.0, 1e-4, 1e-4);
+        int result = aperi::NearPoint<3>(test_point, points, 0.01);
+        EXPECT_EQ(result, 1);  // Should find the second point (index 1)
+    }
+
+    // Test case 3: A point that is not close to any point in the array
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 0.0, 0.0),
+            Eigen::Vector3d(0.0, 1.0, 0.0)};
+        Eigen::Vector3d test_point(0.5, 0.5, 0.5);
+        int result = aperi::NearPoint<3>(test_point, points);
+        EXPECT_EQ(result, -1);  // Should not find any point
+    }
+
+    // Test case 4: An edge case with a single point in the array
+    {
+        Kokkos::Array<Eigen::Vector3d, 1> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0)};
+        Eigen::Vector3d test_point(0.0, 0.0, 0.0);
+        int result = aperi::NearPoint<1>(test_point, points);
+        EXPECT_EQ(result, 0);  // Should find the only point
+    }
+
+    // Test case 5: A case with a custom tolerance value
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 0.0, 0.0),
+            Eigen::Vector3d(0.0, 1.0, 0.0)};
+        // Center is (1/3, 1/3, 0), max squared distance is 5/9
+        // With tolerance 0.1, threshold is 5/9 * 0.1 ≈ 0.056
+        // Distance squared from (0.9, 0.1, 0.1) to (1,0,0) is 0.03
+        Eigen::Vector3d test_point(0.9, 0.1, 0.1);
+        int result = aperi::NearPoint<3>(test_point, points, 0.1);
+        EXPECT_EQ(result, 1);  // Should find the second point (index 1)
+    }
+
+    // Test case 6: Points with large separation
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(10.0, 0.0, 0.0),
+            Eigen::Vector3d(0.0, 10.0, 0.0)};
+        // Center is (10/3, 10/3, 0), max squared distance is 200/9
+        Eigen::Vector3d test_point(10.0, 0.001, 0.001);
+        int result = aperi::NearPoint<3>(test_point, points, 0.0001);
+        EXPECT_EQ(result, 1);  // Should find the second point (index 1)
+    }
+
+    // Test case 7: Point close to multiple points (should return the first match)
+    {
+        Kokkos::Array<Eigen::Vector3d, 3> points = {
+            Eigen::Vector3d(0.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 0.0, 0.0),
+            Eigen::Vector3d(1.0, 1e-8, 0.0)  // Very close to the second point
+        };
+        // Point equally close to points at index 1 and 2
+        Eigen::Vector3d test_point(1.0, 5e-9, 0.0);
+        int result = aperi::NearPoint<3>(test_point, points, 0.01);
+        EXPECT_EQ(result, 1);  // Should return the first match (index 1)
+    }
+}
+
+// Test the NearEdge function
+TEST(MathUtilsTest, NearEdge) {
+    // Test case 1: Point exactly on the edge
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(0.5, 0.0, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 2: Point very close to the edge (within tolerance)
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(0.5, 1.0e-4, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 3: Point away from the edge (outside tolerance)
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(0.5, 0.1, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_FALSE(result);
+    }
+
+    // Test case 4: Point projecting before the start of the edge
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(-0.1, 0.0, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_FALSE(result);
+
+        // With higher tolerance, it should detect the point
+        result = aperi::NearEdge(test_point, edge_point_0, edge_point_1, 0.1);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 5: Point projecting after the end of the edge
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(1.1, 0.0, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_FALSE(result);
+
+        // With higher tolerance, it should detect the point
+        result = aperi::NearEdge(test_point, edge_point_0, edge_point_1, 0.2);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 6: Point near the endpoint of the edge
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(0.0, 1.0e-4, 0.0);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 7: Point with custom tolerance
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 0.0, 0.0);
+        Eigen::Vector3d test_point(0.5, 0.05, 0.0);
+
+        // With default tolerance, point is too far
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_FALSE(result);
+
+        // With increased tolerance, point should be detected
+        result = aperi::NearEdge(test_point, edge_point_0, edge_point_1, 0.1);
+        EXPECT_TRUE(result);
+    }
+
+    // Test case 8: 3D edge
+    {
+        Eigen::Vector3d edge_point_0(0.0, 0.0, 0.0);
+        Eigen::Vector3d edge_point_1(1.0, 1.0, 1.0);
+        Eigen::Vector3d test_point(0.5, 0.5, 0.5);
+        bool result = aperi::NearEdge(test_point, edge_point_0, edge_point_1);
+        EXPECT_TRUE(result);
+
+        // Adding a small offset
+        Eigen::Vector3d test_point_offset(0.5, 0.5, 0.51);
+        result = aperi::NearEdge(test_point_offset, edge_point_0, edge_point_1);
+        EXPECT_FALSE(result);
+
+        // With increased tolerance
+        result = aperi::NearEdge(test_point_offset, edge_point_0, edge_point_1, 0.01);
+        EXPECT_TRUE(result);
+    }
+}

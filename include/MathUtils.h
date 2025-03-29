@@ -306,4 +306,63 @@ KOKKOS_FUNCTION bool VectorElementIntersection(const Eigen::Vector3d &A, const E
     return intersects;
 }
 
+/**
+ * @brief Check if a point is near an edge defined by two points.
+ * @param edge_point_0 The first point defining the edge.
+ * @param edge_point_1 The second point defining the edge.
+ * @param point The point to check.
+ * @param realtive_tolerance The tolerance relative to the edge length.
+ * @return True if the point is near the edge, false otherwise.
+ */
+KOKKOS_INLINE_FUNCTION bool NearEdge(const Eigen::Vector3d &point, const Eigen::Vector3d &edge_point_0, const Eigen::Vector3d &edge_point_1, double realtive_tolerance = 1.0e-6) {
+    Eigen::Vector3d edge_vector = edge_point_1 - edge_point_0;
+    Eigen::Vector3d point_vector = point - edge_point_0;
+
+    double edge_length_squared = edge_vector.squaredNorm();
+    double projection = point_vector.dot(edge_vector) / edge_length_squared;
+    double tolerance = realtive_tolerance * edge_length_squared;
+
+    // Check if the point is within the tolerance distance from the edge
+    if (projection < -tolerance || projection > 1.0 + tolerance) {
+        return false;  // Point is outside the edge segment
+    }
+
+    Eigen::Vector3d projection_point = edge_point_0 + projection * edge_vector;
+    double distance_squared = (point - projection_point).squaredNorm();
+
+    return distance_squared <= tolerance;
+}
+
+/**
+ * @brief Check if a point is near another point from a list of points.
+ * @param point The point to check.
+ * @param points The list of points to check against.
+ * @param relative_tolerance The tolerance relative to the ball radius of the list of points.
+ * @return index of the point in the list if found, -1 otherwise.
+ */
+template <size_t NumPoints>
+KOKKOS_INLINE_FUNCTION int NearPoint(const Eigen::Vector3d &point, const Kokkos::Array<Eigen::Vector3d, NumPoints> &points, double relative_tolerance = 1.0e-6) {
+    // Calculate the center of the points
+    Eigen::Vector3d center = Eigen::Vector3d::Zero();
+    for (size_t i = 0; i < NumPoints; ++i) {
+        center += points[i];
+    }
+    center /= NumPoints;
+
+    // Calculate the ball radius
+    double radius_squared = 0.0;
+    for (size_t i = 0; i < NumPoints; ++i) {
+        radius_squared = Kokkos::max(radius_squared, (points[i] - center).squaredNorm());
+    }
+
+    double tolerance = relative_tolerance * radius_squared;
+
+    for (size_t i = 0; i < NumPoints; ++i) {
+        if ((point - points[i]).squaredNorm() <= tolerance) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
 }  // namespace aperi
