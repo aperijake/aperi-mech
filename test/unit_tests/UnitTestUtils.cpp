@@ -1,6 +1,7 @@
 #include "UnitTestUtils.h"
 
 #include <gtest/gtest.h>
+#include <mpi.h>
 
 #include <filesystem>
 #include <fstream>
@@ -496,7 +497,7 @@ size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& pa
     return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::NODE_RANK);
 }
 
-aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates) {
+aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
     // Get the bulk data
     stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
     stk::mesh::MetaData& meta = *mesh_data.GetMetaData();
@@ -532,7 +533,13 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
     if (!found) {
         // If no node was found, return an invalid index
         node_index = aperi::Index::Invalid();
-        std::cerr << "Node not found at coordinates: " << coordinates.transpose() << std::endl;
+    }
+
+    if (check_found) {
+        // Parallel communicate found to make sure one rank found the node
+        bool found_global = false;
+        MPI_Allreduce(&found, &found_global, 1, MPI_CXX_BOOL, MPI_LOR, MPI_COMM_WORLD);
+        EXPECT_TRUE(found_global) << "Node not found at coordinates " << coordinates.transpose() << " in part " << part_name;
     }
 
     return node_index;

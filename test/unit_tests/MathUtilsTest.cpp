@@ -377,3 +377,133 @@ TEST(MathUtilsTest, DetApIm1) {
     double det_ap_i = aperi::DetApIm1(matrix) + 1.0;
     EXPECT_NEAR(det_ap_i, det, 1.0e-12);
 }
+
+TEST(MathUtilsTest, ElementIntersects) {
+    // Unit hex element planes
+    /*
+     * Reference:
+     *   Hughes, T.J.R. The Finite Element Method: Linear Static and Dynamic Finite Element Analysis. Dover Civil and Mechanical Engineering. Dover Publications, 2012.
+     *   Section 3.5 ~Page 225
+     *    Nodes:
+     *   7-------6
+     *  /|      /|      +z
+     * 4-------5 |      |
+     * | |     | |      |
+     * | 3-----|-2      o---- +x
+     * |/      |/      /
+     * 0-------1      -y
+     *
+     * Changing the coordinates to be in the range [0, 1] for the unit cube instead of [-1, 1] for the parent element
+     * - Node 0:  0,  0,  0
+     * - Node 1:  1,  0,  0
+     * - Node 2:  1,  1,  0
+     * - Node 3:  0,  1,  0
+     * - Node 4:  0,  0,  1
+     * - Node 5:  1,  0,  1
+     * - Node 6:  1,  1,  1
+     * - Node 7:  0,  1,  1
+     */
+    // Define the vertices of the unit cube
+    Eigen::Vector3d v0(0.0, 0.0, 0.0);  // Origin vertex
+    Eigen::Vector3d v1(1.0, 0.0, 0.0);  // Vertex at (1,0,0)
+    Eigen::Vector3d v2(1.0, 1.0, 0.0);  // Vertex at (1,1,0)
+    Eigen::Vector3d v3(0.0, 1.0, 0.0);  // Vertex at (0,1,0)
+    Eigen::Vector3d v4(0.0, 0.0, 1.0);  // Vertex at (0,0,1)
+    Eigen::Vector3d v5(1.0, 0.0, 1.0);  // Vertex at (1,0,1)
+    Eigen::Vector3d v6(1.0, 1.0, 1.0);  // Vertex at (1,1,1)
+    Eigen::Vector3d v7(0.0, 1.0, 1.0);  // Vertex at (0,1,1)
+
+    // Unit hex element planes. front, right, back, left, bottom, top
+    Kokkos::Array<Eigen::Hyperplane<double, 3>, 6> planes;
+    planes[0] = Eigen::Hyperplane<double, 3>::Through(v5, v1, v0);  // y=1 plane (front)
+    planes[1] = Eigen::Hyperplane<double, 3>::Through(v6, v2, v1);  // x=1 plane (right)
+    planes[2] = Eigen::Hyperplane<double, 3>::Through(v7, v3, v2);  // y=0 plane (back)
+    planes[3] = Eigen::Hyperplane<double, 3>::Through(v7, v4, v0);  // x=0 plane (left)
+    planes[4] = Eigen::Hyperplane<double, 3>::Through(v2, v3, v0);  // z=0 plane (bottom)
+    planes[5] = Eigen::Hyperplane<double, 3>::Through(v6, v5, v4);  // z=1 plane (top)
+
+    // Intersects and exits on the right face
+    Eigen::Vector3d A(-1.0, 0.5, 0.5);
+    Eigen::Vector3d B(2.0, 0.5, 0.5);
+    int entry_face = -1;
+    int exit_face = -1;
+    double entry_distance = 0.0;
+    double exit_distance = 0.0;
+    bool intersects = aperi::VectorElementIntersection(A, B, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 3);
+    EXPECT_EQ(exit_face, 1);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Intersects and exits on the left face
+    Eigen::Vector3d C(2.0, 0.5, 0.5);
+    Eigen::Vector3d D(-1.0, 0.5, 0.5);
+    intersects = aperi::VectorElementIntersection(C, D, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 1);
+    EXPECT_EQ(exit_face, 3);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Intersects and exits on the front face
+    Eigen::Vector3d E(0.5, -1.0, 0.5);
+    Eigen::Vector3d F(0.5, 2.0, 0.5);
+    intersects = aperi::VectorElementIntersection(E, F, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 0);
+    EXPECT_EQ(exit_face, 2);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Intersects and exits on the back face
+    Eigen::Vector3d G(0.5, 2.0, 0.5);
+    Eigen::Vector3d H(0.5, -1.0, 0.5);
+    intersects = aperi::VectorElementIntersection(G, H, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 2);
+    EXPECT_EQ(exit_face, 0);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Intersects and exits on the top face
+    Eigen::Vector3d I(0.5, 0.5, -1.0);
+    Eigen::Vector3d J(0.5, 0.5, 2.0);
+    intersects = aperi::VectorElementIntersection(I, J, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 4);
+    EXPECT_EQ(exit_face, 5);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Intersects and exits on the bottom face
+    Eigen::Vector3d K(0.5, 0.5, 2.0);
+    Eigen::Vector3d L(0.5, 0.5, -1.0);
+    intersects = aperi::VectorElementIntersection(K, L, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, 5);
+    EXPECT_EQ(exit_face, 4);
+    EXPECT_EQ(entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+
+    // Check if the vector does not intersect the element
+    Eigen::Vector3d M(2.0, 2.0, 2.0);
+    Eigen::Vector3d N(3.0, 3.0, 3.0);
+    intersects = aperi::VectorElementIntersection(M, N, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_FALSE(intersects);
+    EXPECT_EQ(exit_face, -1);
+
+    // Intersects and exits on the right face, but starts inside the element
+    Eigen::Vector3d O(0.5, 0.5, 0.5);
+    Eigen::Vector3d P(1.5, 0.5, 0.5);
+    entry_face = -1;
+    exit_face = -1;
+    entry_distance = 0.0;
+    exit_distance = 0.0;
+    intersects = aperi::VectorElementIntersection(O, P, planes, entry_face, exit_face, entry_distance, exit_distance);
+    EXPECT_TRUE(intersects);
+    EXPECT_EQ(entry_face, -1);
+    EXPECT_EQ(exit_face, 1);
+    EXPECT_EQ(entry_distance, 0.0);
+    EXPECT_EQ(exit_distance, 0.5);
+}

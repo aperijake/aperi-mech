@@ -123,21 +123,8 @@ TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
     // Get the mesh data
     std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
-    // Get the coordinates of the first node
+    // Get the coordinates of the first node (will assert that at least one processor finds the node)
     aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.0, 0.0, 0.0));
-    // Parallel accumulate the neighbor index
-    std::vector<aperi::Index> node_indices(m_num_procs);
-    MPI_Allgather(&node_index, sizeof(aperi::Index), MPI_BYTE, node_indices.data(), sizeof(aperi::Index), MPI_BYTE, MPI_COMM_WORLD);
-
-    // Make sure one of the neighbor indices is valid
-    bool found_valid_index = false;
-    for (const auto& index : node_indices) {
-        if (index.IsValid()) {
-            found_valid_index = true;
-            break;
-        }
-    }
-    ASSERT_TRUE(found_valid_index) << "No valid neighbor index found";
 
     // Check that the node index is valid. The processor that owns the node will have a valid index
     if (node_index.IsValid()) {
@@ -175,7 +162,8 @@ TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndexAtCoordinates) {
     std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
 
     // Get the coordinates of the first node
-    aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.0, 0.0));
+    bool check_found = false;
+    aperi::Index node_index = GetNodeIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.0, 0.0), check_found);
 
     // Check that the node index is valid
     EXPECT_TRUE(node_index == aperi::Index::Invalid()) << "Node index is valid and should be invalid";

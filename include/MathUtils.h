@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <Kokkos_ArithTraits.hpp>
 #include <Kokkos_Core.hpp>
 #include <array>
@@ -257,6 +258,52 @@ KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::MatrixBase<T> &A) {
     // where the In are the principal invariants of A.
 
     return A(0, 0) + A(1, 1) + A(2, 2) - A(0, 1) * A(1, 0) * (1 + A(2, 2)) + A(0, 0) * A(1, 1) * (1 + A(2, 2)) - A(0, 2) * A(2, 0) * (1 + A(1, 1)) - A(1, 2) * A(2, 1) * (1 + A(0, 0)) + A(0, 0) * A(2, 2) + A(1, 1) * A(2, 2) + A(0, 1) * A(1, 2) * A(2, 0) + A(0, 2) * A(1, 0) * A(2, 1);
+}
+
+template <size_t NumFaces>
+KOKKOS_FUNCTION bool VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes, int &entry_face, int &exit_face, double &t_min, double &t_max) {
+    // Initialize
+    t_min = 0.0;
+    t_max = 1.0;
+    entry_face = -1;
+    exit_face = -1;
+
+    for (size_t i = 0; i < NumFaces; ++i) {
+        double distance_A = planes[i].signedDistance(A);
+        double distance_B = planes[i].signedDistance(B);
+
+        // Early exit if both points are outside
+        if (distance_A > 0 && distance_B > 0) {
+            entry_face = -1;
+            exit_face = -1;
+            return false;
+        }
+
+        if (distance_A * distance_B < 0) {  // Segment crosses the plane
+            double t = distance_A / (distance_A - distance_B);
+
+            if (distance_A > 0) {  // Entering the element
+                if (t > t_min) {
+                    t_min = t;
+                    entry_face = static_cast<int>(i);  // Track the entry face
+                }
+            } else {  // Exiting the element
+                if (t < t_max) {
+                    t_max = t;
+                    exit_face = static_cast<int>(i);  // Track the exit face
+                }
+            }
+        }
+
+        if (t_min > t_max) {
+            entry_face = -1;
+            exit_face = -1;
+            return false;
+        }
+    }
+
+    bool intersects = (t_min <= t_max) && (t_max >= 0) && (t_min <= 1);
+    return intersects;
 }
 
 }  // namespace aperi
