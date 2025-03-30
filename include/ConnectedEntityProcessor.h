@@ -22,6 +22,7 @@
 #include "MeshData.h"
 
 namespace aperi {
+using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
 
 class ConnectedEntityProcessor {
    public:
@@ -42,63 +43,34 @@ class ConnectedEntityProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
-    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetConnectedEntities(const stk::mesh::FastMeshIndex &entity_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &connected_indices) const {
+    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType>
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const stk::mesh::FastMeshIndex &entity_index) const {
         // Get the entities of the element
-        stk::mesh::NgpMesh::ConnectedEntities connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
-        size_t num_connected_entities = connected_entities.size();
-        KOKKOS_ASSERT(num_connected_entities <= MaxNumConnectedEntities);
-
-        // Get the node indices
-        for (size_t i = 0; i < num_connected_entities; ++i) {
-            connected_indices[i] = aperi::Index(m_ngp_mesh.fast_mesh_index(connected_entities[i]));
-        }
-
-        return num_connected_entities;
+        return m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetElementFaces(const aperi::Index &element_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &face_indices) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(element_index(), face_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementFaces(const aperi::Index &element_index) const {
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK>(element_index());
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetElementNodes(const aperi::Index &element_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &node_indices) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(element_index(), node_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementNodes(const aperi::Index &element_index) const {
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index());
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetFaceNodes(const aperi::Index &face_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &node_indices) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(face_index(), node_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceNodes(const aperi::Index &face_index) const {
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK>(face_index());
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetFaceElements(const aperi::Index &face_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &element_indices) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK, MaxNumConnectedEntities>(face_index(), element_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceElements(const aperi::Index &face_index) const {
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK>(face_index());
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetNodeElements(const aperi::Index &node_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &element_indices) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK, MaxNumConnectedEntities>(node_index(), element_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeElements(const aperi::Index &node_index) const {
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK>(node_index());
     }
 
-    template <size_t MaxNumConnectedEntities>
-    KOKKOS_INLINE_FUNCTION
-        size_t
-        GetNodeFaces(const aperi::Index &node_index, Kokkos::Array<aperi::Index, MaxNumConnectedEntities> &face_indices) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(node_index(), face_indices);
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeFaces(const aperi::Index &node_index) const {
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK>(node_index());
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>

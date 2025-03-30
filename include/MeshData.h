@@ -6,6 +6,7 @@
 #include <stk_mesh/base/Comm.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
@@ -16,6 +17,7 @@
 #include "AperiStkUtils.h"
 #include "Constants.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "LogUtils.h"
 
 namespace aperi {
@@ -27,11 +29,14 @@ class MeshData {
         if (m_bulk_data == nullptr) {
             throw std::runtime_error("Bulk data is null.");
         }
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     }
 
     stk::mesh::BulkData *GetBulkData() const { return m_bulk_data; }
 
     stk::mesh::MetaData *GetMetaData() const { return &m_bulk_data->mesh_meta_data(); }
+
+    aperi::Index GetIndex(stk::mesh::Entity entity) const { return m_ngp_mesh.fast_mesh_index(entity); }
 
     void UpdateFieldDataStates(bool rotate_device_states = false) { m_bulk_data->update_field_data_states(rotate_device_states); }
 
@@ -240,6 +245,7 @@ class MeshData {
 
    private:
     stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
+    stk::mesh::NgpMesh m_ngp_mesh;     // The ngp mesh object.
 };
 
 // Creation is in IoMesh as it knows about the mesh data (e.g. the bulk data and meta data).
