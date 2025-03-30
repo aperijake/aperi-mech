@@ -43,34 +43,58 @@ class ConnectedEntityProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
+    KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
+    }
+
+    template <size_t N>
+    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> ConnectedEntitiesToIndices(const aperi::ConnectedEntities &connected_entities) const {
+        KOKKOS_ASSERT(connected_entities.size() == N);
+        Kokkos::Array<aperi::Index, N> indices;
+        for (size_t i = 0; i < N; i++) {
+            indices[i] = GetEntityIndex(connected_entities[i]);
+        }
+        return indices;
+    }
+
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType>
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const stk::mesh::FastMeshIndex &entity_index) const {
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const aperi::Index &entity_index) const {
         // Get the entities of the element
-        return m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
+        return m_ngp_mesh.get_connected_entities(EntityType, entity_index(), ConnectedType);
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementFaces(const aperi::Index &element_index) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK>(element_index());
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK>(element_index);
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementNodes(const aperi::Index &element_index) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index());
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index);
+    }
+
+    template <size_t N>
+    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> GetElementNodeIndices(const aperi::Index &element_index) const {
+        return ConnectedEntitiesToIndices<N>(GetElementNodes(element_index));
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceNodes(const aperi::Index &face_index) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK>(face_index());
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK>(face_index);
+    }
+
+    template <size_t N>
+    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> GetFaceNodeIndices(const aperi::Index &face_index) const {
+        return ConnectedEntitiesToIndices<N>(GetFaceNodes(face_index));
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceElements(const aperi::Index &face_index) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK>(face_index());
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK>(face_index);
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeElements(const aperi::Index &node_index) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK>(node_index());
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK>(node_index);
     }
 
     KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeFaces(const aperi::Index &node_index) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK>(node_index());
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK>(node_index);
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
@@ -90,7 +114,7 @@ class ConnectedEntityProcessor {
                 // Get the node indices
                 Kokkos::Array<aperi::Index, MaxNumConnectedEntities> connected_indices;
                 for (size_t i = 0; i < num_connected_entities; ++i) {
-                    connected_indices[i] = aperi::Index(m_ngp_mesh.fast_mesh_index(connected_entities[i]));
+                    connected_indices[i] = GetEntityIndex(connected_entities[i]);
                 }
 
                 // Call the action function
