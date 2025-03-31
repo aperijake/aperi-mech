@@ -195,7 +195,7 @@ class DruckerPragerMaterial : public Material {
                     for (auto i = 0; i < 3; i++) {
                         for (auto j = 0; j < 3; j++) {
                             N(i, j) = Nz * Ez(i, j) + Ns * Es(i, j);
-                            M(i, j) = Nz * Ez(i, j) + Ns * Es(i, j);
+                            M(i, j) = Mz * Ez(i, j) + Ms * Es(i, j);
                         }
                     }
 
@@ -236,7 +236,8 @@ class DruckerPragerMaterial : public Material {
                         tau(i, j) += dtau(i, j);
                     }
                 }
-                double dz, ds;
+                double dz = 0.0;
+                double ds = 0.0;
                 Eigen::Matrix<double, 3, 3> EDS;
                 get_lode_components(dtau, dz, ds, EDS);
 

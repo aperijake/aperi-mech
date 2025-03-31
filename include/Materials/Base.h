@@ -20,6 +20,7 @@ enum MaterialType {
     NEO_HOOKEAN,    /**< Neo-Hookean material type */
     PLASTIC,        /**< Plastic material type */
     DRUCKER_PRAGER, /**< Drucker-Prager material type */
+    POWER_LAW_CREEP, /**< Power Law creep material type */
     NONE            /**< No material type */
 };
 
