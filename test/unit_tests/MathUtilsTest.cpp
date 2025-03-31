@@ -425,87 +425,79 @@ TEST(MathUtilsTest, ElementIntersects) {
     // Intersects and exits on the right face
     Eigen::Vector3d A(-1.0, 0.5, 0.5);
     Eigen::Vector3d B(2.0, 0.5, 0.5);
-    int entry_face = -1;
-    int exit_face = -1;
-    double entry_distance = 0.0;
-    double exit_distance = 0.0;
-    bool intersects = aperi::VectorElementIntersection(A, B, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 3);
-    EXPECT_EQ(exit_face, 1);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    aperi::VectorElementIntersectionData result = aperi::VectorElementIntersection(A, B, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 3);
+    EXPECT_EQ(result.exit_face, 1);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Intersects and exits on the left face
     Eigen::Vector3d C(2.0, 0.5, 0.5);
     Eigen::Vector3d D(-1.0, 0.5, 0.5);
-    intersects = aperi::VectorElementIntersection(C, D, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 1);
-    EXPECT_EQ(exit_face, 3);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    result = aperi::VectorElementIntersection(C, D, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 1);
+    EXPECT_EQ(result.exit_face, 3);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Intersects and exits on the front face
     Eigen::Vector3d E(0.5, -1.0, 0.5);
     Eigen::Vector3d F(0.5, 2.0, 0.5);
-    intersects = aperi::VectorElementIntersection(E, F, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 0);
-    EXPECT_EQ(exit_face, 2);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    result = aperi::VectorElementIntersection(E, F, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 0);
+    EXPECT_EQ(result.exit_face, 2);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Intersects and exits on the back face
     Eigen::Vector3d G(0.5, 2.0, 0.5);
     Eigen::Vector3d H(0.5, -1.0, 0.5);
-    intersects = aperi::VectorElementIntersection(G, H, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 2);
-    EXPECT_EQ(exit_face, 0);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    result = aperi::VectorElementIntersection(G, H, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 2);
+    EXPECT_EQ(result.exit_face, 0);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Intersects and exits on the top face
     Eigen::Vector3d I(0.5, 0.5, -1.0);
     Eigen::Vector3d J(0.5, 0.5, 2.0);
-    intersects = aperi::VectorElementIntersection(I, J, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 4);
-    EXPECT_EQ(exit_face, 5);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    result = aperi::VectorElementIntersection(I, J, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 4);
+    EXPECT_EQ(result.exit_face, 5);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Intersects and exits on the bottom face
     Eigen::Vector3d K(0.5, 0.5, 2.0);
     Eigen::Vector3d L(0.5, 0.5, -1.0);
-    intersects = aperi::VectorElementIntersection(K, L, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, 5);
-    EXPECT_EQ(exit_face, 4);
-    EXPECT_EQ(entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(exit_distance, 2.0 / 3.0);
+    result = aperi::VectorElementIntersection(K, L, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 5);
+    EXPECT_EQ(result.exit_face, 4);
+    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
+    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
 
     // Check if the vector does not intersect the element
     Eigen::Vector3d M(2.0, 2.0, 2.0);
     Eigen::Vector3d N(3.0, 3.0, 3.0);
-    intersects = aperi::VectorElementIntersection(M, N, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_FALSE(intersects);
-    EXPECT_EQ(exit_face, -1);
+    result = aperi::VectorElementIntersection(M, N, planes);
+    EXPECT_FALSE(result.intersects);
+    EXPECT_EQ(result.exit_face, -1);
 
     // Intersects and exits on the right face, but starts inside the element
     Eigen::Vector3d O(0.5, 0.5, 0.5);
     Eigen::Vector3d P(1.5, 0.5, 0.5);
-    entry_face = -1;
-    exit_face = -1;
-    entry_distance = 0.0;
-    exit_distance = 0.0;
-    intersects = aperi::VectorElementIntersection(O, P, planes, entry_face, exit_face, entry_distance, exit_distance);
-    EXPECT_TRUE(intersects);
-    EXPECT_EQ(entry_face, -1);
-    EXPECT_EQ(exit_face, 1);
-    EXPECT_EQ(entry_distance, 0.0);
-    EXPECT_EQ(exit_distance, 0.5);
+    result = aperi::VectorElementIntersection(O, P, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, -1);
+    EXPECT_EQ(result.exit_face, 1);
+    EXPECT_EQ(result.entry_distance, 0.0);
+    EXPECT_EQ(result.exit_distance, 0.5);
 }
 
 // Test the NearPoint function
