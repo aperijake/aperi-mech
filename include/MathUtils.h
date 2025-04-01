@@ -270,39 +270,90 @@ struct VectorElementIntersectionData {
 
 template <size_t NumFaces>
 KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes) {
+    KOKKOS_ASSERT(NumFaces > 0);
+    KOKKOS_ASSERT((B - A).norm() > 1e-12);  // Ensure A and B are not the same point
+
     VectorElementIntersectionData result;
+    bool all_a_inside = true;
+    bool all_b_inside = true;
+    bool has_crossing = false;
 
     for (size_t i = 0; i < NumFaces; ++i) {
-        double distance_A = planes[i].signedDistance(A);
-        double distance_B = planes[i].signedDistance(B);
+        const double distance_A = planes[i].signedDistance(A);
+        const double distance_B = planes[i].signedDistance(B);
 
-        // Early exit if both points are outside
-        if (distance_A > 0 && distance_B > 0) {
-            return VectorElementIntersectionData();
+        // Track if both endpoints are inside all planes
+        all_a_inside &= (distance_A <= 0);
+        all_b_inside &= (distance_B <= 0);
+
+        // Handle zero-distance cases first
+        if (distance_A == 0 || distance_B == 0) {
+            const bool a_on_face = (distance_A == 0);
+            const bool b_on_face = (distance_B == 0);
+
+            if (a_on_face && b_on_face) {
+                // Entire segment lies on this face
+                result.intersects = true;
+                result.entry_face = result.exit_face = static_cast<int>(i);
+                return result;
+            } else if (a_on_face) {
+                if (distance_B < 0) {  // Entering at A
+                    if (0.0 > result.entry_distance) {
+                        result.entry_distance = 0.0;
+                        result.entry_face = static_cast<int>(i);
+                    }
+                } else {  // Exiting at A
+                    if (0.0 < result.exit_distance) {
+                        result.exit_distance = 0.0;
+                        result.exit_face = static_cast<int>(i);
+                    }
+                }
+            } else if (b_on_face) {
+                if (distance_A < 0) {  // Exiting at B
+                    if (1.0 < result.exit_distance) {
+                        result.exit_distance = 1.0;
+                        result.exit_face = static_cast<int>(i);
+                    }
+                } else {  // Entering at B
+                    if (1.0 > result.entry_distance) {
+                        result.entry_distance = 1.0;
+                        result.entry_face = static_cast<int>(i);
+                    }
+                }
+            }
+            continue;
         }
 
-        if (distance_A * distance_B < 0) {  // Segment crosses the plane
-            double t = distance_A / (distance_A - distance_B);
+        // Handle standard crossing case
+        if (distance_A * distance_B < 0) {
+            has_crossing = true;
+            const double t = distance_A / (distance_A - distance_B);
 
-            if (distance_A > 0) {  // Entering the element
+            if (distance_A > 0) {  // Entering element
                 if (t > result.entry_distance) {
                     result.entry_distance = t;
-                    result.entry_face = static_cast<int>(i);  // Track the entry face
+                    result.entry_face = static_cast<int>(i);
                 }
-            } else {  // Exiting the element
+            } else {  // Exiting element
                 if (t < result.exit_distance) {
                     result.exit_distance = t;
-                    result.exit_face = static_cast<int>(i);  // Track the exit face
+                    result.exit_face = static_cast<int>(i);
                 }
             }
         }
-
-        if (result.entry_distance > result.exit_distance) {
-            return VectorElementIntersectionData();
-        }
     }
 
-    result.intersects = (result.entry_distance <= result.exit_distance) && (result.exit_distance >= 0) && (result.entry_distance <= 1);
+    // Final determination
+    const bool contained = all_a_inside && all_b_inside;
+    const bool valid_crossing = has_crossing && (result.entry_distance <= result.exit_distance) && (result.exit_distance >= 0) && (result.entry_distance <= 1);
+
+    result.intersects = contained || valid_crossing;
+
+    if (contained) {
+        result.entry_distance = 0.0;
+        result.exit_distance = 1.0;
+    }
+
     return result;
 }
 
