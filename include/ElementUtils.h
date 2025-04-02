@@ -39,6 +39,7 @@ KOKKOS_INLINE_FUNCTION Kokkos::Array<size_t, 4> GetHexFaceIndices(const int face
      * |/      |/      /
      * 0-------1      -y
      */
+    KOKKOS_ASSERT(face_index >= 0 && face_index < 6);
     Kokkos::Array<size_t, 4> face_indices;
     switch (face_index) {
         case 0:
@@ -67,6 +68,7 @@ KOKKOS_INLINE_FUNCTION Kokkos::Array<size_t, 4> GetHexFaceIndices(const int face
 }
 
 KOKKOS_INLINE_FUNCTION void ExtractHexFaceNodesAndCoordinates(const int face_id, const Kokkos::Array<aperi::Index, 8>& nodes, const Kokkos::Array<Eigen::Vector3d, 8>& coordinates, Kokkos::Array<aperi::Index, 4>& face_nodes, Kokkos::Array<Eigen::Vector3d, 4>& face_coordinates) {
+    KOKKOS_ASSERT(face_id >= 0 && face_id < 6);
     // Get the face indices
     const Kokkos::Array<size_t, 4> face_indices = aperi::GetHexFaceIndices(face_id);
 
