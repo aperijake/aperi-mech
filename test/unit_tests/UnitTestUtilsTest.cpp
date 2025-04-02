@@ -205,11 +205,6 @@ TEST_F(UnitTestUtilsTestFixture, FindElementIndexAtCoordinates) {
 
     // Get the coordinates of the first element (will assert that at least one processor finds the element)
     aperi::Index element_index = GetElementIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.5, 0.5));
-    // Check that the element index is valid. The processor that owns the element will have a valid index
-    if (element_index.IsValid()) {
-        // Check that the element index is correct
-        EXPECT_EQ(element_index, aperi::Index(0, 0));
-    }
 
     // Check that the element index is valid. The processor that owns the element will have a valid index
     if (element_index.IsValid()) {
@@ -235,4 +230,32 @@ TEST_F(UnitTestUtilsTestFixture, FindElementIndexAtCoordinates) {
         // Check that the node index is correct
         EXPECT_EQ(element_index, aperi::Index(0, 0));
     }
+}
+
+TEST_F(UnitTestUtilsTestFixture, DestroyElementAtCoordinates) {
+    // Write the mesh
+    m_mesh_string = "1x1x" + std::to_string(m_num_procs);
+    WriteMesh();
+
+    // Get the mesh data
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Get the coordinates of the first element (will assert that at least one processor finds the element)
+    aperi::Index element_index = GetElementIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.5, 0.5));
+    // Check that the element index is valid. The processor that owns the element will have a valid index
+    if (element_index.IsValid()) {
+        // Check that the element index is correct
+        EXPECT_EQ(element_index, aperi::Index(0, 0));
+    }
+
+    // Destroy the element
+    bool check_found = false;
+    DeleteElementAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.5, 0.5), check_found);
+
+    // Check that the element index is invalid
+    element_index = GetElementIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.5, 0.5), check_found);
+    EXPECT_EQ(element_index, aperi::Index::Invalid());
+
+    // Expect that the total number of elements is reduced by 1
+    CheckNumElementsInPart("block_1", m_num_procs - 1);
 }

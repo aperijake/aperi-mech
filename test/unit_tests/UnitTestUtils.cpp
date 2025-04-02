@@ -7,6 +7,7 @@
 #include <fstream>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Comm.hpp>
+#include <stk_mesh/base/DestroyElements.hpp>
 #include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
@@ -545,9 +546,8 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
     return node_index;
 }
 
-aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
+stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
     // Get the bulk data
-    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
     stk::mesh::MetaData& meta = *mesh_data.GetMetaData();
     stk::mesh::Part* p_part = meta.get_part(part_name);
     assert(p_part != nullptr);
@@ -557,7 +557,7 @@ aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, cons
     stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
 
     bool found = false;
-    aperi::Index element_index;
+    stk::mesh::Entity found_element;
 
     // Loop over the elements in the part
     for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::ELEM_RANK)) {
@@ -581,17 +581,17 @@ aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, cons
 
             // Check if the coordinates match
             if ((element_centroid - coordinates).norm() < 1.0e-12) {
-                // If the coordinates match, return the element index
-                const stk::mesh::MeshIndex& mesh_index = bulk.mesh_index(element);
-                aperi::Index element_index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
-                return element_index;
+                // If the coordinates match, return the element
+                found = true;
+                found_element = element;
+                break;
             }
         }
     }
 
     if (!found) {
-        // If no element was found, return an invalid index
-        element_index = aperi::Index::Invalid();
+        // If no element was found, return an invalid entity
+        found_element = stk::mesh::Entity();
     }
 
     if (check_found) {
@@ -601,5 +601,25 @@ aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, cons
         EXPECT_TRUE(found_global) << "Element not found at coordinates " << coordinates.transpose() << " in part " << part_name;
     }
 
+    return found_element;
+}
+
+aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
+    stk::mesh::Entity element = GetElementAtCoordinates(mesh_data, part_name, coordinates, check_found);
+    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    aperi::Index element_index;
+    if (bulk.is_valid(element)) {
+        const stk::mesh::MeshIndex& mesh_index = bulk.mesh_index(element);
+        element_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+    } else {
+        element_index = aperi::Index::Invalid();
+    }
     return element_index;
+}
+
+void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
+    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    stk::mesh::Entity entity_to_delete = GetElementAtCoordinates(mesh_data, part_name, coordinates, check_found);
+    stk::mesh::EntityVector elements_to_delete = {entity_to_delete};
+    stk::mesh::destroy_elements(bulk, elements_to_delete);
 }

@@ -2,18 +2,21 @@
 
 #include <stdexcept>
 #include <stk_io/IossBridge.hpp>
+#include <stk_mesh/base/Entity.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/FieldState.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
+#include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
 #include <string>
 #include <vector>
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "LogUtils.h"
 
 namespace aperi {
@@ -137,6 +140,11 @@ inline bool StkFieldExistsOn(const FieldQueryData<T> &field_query_data, const st
         return false;
     }
     return field->defined_on(*part);
+}
+
+inline aperi::Index EntityToIndex(stk::mesh::Entity entity, stk::mesh::BulkData &bulk) {
+    const stk::mesh::MeshIndex &mesh_index = bulk.mesh_index(entity);
+    return aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
 }
 
 }  // namespace aperi

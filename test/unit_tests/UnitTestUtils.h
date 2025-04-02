@@ -56,6 +56,8 @@ size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string&
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
+stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
+void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
