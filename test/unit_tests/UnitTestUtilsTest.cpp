@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "ConnectedEntityProcessor.h"
 #include "Constants.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -114,6 +115,30 @@ struct GetCoordinatesFunctor {
     }
 };
 
+struct GetElementCentroidFunctor {
+    aperi::Field<double> coordinates_field;
+    aperi::Index element_index;
+    Kokkos::View<double*> coordinates_view;
+    aperi::ConnectedEntityProcessor processor;
+
+    GetElementCentroidFunctor(const aperi::Field<double>& field, const aperi::Index& idx, Kokkos::View<double*> view)
+        : coordinates_field(field), element_index(idx), coordinates_view(view), processor(field.GetMeshData(), {}) {}
+
+    KOKKOS_FUNCTION void operator()(const int&) const {
+        // Get the element nodes
+        Kokkos::Array<aperi::Index, 8> connected_nodes = processor.GetElementNodeIndices<8>(element_index);
+        // Compute the centroid
+        Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+        for (size_t i = 0; i < 8; ++i) {
+            centroid += Eigen::Vector3d(coordinates_field(connected_nodes[i], 0), coordinates_field(connected_nodes[i], 1), coordinates_field(connected_nodes[i], 2));
+        }
+        centroid /= 8.0;
+        coordinates_view(0) = centroid(0);
+        coordinates_view(1) = centroid(1);
+        coordinates_view(2) = centroid(2);
+    }
+};
+
 // Test find node index at coordinates
 TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
     // Write the mesh
@@ -167,4 +192,47 @@ TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndexAtCoordinates) {
 
     // Check that the node index is valid
     EXPECT_TRUE(node_index == aperi::Index::Invalid()) << "Node index is valid and should be invalid";
+}
+
+// Test find element index at coordinates
+TEST_F(UnitTestUtilsTestFixture, FindElementIndexAtCoordinates) {
+    // Write the mesh
+    m_mesh_string = "1x1x" + std::to_string(m_num_procs);
+    WriteMesh();
+
+    // Get the mesh data
+    std::shared_ptr<aperi::MeshData> mesh_data = m_io_mesh->GetMeshData();
+
+    // Get the coordinates of the first element (will assert that at least one processor finds the element)
+    aperi::Index element_index = GetElementIndexAtCoordinates(*mesh_data, "block_1", Eigen::Vector3d(0.5, 0.5, 0.5));
+    // Check that the element index is valid. The processor that owns the element will have a valid index
+    if (element_index.IsValid()) {
+        // Check that the element index is correct
+        EXPECT_EQ(element_index, aperi::Index(0, 0));
+    }
+
+    // Check that the element index is valid. The processor that owns the element will have a valid index
+    if (element_index.IsValid()) {
+        // Get the coordinates field
+        aperi::Field coordinates_field = aperi::Field<double>(mesh_data, aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+        Kokkos::View<double*> coordinates_view("found_element_centroid", 3);
+        Kokkos::View<double*>::HostMirror coordinates_view_host = Kokkos::create_mirror_view(coordinates_view);
+
+        // Get the coordinates of the node
+        GetElementCentroidFunctor get_coordinates_functor(coordinates_field, element_index, coordinates_view);
+        Kokkos::parallel_for("GetElementCentroid", 1, get_coordinates_functor);
+
+        Eigen::Matrix<double, 1, 3> element_coords;
+        Kokkos::deep_copy(coordinates_view_host, coordinates_view);
+        element_coords = Eigen::Map<Eigen::Matrix<double, 1, 3>>(coordinates_view_host.data());
+
+        // Check that the coordinates are correct
+        EXPECT_NEAR(element_coords(0, 0), 0.5, 1.0e-12);
+        EXPECT_NEAR(element_coords(0, 1), 0.5, 1.0e-12);
+        EXPECT_NEAR(element_coords(0, 2), 0.5, 1.0e-12);
+
+        // Check that the node index is correct
+        EXPECT_EQ(element_index, aperi::Index(0, 0));
+    }
 }

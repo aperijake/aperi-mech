@@ -544,3 +544,62 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
 
     return node_index;
 }
+
+aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
+    // Get the bulk data
+    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    stk::mesh::MetaData& meta = *mesh_data.GetMetaData();
+    stk::mesh::Part* p_part = meta.get_part(part_name);
+    assert(p_part != nullptr);
+    stk::mesh::Selector selector(*p_part);
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    bool found = false;
+    aperi::Index element_index;
+
+    // Loop over the elements in the part
+    for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::ELEM_RANK)) {
+        // Loop over each entity in the bucket
+        for (size_t i_entity = 0; i_entity < p_bucket->size(); i_entity++) {
+            // Get the nodes of the element
+            stk::mesh::Entity element = (*p_bucket)[i_entity];
+            const stk::mesh::Entity* nodes = p_bucket->begin_nodes(i_entity);
+            size_t num_nodes = p_bucket->num_nodes(i_entity);
+            Eigen::Vector3d element_centroid(0.0, 0.0, 0.0);
+            // Loop over the nodes of the element
+            for (size_t i_node = 0; i_node < num_nodes; ++i_node) {
+                // Get the node
+                stk::mesh::Entity node = nodes[i_node];
+                double* p_node_coords = stk::mesh::field_data(coordinates_field, node);
+                Eigen::Vector3d node_coordinates(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
+                element_centroid += node_coordinates;
+            }
+            // Get the centroid of the element
+            element_centroid /= num_nodes;
+
+            // Check if the coordinates match
+            if ((element_centroid - coordinates).norm() < 1.0e-12) {
+                // If the coordinates match, return the element index
+                const stk::mesh::MeshIndex& mesh_index = bulk.mesh_index(element);
+                aperi::Index element_index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+                return element_index;
+            }
+        }
+    }
+
+    if (!found) {
+        // If no element was found, return an invalid index
+        element_index = aperi::Index::Invalid();
+    }
+
+    if (check_found) {
+        // Parallel communicate found to make sure one rank found the node
+        bool found_global = false;
+        MPI_Allreduce(&found, &found_global, 1, MPI_CXX_BOOL, MPI_LOR, MPI_COMM_WORLD);
+        EXPECT_TRUE(found_global) << "Element not found at coordinates " << coordinates.transpose() << " in part " << part_name;
+    }
+
+    return element_index;
+}
