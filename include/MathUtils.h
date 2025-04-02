@@ -264,8 +264,8 @@ struct VectorElementIntersectionData {
     bool intersects = false;
     int entry_face = -1;
     int exit_face = -1;
-    double entry_distance = 0.0;
-    double exit_distance = 1.0;
+    double entry_distance = -1.0;
+    double exit_distance = 2.0;
 };
 
 template <size_t NumFaces>
@@ -294,8 +294,14 @@ KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Ei
             if (a_on_face && b_on_face) {
                 // Entire segment lies on this face
                 result.intersects = true;
-                result.entry_face = result.exit_face = static_cast<int>(i);
-                return result;
+                // Do not adjust entry/exit distances. Let other faces determine them.
+                // Only set entry/exit faces if they are not already set
+                if (result.entry_face == -1) {
+                    result.entry_face = static_cast<int>(i);
+                }
+                if (result.exit_face == -1) {
+                    result.exit_face = static_cast<int>(i);
+                }
             } else if (a_on_face) {
                 if (distance_B < 0) {  // Entering at A
                     if (0.0 > result.entry_distance) {

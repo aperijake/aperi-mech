@@ -496,8 +496,18 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, -1);
     EXPECT_EQ(result.exit_face, 1);
-    EXPECT_EQ(result.entry_distance, 0.0);
+    EXPECT_EQ(result.entry_distance, -1.0);
     EXPECT_EQ(result.exit_distance, 0.5);
+
+    // Is all on the left face, but enters on the bottom face and exits on the top face
+    Eigen::Vector3d Q(0.0, 0.1, 0.0);
+    Eigen::Vector3d R(0.0, 0.9, 1.0);
+    result = aperi::VectorElementIntersection(Q, R, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.entry_face, 4);
+    EXPECT_EQ(result.exit_face, 5);
+    EXPECT_EQ(result.entry_distance, 0.0);
+    EXPECT_EQ(result.exit_distance, 1.0);
 }
 
 // Test the NearPoint function
