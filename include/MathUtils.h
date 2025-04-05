@@ -372,6 +372,43 @@ KOKKOS_INLINE_FUNCTION bool NearEdge(const Eigen::Vector3d &point, const Eigen::
 }
 
 /**
+ * @brief Check if two points are close to each other.
+ * @param point The first point.
+ * @param other_points The second point.
+ * @param tolerance The tolerance for closeness.
+ * @return True if the points are close, false otherwise.
+ */
+KOKKOS_INLINE_FUNCTION bool PointsAreClose(const Eigen::Vector3d &point, const Eigen::Vector3d &other_points, double tolerance = 1.0e-6) {
+    return (point - other_points).squaredNorm() <= tolerance;
+}
+
+/**
+ * @brief Calculate the squared radius of a ball that contains a list of points.
+ * @tparam MaxNumPoints The maximum number of points.
+ * @param points The list of points to check.
+ * @param num_points The actual number of points in the list to check.
+ * @return The squared radius of the ball that contains the points.
+ * @note The function assumes that the points are in 3D space.
+ */
+template <size_t MaxNumPoints>
+KOKKOS_INLINE_FUNCTION double CalculateSquaredRadius(const Kokkos::Array<Eigen::Vector3d, MaxNumPoints> &points, size_t num_points = MaxNumPoints) {
+    // Calculate the center of the points
+    Eigen::Vector3d center = Eigen::Vector3d::Zero();
+    for (size_t i = 0; i < num_points; ++i) {
+        center += points[i];
+    }
+    center /= num_points;
+
+    // Calculate the ball radius
+    double radius_squared = 0.0;
+    for (size_t i = 0; i < num_points; ++i) {
+        radius_squared = Kokkos::max(radius_squared, (points[i] - center).squaredNorm());
+    }
+
+    return radius_squared;
+}
+
+/**
  * @brief Check if a point is near another point from a list of points.
  * @param point The point to check.
  * @param points The list of points to check against.
@@ -380,23 +417,12 @@ KOKKOS_INLINE_FUNCTION bool NearEdge(const Eigen::Vector3d &point, const Eigen::
  */
 template <size_t NumPoints>
 KOKKOS_INLINE_FUNCTION int NearPoint(const Eigen::Vector3d &point, const Kokkos::Array<Eigen::Vector3d, NumPoints> &points, double relative_tolerance = 1.0e-6) {
-    // Calculate the center of the points
-    Eigen::Vector3d center = Eigen::Vector3d::Zero();
-    for (size_t i = 0; i < NumPoints; ++i) {
-        center += points[i];
-    }
-    center /= NumPoints;
+    // Calculate the absolute tolerance
+    double tolerance = relative_tolerance * CalculateSquaredRadius(points);
 
-    // Calculate the ball radius
-    double radius_squared = 0.0;
+    // Check if the point is close to any point in the list
     for (size_t i = 0; i < NumPoints; ++i) {
-        radius_squared = Kokkos::max(radius_squared, (points[i] - center).squaredNorm());
-    }
-
-    double tolerance = relative_tolerance * radius_squared;
-
-    for (size_t i = 0; i < NumPoints; ++i) {
-        if ((point - points[i]).squaredNorm() <= tolerance) {
+        if (PointsAreClose(point, points[i], tolerance)) {
             return static_cast<int>(i);
         }
     }
