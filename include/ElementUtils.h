@@ -91,7 +91,43 @@ KOKKOS_INLINE_FUNCTION Kokkos::Array<size_t, 4> GetHexFaceIndices(const int face
     return face_indices;
 }
 
-KOKKOS_INLINE_FUNCTION void ExtractHexFaceNodesAndCoordinates(const int face_id, const Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES>& nodes, const Kokkos::Array<Eigen::Vector3d, aperi::MAX_ELEMENT_NUM_NODES>& coordinates, Kokkos::Array<aperi::Index, 4>& face_nodes, Kokkos::Array<Eigen::Vector3d, 4>& face_coordinates) {
+KOKKOS_INLINE_FUNCTION Kokkos::Array<size_t, 3> GetTetFaceIndices(const int face_index) {
+    /*
+      Nodes:
+        0:  0,  0,  0
+        1:  1,  0,  0
+        2:  0,  1,  0
+        3:  0,  0,  1
+
+      Faces:
+        0: 0, 1, 3
+        1: 1, 2, 3
+        2: 0, 3, 2
+        3: 0, 2, 1
+     */
+    KOKKOS_ASSERT(face_index >= 0 && face_index < 4);
+    Kokkos::Array<size_t, 3> face_indices;
+    switch (face_index) {
+        case 0:
+            face_indices = {0, 1, 3};
+            break;
+        case 1:
+            face_indices = {1, 2, 3};
+            break;
+        case 2:
+            face_indices = {0, 3, 2};
+            break;
+        case 3:
+            face_indices = {0, 2, 1};
+            break;
+        default:
+            KOKKOS_ASSERT(false);
+            break;
+    }
+    return face_indices;
+}
+
+KOKKOS_INLINE_FUNCTION void ExtractHexFaceNodesAndCoordinates(const int face_id, const Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES>& nodes, const Kokkos::Array<Eigen::Vector3d, aperi::MAX_ELEMENT_NUM_NODES>& coordinates, Kokkos::Array<aperi::Index, aperi::MAX_FACE_NUM_NODES>& face_nodes, Kokkos::Array<Eigen::Vector3d, aperi::MAX_FACE_NUM_NODES>& face_coordinates) {
     KOKKOS_ASSERT(face_id >= 0 && face_id < 6);
     // Get the face indices
     const Kokkos::Array<size_t, 4> face_indices = aperi::GetHexFaceIndices(face_id);
@@ -99,6 +135,28 @@ KOKKOS_INLINE_FUNCTION void ExtractHexFaceNodesAndCoordinates(const int face_id,
     for (size_t i = 0; i < 4; i++) {
         face_nodes[i] = nodes[face_indices[i]];
         face_coordinates[i] = coordinates[face_indices[i]];
+    }
+}
+
+KOKKOS_INLINE_FUNCTION void ExtractTetFaceNodesAndCoordinates(const int face_id, const Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES>& nodes, const Kokkos::Array<Eigen::Vector3d, aperi::MAX_ELEMENT_NUM_NODES>& coordinates, Kokkos::Array<aperi::Index, aperi::MAX_FACE_NUM_NODES>& face_nodes, Kokkos::Array<Eigen::Vector3d, aperi::MAX_FACE_NUM_NODES>& face_coordinates) {
+    KOKKOS_ASSERT(face_id >= 0 && face_id < 4);
+    // Get the face indices
+    const Kokkos::Array<size_t, 3> face_indices = aperi::GetTetFaceIndices(face_id);
+
+    for (size_t i = 0; i < 3; i++) {
+        face_nodes[i] = nodes[face_indices[i]];
+        face_coordinates[i] = coordinates[face_indices[i]];
+    }
+}
+
+KOKKOS_INLINE_FUNCTION void ExtractElementFaceNodesAndCoordinates(const int face_id, const Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES>& nodes, const Kokkos::Array<Eigen::Vector3d, aperi::MAX_ELEMENT_NUM_NODES>& coordinates, Kokkos::Array<aperi::Index, aperi::MAX_FACE_NUM_NODES>& face_nodes, Kokkos::Array<Eigen::Vector3d, aperi::MAX_FACE_NUM_NODES>& face_coordinates, const size_t actual_element_num_nodes) {
+    if (actual_element_num_nodes == 8) {
+        ExtractHexFaceNodesAndCoordinates(face_id, nodes, coordinates, face_nodes, face_coordinates);
+    } else if (actual_element_num_nodes == 4) {
+        ExtractTetFaceNodesAndCoordinates(face_id, nodes, coordinates, face_nodes, face_coordinates);
+    } else {
+        printf("Invalid number of nodes for element. Number of nodes: %zu\n", actual_element_num_nodes);
+        Kokkos::abort("Invalid number of nodes for element. Only hex and tet elements are supported.");
     }
 }
 
@@ -132,10 +190,11 @@ KOKKOS_INLINE_FUNCTION Kokkos::Array<Eigen::Hyperplane<double, 3>, aperi::MAX_EL
     */
 
     Kokkos::Array<Eigen::Hyperplane<double, 3>, aperi::MAX_ELEMENT_NUM_FACES> planes;
-    planes[0] = Eigen::Hyperplane<double, 3>::Through(coordinates[0], coordinates[1], coordinates[3]);
-    planes[1] = Eigen::Hyperplane<double, 3>::Through(coordinates[1], coordinates[2], coordinates[3]);
-    planes[2] = Eigen::Hyperplane<double, 3>::Through(coordinates[0], coordinates[3], coordinates[2]);
-    planes[3] = Eigen::Hyperplane<double, 3>::Through(coordinates[0], coordinates[2], coordinates[1]);
+    // Reverse the order of the points to get the correct normal direction
+    planes[0] = Eigen::Hyperplane<double, 3>::Through(coordinates[3], coordinates[1], coordinates[0]);
+    planes[1] = Eigen::Hyperplane<double, 3>::Through(coordinates[3], coordinates[2], coordinates[1]);
+    planes[2] = Eigen::Hyperplane<double, 3>::Through(coordinates[2], coordinates[3], coordinates[0]);
+    planes[3] = Eigen::Hyperplane<double, 3>::Through(coordinates[1], coordinates[2], coordinates[0]);
 
     return planes;
 }

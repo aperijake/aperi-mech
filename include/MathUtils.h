@@ -274,11 +274,13 @@ struct VectorElementIntersectionData {
  * @param A The start point of the vector.
  * @param B The end point of the vector.
  * @param planes The planes to check against.
+ * @param actual_num_faces The actual number of faces to check against.
  * @return A VectorElementIntersectionData structure containing the intersection data.
  */
 template <size_t NumFaces>
-KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes) {
+KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes, size_t actual_num_faces = NumFaces) {
     KOKKOS_ASSERT(NumFaces > 0);
+    KOKKOS_ASSERT(actual_num_faces <= NumFaces);
     VectorElementIntersectionData result;
     const Eigen::Vector3d dir = B - A;
     const double length = dir.norm();
@@ -291,7 +293,7 @@ KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Ei
     int entry_face = -1;
     int exit_face = -1;
 
-    for (size_t i = 0; i < NumFaces; ++i) {
+    for (size_t i = 0; i < actual_num_faces; ++i) {
         const auto &plane = planes[i];
         const double S_A = plane.signedDistance(A);
         const double S_B = plane.signedDistance(B);
