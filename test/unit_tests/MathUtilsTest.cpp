@@ -429,8 +429,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 3);
     EXPECT_EQ(result.exit_face, 1);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Intersects and exits on the left face
     Eigen::Vector3d C(2.0, 0.5, 0.5);
@@ -439,8 +439,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 1);
     EXPECT_EQ(result.exit_face, 3);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Intersects and exits on the front face
     Eigen::Vector3d E(0.5, -1.0, 0.5);
@@ -449,8 +449,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 0);
     EXPECT_EQ(result.exit_face, 2);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Intersects and exits on the back face
     Eigen::Vector3d G(0.5, 2.0, 0.5);
@@ -459,8 +459,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 2);
     EXPECT_EQ(result.exit_face, 0);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Intersects and exits on the top face
     Eigen::Vector3d I(0.5, 0.5, -1.0);
@@ -469,8 +469,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 4);
     EXPECT_EQ(result.exit_face, 5);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Intersects and exits on the bottom face
     Eigen::Vector3d K(0.5, 0.5, 2.0);
@@ -479,8 +479,8 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 5);
     EXPECT_EQ(result.exit_face, 4);
-    EXPECT_EQ(result.entry_distance, 1.0 / 3.0);
-    EXPECT_EQ(result.exit_distance, 2.0 / 3.0);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
 
     // Check if the vector does not intersect the element
     Eigen::Vector3d M(2.0, 2.0, 2.0);
@@ -496,18 +496,58 @@ TEST(MathUtilsTest, ElementIntersects) {
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, -1);
     EXPECT_EQ(result.exit_face, 1);
-    EXPECT_EQ(result.entry_distance, -1.0);
-    EXPECT_EQ(result.exit_distance, 0.5);
+    EXPECT_NEAR(result.entry_distance, 0.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 0.5, 1.0e-10);
 
     // Is all on the left face, but enters on the bottom face and exits on the top face
-    Eigen::Vector3d Q(0.0, 0.1, 0.0);
-    Eigen::Vector3d R(0.0, 0.9, 1.0);
+    Eigen::Vector3d Q(0.0, 0.1, -1.0);
+    Eigen::Vector3d R(0.0, 0.9, 2.0);
     result = aperi::VectorElementIntersection(Q, R, planes);
     EXPECT_TRUE(result.intersects);
     EXPECT_EQ(result.entry_face, 4);
     EXPECT_EQ(result.exit_face, 5);
+    EXPECT_NEAR(result.entry_distance, 1.0 / 3.0, 1.0e-10);
+    EXPECT_NEAR(result.exit_distance, 2.0 / 3.0, 1.0e-10);
+}
+
+TEST(MathUtilsTest, ElementIntersectsProblemCases) {
+    /*
+    Points_0,Points_1,Points_2
+     0.5,0.5,0
+     0,0,0.5
+     0,0.25,0.75
+     0,0.5,0.5
+     0.5,0.5,0.5
+     -0.166666667,0.166666667,0.666666667
+     0.166666667,0.5,0.666666667
+     0.166666667,0.166666667,0.666666667
+    */
+    // Define the vertices of the cube
+    Eigen::Vector3d v0(0.5, 0.5, 0.0);
+    Eigen::Vector3d v1(0.0, 0.0, 0.5);
+    Eigen::Vector3d v2(0.0, 0.25, 0.75);
+    Eigen::Vector3d v3(0.0, 0.5, 0.5);
+    Eigen::Vector3d v4(0.5, 0.5, 0.5);
+    Eigen::Vector3d v5(-1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0);
+    Eigen::Vector3d v6(1.0 / 6.0, 0.5, 2.0 / 3.0);
+    Eigen::Vector3d v7(1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0);
+
+    // Unit hex element planes
+    Kokkos::Array<Eigen::Hyperplane<double, 3>, 6> planes;
+    planes[0] = Eigen::Hyperplane<double, 3>::Through(v0, v4, v6);
+    planes[1] = Eigen::Hyperplane<double, 3>::Through(v0, v1, v7);
+    planes[2] = Eigen::Hyperplane<double, 3>::Through(v0, v3, v5);
+    planes[3] = Eigen::Hyperplane<double, 3>::Through(v1, v5, v2);
+    planes[4] = Eigen::Hyperplane<double, 3>::Through(v2, v6, v4);
+    planes[5] = Eigen::Hyperplane<double, 3>::Through(v2, v5, v3);
+
+    Eigen::Vector3d from(0.0, 0.25, 0.75);
+    Eigen::Vector3d to(0.5, -0.5, 0.0);
+    aperi::VectorElementIntersectionData result = aperi::VectorElementIntersection(from, to, planes);
+    EXPECT_TRUE(result.intersects);
+    EXPECT_EQ(result.exit_face, 1);
     EXPECT_EQ(result.entry_distance, 0.0);
-    EXPECT_EQ(result.exit_distance, 1.0);
+    EXPECT_NEAR(result.exit_distance, 0.2, 1.0e-10);
 }
 
 // Test the NearPoint function

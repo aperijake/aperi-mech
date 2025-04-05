@@ -268,97 +268,78 @@ struct VectorElementIntersectionData {
     double exit_distance = 2.0;
 };
 
+/**
+ * @brief Check if a vector intersects with a set of planes that define an element.
+ * @tparam NumFaces The number of faces of the element.
+ * @param A The start point of the vector.
+ * @param B The end point of the vector.
+ * @param planes The planes to check against.
+ * @return A VectorElementIntersectionData structure containing the intersection data.
+ */
 template <size_t NumFaces>
 KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes) {
     KOKKOS_ASSERT(NumFaces > 0);
-    KOKKOS_ASSERT((B - A).norm() > 1e-12);  // Ensure A and B are not the same point
-
     VectorElementIntersectionData result;
-    bool all_a_inside = true;
-    bool all_b_inside = true;
-    bool has_crossing = false;
+    const Eigen::Vector3d dir = B - A;
+    const double length = dir.norm();
+
+    // Use absolute epsilon for geometric comparisons
+    const double eps = 1e-12 * length;
+
+    double global_entry = 0.0;
+    double global_exit = 1.0;
+    int entry_face = -1;
+    int exit_face = -1;
 
     for (size_t i = 0; i < NumFaces; ++i) {
-        const double distance_A = planes[i].signedDistance(A);
-        const double distance_B = planes[i].signedDistance(B);
+        const auto &plane = planes[i];
+        const double S_A = plane.signedDistance(A);
+        const double S_B = plane.signedDistance(B);
 
-        // Track if both endpoints are inside all planes
-        all_a_inside &= (distance_A <= 0);
-        all_b_inside &= (distance_B <= 0);
+        // Current face's valid interval
+        double t_start, t_end;
 
-        // Handle zero-distance cases first
-        if (distance_A == 0 || distance_B == 0) {
-            const bool a_on_face = (distance_A == 0);
-            const bool b_on_face = (distance_B == 0);
-
-            if (a_on_face && b_on_face) {
-                // Entire segment lies on this face
-                result.intersects = true;
-                // Do not adjust entry/exit distances. Let other faces determine them.
-                // Only set entry/exit faces if they are not already set
-                if (result.entry_face == -1) {
-                    result.entry_face = static_cast<int>(i);
+        if (S_A <= eps && S_B <= eps) {
+            continue;  // No restriction from this face
+        } else if (S_A > eps && S_B > eps) {
+            result.intersects = false;
+            return result;  // Early exit
+        } else {
+            const double denom = S_A - S_B;
+            if (Kokkos::abs(denom) < eps) {  // Parallel case
+                if (S_A > eps) {             // Fully outside
+                    result.intersects = false;
+                    return result;
                 }
-                if (result.exit_face == -1) {
-                    result.exit_face = static_cast<int>(i);
-                }
-            } else if (a_on_face) {
-                if (distance_B < 0) {  // Entering at A
-                    if (0.0 > result.entry_distance) {
-                        result.entry_distance = 0.0;
-                        result.entry_face = static_cast<int>(i);
-                    }
-                } else {  // Exiting at A
-                    if (0.0 < result.exit_distance) {
-                        result.exit_distance = 0.0;
-                        result.exit_face = static_cast<int>(i);
-                    }
-                }
-            } else if (b_on_face) {
-                if (distance_A < 0) {  // Exiting at B
-                    if (1.0 < result.exit_distance) {
-                        result.exit_distance = 1.0;
-                        result.exit_face = static_cast<int>(i);
-                    }
-                } else {  // Entering at B
-                    if (1.0 > result.entry_distance) {
-                        result.entry_distance = 1.0;
-                        result.entry_face = static_cast<int>(i);
-                    }
-                }
+                continue;  // Fully inside face's half-space
             }
-            continue;
+
+            const double t = S_A / denom;
+            t_start = (S_A > eps) ? t : 0.0;
+            t_end = (S_B > eps) ? t : 1.0;
         }
 
-        // Handle standard crossing case
-        if (distance_A * distance_B < 0) {
-            has_crossing = true;
-            const double t = distance_A / (distance_A - distance_B);
+        // Update global constraints
+        if (t_start > global_entry) {
+            global_entry = t_start;
+            entry_face = static_cast<int>(i);
+        }
+        if (t_end < global_exit) {
+            global_exit = t_end;
+            exit_face = static_cast<int>(i);
+        }
 
-            if (distance_A > 0) {  // Entering element
-                if (t > result.entry_distance) {
-                    result.entry_distance = t;
-                    result.entry_face = static_cast<int>(i);
-                }
-            } else {  // Exiting element
-                if (t < result.exit_distance) {
-                    result.exit_distance = t;
-                    result.exit_face = static_cast<int>(i);
-                }
-            }
+        if (global_entry > global_exit) {
+            result.intersects = false;
+            return result;  // No overlap
         }
     }
 
-    // Final determination
-    const bool contained = all_a_inside && all_b_inside;
-    const bool valid_crossing = has_crossing && (result.entry_distance <= result.exit_distance) && (result.exit_distance >= 0) && (result.entry_distance <= 1);
-
-    result.intersects = contained || valid_crossing;
-
-    if (contained) {
-        result.entry_distance = 0.0;
-        result.exit_distance = 1.0;
-    }
+    result.entry_distance = Kokkos::clamp(global_entry, 0.0, 1.0);
+    result.exit_distance = Kokkos::clamp(global_exit, 0.0, 1.0);
+    result.intersects = (result.entry_distance <= result.exit_distance);
+    result.entry_face = (result.entry_distance > 0.0) ? entry_face : -1;
+    result.exit_face = (result.exit_distance < 1.0) ? exit_face : -1;
 
     return result;
 }

@@ -47,11 +47,11 @@ class ConnectedEntityProcessor {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
-    template <size_t N>
-    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> ConnectedEntitiesToIndices(const aperi::ConnectedEntities &connected_entities) const {
-        KOKKOS_ASSERT(connected_entities.size() == N);
-        Kokkos::Array<aperi::Index, N> indices;
-        for (size_t i = 0; i < N; i++) {
+    template <size_t MaxEntities>
+    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, MaxEntities> ConnectedEntitiesToIndices(const aperi::ConnectedEntities &connected_entities) const {
+        KOKKOS_ASSERT(connected_entities.size() <= MaxEntities);
+        Kokkos::Array<aperi::Index, MaxEntities> indices;
+        for (size_t i = 0; i < connected_entities.size(); ++i) {
             indices[i] = GetEntityIndex(connected_entities[i]);
         }
         return indices;
