@@ -10,31 +10,9 @@
 #include "LogUtils.h"
 #include "Materials/Base.h"
 #include "MathUtils.h"
+#include "Tensor.h"
 
 namespace aperi {
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-isotropic_part(const T& a) {
-    return a.trace() / 3.0 * Eigen::Matrix<double, 3, 3>::Identity();
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-deviatoric_part(const T& a) {
-    return a - isotropic_part(a);
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double double_dot(T& a, T& b) {
-    auto result = (a.array() * b.array()).sum();
-    return result;
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double magnitude(const T& a) {
-    return Kokkos::sqrt(double_dot(a, a));
-}
 
 /**
  * @brief Derived class for the power law creep model
@@ -128,11 +106,11 @@ class PowerLawCreepMaterial : public Material {
           m_n(n),
           m_m(m) {
             if (m_A < 0.0)
-              Kokkos::abort("PowerLawCreep: A must be > 0")
+              Kokkos::abort("PowerLawCreep: A must be > 0");
             if (m_n < 0.0)
-              Kokkos::abort("PowerLawCreep: n must be > 0")
+              Kokkos::abort("PowerLawCreep: n must be > 0");
             if (m_m < 0.0)
-              Kokkos::abort("PowerLawCreep: m must be > 0")
+              Kokkos::abort("PowerLawCreep: m must be > 0");
           }
 
         KOKKOS_INLINE_FUNCTION
@@ -150,10 +128,10 @@ class PowerLawCreepMaterial : public Material {
             auto F = *displacement_gradient_np1 + I;
             auto J = F.determinant();
             Eigen::Matrix<double, 3, 3> stress = 1.0 / J * pk1_stress * F.transpose();
-            auto stress_deviator = deviatoric_part(stress);
+            auto stress_deviator = tensor::deviatoric_part(stress);
 
             auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
-            auto dedev = deviatoric_part(de);
+            auto dedev = tensor::deviatoric_part(de);
 
             const auto amult = 0.98;
 
@@ -171,7 +149,7 @@ class PowerLawCreepMaterial : public Material {
             auto creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
 
             // time step estimate
-            auto effective_stress = magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
+            auto effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
             auto edotvm = a1 * Kokkos::pow(effective_stress, m_n - 1.0);
 
             auto critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
@@ -179,15 +157,15 @@ class PowerLawCreepMaterial : public Material {
 
             auto tn = 0.0;
             auto tp = dt;
-            while (!converged) {
+            while (true) {
               auto dt_n = timestep;
               auto dp = 3.0 / 2.0 * stress_deviator * edotvm;
               auto sdot = 2.0 * m_shear_modulus * (dedev / timestep - dp);
 
               stress_deviator += sdot * dt;
-              effective_stress = magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
+              effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
 
-              a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
+              auto a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
               edotvm = a * Kokkos::pow(effective_stress, m_n - 1.0);
 
               critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
@@ -210,12 +188,12 @@ class PowerLawCreepMaterial : public Material {
 
             // Update the state
             creep_strain -= stress_deviator / 2.0 / m_shear_modulus;
-            auto eff_creep_strain = Kokkos::sqrt(2.0 / 3.0) * magnitude(creep_strain);
+            auto eff_creep_strain = Kokkos::sqrt(2.0 / 3.0) * tensor::magnitude(creep_strain);
             state_new->coeffRef(EFFECTIVE_CREEP_STRAIN) += eff_creep_strain;
 
             // effective stress rate
             auto ds = 2.0 * m_shear_modulus * (dedev / timestep - 3.0 * edotvm * stress_deviator / 2.0);
-            state_new->coeffRef(EFFECTIVE_STRESS_RATE) = Kokkos::sqrt(3.0 / 2.0) * magnitude(ds);
+            state_new->coeffRef(EFFECTIVE_STRESS_RATE) = Kokkos::sqrt(3.0 / 2.0) * tensor::magnitude(ds);
             pk1_stress = J * stress * F.inverse().transpose();
         }
 

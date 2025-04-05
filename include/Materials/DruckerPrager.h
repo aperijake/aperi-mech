@@ -10,56 +10,9 @@
 #include "LogUtils.h"
 #include "Materials/Base.h"
 #include "MathUtils.h"
+#include "Tensor.h"
 
 namespace aperi {
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-isotropic_part(const T& a) {
-    return a.trace() / 3.0 * Eigen::Matrix<double, 3, 3>::Identity();
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-deviatoric_part(const T& a) {
-    return a - isotropic_part(a);
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double double_dot(T& a, T& b) {
-    auto result = (a.array() * b.array()).sum();
-    return result;
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double magnitude(const T& a) {
-    return Kokkos::sqrt(double_dot(a, a));
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& s, T& E) {
-    /* Return Lode components of second order tensor A
-
-    Args
-    ----
-    a: Second order tensor
-
-    Returns
-    -------
-    z:  Z component of A
-    s:  S component of A
-    E: Basis tensor of deviatoric part of A
-    */
-
-    z = a.trace() / Kokkos::sqrt(3.0);
-    auto dev = deviatoric_part(a);
-    s = magnitude(dev);
-    E.setZero();
-    if (Kokkos::abs(s) > 1.0e-10) {
-        E = dev / s;
-    }
-    return;
-}
 
 /**
  * @brief Derived class for the Drucker-Prager pressure dependent plastic material.
@@ -158,12 +111,12 @@ class DruckerPragerMaterial : public Material {
             // Trial stress
             auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
             auto trde = de.trace();
-            auto dedev = deviatoric_part(de);
+            auto dedev = tensor::deviatoric_part(de);
             tau += m_bulk_modulus * trde * I + 2 * m_shear_modulus * dedev;
 
             double zt, st;
             Eigen::Matrix<double, 3, 3> Es;
-            get_lode_components(tau, zt, st, Es);
+            tensor::get_lode_components(tau, zt, st, Es);
 
             auto dstrain = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose()) * timestep;
             Eigen::Matrix<double, 3, 3> dee(dstrain);
@@ -239,7 +192,7 @@ class DruckerPragerMaterial : public Material {
                 double dz = 0.0;
                 double ds = 0.0;
                 Eigen::Matrix<double, 3, 3> EDS;
-                get_lode_components(dtau, dz, ds, EDS);
+                tensor::get_lode_components(dtau, dz, ds, EDS);
 
                 // Elastic and plastic strain increments
                 for (auto i = 0; i < 3; i++) {
@@ -250,8 +203,8 @@ class DruckerPragerMaterial : public Material {
                 }
             }
 
-            auto depdev = deviatoric_part(dep);
-            auto deqps = Kokkos::sqrt(double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
+            auto depdev = tensor::deviatoric_part(dep);
+            auto deqps = Kokkos::sqrt(tensor::double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
 
             // Update the state
             state_new->coeffRef(PLASTIC_STRAIN) += deqps;

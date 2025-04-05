@@ -123,7 +123,7 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A", A);
         material_properties->properties.emplace("n", n);
         material_properties->properties.emplace("m", m);
-        return std::make_shared<PowerLawCreep>(material_properties);
+        return std::make_shared<PowerLawCreepMaterial>(material_properties);
 
     } else {
         return nullptr;
