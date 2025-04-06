@@ -14,20 +14,23 @@ class AperiMech(CMakePackage, CudaPackage):
     depends_on("mpi")
     depends_on("lcov", when="+cov")
     depends_on("compadre ~tests")
-    depends_on("trilinos@16.0.0 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17")
+    depends_on(
+        "trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack "
+        "~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
+    )
     depends_on("googletest")
     depends_on("yaml-cpp")
     depends_on("eigen")
 
-    depends_on("kokkos@4.3.01 ~shared cxxstd=17")
-    depends_on("kokkos-kernels@4.3.01 ~shared")
+    depends_on("kokkos ~shared cxxstd=17")
+    depends_on("kokkos-kernels ~shared")
     for cuda_arch in CudaPackage.cuda_arch_values:
         depends_on(
-            "kokkos@4.3.01~shared+cuda cuda_arch=%s" % cuda_arch,
+            "kokkos~shared+cuda cuda_arch=%s" % cuda_arch,
             when="^kokkos +cuda cuda_arch=%s" % cuda_arch,
         )
         depends_on(
-            "kokkos-kernels@4.3.01~shared+cuda cuda_arch=%s" % cuda_arch,
+            "kokkos-kernels~shared+cuda cuda_arch=%s" % cuda_arch,
             when="^kokkos-kernels +cuda cuda_arch=%s" % cuda_arch,
         )
 

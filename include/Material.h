@@ -11,6 +11,7 @@
 #include "Materials/NeoHooke.h"
 #include "Materials/Plastic.h"
 #include "Materials/DruckerPrager.h"
+#include "Materials/PowerLawCreep.h"
 
 namespace aperi {
 
@@ -106,6 +107,23 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A2", A2);
         material_properties->properties.emplace("A2G", A2G);
         return std::make_shared<DruckerPragerMaterial>(material_properties);
+
+    } else if (material_node["power law creep"].IsDefined()) {
+        YAML::Node dp_node = material_node["power law creep"];
+        material_properties->material_type = MaterialType::POWER_LAW_CREEP;
+        material_properties->density = dp_node["density"].as<double>();
+        double bulk_modulus = dp_node["bulk_modulus"].as<double>();
+        double shear_modulus = dp_node["shear_modulus"].as<double>();
+        double A = dp_node["A"].as<double>();
+        double n = dp_node["n"].as<double>();
+        double m = dp_node["m"].as<double>();
+
+        material_properties->properties.emplace("bulk_modulus", bulk_modulus);
+        material_properties->properties.emplace("shear_modulus", shear_modulus);
+        material_properties->properties.emplace("A", A);
+        material_properties->properties.emplace("n", n);
+        material_properties->properties.emplace("m", m);
+        return std::make_shared<PowerLawCreepMaterial>(material_properties);
 
     } else {
         return nullptr;
