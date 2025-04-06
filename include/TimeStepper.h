@@ -151,7 +151,6 @@ class PowerMethodTimeStepper : public TimeStepper {
         std::vector<double> empty_vector;
         bool output = false;
         size_t number_of_states = 1;
-        m_field_data.push_back(aperi::FieldData("displacement_np1_temp", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
         m_field_data.push_back(aperi::FieldData("eigenvector", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
         m_field_data.push_back(aperi::FieldData("force_coefficients_temp", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, number_of_states, empty_vector, output));
     };

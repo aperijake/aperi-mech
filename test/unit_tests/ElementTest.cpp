@@ -14,6 +14,7 @@
 #include "Material.h"
 #include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
+#include "Preprocessor.h"
 #include "SmoothedCellData.h"
 #include "UnitTestUtils.h"
 
@@ -44,7 +45,7 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, lagrangian_formulation_type, true /* output_coefficients*/);
 
         // Add field data from mesh labeler
-        aperi::MeshLabeler mesh_labeler;
+        aperi::MeshLabeler mesh_labeler(m_io_mesh->GetMeshData());
         std::vector<aperi::FieldData> mesh_labeler_field_data = mesh_labeler.GetFieldData();
         field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
 
@@ -60,14 +61,8 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
 
         // Label the mesh for element integration
         aperi::MeshLabelerParameters mesh_labeler_parameters;
-        mesh_labeler_parameters.mesh_data = m_io_mesh->GetMeshData();
         mesh_labeler_parameters.set = "block_1";
         mesh_labeler_parameters.smoothing_cell_type = smoothing_cell_type;
-        mesh_labeler.LabelPart(mesh_labeler_parameters);
-
-        // Create a max edge length processor
-        aperi::MaxEdgeLengthProcessor max_edge_length_processor(mesh_data, std::vector<std::string>{});
-        max_edge_length_processor.ComputeMaxEdgeLength();
 
         // Make an element processor
         const std::string displacement_field_name = "displacement_coefficients";
@@ -87,7 +82,11 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto material = std::make_shared<aperi::Material>(material_properties);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, part_names, mesh_data, material);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material);
+        // Do the neighbor search
+        aperi::ReproducingKernelInfo reproducing_kernel_infos = m_element->GetReproducingKernelInfo();
+        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos);
+        m_element->FinishPreprocessing();
 
         std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;
         elem_field_query_data_gather_vec[0] = {"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};

@@ -78,8 +78,9 @@ class Application {
      * takes an IoInputFile object.
      *
      * @param input_filename The name of the input file.
+     * @param add_faces A flag to determine if faces should be added to the mesh.
      */
-    void CreateSolverAndRun(const std::string& input_filename);
+    void CreateSolverAndRun(const std::string& input_filename, bool add_faces = false);
 
     /**
      * @brief A method to create the solver.
@@ -88,8 +89,9 @@ class Application {
      * takes an IoInputFile object.
      *
      * @param input_filename The name of the input file.
+     * @param add_faces A flag to determine if faces should be added to the mesh.
      */
-    std::shared_ptr<aperi::Solver> CreateSolver(const std::string& input_filename);
+    std::shared_ptr<aperi::Solver> CreateSolver(const std::string& input_filename, bool add_faces = false);
 
     /**
      * @brief A method to create the solver.
@@ -98,15 +100,19 @@ class Application {
      * takes an IoInputFile object.
      *
      * @param yaml_data The YAML node representing the input data.
+     * @param add_faces A flag to determine if faces should be added to the mesh.
      */
-    std::shared_ptr<aperi::Solver> CreateSolver(const YAML::Node& yaml_data);
+    std::shared_ptr<aperi::Solver> CreateSolver(const YAML::Node& yaml_data, bool add_faces = false);
 
     /**
      * @brief A method to create the solver.
      *
      * This method takes an IoInputFile object and creates the solver.
+     *
+     * @param io_input_file The IoInputFile object.
+     * @param add_faces A flag to determine if faces should be added to the mesh.
      */
-    std::shared_ptr<aperi::Solver> CreateSolver(std::shared_ptr<aperi::IoInputFile> io_input_file);
+    std::shared_ptr<aperi::Solver> CreateSolver(std::shared_ptr<aperi::IoInputFile> io_input_file, bool add_faces = false);
 
     /**
      * @brief Runs the application.

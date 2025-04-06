@@ -107,6 +107,28 @@ struct BasesQuartic {
 template <size_t MaxNumNeighbors>
 struct ShapeFunctionsFunctorReproducingKernel {
     /**
+     * @brief Checks if the kernel values form a partition of unity.
+     * @param kernel_values The kernel values.
+     * @param actual_num_neighbors The actual number of neighbors.
+     * @return True if the kernel values form a partition of unity, false otherwise.
+     */
+    KOKKOS_INLINE_FUNCTION bool CheckPartitionOfUnity(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, size_t actual_num_neighbors) const {
+        double sum = 0.0;
+        for (size_t i = 0; i < actual_num_neighbors; i++) {
+            sum += kernel_values(i, 0);
+        }
+        double diff = Kokkos::abs(sum - 1.0);
+        if (diff > 1.0e-6) {
+            Kokkos::printf("Sum of kernel values: %.8e\n", sum);
+            for (size_t i = 0; i < actual_num_neighbors; i++) {
+                Kokkos::printf("Kernel value %zu: %.8e\n", i, kernel_values(i, 0));
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * @brief Computes the shape functions of the element.
      * @param shifted_neighbor_coordinates The physical coordinates of the neighbors relative to the evaluation point (evaluation_point_physical_coordinates - neighbor_coordinates).
      * @param actual_num_neighbors The actual number of neighbors.
@@ -162,6 +184,9 @@ struct ShapeFunctionsFunctorReproducingKernel {
             // Compute shape function value
             function_values(i, 0) = (M_inv.row(0) * H * kernel_values(i, 0))(0);
         }
+
+        // Check partition of unity
+        KOKKOS_ASSERT(CheckPartitionOfUnity(function_values, actual_num_neighbors));
 
         return function_values;
     }

@@ -2,7 +2,10 @@
 
 #include <memory>
 
+#include "Constants.h"
 #include "Material.h"
+#include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "Timer.h"
 
 namespace aperi {
@@ -20,6 +23,11 @@ inline const std::map<ElementTimerType, std::string> element_timer_map = {
     {ElementTimerType::Other, "Other"},
     {ElementTimerType::NONE, "NONE"}};
 
+struct ReproducingKernelInfo {
+    std::vector<std::string> part_names;
+    std::vector<double> kernel_radius_scale_factors;
+};
+
 /**
  * @brief Represents an element in a mesh.
  *
@@ -29,16 +37,26 @@ class ElementBase {
    public:
     /**
      * @brief Constructs an ElementBase object.
-     * @note The object-oriented design cause a low-level virtual function call in the element internal force calculation.
-     *       The performance didn't seem to be too affected by this, but it's something to keep in mind.
-     *       I did try to replace with a lambda function, but that performed worse.
-     *       I also tried to replace with a template function, but that didn't work because the number of nodes is not known at compile time.
-     *
-     * @param num_nodes The number of nodes in the element.
      */
-    ElementBase(size_t num_nodes, std::shared_ptr<Material> material = nullptr) : m_num_nodes(num_nodes), m_material(material) {
+    ElementBase(
+        size_t num_nodes,
+        const std::string& displacement_field_name,
+        const std::vector<std::string>& part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        const aperi::LagrangianFormulationType& lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters)
+        : m_num_nodes(num_nodes),
+          m_material(material),
+          m_displacement_field_name(displacement_field_name),
+          m_part_names(part_names),
+          m_mesh_data(mesh_data),
+          m_lagrangian_formulation_type(lagrangian_formulation_type),
+          m_mesh_labeler_parameters(mesh_labeler_parameters) {
         m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map);
     }
+
+    virtual ~ElementBase() = default;
 
     virtual void UpdateShapeFunctions() {}
 
@@ -58,12 +76,10 @@ class ElementBase {
     virtual void ComputeInternalForceAllElements(double time_increment) = 0;
 
     /**
-     * @brief Sets the material of the element.
-     *
-     * @param material The material of the element.
+     * @brief Populates the element outputs.
      */
-    void SetMaterial(std::shared_ptr<Material> material) {
-        m_material = material;
+    virtual void PopulateElementOutputs() {
+        // Default implementation does nothing
     }
 
     /**
@@ -84,17 +100,27 @@ class ElementBase {
         return m_timer_manager;
     }
 
-    /**
-     * @brief Populates the element outputs.
-     */
-    virtual void PopulateElementOutputs() {
-        // Default implementation does nothing
+    std::vector<std::string> GetPartNames() const {
+        return m_part_names;
     }
+
+    virtual ReproducingKernelInfo GetReproducingKernelInfo() const {
+        return ReproducingKernelInfo{{}, {}};
+    }
+
+    virtual void FinishPreprocessing() {}
 
    protected:
     size_t m_num_nodes;                                                      ///< The number of nodes in the element.
     std::shared_ptr<Material> m_material;                                    ///< The material of the element.
     std::shared_ptr<aperi::TimerManager<ElementTimerType>> m_timer_manager;  ///< The timer manager for the element.
+
+    // New protected members moved from derived classes
+    std::string m_displacement_field_name;
+    std::vector<std::string> m_part_names;
+    std::shared_ptr<aperi::MeshData> m_mesh_data;
+    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
+    aperi::MeshLabelerParameters m_mesh_labeler_parameters;
 };
 
 }  // namespace aperi

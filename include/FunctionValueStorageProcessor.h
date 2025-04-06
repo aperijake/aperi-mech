@@ -105,6 +105,7 @@ class FunctionValueStorageProcessor {
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
 
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
@@ -118,6 +119,7 @@ class FunctionValueStorageProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+                assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
                 Eigen::Matrix<double, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {

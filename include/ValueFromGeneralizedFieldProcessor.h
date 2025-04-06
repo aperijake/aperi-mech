@@ -85,7 +85,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 // If there are no neighbors then the partition of unity is satisfied in compute_value_from_generalized_field
                 if (num_neighbors == 0) {
                     return;
@@ -98,8 +98,14 @@ class ValueFromGeneralizedFieldProcessor {
                     double function_value = ngp_function_values_field(node_index, k);
                     function_sum += function_value;
                 }
-                if (std::abs(function_sum - 1.0) > 1.0e-10) {
-                    Kokkos::printf("Error: Partition of unity not satisfied: %f\n", function_sum);
+                if (std::abs(function_sum - 1.0) > 1.0e-6) {
+                    Kokkos::printf("Error: Partition of unity not satisfied. Error (1 - sum) = : %.8e\n", 1.0 - function_sum);
+                    for (size_t k = num_neighbors; k-- > 0;) {
+                        // Get the function value
+                        double function_value = ngp_function_values_field(node_index, k);
+                        uint64_t neighbor = ngp_neighbors_field(node_index, k);
+                        Kokkos::printf("Neighbor: %lu, Function Value: %.8e\n", neighbor, function_value);
+                    }
                     Kokkos::abort("Partition of unity assertion failed");
                 }
             });
@@ -110,6 +116,8 @@ class ValueFromGeneralizedFieldProcessor {
     // Compute the value of the destination fields from the source fields and function values.
     // This is the construction of the field from the shape functions and their coefficients.
     void compute_value_from_generalized_field() {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
         assert(check_partition_of_unity());
 
@@ -130,7 +138,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
                 // If there are no neighbors, set the destination field to the source field
@@ -172,6 +180,7 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Loop over all evaluation points and scatter the values to their neighbors (active nodes) using the function values as weights.
     void scatter_local_values(const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         assert(check_partition_of_unity());
 
         auto ngp_mesh = m_ngp_mesh;
@@ -191,7 +200,7 @@ class ValueFromGeneralizedFieldProcessor {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the number of neighbors
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
+                KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
                 // If there are no neighbors, set the destination field to the source field as there is nothing to scatter

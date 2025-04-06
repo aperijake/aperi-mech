@@ -92,8 +92,8 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
         const auto state_n_map = Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_n.data(), num_state_variables, state_stride);
         auto state_np1_map = Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>(state_np1.data(), num_state_variables, state_stride);
 
-        // Run the stress calculation
-        stress_functor->GetStress(&displacement_gradient_map, &velocity_gradient_map, &state_n_map, &state_np1_map, timestep, pk1_stress_map);
+        // Run the stress calculation. TODO(jake) need to plumb in old stress for some materials
+        stress_functor->GetStress(&displacement_gradient_map, &velocity_gradient_map, &state_n_map, &state_np1_map, timestep, nullptr, pk1_stress_map);
 
         // Manually copy the new state to the old state for the next iteration (deep_copy was freezing)
         for (size_t j = 0; j < num_state_variables; ++j) {

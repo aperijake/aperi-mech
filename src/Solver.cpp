@@ -30,16 +30,9 @@ void ExplicitSolver::UpdateFieldStates() {
 }
 
 void Solver::UpdateFieldsFromGeneralizedFields() {
-    // Make sure all source fields are up to date on the device
-    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
-    m_output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
-    m_output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
-    m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
-
-    // Compute the values of the destination fields from the source fields
-    m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
-    m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-    m_output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+    for (const auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->ComputeValuesFromGeneralizedFields();
+    }
 }
 
 /*
@@ -128,13 +121,13 @@ void ExplicitSolver::WriteOutput(double time) {
     if (m_uses_generalized_fields) {
         UpdateFieldsFromGeneralizedFields();
     }
+    for (auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->PopulateElementOutputs();
+    }
     // Write the field results
     for (auto &field : m_temporal_varying_output_fields) {
         field.UpdateField();
         field.SyncDeviceToHost();
-    }
-    for (auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->PopulateElementOutputs();
     }
     m_io_mesh->WriteFieldResults(time);
 }
@@ -210,6 +203,11 @@ double ExplicitSolver::Solve() {
     double total_runtime = 0.0;
     double average_runtime = 0.0;
 
+    // Print the table header before the loop
+    aperi::CoutP0() << std::endl
+                    << "Marching through time steps:" << std::endl;
+    LogHeader();
+
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
     {
@@ -228,11 +226,6 @@ double ExplicitSolver::Solve() {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
         explicit_time_integrator->ComputeAcceleration();
     }
-
-    // Print the table header before the loop
-    aperi::CoutP0() << std::endl
-                    << "Marching through time steps:" << std::endl;
-    LogHeader();
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
@@ -253,6 +246,9 @@ double ExplicitSolver::Solve() {
         // Benchmarking
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Swap states n and np1
+        UpdateFieldStates();
+
         // Get the next time step, Δt^{n+½}
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
@@ -267,9 +263,6 @@ double ExplicitSolver::Solve() {
         double time_midstep = time + 0.5 * time_increment;
         double time_next = time + time_increment;
         explicit_time_integrator->SetTimeIncrement(time_increment);
-
-        // Move state n+1 to state n
-        UpdateFieldStates();
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         {

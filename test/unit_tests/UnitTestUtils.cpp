@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Comm.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_topology/topology.hpp>
@@ -15,6 +16,7 @@
 
 #include "EntityProcessor.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "MathUtils.h"
@@ -296,7 +298,7 @@ void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>
     EXPECT_EQ(global_counts.size(), 4U);
     EXPECT_EQ(expected_owned.size(), 4U);
     for (int i = 0, e = expected_owned.size(); i < e; ++i) {
-        EXPECT_EQ(global_counts[i], expected_owned[i]);
+        EXPECT_EQ(global_counts[i], expected_owned[i]) << " for rank " << i;
     }
 }
 
@@ -492,4 +494,46 @@ size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string&
 
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name) {
     return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::NODE_RANK);
+}
+
+aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates) {
+    // Get the bulk data
+    stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
+    stk::mesh::MetaData& meta = *mesh_data.GetMetaData();
+    stk::mesh::Part* p_part = meta.get_part(part_name);
+    assert(p_part != nullptr);
+    stk::mesh::Selector selector(*p_part);
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    bool found = false;
+    aperi::Index node_index;
+
+    // Loop over the nodes in the part
+    for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
+        // Loop over each entity in the bucket
+        for (auto node : *p_bucket) {
+            // Get the coordinates of the node
+            double* p_node_coords = stk::mesh::field_data(coordinates_field, node);
+            Eigen::Vector3d node_coordinates(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
+
+            // Check if the coordinates match
+            if ((node_coordinates - coordinates).norm() < 1.0e-12) {
+                // If the coordinates match, return the node index
+                const stk::mesh::MeshIndex& mesh_index = bulk.mesh_index(node);
+                node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (!found) {
+        // If no node was found, return an invalid index
+        node_index = aperi::Index::Invalid();
+        std::cerr << "Node not found at coordinates: " << coordinates.transpose() << std::endl;
+    }
+
+    return node_index;
 }

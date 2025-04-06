@@ -2,8 +2,8 @@
 
 #include <array>
 
+#include "ConnectedEntityProcessor.h"
 #include "Constants.h"
-#include "ElementNodeProcessor.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
@@ -20,7 +20,6 @@ struct ComputeMassFromElementVolumeKernel {
                                                                                                             m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
-        m_element_volume.SyncHostToDevice();
     }
 
     KOKKOS_FUNCTION void operator()(const aperi::Index &elem_index, const Kokkos::Array<aperi::Index, HEX8_NUM_NODES> &nodes, size_t num_nodes) const {
@@ -51,13 +50,13 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
 
 void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density) {
     // Initialize the mesh data and element node processor
-    aperi::ElementNodeProcessor<HEX8_NUM_NODES> processor(mesh_data, {part_name});
+    aperi::ConnectedEntityProcessor processor(mesh_data, {part_name});
 
     // Define the action kernel
     ComputeMassFromElementVolumeKernel action_kernel(mesh_data, density);
 
     // Call the for_each_element_and_node function
-    processor.for_each_element_and_nodes(action_kernel);
+    processor.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel);
 
     // Mark the mass_from_elements field as modified
     std::string mass_from_elements_name = "mass_from_elements";

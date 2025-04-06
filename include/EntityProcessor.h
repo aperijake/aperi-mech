@@ -191,6 +191,8 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately
     template <typename Func, size_t NumFields, std::size_t... Is>
     void for_each_component_impl(const Func &func, std::array<size_t, NumFields> field_indices, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // Create an array of ngp fields
         Kokkos::Array<stk::mesh::NgpField<T>, NumFields> fields;
         for (size_t i = 0; i < NumFields; ++i) {
@@ -223,6 +225,8 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_each_component_impl(const Func &func, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // Create an array of ngp fields
         Kokkos::Array<stk::mesh::NgpField<T>, N> fields;
         for (size_t i = 0; i < N; ++i) {
@@ -247,6 +251,7 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func, std::size_t... Is>
     void for_component_i_impl(const Func &func, size_t i, std::index_sequence<Is...>, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Create an array of ngp fields
         Kokkos::Array<stk::mesh::NgpField<T>, N> fields;
         for (size_t i = 0; i < N; ++i) {
@@ -264,6 +269,8 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_component_impl(const Func &func, size_t field_index, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
 
@@ -284,6 +291,8 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_each_component_impl(const Func &func, size_t field_index_0, size_t field_index_1, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         assert(field_index_0 < m_ngp_fields.size() && "field_index_0 out of bounds");
         assert(field_index_1 < m_ngp_fields.size() && "field_index_1 out of bounds");
         auto field_0 = *m_ngp_fields[field_index_0];
@@ -309,6 +318,8 @@ class EntityProcessor {
     // Does not mark anything modified. Need to do that separately.
     template <typename Func>
     void for_component_i(const Func &func, size_t i, size_t field_index, const stk::mesh::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         assert(field_index < m_ngp_fields.size() && "field_index out of bounds");
         auto field = *m_ngp_fields[field_index];
         // Loop over all the entities
@@ -494,7 +505,7 @@ class EntityProcessor {
         CopyFieldFunctor<T> functor;
         std::array<size_t, 2> field_indices = {src_field_index, dest_field_index};
         for_each_component_impl(functor, field_indices, std::make_index_sequence<2>{}, m_selector);
-        //for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
+        // for_each_component_impl(functor, src_field_index, dest_field_index, m_selector);
     }
 
     // Randomize the field
@@ -516,6 +527,7 @@ class EntityProcessor {
         const unsigned num_local_entities = stk::mesh::count_entities(*m_bulk_data, Rank, m_selector);
 
         // Get the mesh
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
         // Loop over all the entities
@@ -545,6 +557,8 @@ class EntityProcessor {
 
     // Calculate the sum of the field
     T SumField(size_t field_index) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // Kokkos view for the field sum
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
         auto field_sum_host = Kokkos::create_mirror_view(field_sum);
@@ -582,6 +596,7 @@ class EntityProcessor {
 
     // Calculate the min and max of the field
     std::pair<T, T> MinMaxField(size_t field_index) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Kokkos view for the field min and max
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_min("field_min", 1);
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_max("field_max", 1);
@@ -617,6 +632,7 @@ class EntityProcessor {
 
     // Calculate the norm of the field
     T CalculateFieldNorm(size_t field_index) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Kokkos view for the field sum
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> field_sum("field_sum", 1);
         auto field_sum_host = Kokkos::create_mirror_view(field_sum);
@@ -657,6 +673,7 @@ class EntityProcessor {
 
     // Normalize the field
     T NormalizeField(size_t field_index) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Calculate the field norm
         T field_norm = CalculateFieldNorm(field_index);
 
@@ -680,6 +697,7 @@ class EntityProcessor {
 
     // Compute the dot product of two fields
     T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Kokkos array for the dot product
         Kokkos::View<T *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
         auto dot_product_host = Kokkos::create_mirror_view(dot_product);
@@ -718,6 +736,7 @@ class EntityProcessor {
 
     // Scale and multiply fields
     void ScaleAndMultiplyField(size_t field_index_1, size_t field_index_2, double a) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         // Get the fields
         auto field_1 = *m_ngp_fields[field_index_1];
         auto field_2 = *m_ngp_fields[field_index_2];

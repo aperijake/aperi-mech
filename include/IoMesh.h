@@ -20,6 +20,8 @@ struct IoMeshParameters {
     int compression_level = 0;              // compression level [1..9] to use
     bool compression_shuffle = false;       // use shuffle filter prior to compressing data: true|false
     bool lower_case_variable_names = true;  // convert variable names to lowercase and replace spaces in names with underscore
+    bool minimize_open_files = true;        // close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
+    bool add_faces = false;                 // add faces to the mesh
     int integer_size = 8;                   // use 4 or 8-byte integers for input and output
     int initial_bucket_capacity = 0;
     int maximum_bucket_capacity = 0;
@@ -43,6 +45,8 @@ class IoMesh {
 
     void WriteFieldResults(double time) const;
 
+    void CloseFieldResultsFile() const;
+
     stk::mesh::BulkData &GetBulkData() { return mp_io_broker->bulk_data(); }
     stk::mesh::MetaData &GetMetaData() { return mp_io_broker->meta_data(); }
     std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
@@ -50,15 +54,17 @@ class IoMesh {
    private:
     void SetIoProperties() const;
 
-    bool m_upward_connectivity;        // create upward connectivity/adjacency in the mesh
-    bool m_aura_option;                // create aura ghosting around each MPI rank
-    std::string m_parallel_io;         // method to use for parallel io. One of mpiio, mpiposix, or pnetcdf
-    std::string m_decomp_method;       // decomposition method.  One of: linear, rcb, rib, hsfc, block, cyclic, random, kway, geom_kway, metis_sfc
-    std::string m_mesh_type;           // mesh type. One of: exodusii, generated
+    bool m_upward_connectivity;  // create upward connectivity/adjacency in the mesh
+    bool m_aura_option;          // create aura ghosting around each MPI rank
+    const std::string m_parallel_io;
+    const std::string m_decomp_method;
+    const std::string m_mesh_type;
     bool m_compose_output;             // create a single output file: true|false"
     int m_compression_level;           // compression level [1..9] to use
     bool m_compression_shuffle;        // use shuffle filter prior to compressing data: true|false
     bool m_lower_case_variable_names;  // convert variable names to lowercase and replace spaces in names with underscore
+    bool m_minimize_open_files;        // close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
+    bool m_add_faces;                  // add faces to the mesh
     int m_integer_size;                // use 4 or 8-byte integers for input and output
     int m_initial_bucket_capacity;
     int m_maximum_bucket_capacity;

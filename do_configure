@@ -6,6 +6,7 @@ BUILD_TYPE="Release"
 CHECK_CODE_COVERAGE=OFF
 USE_GPU=OFF
 USE_PROTEGO_MECH=OFF
+USE_SANITIZER=OFF
 
 # Get the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -35,6 +36,12 @@ while [[ $# -gt 0 ]]; do
 		echo "Including protego-mech."
 		shift
 		;;
+	-s | --sanitizer)
+		USE_SANITIZER=ON
+		BUILD_TYPE="Debug"
+		echo "Requested sanitizer. Build type set to Debug"
+		shift
+		;;
 	*)
 		echo "Unknown option: $1"
 		exit 1
@@ -57,6 +64,7 @@ cmake_command="${cmake}"
 
 cmake_command+=" -D USE_GPU:BOOL=${USE_GPU}"
 cmake_command+=" -D USE_PROTEGO_MECH:BOOL=${USE_PROTEGO_MECH}"
+cmake_command+=" -D USE_SANITIZER:BOOL=${USE_SANITIZER}"
 cmake_command+=" -D CMAKE_BUILD_TYPE:STRING=\"${BUILD_TYPE}\""
 cmake_command+=" -D TRILINOS_PATH:FILEPATH=$(spack location -i trilinos)"
 cmake_command+=" -D Kokkos_ROOT:FILEPATH=$(spack location -i kokkos)"
@@ -144,6 +152,11 @@ fi
 # Append to build directory based on code coverage
 if [[ ${CHECK_CODE_COVERAGE} == "ON" ]]; then
 	BUILD_DIR+="_cov"
+fi
+
+# Append to build directory based on sanitizer
+if [[ ${USE_SANITIZER} == "ON" ]]; then
+	BUILD_DIR+="_san"
 fi
 
 # Create the build directory and change to it

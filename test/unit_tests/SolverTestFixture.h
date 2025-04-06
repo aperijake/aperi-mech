@@ -38,15 +38,17 @@ class SolverTest : public ApplicationTest {
     }
 
     void ResetSolverTest(bool keep_mesh = false, std::string append_to_filename = "") {
-        ResetApplicationTest(keep_mesh, append_to_filename);
         m_application.reset();
         m_solver.reset();
+        ResetApplicationTest(keep_mesh, append_to_filename);
     }
 
     void TearDown() override {
         MPI_Barrier(m_comm);
 
         // Run ApplicationTest::TearDown last
+        m_application.reset();
+        m_solver.reset();
         ApplicationTest::TearDown();
     }
 

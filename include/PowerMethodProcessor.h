@@ -41,23 +41,20 @@ namespace aperi {
 
 // Power method convergence stats
 struct PowerMethodStats {
-    double eigenvalue = 0;
     double stable_time_step = 0;
     size_t num_iterations = 0;
     bool converged = false;
-    std::vector<double> eigenvalues_for_iterations;
+    std::vector<double> stable_time_step_for_iterations;
 
     void Reset(size_t max_num_iterations) {
-        eigenvalue = 0;
         stable_time_step = 0;
         num_iterations = 0;
         converged = false;
-        eigenvalues_for_iterations.clear();
-        eigenvalues_for_iterations.resize(max_num_iterations, 0.0);
+        stable_time_step_for_iterations.clear();
+        stable_time_step_for_iterations.resize(max_num_iterations, 0.0);
     }
 
-    void SetStats(double eigenvalue, double stable_time_step, size_t num_iterations, bool converged) {
-        this->eigenvalue = eigenvalue;
+    void SetStats(double stable_time_step, size_t num_iterations, bool converged) {
         this->stable_time_step = stable_time_step;
         this->num_iterations = num_iterations;
         this->converged = converged;
@@ -73,7 +70,6 @@ struct PowerMethodStats {
 
     void PrintStats() {
         aperi::CoutP0() << "Power method stats:" << std::endl;
-        aperi::CoutP0() << "  Eigenvalue: " << eigenvalue << std::endl;
         aperi::CoutP0() << "  Stable time step: " << stable_time_step << std::endl;
         aperi::CoutP0() << "  Number of iterations: " << num_iterations << std::endl;
         aperi::CoutP0() << "  Converged: " << converged << std::endl;
@@ -81,8 +77,8 @@ struct PowerMethodStats {
 
     void PrintHistory() {
         aperi::CoutP0() << "Power method history:" << std::endl;
-        for (size_t i = 0; i < eigenvalues_for_iterations.size(); i++) {
-            aperi::CoutP0() << "  Iteration " << i << ": " << eigenvalues_for_iterations[i] << std::endl;
+        for (size_t i = 0; i < stable_time_step_for_iterations.size(); i++) {
+            aperi::CoutP0() << "  Iteration " << i << ": " << stable_time_step_for_iterations[i] << std::endl;
         }
     }
 };
@@ -102,6 +98,10 @@ class PowerMethodProcessor {
                       EIGENVECTOR,
                       MAX_EDGE_LENGTH,
                       NUM_FIELDS };
+
+    enum StateIndex { STATE_N = 0,
+                      STATE_NP1,
+                      NUM_STATE_FIELDS };
 
    public:
     PowerMethodProcessor(std::shared_ptr<aperi::MeshData> mesh_data, std::shared_ptr<aperi::ExplicitSolver> solver) : m_mesh_data(mesh_data), m_solver(solver) {
@@ -126,7 +126,7 @@ class PowerMethodProcessor {
         m_active_selector = StkGetSelector(active_sets, meta_data);
 
         // Get the displacement_temp field, temporary field to store the displacement at n+1
-        m_displacement_in_field = StkGetField(FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_displacement_in_field = StkGetField(FieldQueryData<double>{displacement_field_name, FieldQueryState::N, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_displacement_in_field = &stk::mesh::get_updated_ngp_field<double>(*m_displacement_in_field);
 
         // Get the displacement_coefficients field, field to store the displacement coefficients
@@ -152,6 +152,9 @@ class PowerMethodProcessor {
         // Get the essential_boundary field, indicator for if the dof is in the essential boundary set
         m_essential_boundary_field = StkGetField(FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_essential_boundary_field);
+
+        // Check if the state field exists
+        m_has_state = StkFieldExists(FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT}, meta_data);
 
         // Initialize the EntityProcessor
         InitializeEntityProcessor(displacement_field_name);
@@ -182,13 +185,20 @@ class PowerMethodProcessor {
         // Order of the fields in the field_query_data_vec must match the FieldIndex enum
         std::array<FieldQueryData<double>, FieldIndex::NUM_FIELDS> field_query_data_vec = {
             FieldQueryData<double>{displacement_field_name, FieldQueryState::NP1},
-            FieldQueryData<double>{"displacement_np1_temp", FieldQueryState::None},
+            FieldQueryData<double>{displacement_field_name, FieldQueryState::N},
             FieldQueryData<double>{"force_coefficients", FieldQueryState::None},
             FieldQueryData<double>{"force_coefficients_temp", FieldQueryState::None},
             FieldQueryData<double>{"eigenvector", FieldQueryState::None},
             FieldQueryData<double>{"max_edge_length", FieldQueryState::None}};
         std::vector<std::string> sets = {};
         m_node_processor = std::make_unique<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>>(field_query_data_vec, m_mesh_data, sets);
+
+        if (m_has_state) {
+            std::array<FieldQueryData<double>, StateIndex::NUM_STATE_FIELDS> state_query_data_vec = {
+                FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT},
+                FieldQueryData<double>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}};
+            m_state_processor = std::make_unique<aperi::ElementProcessor<StateIndex::NUM_STATE_FIELDS, double>>(state_query_data_vec, m_mesh_data, sets);
+        }
     }
 
     void InitializeEigenvector(double epsilon) {
@@ -199,19 +209,21 @@ class PowerMethodProcessor {
 
         // Get the ngp fields
         auto ngp_displacement_field = *m_ngp_displacement_field;
+        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
         // Loop over all the buckets
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
                 // Get the max edge length
-                double l = ngp_displacement_field(node_index, 0);
+                double l = ngp_max_edge_length_field(node_index, 0);
 
                 // Number of components
                 const size_t num_components = ngp_displacement_field.get_num_components_per_entity(node_index);
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
                     // Scale the eigenvector to be epsilon * max_edge_length * random value
+                    // ngp_displacement_field is the eigenvector and was randomized in the constructor
                     ngp_displacement_field(node_index, i) *= epsilon * l;
                 }
             });
@@ -245,7 +257,7 @@ class PowerMethodProcessor {
                 // Loop over the components
                 for (size_t i = 0; i < num_components; ++i) {
                     // Get the displacement input to the power method
-                    double u = ngp_displacement_in_field(node_index, i);
+                    double u = ngp_displacement_in_field(node_index, i);  // NOTE: should be latest disp
 
                     // If the node is in the essential boundary set, do not perturb the displacement coefficients
                     if (ngp_essential_boundary_field(node_index, i) == 1) {
@@ -325,7 +337,7 @@ class PowerMethodProcessor {
             });
     }
 
-    double ComputeStableTimeIncrement(double time, double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-2) {
+    double ComputeStableTimeIncrement(double time, double time_increment, size_t num_iterations = 50, double epsilon = 1.e-5, double tolerance = 1.e-3, double variation_tolerance = 1.e-7) {
         /*
             Compute the stable time increment using the power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step.
             The stable time increment is computed as 2 / sqrt(lambda_max), where lambda_max is the largest eigenvalue of the system.
@@ -335,10 +347,14 @@ class PowerMethodProcessor {
             - tolerance:             The tolerance for the power method convergence
         */
 
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         assert(m_solver != nullptr);
 
         // Copy the displacement coefficients to the displacement temp field
-        m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
+        if (time == 0.0) {
+            m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::DISPLACEMENT_IN);
+        }
 
         // Copy the eigenvector to the displacement coefficients field
         // Eigenvector is randomized in the constructor. Will be overwritten by the power method for the next time this is called.
@@ -353,72 +369,121 @@ class PowerMethodProcessor {
             m_eigenvector_is_initialized = true;
         }
 
-        // Convergence tolerance squared
-        double tolerance_squared = tolerance * tolerance;
-
-        // Initialize the eigenvalue
-        double lambda_n = m_power_method_stats.eigenvalue;
-        double lambda_np1 = lambda_n;
+        // Initialize the stable time step
+        double stable_time_step_n = m_power_method_stats.stable_time_step;
+        double stable_time_step_np1 = time_increment == 0.0 ? 1.0 : time_increment;
 
         // Initialize the power method stats
         m_power_method_stats.Reset(num_iterations);
 
-        // Set the current stable time increment to the input time increment
-        double current_stable_time_increment = time_increment == 0.0 ? 1.0 : time_increment;
-
         bool converged = false;
         size_t num_iterations_required = num_iterations;
 
+        // Parameters for window averaging
+        const size_t window_size = 5;  // Size of the averaging window
+        Eigen::VectorXd recent_values(window_size);
+        recent_values.setZero();
+
+        // Flag for oscillation detection
+        bool is_oscillating = false;
+
         // Loop over the power iterations
         for (size_t k = 0; k < num_iterations; ++k) {
-            // Update lambda_n
-            lambda_n = lambda_np1;
+            // Update stable time increment
+            stable_time_step_n = stable_time_step_np1;
 
             // Perturb the displacement coefficients by epsilon, u + v * \epsilon
             PerturbDisplacementCoefficients(epsilon);
 
             // Compute the force with the perturbed displacement coefficients
-            m_solver->ComputeForce(time, current_stable_time_increment);
+            m_solver->ComputeForce(time, stable_time_step_n);
             m_solver->CommunicateForce();
 
             // Compute the next eigenvector
             ComputeNextEigenvector(epsilon);
 
             // Normalize the eigenvector
-            lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
+            double lambda_np1 = m_node_processor->NormalizeField(FieldIndex::DISPLACEMENT);
 
             // Compute the stable time increment
-            current_stable_time_increment = 2.0 / std::sqrt(lambda_np1);
+            stable_time_step_np1 = 2.0 / std::sqrt(lambda_np1);
 
-            // Add the eigenvalue to the stats
-            m_power_method_stats.eigenvalues_for_iterations[k] = lambda_np1;
+            recent_values(k % window_size) = stable_time_step_np1;
+
+            // Add the stable time increment to the stats
+            m_power_method_stats.stable_time_step_for_iterations[k] = stable_time_step_np1;
 
             // Check for convergence
-            if (std::abs(lambda_np1 - lambda_n) < tolerance_squared * lambda_np1) {
+            if (std::abs(stable_time_step_np1 - stable_time_step_n) < tolerance * stable_time_step_np1) {
                 converged = true;
                 num_iterations_required = k + 1;
                 break;
             }
+
+            // Also check for convergence using window standard deviation
+            if (k >= window_size) {
+                // Calculate mean of recent values
+                double mean = recent_values.mean();
+
+                // Calculate variance
+                assert(window_size > 1);
+                double variance = (recent_values.array() - mean).square().sum() / (window_size - 1);
+
+                // Check for oscillation pattern
+                if (k > window_size + 1) {
+                    // Look for alternating pattern in recent values
+                    double alt_diff = 0.0;
+                    for (int i = 0; i < window_size - 1; i++) {
+                        double diff = recent_values(i + 1) - recent_values(i);
+                        // If sign changes consistently, we have oscillation
+                        if (i > 0 && diff * alt_diff < 0) {
+                            is_oscillating = true;
+                        } else {
+                            is_oscillating = false;
+                            break;
+                        }
+                        alt_diff = diff;
+                    }
+                }
+
+                // If standard deviation is small relative to mean or we detect stable oscillation, consider converged
+                if (variance < variation_tolerance * mean || (is_oscillating && variance < variation_tolerance * mean * 2.0)) {
+                    converged = true;
+                    num_iterations_required = k + 1;
+                    break;
+                }
+            }
         }
 
-        double lambda_max = lambda_np1;
+        double stable_time_increment = 0.0;
 
-        if (!converged) {
-            lambda_max = std::max(lambda_n, lambda_np1);
+        if (converged) {
+            if (is_oscillating) {
+                // For oscillating pattern, use the maximum for safety
+                stable_time_increment = recent_values.maxCoeff();
+            } else {
+                // For normal convergence, use the last value
+                stable_time_increment = stable_time_step_np1;
+            }
+        } else {
+            // If not converged, use the maximum from the window for safety
+            stable_time_increment = recent_values.maxCoeff();
         }
-
-        // Compute the stable time increment
-        double stable_time_increment = 2.0 / std::sqrt(lambda_max);
 
         // Update the power method stats
-        m_power_method_stats.SetStats(lambda_max, stable_time_increment, num_iterations_required, converged);
+        m_power_method_stats.SetStats(stable_time_increment, num_iterations_required, converged);
         // m_power_method_stats.PrintStats();
 
         // Copy the displacement coefficient field to the eigenvector field
         m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT, FieldIndex::EIGENVECTOR);
 
         // Copy the displacement temp to the displacement coefficients field. Force will be cleared in the next iteration so no need to copy it
-        m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT_IN, FieldIndex::DISPLACEMENT);
+        if (time == 0.0) {
+            m_node_processor->CopyFieldData(FieldIndex::DISPLACEMENT_IN, FieldIndex::DISPLACEMENT);
+            if (m_has_state) {
+                m_node_processor->CopyFieldData(StateIndex::STATE_N, StateIndex::STATE_NP1);
+            }
+        }
 
         return stable_time_increment;
     }
@@ -450,7 +515,9 @@ class PowerMethodProcessor {
     NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
-    std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;  // The node processor
+    std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;             // The node processor
+    std::unique_ptr<aperi::ElementProcessor<StateIndex::NUM_STATE_FIELDS, double>> m_state_processor;  // The node processor
+    bool m_has_state;
 
     PowerMethodStats m_power_method_stats;  // Stats for the last power method run
 };

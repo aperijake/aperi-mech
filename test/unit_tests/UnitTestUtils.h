@@ -19,6 +19,7 @@
 #include "MeshData.h"
 
 namespace aperi {
+struct Index;
 class IoMesh;
 class MeshData;
 }  // namespace aperi
@@ -40,7 +41,6 @@ void AddDisplacementBoundaryConditionsComponents(YAML::Node& root, const std::st
 void AddDisplacementBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
 void AddVelocityBoundaryConditions(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
 void AddVelocityBoundaryConditionsWithActiveRange(YAML::Node& root, const std::string& ramp_function_type = "ramp_function");
-void WriteTestFile(const std::string& filename);
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);
@@ -54,6 +54,7 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
 void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const double z_plane_offset);
 size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
+aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates);
 
 // Check that the field values match the expected values
 // Expects a uniform field, values for every entity are the same
@@ -183,10 +184,15 @@ void CheckThatFieldsMatch(const aperi::MeshData& mesh_data, const std::vector<st
         EXPECT_EQ(num_components[0], num_components[1]) << "Number of components is not consistent";
         for (size_t i = 0; i < num_components[0]; i++) {
             found_at_least_one_entity = true;
-            if (std::abs(field_data[0][i_entity_start[0] + i]) < 1.0e-12) {
-                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], tolerance) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
+            if constexpr (std::is_floating_point_v<T>) {
+                if (std::abs(field_data[0][i_entity_start[0] + i]) < 1.0e-12) {
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], tolerance) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
+                } else {
+                    EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], std::abs(tolerance * field_data[0][i_entity_start[0] + i])) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
+                }
             } else {
-                EXPECT_NEAR(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i], std::abs(tolerance * field_data[0][i_entity_start[0] + i])) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
+                // For non-floating point types, just use exact equality
+                EXPECT_EQ(field_data[0][i_entity_start[0] + i], field_data[1][i_entity_start[1] + i]) << "Field " << field_1_name << " and " << field_2_name << " values do not match. i_entity_start[0] = " << i_entity_start[0] << ", i_entity_start[1] = " << i_entity_start[1] << ", i = " << i;
             }
         }
     });

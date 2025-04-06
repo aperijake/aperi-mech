@@ -35,6 +35,8 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
       m_compression_level(io_mesh_parameters.compression_level),
       m_compression_shuffle(io_mesh_parameters.compression_shuffle),
       m_lower_case_variable_names(io_mesh_parameters.lower_case_variable_names),
+      m_minimize_open_files(io_mesh_parameters.minimize_open_files),
+      m_add_faces(io_mesh_parameters.add_faces),
       m_integer_size(io_mesh_parameters.integer_size),
       m_initial_bucket_capacity(io_mesh_parameters.initial_bucket_capacity),
       m_maximum_bucket_capacity(io_mesh_parameters.maximum_bucket_capacity) {
@@ -62,6 +64,7 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
 
 // Destructor
 IoMesh::~IoMesh() {
+    mp_io_broker->flush_output();
     mp_io_broker->remove_mesh_database(m_input_index);
     mp_io_broker->close_output_mesh(m_results_index);
 }
@@ -70,7 +73,8 @@ void IoMesh::SetIoProperties() const {
     mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", static_cast<int>(m_lower_case_variable_names)));
 
     if (!m_decomp_method.empty()) {
-        mp_io_broker->property_add(Ioss::Property("DECOMPOSITION_METHOD", m_decomp_method));
+        std::string decomp_method = m_decomp_method;
+        mp_io_broker->property_add(Ioss::Property("DECOMPOSITION_METHOD", decomp_method.c_str()));
     }
 
     if (m_compose_output) {
@@ -78,7 +82,8 @@ void IoMesh::SetIoProperties() const {
     }
 
     if (!m_parallel_io.empty()) {
-        mp_io_broker->property_add(Ioss::Property("PARALLEL_IO_MODE", m_parallel_io));
+        std::string parallel_io = m_parallel_io;
+        mp_io_broker->property_add(Ioss::Property("PARALLEL_IO_MODE", parallel_io.c_str()));
     }
 
     bool use_netcdf4 = false;
@@ -97,6 +102,11 @@ void IoMesh::SetIoProperties() const {
     if (m_integer_size == 8) {
         mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_DB", m_integer_size));
         mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_API", m_integer_size));
+    }
+
+    // Close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
+    if (m_minimize_open_files) {
+        mp_io_broker->property_add(Ioss::Property("MINIMIZE_OPEN_FILES", 1));
     }
 }
 
@@ -183,6 +193,11 @@ void IoMesh::CompleteInitialization() {
         throw std::runtime_error("CompleteInitialization called before ReadMesh");
     }
     mp_io_broker->populate_bulk_data();  // committing here
+
+    // Create faces
+    if (m_add_faces) {
+        stk::mesh::create_faces(mp_io_broker->bulk_data());
+    }
 }
 
 void IoMesh::CreateFieldResultsFile(const std::string &filename) {
@@ -201,18 +216,24 @@ void IoMesh::AddFieldResultsOutput(const std::vector<aperi::FieldData> &field_da
             continue;
         }
         assert(!field.output_name.empty());
+        const std::string output_name = field.output_name;
+        const std::string name = field.name;
         stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
-        stk::mesh::FieldBase *p_field = mp_io_broker->meta_data().get_field(topology_rank, field.name);
+        stk::mesh::FieldBase *p_field = mp_io_broker->meta_data().get_field(topology_rank, name);
         assert(p_field != nullptr);
         const Ioss::Field::RoleType *p_role = stk::io::get_field_role(*p_field);
         if (p_role && *p_role == Ioss::Field::TRANSIENT) {
-            mp_io_broker->add_field(m_results_index, *p_field, field.output_name);  // results output
+            mp_io_broker->add_field(m_results_index, *p_field, output_name);
         }
     }
 }
 
 void IoMesh::WriteFieldResults(double time) const {
     mp_io_broker->process_output_request(m_results_index, time);
+}
+
+void IoMesh::CloseFieldResultsFile() const {
+    mp_io_broker->close_output_mesh(m_results_index);
 }
 
 // IoMesh factory function

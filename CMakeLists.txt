@@ -5,6 +5,7 @@ project(aperi-mech)
 option(CHECK_CODE_COVERAGE "Enable code coverage" OFF)
 option(USE_GPU "Enable GPU support" OFF)
 option(USE_PROTEGO_MECH "Include protego-mech library" OFF)
+option(USE_SANITIZER "Enable sanitizer" OFF)
 
 # Set the flags for the RelWithDebInfo configuration
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -pg")
@@ -21,6 +22,7 @@ include(cmake/targets.cmake)
 include(cmake/testing.cmake)
 include(cmake/performance_testing.cmake)
 include(cmake/code_coverage.cmake)
+include(cmake/sanitizer.cmake)
 
 # Create a symbolic link to the compile_commands.json file
 # Determine the source of the compile_commands.json file

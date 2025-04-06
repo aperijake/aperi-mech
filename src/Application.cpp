@@ -22,32 +22,32 @@
 
 namespace aperi {
 
-void Application::CreateSolverAndRun(const std::string& input_filename) {
+void Application::CreateSolverAndRun(const std::string& input_filename, bool add_faces) {
     // Create the solver
-    std::shared_ptr<Solver> solver = CreateSolver(input_filename);
+    std::shared_ptr<Solver> solver = CreateSolver(input_filename, add_faces);
 
     // Run the solver
     Run(solver);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_data) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_data, bool add_faces) {
     aperi::CoutP0() << "Reading Input YAML Data" << std::endl;
 
     // Create an IO input file object and read the input file
     std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(yaml_data);
 
     // Create the solver
-    return CreateSolver(io_input_file);
+    return CreateSolver(io_input_file, add_faces);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename, bool add_faces) {
     aperi::CoutP0() << "Reading Input File '" << input_filename << "'" << std::endl;
 
     // Create an IO input file object and read the input file
     std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(input_filename);
 
     // Create the solver
-    return CreateSolver(io_input_file);
+    return CreateSolver(io_input_file, add_faces);
 }
 
 std::vector<std::string> GetPartNames(const std::vector<YAML::Node>& parts) {
@@ -98,7 +98,7 @@ std::string FindFileInDirectories(const std::string& file, const std::vector<std
     throw std::runtime_error("File '" + file + "' not found in directories: " + search_directories);
 }
 
-std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, bool add_faces, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
     // Find the mesh file in the search directories
     std::string mesh_file_path = aperi::FindFileInDirectories(mesh_file, mesh_search_directories);
 
@@ -108,6 +108,7 @@ std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_f
     // Create an IO mesh object
     IoMeshParameters io_mesh_parameters;  // Default parameters
     io_mesh_parameters.compose_output = true;
+    io_mesh_parameters.add_faces = add_faces;
     std::shared_ptr<aperi::IoMesh> io_mesh = aperi::CreateIoMesh(comm, io_mesh_parameters);
 
     // Read the mesh
@@ -158,9 +159,14 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
         InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData());
         internal_force_contribution_parameters.lagrangian_formulation_type = lagrangian_formulation_type;
         internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
-        std::vector<aperi::FieldData> material_field_data = internal_force_contribution_parameters.material->GetFieldData();
-        io_mesh->AddFields(material_field_data, {part_name});
-        io_mesh->AddFieldResultsOutput(material_field_data);
+        std::vector<aperi::FieldData> part_field_data = internal_force_contribution_parameters.material->GetFieldData();
+        // If uses f_bar, add displacement_gradient to the field data. TODO(jake): Move this somewhere else
+        if (internal_force_contribution_parameters.integration_scheme_parameters->UsesFBar()) {
+            part_field_data.push_back(aperi::FieldData("displacement_gradient_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+            part_field_data.push_back(aperi::FieldData("pk1_stress_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+        }
+        io_mesh->AddFields(part_field_data, {part_name});
+        io_mesh->AddFieldResultsOutput(part_field_data);
     }
 
     return internal_force_contributions;
@@ -186,20 +192,6 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
     io_mesh->AddFields(field_data);
     io_mesh->AddFieldResultsOutput(field_data);
     io_mesh->CompleteInitialization();
-}
-
-void LabelMesh(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<YAML::Node>& parts, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
-    // Create a scoped timer
-    auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::LabelMesh, "Labeling Mesh");
-
-    // Create a mesh labeler
-    std::shared_ptr<MeshLabeler> mesh_labeler = CreateMeshLabeler();
-
-    // Label the mesh
-    for (const auto& part : parts) {
-        MeshLabelerParameters mesh_labeler_parameters(part, io_mesh->GetMeshData());
-        mesh_labeler->LabelPart(mesh_labeler_parameters);
-    }
 }
 
 std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalForceContribution(const std::vector<YAML::Node>& loads, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
@@ -269,7 +261,7 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
     aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
 }
 
-std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file) {
+std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << "\n\n############################################" << std::endl;
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
@@ -291,7 +283,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<std::string> mesh_search_directories = io_input_file->GetMeshSearchDirectories(procedure_id);
 
     // Create the IO mesh object and read the mesh
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, m_comm, timer_manager);
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, add_faces, m_comm, timer_manager);
 
     // Create the field results file
     std::string output_file = io_input_file->GetOutputFile(procedure_id);
@@ -322,9 +314,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Add fields to the mesh
     AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients, timer_manager);
-
-    // Label the mesh
-    LabelMesh(io_mesh, parts, timer_manager);
 
     // Create external force contributions
     std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);

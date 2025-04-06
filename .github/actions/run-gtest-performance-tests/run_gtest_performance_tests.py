@@ -13,10 +13,10 @@ def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
     ssh.connect(vm_ip, username=vm_username)
 
     # Construct the compose file and service name
-    compose_file = "docker-compose.yml"
+    compose_file = "docker/docker-compose.yml"
     service_name = "aperi-mech-development"
     if gpu:
-        compose_file = "docker-compose_nvidia_t4_gpu.yml"
+        compose_file = "docker/docker-compose_nvidia.yml"
         service_name = "aperi-mech-gpu-development"
 
     # Construct the build path

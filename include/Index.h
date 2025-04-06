@@ -11,6 +11,9 @@ namespace aperi {
  * constructors and an operator to access the encapsulated index.
  */
 struct Index {
+    // Constant for invalid index value
+    static constexpr unsigned INVALID_ID = ~0u;  // Equivalent to max unsigned value (all bits set)
+
     /**
      * @brief Constructor that initializes the index with a given value.
      *
@@ -39,7 +42,7 @@ struct Index {
      *
      * @return The encapsulated `stk::mesh::FastMeshIndex`.
      */
-    KOKKOS_FUNCTION
+    KOKKOS_INLINE_FUNCTION
     stk::mesh::FastMeshIndex operator()() const {
         return m_index;
     }
@@ -49,7 +52,7 @@ struct Index {
      *
      * @return The bucket ID.
      */
-    KOKKOS_FUNCTION
+    KOKKOS_INLINE_FUNCTION
     unsigned bucket_id() const {
         return m_index.bucket_id;
     }
@@ -59,9 +62,29 @@ struct Index {
      *
      * @return The bucket ordinal.
      */
-    KOKKOS_FUNCTION
+    KOKKOS_INLINE_FUNCTION
     unsigned bucket_ord() const {
         return m_index.bucket_ord;
+    }
+
+    /**
+     * @brief Creates an invalid index.
+     *
+     * @return An Index object that represents an invalid state.
+     */
+    KOKKOS_FUNCTION
+    static Index Invalid() {
+        return Index(INVALID_ID, INVALID_ID);
+    }
+
+    /**
+     * @brief Checks if the index is valid.
+     *
+     * @return True if the index is valid, false otherwise.
+     */
+    KOKKOS_INLINE_FUNCTION
+    bool IsValid() const {
+        return m_index.bucket_id != INVALID_ID || m_index.bucket_ord != INVALID_ID;
     }
 
     /**
@@ -71,8 +94,8 @@ struct Index {
      * @param rhs The right-hand side Index object.
      * @return True if the indices are equal, false otherwise.
      */
-    friend KOKKOS_FUNCTION bool operator==(const Index& lhs, const Index& rhs) {
-        return lhs.m_index == rhs.m_index;
+    friend KOKKOS_INLINE_FUNCTION bool operator==(const Index& lhs, const Index& rhs) {
+        return lhs.bucket_id() == rhs.bucket_id() && lhs.bucket_ord() == rhs.bucket_ord();
     }
 
     /**

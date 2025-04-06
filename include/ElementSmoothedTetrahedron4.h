@@ -15,10 +15,11 @@
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "NeighborSearchProcessor.h"
 #include "QuadratureSmoothed.h"
 #include "ShapeFunctionsFunctorTet4.h"
-#include "StrainSmoothingProcessor.h"
+#include "SmoothedCellDataProcessor.h"
 
 namespace aperi {
 
@@ -34,12 +35,30 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     /**
      * @brief Constructs a ElementSmoothedTetrahedron4 object.
      */
-    ElementSmoothedTetrahedron4(const std::string &displacement_field_name, const std::vector<std::string> &part_names, std::shared_ptr<MeshData> mesh_data, std::shared_ptr<Material> material, const aperi::LagrangianFormulationType &lagrangian_formulation_type) : ElementBase(TET4_NUM_NODES, material), m_displacement_field_name(displacement_field_name), m_part_names(part_names), m_mesh_data(mesh_data), m_lagrangian_formulation_type(lagrangian_formulation_type) {
-        // Find and store the element neighbors
+    ElementSmoothedTetrahedron4(
+        const std::string& displacement_field_name,
+        const std::vector<std::string>& part_names,
+        std::shared_ptr<MeshData> mesh_data,
+        std::shared_ptr<Material> material,
+        const aperi::LagrangianFormulationType& lagrangian_formulation_type,
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters,
+        bool use_f_bar)
+        : ElementBase(TET4_NUM_NODES,
+                      displacement_field_name,
+                      part_names,
+                      mesh_data,
+                      material,
+                      lagrangian_formulation_type,
+                      mesh_labeler_parameters),
+          m_use_f_bar(use_f_bar) {
+        // Initialize element processing
         CreateElementForceProcessor();
+        CreateSmoothedCellDataProcessor();
+        LabelParts();
         FindNeighbors();
         BuildSmoothedCellData();
-        ComputeSmoothedQuadrature();
+        BuildQuadratureFunctor();
+        UpdateShapeFunctions();
     }
 
     /**
@@ -67,7 +86,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
         // Create the element processor
         assert(m_material != nullptr);
-        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type);
+        m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, "force_coefficients", *this->m_material, m_lagrangian_formulation_type, m_use_f_bar);
     }
 
     void FindNeighbors() {
@@ -78,35 +97,24 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
 
-    void BuildSmoothedCellData() {
-        // Create the integration functor
-        // size_t integration_functor_size = sizeof(SmoothedQuadratureTet4);
-        // auto integration_functor = (SmoothedQuadratureTet4 *)Kokkos::kokkos_malloc(integration_functor_size);
-        // assert(integration_functor != nullptr);
+    void CreateSmoothedCellDataProcessor() {
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+    }
 
-        // // Initialize the functors
-        // Kokkos::parallel_for(
-        //     "CreateSmoothedTetrahedron4StoringFunctors", 1, KOKKOS_LAMBDA(const int &) {
-        //         new ((SmoothedQuadratureTet4 *)integration_functor) SmoothedQuadratureTet4();
-        //     });
+    void LabelParts() {
+        m_strain_smoothing_processor->LabelParts();
+    }
 
+    void BuildQuadratureFunctor() {
         // Create a host version of the functor
         m_smoothed_quadrature_host_functor = std::make_shared<SmoothedQuadratureTet4>();
+    }
 
-        // Build the smoothed cell data
-        m_strain_smoothing_processor = std::make_shared<aperi::StrainSmoothingProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
+    void BuildSmoothedCellData() {
         m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<TET4_NUM_NODES>(TET4_NUM_NODES, true);
 
         // Add the strain smoothing timer manager to the timer manager
         m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
-
-        // // Destroy the integration functor
-        // Kokkos::parallel_for(
-        //     "DestroySmoothedTetrahedron4Functors", 1, KOKKOS_LAMBDA(const int &) {
-        //         integration_functor->~SmoothedQuadratureTet4();
-        //     });
-
-        // Kokkos::kokkos_free(integration_functor);
     }
 
     void ComputeSmoothedQuadrature() {
@@ -143,14 +151,11 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     }
 
    private:
-    const std::string m_displacement_field_name;
-    const std::vector<std::string> m_part_names;
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
+    bool m_use_f_bar;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;
     std::shared_ptr<aperi::SmoothedQuadratureTet4> m_smoothed_quadrature_host_functor;
-    std::shared_ptr<aperi::StrainSmoothingProcessor> m_strain_smoothing_processor;
+    std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
 };
 
 }  // namespace aperi

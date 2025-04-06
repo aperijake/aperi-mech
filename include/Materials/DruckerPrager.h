@@ -99,19 +99,31 @@ class DruckerPragerMaterial : public Material {
             const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
             Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
             const double& timestep,
+            const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
             Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
-            // Assert that the displacement gradient is not null
+            // Assert that the displacement, velocity gradients, state, and pk1 stress are not null
             KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+            KOKKOS_ASSERT(displacement_gradient_np1->data() != nullptr);
+            KOKKOS_ASSERT(velocity_gradient_np1 != nullptr);
+            KOKKOS_ASSERT(velocity_gradient_np1->data() != nullptr);
+            KOKKOS_ASSERT(state_old != nullptr);
+            KOKKOS_ASSERT(state_old->data() != nullptr);
+            KOKKOS_ASSERT(state_new != nullptr);
+            KOKKOS_ASSERT(state_new->data() != nullptr);
+            KOKKOS_ASSERT(pk1_stress_n != nullptr);
+            KOKKOS_ASSERT(pk1_stress_n->data() != nullptr);
 
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
             auto Ez = I / Kokkos::sqrt(3.0);
             auto F = *displacement_gradient_np1 + I;
-            Eigen::Matrix<double, 3, 3> tau = pk1_stress * F.transpose();
+            Eigen::Matrix<double, 3, 3> tau = *pk1_stress_n * F.transpose();
 
             // Trial stress
-            auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
-            auto trde = de.trace();
+
+            Eigen::Matrix<double, 3, 3> de = (0.5 * timestep) * (*velocity_gradient_np1 + velocity_gradient_np1->transpose());
+            double trde = de.trace();
             auto dedev = tensor::deviatoric_part(de);
+
             tau += m_bulk_modulus * trde * I + 2 * m_shear_modulus * dedev;
 
             double zt, st;
@@ -203,12 +215,14 @@ class DruckerPragerMaterial : public Material {
                 }
             }
 
+
             auto depdev = tensor::deviatoric_part(dep);
-            auto deqps = Kokkos::sqrt(tensor::double_dot(depdev, depdev) + (dep.trace() * dep.trace()) / 3.0);
+            const double dep_trace = dep.trace();
+            auto deqps = Kokkos::sqrt(tensor::double_dot(depdev, depdev) + (dep_trace * dep_trace) / 3.0);
 
             // Update the state
-            state_new->coeffRef(PLASTIC_STRAIN) += deqps;
-            state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) += dep.trace();
+            state_new->coeffRef(PLASTIC_STRAIN) = state_old->coeff(PLASTIC_STRAIN) + deqps;
+            state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) = state_old->coeff(VOLUMETRIC_PLASTIC_STRAIN) + dep_trace;
 
             pk1_stress = tau * F.inverse().transpose();
         }
@@ -228,6 +242,11 @@ class DruckerPragerMaterial : public Material {
             return true;
         }
 
+        KOKKOS_INLINE_FUNCTION
+        bool NeedsOldStress() const override {
+            return true;
+        }
+
        private:
         double m_bulk_modulus;
         double m_shear_modulus;
@@ -243,6 +262,11 @@ class DruckerPragerMaterial : public Material {
 
     // TODO(jake): get rid of this in favor of the above NeedsVelocityGradient
     bool NeedsVelocityGradient() const override {
+        return true;
+    }
+
+    // TODO(jake): get rid of this in favor of the above NeedsOldStress
+    bool NeedsOldStress() const override {
         return true;
     }
 };

@@ -160,8 +160,9 @@ TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch) {
     m_num_elements_y = 5;
     m_num_elements_z = 5;
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    double ball_scale_factor = 1.1;
-    m_search_processor->add_nodes_neighbors_within_variable_ball(ball_scale_factor);
+    std::vector<double> ball_scale_factors = {1.1};
+    std::vector<std::string> part_names = {"block_1"};
+    m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, ball_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
     // Check the neighbor stats
@@ -184,11 +185,12 @@ TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     m_num_elements_y = 1;
     m_num_elements_z = 4;
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    double kernel_radius_scale_factor = 1.01;  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
-    m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
+    std::vector<double> kernel_radius_scale_factors = {1.01};  // Slightly larger to make sure and capture neighbors that would have been exactly on the radius
+    std::vector<std::string> part_names = {"block_1"};
+    m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
-    // After htet, each hex element has one pair of tets that cut across the diagonal of the hex. The rest cut across the faces.
-    std::vector<std::pair<double, size_t>> expected_kernel_radii = {{std::sqrt(2.0) * kernel_radius_scale_factor, 12}, {std::sqrt(3.0) * kernel_radius_scale_factor, 8}};
+    // After the, each hex element has one pair of tets that cut across the diagonal of the hex. The rest cut across the faces.
+    std::vector<std::pair<double, size_t>> expected_kernel_radii = {{std::sqrt(2.0) * kernel_radius_scale_factors[0], 12}, {std::sqrt(3.0) * kernel_radius_scale_factors[0], 8}};
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radii, aperi::FieldQueryState::None);
     // 8 corners of the mesh, 2 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
     // 12 edges of the mesh, 6 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
@@ -215,10 +217,10 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Set the active field to 0 or 1
     int seed = 42;
-    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, unsigned long>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
     // Check that the active field has 1s and 0s
-    auto active_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    auto active_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, unsigned long, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
     size_t num_zeros = 0;
     size_t num_ones = 0;
     for (int i = 0; i < active_values.rows(); i++) {
@@ -255,9 +257,10 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     }
 
     // Add neighbors within a ball
-    double kernel_radius_scale_factor = 2.1;
+    std::vector<double> kernel_radius_scale_factors = {2.1};
+    std::vector<std::string> part_names = {"block_1"};
     // This also has an assert that checks the neighbors are active so should test in debug and for num_procs >= 1
-    m_search_processor->add_nodes_neighbors_within_variable_ball(kernel_radius_scale_factor);
+    m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
     // Check that the neighbors are active.
@@ -268,7 +271,7 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Mess up the active field
     seed = 21;
-    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, uint64_t>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, unsigned long>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
     // Check neighbor active status and expect an issue, CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
     if (num_procs == 1) {

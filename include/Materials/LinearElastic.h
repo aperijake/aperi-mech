@@ -8,8 +8,8 @@
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
-#include "MathUtils.h"
 #include "Materials/Base.h"
+#include "MathUtils.h"
 
 namespace aperi {
 
@@ -72,6 +72,7 @@ class LinearElasticMaterial : public Material {
                        const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
                        Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
                        const double& timestep,
+                       const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
                        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
             // Assert that the displacement gradient is not null
             KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);

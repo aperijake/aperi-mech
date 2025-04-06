@@ -24,6 +24,7 @@
 class NeighborSearchProcessorTestFixture : public ::testing::Test {
     using DoubleField = stk::mesh::Field<double>;
     using UnsignedField = stk::mesh::Field<uint64_t>;
+    using UnsignedLongField = stk::mesh::Field<unsigned long>;
 
    protected:
     void SetUp() override {
@@ -49,8 +50,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
-        m_node_active_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "active", 1);
-        uint64_t initial_values = 1;
+        m_node_active_field = &p_meta_data->declare_field<unsigned long>(stk::topology::NODE_RANK, "active", 1);
+        unsigned long initial_values = 1;
         stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_field, 1, &initial_values);
 
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
@@ -65,8 +66,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
 
-        m_smoothed_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "smoothed_cell_id", 1);
-        stk::mesh::put_field_on_entire_mesh(*m_smoothed_cell_id_field, 1);
+        m_subcell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
+        stk::mesh::put_field_on_entire_mesh(*m_subcell_id_field, 1);
     }
 
     template <typename T>
@@ -88,9 +89,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     }
 
     void RunMeshLabeling() {
-        std::shared_ptr<aperi::MeshLabeler> mesh_labeler = aperi::CreateMeshLabeler();
+        std::shared_ptr<aperi::MeshLabeler> mesh_labeler = aperi::CreateMeshLabeler(m_mesh_data);
         aperi::MeshLabelerParameters mesh_labeler_parameters;
-        mesh_labeler_parameters.mesh_data = m_mesh_data;
         mesh_labeler_parameters.set = "block_1";
         mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Element;
         mesh_labeler->LabelPart(mesh_labeler_parameters);
@@ -142,7 +142,7 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
         m_kernel_radius_field = nullptr;
         m_max_edge_length_field = nullptr;
         m_cell_id_field = nullptr;
-        m_smoothed_cell_id_field = nullptr;
+        m_subcell_id_field = nullptr;
 
         m_extra_fields.clear();
     }
@@ -155,9 +155,9 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     UnsignedField *m_node_num_neighbors_field;
     UnsignedField *m_node_neighbors_field;
-    UnsignedField *m_node_active_field;
+    UnsignedLongField *m_node_active_field;
     UnsignedField *m_cell_id_field;
-    UnsignedField *m_smoothed_cell_id_field;
+    UnsignedField *m_subcell_id_field;
     DoubleField *m_node_neighbors_function_values_field;
     DoubleField *m_kernel_radius_field;
     DoubleField *m_max_edge_length_field;

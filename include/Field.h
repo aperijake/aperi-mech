@@ -57,16 +57,7 @@ class Field {
      * @param index The index of the entity.
      * @return An array of the field data.
      */
-    KOKKOS_FUNCTION T *data(const aperi::Index &index) {
-        return &m_ngp_field(index(), 0);
-    }
-
-    /**
-     * @brief Gather the field data for the entity and store it in an array.
-     * @param index The index of the entity.
-     * @return A const array of the field data.
-     */
-    KOKKOS_FUNCTION const T *data(const aperi::Index &index) const {
+    KOKKOS_FUNCTION T *data(const aperi::Index &index) const {
         return &m_ngp_field(index(), 0);
     }
 
@@ -84,18 +75,7 @@ class Field {
      * @param i The component index.
      * @return Reference to the value of the field data at the given index
      */
-    KOKKOS_FUNCTION T &operator()(const aperi::Index &index, size_t i) {
-        KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
-        return m_ngp_field(index(), i);
-    }
-
-    /**
-     * @brief Gather the field data for the entity and component and return it.
-     * @param index The index of the entity.
-     * @param i The component index.
-     * @return Const reference to the value of the field data at the given index
-     */
-    KOKKOS_FUNCTION const T &operator()(const aperi::Index &index, size_t i) const {
+    KOKKOS_FUNCTION T &operator()(const aperi::Index &index, size_t i) const {
         KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
@@ -409,13 +389,31 @@ class Field {
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     stk::mesh::Field<T> *m_field;                  // The field object.
-    stk::mesh::NgpField<T> m_ngp_field;            // The ngp field object.
+    mutable stk::mesh::NgpField<T> m_ngp_field;    // The ngp field object.
 };
+
+// Check if a field exists
+template <typename T>
+bool FieldExists(const aperi::FieldQueryData<T> &field_query_data, const std::shared_ptr<aperi::MeshData> &meta_data) {
+    if (meta_data == nullptr) {
+        return false;
+    }
+    return aperi::StkFieldExists(field_query_data, meta_data->GetMetaData());
+}
+
+// Check if a field exists on a part
+template <typename T>
+bool FieldExistsOn(const aperi::FieldQueryData<T> &field_query_data, const std::string &part_name, const std::shared_ptr<aperi::MeshData> &meta_data) {
+    if (meta_data == nullptr) {
+        return false;
+    }
+    return aperi::StkFieldExistsOn(field_query_data, part_name, meta_data->GetMetaData());
+}
 
 // Get a field if it exists
 template <typename T>
 std::shared_ptr<aperi::Field<T>> GetField(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data) {
-    if (mesh_data == nullptr || !StkFieldExists(field_query_data, mesh_data->GetMetaData())) {
+    if (mesh_data == nullptr || !FieldExists(field_query_data, mesh_data)) {
         return nullptr;
     }
     return std::make_shared<aperi::Field<T>>(mesh_data, field_query_data);
