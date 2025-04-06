@@ -43,7 +43,7 @@ KOKKOS_INLINE_FUNCTION size_t GetElementNumFaceNodes(const size_t num_nodes) {
 template <size_t MaxNumNodes>
 KOKKOS_INLINE_FUNCTION Kokkos::Array<Eigen::Vector3d, MaxNumNodes> GetElementNodeCoordinates(const Kokkos::Array<aperi::Index, MaxNumNodes>& nodes, const aperi::Field<double>& coordinates_field, const size_t num_nodes) {
     Kokkos::Array<Eigen::Vector3d, MaxNumNodes> coordinates;
-    for (int i = 0; i < num_nodes; i++) {
+    for (size_t i = 0; i < num_nodes; i++) {
         coordinates[i] = coordinates_field.GetEigenVectorMap<3>(nodes[i]);
     }
     return coordinates;

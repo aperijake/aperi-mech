@@ -433,7 +433,7 @@ class PowerMethodProcessor {
                 if (k > window_size + 1) {
                     // Look for alternating pattern in recent values
                     double alt_diff = 0.0;
-                    for (int i = 0; i < window_size - 1; i++) {
+                    for (size_t i = 0; i < window_size - 1; i++) {
                         double diff = recent_values(i + 1) - recent_values(i);
                         // If sign changes consistently, we have oscillation
                         if (i > 0 && diff * alt_diff < 0) {
