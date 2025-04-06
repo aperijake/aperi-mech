@@ -38,20 +38,18 @@ class PowerLawCreepMaterial : public Material {
     std::vector<aperi::FieldData> GetFieldData() override {
         std::vector<double> initial_state(2, 0.0);
         auto displacement_gradient = aperi::FieldData(
-          "displacement_gradient",
-          FieldDataRank::TENSOR,
-          FieldDataTopologyRank::ELEMENT,
-          2 /*number of states*/,
-          std::vector<double>{}
-        );
+            "displacement_gradient",
+            FieldDataRank::TENSOR,
+            FieldDataTopologyRank::ELEMENT,
+            2 /*number of states*/,
+            std::vector<double>{});
         auto state = aperi::FieldData(
-          "state",
-          FieldDataRank::CUSTOM,
-          FieldDataTopologyRank::ELEMENT,
-          2 /*number of states*/,
-          2 /*state size*/,
-          initial_state
-        );
+            "state",
+            FieldDataRank::CUSTOM,
+            FieldDataTopologyRank::ELEMENT,
+            2 /*number of states*/,
+            2 /*state size*/,
+            initial_state);
         return {displacement_gradient, state};
     }
 
@@ -94,24 +92,23 @@ class PowerLawCreepMaterial : public Material {
      */
     struct PowerLawCreepGetStressFunctor : public StressFunctor {
         enum StateVariables {
-            EFFECTIVE_CREEP_STRAIN = 0,   /* effective creep strain */
-            EFFECTIVE_STRESS_RATE = 1  /* effective stress rate */
+            EFFECTIVE_CREEP_STRAIN = 0, /* effective creep strain */
+            EFFECTIVE_STRESS_RATE = 1   /* effective stress rate */
         };
 
         KOKKOS_FUNCTION
-        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m) :
-          m_bulk_modulus(K),
-          m_shear_modulus(G),
-          m_A(A),
-          m_n(n),
-          m_m(m) {
+        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m) : m_bulk_modulus(K),
+                                                                                          m_shear_modulus(G),
+                                                                                          m_A(A),
+                                                                                          m_n(n),
+                                                                                          m_m(m) {
             if (m_A < 0.0)
-              Kokkos::abort("PowerLawCreep: A must be > 0");
+                Kokkos::abort("PowerLawCreep: A must be > 0");
             if (m_n < 0.0)
-              Kokkos::abort("PowerLawCreep: n must be > 0");
+                Kokkos::abort("PowerLawCreep: n must be > 0");
             if (m_m < 0.0)
-              Kokkos::abort("PowerLawCreep: m must be > 0");
-          }
+                Kokkos::abort("PowerLawCreep: m must be > 0");
+        }
 
         KOKKOS_INLINE_FUNCTION
         void GetStress(
@@ -120,8 +117,8 @@ class PowerLawCreepMaterial : public Material {
             const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
             Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
             const double& timestep,
+            const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
             Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
-
             KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
 
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
@@ -146,7 +143,7 @@ class PowerLawCreepMaterial : public Material {
             auto temp_new = 0.0;
             auto da = (temp_new == 0.0) ? -a1 : m_A * Kokkos::exp(-m_m / temp_new) - a1;
 
-            auto creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
+            Eigen::Matrix<double, 3, 3> creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
 
             // time step estimate
             auto effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
@@ -158,28 +155,28 @@ class PowerLawCreepMaterial : public Material {
             auto tn = 0.0;
             auto tp = dt;
             while (true) {
-              auto dt_n = timestep;
-              auto dp = 3.0 / 2.0 * stress_deviator * edotvm;
-              auto sdot = 2.0 * m_shear_modulus * (dedev / timestep - dp);
+                auto dt_n = timestep;
+                auto dp = 3.0 / 2.0 * stress_deviator * edotvm;
+                auto sdot = 2.0 * m_shear_modulus * (dedev / timestep - dp);
 
-              stress_deviator += sdot * dt;
-              effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
+                stress_deviator += sdot * dt;
+                effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
 
-              auto a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
-              edotvm = a * Kokkos::pow(effective_stress, m_n - 1.0);
+                auto a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
+                edotvm = a * Kokkos::pow(effective_stress, m_n - 1.0);
 
-              critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
+                critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
 
-              dt_n = Kokkos::min(critical_timestep, dt_n);
-              if (dt_n < min_stepsize)
-                dt_n = min_stepsize;
+                dt_n = Kokkos::min(critical_timestep, dt_n);
+                if (dt_n < min_stepsize)
+                    dt_n = min_stepsize;
 
-              tn = tp;
-              if (tn >= timestep)
-                break;
+                tn = tp;
+                if (tn >= timestep)
+                    break;
 
-              tp = Kokkos::min(timestep, tp + dt_n);
-              dt = tp - tn;
+                tp = Kokkos::min(timestep, tp + dt_n);
+                dt = tp - tn;
             }
 
             auto trde = de.trace();
