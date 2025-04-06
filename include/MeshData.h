@@ -6,6 +6,7 @@
 #include <stk_mesh/base/Comm.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
@@ -16,6 +17,7 @@
 #include "AperiStkUtils.h"
 #include "Constants.h"
 #include "FieldData.h"
+#include "Index.h"
 #include "LogUtils.h"
 
 namespace aperi {

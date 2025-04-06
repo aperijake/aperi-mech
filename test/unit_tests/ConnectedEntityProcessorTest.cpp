@@ -116,13 +116,11 @@ struct ElementFaceCounter {
 
         // For each face, we can get the connected nodes and elements
         for (size_t i = 0; i < num_faces; ++i) {
-            Kokkos::Array<aperi::Index, 4> face_nodes;
-            size_t num_nodes = processor.GetFaceNodes(face_indices[i], face_nodes);
-            Kokkos::atomic_add(&total_face_node_count(0), num_nodes);
+            aperi::ConnectedEntities face_nodes = processor.GetFaceNodes(face_indices[i]);
+            Kokkos::atomic_add(&total_face_node_count(0), face_nodes.size());
 
-            Kokkos::Array<aperi::Index, 2> face_elements;
-            size_t num_elements = processor.GetFaceElements(face_indices[i], face_elements);
-            Kokkos::atomic_add(&total_face_element_count(0), num_elements);
+            aperi::ConnectedEntities face_elements = processor.GetFaceElements(face_indices[i]);
+            Kokkos::atomic_add(&total_face_element_count(0), face_elements.size());
         }
     }
 

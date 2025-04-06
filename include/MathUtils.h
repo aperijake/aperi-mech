@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <Kokkos_ArithTraits.hpp>
 #include <Kokkos_Core.hpp>
 #include <array>
@@ -257,6 +258,177 @@ KOKKOS_FUNCTION constexpr auto DetApIm1(const Eigen::MatrixBase<T> &A) {
     // where the In are the principal invariants of A.
 
     return A(0, 0) + A(1, 1) + A(2, 2) - A(0, 1) * A(1, 0) * (1 + A(2, 2)) + A(0, 0) * A(1, 1) * (1 + A(2, 2)) - A(0, 2) * A(2, 0) * (1 + A(1, 1)) - A(1, 2) * A(2, 1) * (1 + A(0, 0)) + A(0, 0) * A(2, 2) + A(1, 1) * A(2, 2) + A(0, 1) * A(1, 2) * A(2, 0) + A(0, 2) * A(1, 0) * A(2, 1);
+}
+
+struct VectorElementIntersectionData {
+    bool intersects = false;
+    int entry_face = -1;
+    int exit_face = -1;
+    double entry_distance = -1.0;
+    double exit_distance = 2.0;
+};
+
+/**
+ * @brief Check if a vector intersects with a set of planes that define an element.
+ * @tparam NumFaces The number of faces of the element.
+ * @param A The start point of the vector.
+ * @param B The end point of the vector.
+ * @param planes The planes to check against.
+ * @param actual_num_faces The actual number of faces to check against.
+ * @return A VectorElementIntersectionData structure containing the intersection data.
+ */
+template <size_t NumFaces>
+KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Eigen::Vector3d &A, const Eigen::Vector3d &B, const Kokkos::Array<Eigen::Hyperplane<double, 3>, NumFaces> &planes, size_t actual_num_faces = NumFaces) {
+    KOKKOS_ASSERT(NumFaces > 0);
+    KOKKOS_ASSERT(actual_num_faces <= NumFaces);
+    VectorElementIntersectionData result;
+    const Eigen::Vector3d dir = B - A;
+    const double length = dir.norm();
+
+    // Use absolute epsilon for geometric comparisons
+    const double eps = 1e-12 * length;
+
+    double global_entry = 0.0;
+    double global_exit = 1.0;
+    int entry_face = -1;
+    int exit_face = -1;
+
+    for (size_t i = 0; i < actual_num_faces; ++i) {
+        const auto &plane = planes[i];
+        const double S_A = plane.signedDistance(A);
+        const double S_B = plane.signedDistance(B);
+
+        // Current face's valid interval
+        double t_start, t_end;
+
+        if (S_A <= eps && S_B <= eps) {
+            continue;  // No restriction from this face
+        } else if (S_A > eps && S_B > eps) {
+            result.intersects = false;
+            return result;  // Early exit
+        } else {
+            const double denom = S_A - S_B;
+            if (Kokkos::abs(denom) < eps) {  // Parallel case
+                if (S_A > eps) {             // Fully outside
+                    result.intersects = false;
+                    return result;
+                }
+                continue;  // Fully inside face's half-space
+            }
+
+            const double t = S_A / denom;
+            t_start = (S_A > eps) ? t : 0.0;
+            t_end = (S_B > eps) ? t : 1.0;
+        }
+
+        // Update global constraints
+        if (t_start > global_entry) {
+            global_entry = t_start;
+            entry_face = static_cast<int>(i);
+        }
+        if (t_end < global_exit) {
+            global_exit = t_end;
+            exit_face = static_cast<int>(i);
+        }
+
+        if (global_entry > global_exit) {
+            result.intersects = false;
+            return result;  // No overlap
+        }
+    }
+
+    result.entry_distance = Kokkos::clamp(global_entry, 0.0, 1.0);
+    result.exit_distance = Kokkos::clamp(global_exit, 0.0, 1.0);
+    result.intersects = (result.entry_distance <= result.exit_distance);
+    result.entry_face = (result.entry_distance > 0.0) ? entry_face : -1;
+    result.exit_face = (result.exit_distance < 1.0) ? exit_face : -1;
+
+    return result;
+}
+
+/**
+ * @brief Check if a point is near an edge defined by two points.
+ * @param edge_point_0 The first point defining the edge.
+ * @param edge_point_1 The second point defining the edge.
+ * @param point The point to check.
+ * @param realtive_tolerance The tolerance relative to the edge length.
+ * @return True if the point is near the edge, false otherwise.
+ */
+KOKKOS_INLINE_FUNCTION bool NearEdge(const Eigen::Vector3d &point, const Eigen::Vector3d &edge_point_0, const Eigen::Vector3d &edge_point_1, double realtive_tolerance = 1.0e-6) {
+    Eigen::Vector3d edge_vector = edge_point_1 - edge_point_0;
+    Eigen::Vector3d point_vector = point - edge_point_0;
+
+    double edge_length_squared = edge_vector.squaredNorm();
+    double projection = point_vector.dot(edge_vector) / edge_length_squared;
+    double tolerance = realtive_tolerance * edge_length_squared;
+
+    // Check if the point is within the tolerance distance from the edge
+    if (projection < -tolerance || projection > 1.0 + tolerance) {
+        return false;  // Point is outside the edge segment
+    }
+
+    Eigen::Vector3d projection_point = edge_point_0 + projection * edge_vector;
+    double distance_squared = (point - projection_point).squaredNorm();
+
+    return distance_squared <= tolerance;
+}
+
+/**
+ * @brief Check if two points are close to each other.
+ * @param point The first point.
+ * @param other_points The second point.
+ * @param tolerance The tolerance for closeness.
+ * @return True if the points are close, false otherwise.
+ */
+KOKKOS_INLINE_FUNCTION bool PointsAreClose(const Eigen::Vector3d &point, const Eigen::Vector3d &other_points, double tolerance = 1.0e-6) {
+    return (point - other_points).squaredNorm() <= tolerance;
+}
+
+/**
+ * @brief Calculate the squared radius of a ball that contains a list of points.
+ * @tparam MaxNumPoints The maximum number of points.
+ * @param points The list of points to check.
+ * @param num_points The actual number of points in the list to check.
+ * @return The squared radius of the ball that contains the points.
+ * @note The function assumes that the points are in 3D space.
+ */
+template <size_t MaxNumPoints>
+KOKKOS_INLINE_FUNCTION double CalculateSquaredRadius(const Kokkos::Array<Eigen::Vector3d, MaxNumPoints> &points, size_t num_points = MaxNumPoints) {
+    // Calculate the center of the points
+    Eigen::Vector3d center = Eigen::Vector3d::Zero();
+    for (size_t i = 0; i < num_points; ++i) {
+        center += points[i];
+    }
+    center /= num_points;
+
+    // Calculate the ball radius
+    double radius_squared = 0.0;
+    for (size_t i = 0; i < num_points; ++i) {
+        radius_squared = Kokkos::max(radius_squared, (points[i] - center).squaredNorm());
+    }
+
+    return radius_squared;
+}
+
+/**
+ * @brief Check if a point is near another point from a list of points.
+ * @param point The point to check.
+ * @param points The list of points to check against.
+ * @param relative_tolerance The tolerance relative to the ball radius of the list of points.
+ * @return index of the point in the list if found, -1 otherwise.
+ */
+template <size_t NumPoints>
+KOKKOS_INLINE_FUNCTION int NearPoint(const Eigen::Vector3d &point, const Kokkos::Array<Eigen::Vector3d, NumPoints> &points, double relative_tolerance = 1.0e-6) {
+    // Calculate the absolute tolerance
+    double tolerance = relative_tolerance * CalculateSquaredRadius(points);
+
+    // Check if the point is close to any point in the list
+    for (size_t i = 0; i < NumPoints; ++i) {
+        if (PointsAreClose(point, points[i], tolerance)) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
 }
 
 }  // namespace aperi
