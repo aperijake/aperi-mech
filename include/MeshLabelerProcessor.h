@@ -74,7 +74,7 @@ class MeshLabelerProcessor {
         SetActiveFieldForNodalIntegrationHost();
 
         // Parallel sum the active field
-        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
+        ParallelSumActiveField();
 
         // After setting the active field, check that the nodal integration mesh is correct
         CheckNodalIntegrationOnRefinedMeshHost();
@@ -125,6 +125,10 @@ class MeshLabelerProcessor {
 
         // Sync the fields to the device
         SyncFieldsToDevice();
+    }
+
+    void ParallelSumActiveField() {
+        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
     }
 
     void SyncFieldsToHost() {
