@@ -1,0 +1,92 @@
+#pragma once
+
+#include <Kokkos_Core.hpp>
+#include <cstdint>
+
+namespace aperi {
+
+struct FlattenedRaggedArray {
+    explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in) {
+        start = Kokkos::View<uint64_t *>("start", num_items);
+        length = Kokkos::View<uint64_t *>("length", num_items);
+        Kokkos::deep_copy(start, 0);
+        Kokkos::deep_copy(length, 0);
+
+        start_host = Kokkos::create_mirror_view(start);
+        length_host = Kokkos::create_mirror_view(length);
+    }
+
+    // Copy the start and length to the host and set the ragged array size. Conditionally set the starts from the lengths.
+    void FinishPopulatingOnDevice(bool set_starts_from_lengths = true) {
+        if (set_starts_from_lengths) {
+            // Set the start from the length
+            const auto &length_ref = this->length;
+            const auto &start_ref = this->start;
+            Kokkos::parallel_scan(
+                "FinishPopulatingOnDevice", length_ref.size(), KOKKOS_LAMBDA(const int i, uint64_t &update, const bool final) {
+                    update += length_ref(i);
+                    if (final) {
+                        start_ref(i) = update - length_ref(i);
+                    }
+                });
+        }
+
+        // Copy the start and length to the host
+        Kokkos::deep_copy(start_host, start);
+        Kokkos::deep_copy(length_host, length);
+
+        // Set the ragged array size to the last start + length
+        ragged_array_size = start_host(num_items - 1) + length_host(num_items - 1);
+    }
+
+    // Copy the start and length to the device and set the ragged array size. Conditionally set the starts from the lengths.
+    void FinishPopulatingOnHost(bool set_starts_from_lengths = true) {
+        if (set_starts_from_lengths) {
+            // Set the start from the length
+            start_host(0) = 0;
+            for (size_t i = 1; i < num_items; ++i) {
+                start_host(i) = start_host(i - 1) + length_host(i - 1);
+            }
+        }
+        // Copy the start and length to the device
+        Kokkos::deep_copy(start, start_host);
+        Kokkos::deep_copy(length, length_host);
+
+        // Set the ragged array size to the last start + length
+        ragged_array_size = start_host(num_items - 1) + length_host(num_items - 1);
+    }
+
+    // Get the size of the ragged array
+    uint64_t RaggedArraySize() const {
+        return ragged_array_size;
+    }
+
+    // Get device view of start.
+    const Kokkos::View<uint64_t *> &GetStartView() const {
+        return start;
+    }
+
+    // Get device view of length.
+    const Kokkos::View<uint64_t *> &GetLengthView() const {
+        return length;
+    }
+
+    // Get host view of start.
+    Kokkos::View<uint64_t *>::HostMirror GetStartViewHost() const {
+        return start_host;
+    }
+
+    // Get host view of length.
+    Kokkos::View<uint64_t *>::HostMirror GetLengthViewHost() const {
+        return length_host;
+    }
+
+    size_t num_items;                                  // Number of items with value in the ragged array
+    uint64_t ragged_array_size{0};                     // Total number of elements in the ragged array
+    Kokkos::View<uint64_t *> start;                    // Start indices for each item in the ragged array
+    Kokkos::View<uint64_t *> length;                   // Length of each item in the ragged array
+    Kokkos::View<uint64_t *>::HostMirror start_host;   // Host view of start
+    Kokkos::View<uint64_t *>::HostMirror length_host;  // Host view of length
+};
+
+}  // namespace aperi
