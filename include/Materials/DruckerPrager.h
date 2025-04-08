@@ -10,64 +10,9 @@
 #include "LogUtils.h"
 #include "Materials/Base.h"
 #include "MathUtils.h"
+#include "Tensor.h"
 
 namespace aperi {
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-isotropic_part(const T& a) {
-    double one_third_tr = a.trace() / 3.0;
-    Eigen::Matrix<double, 3, 3> result = Eigen::Matrix<double, 3, 3>::Zero();
-    for (int i = 0; i < 3; ++i) {
-        result(i, i) = one_third_tr;
-    }
-    return result;
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION Eigen::Matrix<double, 3, 3>
-deviatoric_part(const T& a) {
-    Eigen::Matrix<double, 3, 3> result = a;
-    result -= isotropic_part(a);
-    return result;
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double double_dot(T& a, T& b) {
-    auto result = (a.array() * b.array()).sum();
-    return result;
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION double magnitude(const T& a) {
-    return Kokkos::sqrt(double_dot(a, a));
-}
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& s, T& E) {
-    /* Return Lode components of second order tensor A
-
-    Args
-    ----
-    a: Second order tensor
-
-    Returns
-    -------
-    z:  Z component of A
-    s:  S component of A
-    E: Basis tensor of deviatoric part of A
-    */
-
-    double tr = a.trace();
-    z = tr / Kokkos::sqrt(3.0);
-    auto dev = deviatoric_part(a);
-    s = magnitude(dev);
-    E.setZero();
-    if (Kokkos::abs(s) > 1.0e-10) {
-        E = dev / s;
-    }
-    return;
-}
 
 /**
  * @brief Derived class for the Drucker-Prager pressure dependent plastic material.
@@ -174,14 +119,16 @@ class DruckerPragerMaterial : public Material {
             Eigen::Matrix<double, 3, 3> tau = *pk1_stress_n * F.transpose();
 
             // Trial stress
+
             Eigen::Matrix<double, 3, 3> de = (0.5 * timestep) * (*velocity_gradient_np1 + velocity_gradient_np1->transpose());
             double trde = de.trace();
-            auto dedev = deviatoric_part(de);
+            auto dedev = tensor::deviatoric_part(de);
+
             tau += m_bulk_modulus * trde * I + 2 * m_shear_modulus * dedev;
 
             double zt, st;
             Eigen::Matrix<double, 3, 3> Es;
-            get_lode_components(tau, zt, st, Es);
+            tensor::get_lode_components(tau, zt, st, Es);
 
             auto dstrain = 0.5 * (*displacement_gradient_np1 + displacement_gradient_np1->transpose()) * timestep;
             Eigen::Matrix<double, 3, 3> dee(dstrain);
@@ -213,7 +160,7 @@ class DruckerPragerMaterial : public Material {
                     for (auto i = 0; i < 3; i++) {
                         for (auto j = 0; j < 3; j++) {
                             N(i, j) = Nz * Ez(i, j) + Ns * Es(i, j);
-                            M(i, j) = Nz * Ez(i, j) + Ns * Es(i, j);
+                            M(i, j) = Mz * Ez(i, j) + Ms * Es(i, j);
                         }
                     }
 
@@ -254,9 +201,10 @@ class DruckerPragerMaterial : public Material {
                         tau(i, j) += dtau(i, j);
                     }
                 }
-                double dz, ds;
+                double dz = 0.0;
+                double ds = 0.0;
                 Eigen::Matrix<double, 3, 3> EDS;
-                get_lode_components(dtau, dz, ds, EDS);
+                tensor::get_lode_components(dtau, dz, ds, EDS);
 
                 // Elastic and plastic strain increments
                 for (auto i = 0; i < 3; i++) {
@@ -267,9 +215,10 @@ class DruckerPragerMaterial : public Material {
                 }
             }
 
-            auto depdev = deviatoric_part(dep);
+
+            auto depdev = tensor::deviatoric_part(dep);
             const double dep_trace = dep.trace();
-            auto deqps = Kokkos::sqrt(double_dot(depdev, depdev) + (dep_trace * dep_trace) / 3.0);
+            auto deqps = Kokkos::sqrt(tensor::double_dot(depdev, depdev) + (dep_trace * dep_trace) / 3.0);
 
             // Update the state
             state_new->coeffRef(PLASTIC_STRAIN) = state_old->coeff(PLASTIC_STRAIN) + deqps;
