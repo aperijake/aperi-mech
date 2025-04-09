@@ -46,4 +46,10 @@ void ForEachElement(const Func &func, const aperi::MeshData &mesh_data, const ap
     ForEachEntity<stk::topology::ELEMENT_RANK>(func, mesh_data, selector);
 }
 
+// Helper function for faces
+template <typename Func>
+void ForEachFace(const Func &func, const aperi::MeshData &mesh_data, const aperi::Selector &selector) {
+    ForEachEntity<stk::topology::FACE_RANK>(func, mesh_data, selector);
+}
+
 }  // namespace aperi

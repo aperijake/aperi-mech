@@ -65,6 +65,27 @@ class MeshData {
         return GetCommMeshCounts()[stk::topology::NODE_RANK];
     }
 
+    void ChangePartsHost(const std::string &part_name, const aperi::FieldDataTopologyRank &topo_rank, const Kokkos::View<aperi::Index *> &indices_to_change) {
+        // Get the topology rank
+        stk::topology::rank_t rank = aperi::GetTopologyRank(topo_rank);
+
+        // If the indicies to change are empty, return
+        if (indices_to_change.size() == 0) {
+            return;
+        }
+
+        // Get the entities to change
+        Kokkos::View<stk::mesh::Entity *> entities_to_change("entities_to_change", indices_to_change.size());
+        IndexViewToEntityView(indices_to_change, *m_bulk_data, rank, entities_to_change);
+
+        // Copy the entities to change to the host
+        Kokkos::View<stk::mesh::Entity *>::HostMirror host_entities_to_change = Kokkos::create_mirror_view(entities_to_change);
+        Kokkos::deep_copy(host_entities_to_change, entities_to_change);
+        stk::mesh::EntityVector elems_to_change(host_entities_to_change.data(), host_entities_to_change.data() + host_entities_to_change.size());
+
+        aperi::ChangePartsHost(part_name, rank, elems_to_change, *m_bulk_data);
+    }
+
     void PrintNodeCounts(bool print_each_processor = false) const {
         // Get the universal part
         stk::mesh::Selector selector = StkGetSelector({}, &m_bulk_data->mesh_meta_data());

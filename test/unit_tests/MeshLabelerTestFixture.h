@@ -22,16 +22,20 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         IoMeshTestFixture::TearDown();
     }
 
-    void ReadThexMesh(const std::string& mesh_string = "test_inputs/thex.exo") {
-        CreateIoMeshFile();
-        m_io_mesh->ReadMesh(mesh_string, {"block_1"});
+    void AddFieldsAndCreateMeshLabeler(const std::vector<aperi::FieldData>& additional_field_data = {}) {
         std::vector<aperi::FieldData> field_data = m_mesh_labeler->GetFieldData();
+        field_data.insert(field_data.end(), additional_field_data.begin(), additional_field_data.end());
         // Add fields to the mesh and complete initialization
-        m_io_mesh->AddFields(field_data);
-        m_io_mesh->CompleteInitialization();
+        AddFieldsAndCompleteInitialization(field_data);
         m_mesh_data = m_io_mesh->GetMeshData();
         // Create a mesh labeler
         m_mesh_labeler = aperi::CreateMeshLabeler(m_mesh_data);
+    }
+
+    void ReadThexMesh(const std::string& mesh_string = "test_inputs/thex.exo") {
+        CreateIoMeshFile();
+        m_io_mesh->ReadMesh(mesh_string, {"block_1"});
+        AddFieldsAndCreateMeshLabeler();
     }
 
     void CheckNodeLabels(uint64_t expected_num_total_nodes, uint64_t expected_num_active_nodes) {

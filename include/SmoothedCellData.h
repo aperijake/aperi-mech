@@ -165,32 +165,19 @@ class SmoothedCellData {
         m_node_to_view_index_map_host = Kokkos::create_mirror(m_node_to_view_index_map);
     }
 
-    // Functor to add the number of items for each subcell, use the getter GetAddSubcellNumNodesFunctor or GetAddSubcellNumElementsFunctor and call in a kokkos parallel for loop
-    struct AddNumItemsFunctor {
-        Kokkos::View<uint64_t *> length;
-
-        explicit AddNumItemsFunctor(Kokkos::View<uint64_t *> length) : length(std::move(length)) {}
-
-        KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &subcell_id, const size_t &num_items) const {
-            // Add the num_times to the existing length
-            Kokkos::atomic_add(&length(subcell_id), num_items);
-        }
-    };
-
-    // Return the AddSubcellNumNodesFunctor using the member variable m_node_csr_indices.length. Call this in a kokkos parallel for loop.
-    AddNumItemsFunctor GetAddSubcellNumNodesFunctor() const {
-        return AddNumItemsFunctor(m_node_csr_indices.length);
+    // Return the AddSubcellNumNodesFunctor.length. Call this in a kokkos parallel for loop.
+    FlattenedRaggedArray::AddNumItemsFunctor GetAddSubcellNumNodesFunctor() const {
+        return m_node_csr_indices.GetAddNumItemsFunctor();
     }
 
-    // Return the AddSubcellNumElementsFunctor using the member variable m_element_csr_indices.length. Call this in a kokkos parallel for loop.
-    AddNumItemsFunctor GetAddSubcellNumElementsFunctor() const {
-        return AddNumItemsFunctor(m_element_csr_indices.length);
+    // Return the AddSubcellNumElementsFunctor.length. Call this in a kokkos parallel for loop.
+    FlattenedRaggedArray::AddNumItemsFunctor GetAddSubcellNumElementsFunctor() const {
+        return m_element_csr_indices.GetAddNumItemsFunctor();
     }
 
     // Return the AddCellNumSubcellsFunctor using the member variable m_subcell_csr_indices.length. Call this in a kokkos parallel for loop.
-    AddNumItemsFunctor GetAddCellNumSubcellsFunctor() const {
-        return AddNumItemsFunctor(m_subcell_csr_indices.length);
+    FlattenedRaggedArray::AddNumItemsFunctor GetAddCellNumSubcellsFunctor() const {
+        return m_subcell_csr_indices.GetAddNumItemsFunctor();
     }
 
     // Should be called after AddSubcellNumNodesFunctor has been called for all subcells and should not be called in a loop.
@@ -325,47 +312,14 @@ class SmoothedCellData {
         CopySubcellNodeViewsToDevice();
     }
 
-    // Functor to add an item to a ragged array, use the getter GetAddItemsFunctor and call in a kokkos parallel for loop
-    template <typename ItemType>
-    struct AddItemsFunctor {
-        Kokkos::View<uint64_t *> start_view;
-        Kokkos::View<uint64_t *> length_view;
-        Kokkos::View<ItemType *> item_view;
-        ItemType expected;
-
-        AddItemsFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<ItemType *> item_view_in, ItemType expected_in)
-            : start_view(std::move(start_view_in)), length_view(std::move(length_view_in)), item_view(std::move(item_view_in)), expected(expected_in) {}
-
-        KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &subcell_id, const ItemType &item) const {
-            // Get the start and length for the cell
-            uint64_t start = start_view(subcell_id);
-            uint64_t length = length_view(subcell_id);
-            uint64_t end = start + length;
-
-            // Find the first slot that is the maximum uint value
-            bool found = false;
-            for (size_t i = start; i <= end; i++) {
-                if (Kokkos::atomic_compare_exchange(&item_view(i), expected, item) == expected) {
-                    found = true;
-                    break;
-                }
-            }
-            // Throw with kokkos if not found
-            if (!found) {
-                Kokkos::abort("Could not find an empty slot to add the item to the ragged array.");
-            }
-        }
-    };
-
-    // Return the AddItemsFunctor using the member variables m_element_csr_indices.start, m_element_csr_indices.length, and m_element_indices. Call this in a kokkos parallel for loop.
-    AddItemsFunctor<aperi::Index> GetAddSubcellElementFunctor() {
-        return AddItemsFunctor<aperi::Index>(m_element_csr_indices.start, m_element_csr_indices.length, m_element_indices, aperi::Index(0, UINT_MAX));
+    // Return the AddItemsFunctor using m_element_indices. Call this in a kokkos parallel for loop.
+    FlattenedRaggedArray::AddItemsFunctor<aperi::Index> GetAddSubcellElementFunctor() {
+        return m_element_csr_indices.GetAddItemsFunctor(m_element_indices, aperi::Index(0, UINT_MAX));
     }
 
-    // Return the AddItemsFunctor using the member variables m_subcell_csr_indices.start, m_subcell_csr_indices.length, and m_cell_subcells. Call this in a kokkos parallel for loop.
-    AddItemsFunctor<uint64_t> GetAddCellSubcellsFunctor() {
-        return AddItemsFunctor<uint64_t>(m_subcell_csr_indices.start, m_subcell_csr_indices.length, m_cell_subcells, UINT64_MAX);
+    // Return the AddItemsFunctor using m_cell_subcells. Call this in a kokkos parallel for loop.
+    FlattenedRaggedArray::AddItemsFunctor<uint64_t> GetAddCellSubcellsFunctor() {
+        return m_subcell_csr_indices.GetAddItemsFunctor(m_cell_subcells, UINT64_MAX);
     }
 
     // Get device view of function derivatives

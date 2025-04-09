@@ -140,6 +140,11 @@ class ConnectedEntityProcessor {
         ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(action_func);
     }
 
+    template <typename ActionFunc>
+    void ForEachFaceAndConnectedElements(ActionFunc &action_func) {
+        ForEachEntityAndConnected<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK, 2>(action_func);
+    }
+
     std::shared_ptr<aperi::MeshData> GetMeshData() {
         return m_mesh_data;
     }

@@ -48,15 +48,7 @@ class GenerateNodalDomainTestFixture : public MeshLabelerTestFixture {
         std::string mesh_string = CreateNodalMeshString();
         // Create the mesh
         CreateIoMeshGenerated();
-        // Read the mesh
         m_io_mesh->ReadMesh(mesh_string, {"block_1"});
-        std::vector<aperi::FieldData> field_data = m_mesh_labeler->GetFieldData();
-        // Add fields to the mesh and complete initialization
-        m_io_mesh->AddFields(field_data);
-        m_io_mesh->CompleteInitialization();
-        m_mesh_data = m_io_mesh->GetMeshData();
-        // Create a mesh labeler
-        m_mesh_labeler = aperi::CreateMeshLabeler(m_mesh_data);
     }
 
     void SetActiveFieldOnNodalMesh() {

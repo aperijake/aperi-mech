@@ -12,6 +12,7 @@ TEST_F(GenerateNodalDomainTestFixture, LabelFieldsForNodalSmoothing) {
     }
     // Create and read the nodal mesh
     CreateAndReadNodalMesh();
+    AddFieldsAndCreateMeshLabeler();
 
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
     size_t num_elements_x = (m_num_nodes_x - 1) * 2;
