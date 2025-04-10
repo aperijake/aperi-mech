@@ -65,6 +65,26 @@ class MeshData {
         return GetCommMeshCounts()[stk::topology::NODE_RANK];
     }
 
+    size_t GetNumElements() const {
+        return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
+    }
+
+    size_t GetNumFaces() const {
+        return GetCommMeshCounts()[stk::topology::FACE_RANK];
+    }
+
+    size_t GetNumOwnedNodes(const std::vector<std::string> &sets) {
+        stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
+        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
+        return stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, owned_selector);
+    }
+
+    size_t GetNumOwnedElements(const std::vector<std::string> &sets) {
+        stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
+        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
+        return stk::mesh::count_entities(*m_bulk_data, stk::topology::ELEMENT_RANK, owned_selector);
+    }
+
     void ChangePartsHost(const std::string &part_name, const aperi::FieldDataTopologyRank &topo_rank, const Kokkos::View<aperi::Index *> &indices_to_change) {
         // Get the topology rank
         stk::topology::rank_t rank = aperi::GetTopologyRank(topo_rank);
@@ -84,6 +104,14 @@ class MeshData {
         stk::mesh::EntityVector elems_to_change(host_entities_to_change.data(), host_entities_to_change.data() + host_entities_to_change.size());
 
         aperi::ChangePartsHost(part_name, rank, elems_to_change, *m_bulk_data);
+    }
+
+    void AddPartToOutput(const std::string &part_name) {
+        stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
+        if (part == nullptr) {
+            throw std::runtime_error("Part " + part_name + " not found.");
+        }
+        stk::io::put_io_part_attribute(*part);
     }
 
     void PrintNodeCounts(bool print_each_processor = false) const {
@@ -243,22 +271,6 @@ class MeshData {
         ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
         ss << "***************************************************\n";
         aperi::CoutP0() << ss.str();
-    }
-
-    size_t GetNumElement() const {
-        return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
-    }
-
-    size_t GetNumOwnedNodes(const std::vector<std::string> &sets) {
-        stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
-        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
-        return stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, owned_selector);
-    }
-
-    size_t GetNumOwnedElements(const std::vector<std::string> &sets) {
-        stk::mesh::Selector selector = StkGetSelector(sets, &m_bulk_data->mesh_meta_data());
-        stk::mesh::Selector owned_selector = selector & m_bulk_data->mesh_meta_data().locally_owned_part();
-        return stk::mesh::count_entities(*m_bulk_data, stk::topology::ELEMENT_RANK, owned_selector);
     }
 
    private:

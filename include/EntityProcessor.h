@@ -775,8 +775,32 @@ using ActiveNodeProcessor = EntityProcessor<stk::topology::NODE_RANK, true, N, T
 template <size_t N, typename T = double>
 using ElementProcessor = EntityProcessor<stk::topology::ELEMENT_RANK, false, N, T>;
 
+// Face processor
+template <size_t N, typename T = double>
+using FaceProcessor = EntityProcessor<stk::topology::FACE_RANK, false, N, T>;
+
+// Error helper for unsupported ranks
+template <aperi::FieldDataTopologyRank Rank, size_t N, typename T = double>
+struct UnsupportedRankError {
+    static_assert(Rank == aperi::FieldDataTopologyRank::NODE ||
+                      Rank == aperi::FieldDataTopologyRank::ELEMENT ||
+                      Rank == aperi::FieldDataTopologyRank::FACE,
+                  "Unsupported topology rank in AperiEntityProcessor");
+    using type = void;
+};
+
 // Change the aperi::FieldDataTopologyRank to stk::topology::rank_t and use the appropriate EntityProcessor
 template <aperi::FieldDataTopologyRank Rank, size_t N, typename T = double>
-using AperiEntityProcessor = std::conditional_t<Rank == aperi::FieldDataTopologyRank::NODE, NodeProcessor<N, T>, ElementProcessor<N, T>>;
+using AperiEntityProcessor =
+    std::conditional_t<
+        Rank == aperi::FieldDataTopologyRank::NODE,
+        NodeProcessor<N, T>,
+        std::conditional_t<
+            Rank == aperi::FieldDataTopologyRank::ELEMENT,
+            ElementProcessor<N, T>,
+            std::conditional_t<
+                Rank == aperi::FieldDataTopologyRank::FACE,
+                FaceProcessor<N, T>,
+                typename UnsupportedRankError<Rank, N, T>::type> > >;
 
 }  // namespace aperi
