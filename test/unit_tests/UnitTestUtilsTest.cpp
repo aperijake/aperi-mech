@@ -122,7 +122,7 @@ struct GetElementCentroidFunctor {
     aperi::ConnectedEntityProcessor processor;
 
     GetElementCentroidFunctor(const aperi::Field<double>& field, const aperi::Index& idx, Kokkos::View<double*> view)
-        : coordinates_field(field), element_index(idx), coordinates_view(view), processor(field.GetMeshData(), {}) {}
+        : coordinates_field(field), element_index(idx), coordinates_view(view), processor(field.GetMeshData()) {}
 
     KOKKOS_FUNCTION void operator()(const int&) const {
         // Get the element nodes

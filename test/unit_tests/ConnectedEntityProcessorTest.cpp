@@ -95,7 +95,7 @@ struct ElementFaceCounter {
     Kokkos::View<int*> total_face_node_count;
     Kokkos::View<int*> total_face_element_count;
 
-    ElementFaceCounter(const std::shared_ptr<aperi::MeshData>& mesh_data) : processor(mesh_data, {"block_1"}),
+    ElementFaceCounter(const std::shared_ptr<aperi::MeshData>& mesh_data) : processor(mesh_data),
                                                                             element_count("element_count", 1),
                                                                             total_face_count("total_face_count", 1),
                                                                             total_face_node_count("total_face_node_count", 1),
@@ -155,17 +155,17 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedNodes) {
     CreateMesh();
 
     // Create an ConnectedEntityProcessor
-    aperi::ConnectedEntityProcessor processor(m_mesh_data, {"block_1"});
+    aperi::Selector selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::ConnectedEntityProcessor processor(m_mesh_data);
 
-    // Verify that GetMeshData and GetSets return the expected values
+    // Verify that GetMeshData returns the expected values
     EXPECT_EQ(processor.GetMeshData(), m_mesh_data);
-    EXPECT_EQ(processor.GetSets(), std::vector<std::string>({"block_1"}));
 
     // Create the counter with a pointer to processor
     ElementNodeCounter counter;
 
     // Process the elements
-    processor.ForEachElementAndConnectedNodes<8>(counter);
+    processor.ForEachElementAndConnectedNodes<8>(counter, selector);
 
     int global_element_count = 0;
     int global_node_count = 0;
@@ -186,17 +186,17 @@ TEST_F(ConnectedEntityProcessorFixture, TestForEachElementAndConnectedFaces) {
     CreateMesh();
 
     // Create an ConnectedEntityProcessor
-    aperi::ConnectedEntityProcessor processor(m_mesh_data, {"block_1"});
+    aperi::Selector selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::ConnectedEntityProcessor processor(m_mesh_data);
 
-    // Verify that GetMeshData and GetSets return the expected values
+    // Verify that GetMeshData returns the expected values
     EXPECT_EQ(processor.GetMeshData(), m_mesh_data);
-    EXPECT_EQ(processor.GetSets(), std::vector<std::string>({"block_1"}));
 
     // Create a counter to keep track of the number of elements processed
     ElementFaceCounter count_elements_and_faces(m_mesh_data);
 
     // Process the elements
-    processor.ForEachElementAndConnectedFaces<6>(count_elements_and_faces);
+    processor.ForEachElementAndConnectedFaces<6>(count_elements_and_faces, selector);
 
     int global_element_count = 0;
     int global_face_count = 0;

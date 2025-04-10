@@ -80,7 +80,8 @@ class ElementHexahedron8 : public ElementBase {
         assert(m_integration_functor != nullptr);
 
         // Create the element node processor
-        m_element_node_processor = std::make_shared<aperi::ConnectedEntityProcessor>(m_mesh_data, m_part_names);
+        m_selector = aperi::Selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+        m_element_node_processor = std::make_shared<aperi::ConnectedEntityProcessor>(m_mesh_data);
 
         // Create the compute force functor
         m_compute_force = std::make_shared<aperi::ComputeInternalForceGaussian<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>>>(m_mesh_data, m_displacement_field_name, "force_coefficients", *m_shape_functions_functor, *m_integration_functor, *this->m_material);
@@ -160,7 +161,7 @@ class ElementHexahedron8 : public ElementBase {
         auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
 
         // Loop over all elements and compute the volume
-        m_element_node_processor->ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(compute_volume_functor);
+        m_element_node_processor->ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(compute_volume_functor, m_selector);
 
         auto element_volume_field = aperi::Field<double>(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         element_volume_field.MarkModifiedOnDevice();
@@ -177,7 +178,7 @@ class ElementHexahedron8 : public ElementBase {
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
-        m_element_node_processor->ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(*m_compute_force);
+        m_element_node_processor->ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(*m_compute_force, m_selector);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 
@@ -185,6 +186,7 @@ class ElementHexahedron8 : public ElementBase {
     ShapeFunctionsFunctorHex8 *m_shape_functions_functor;
     Quadrature<8, HEX8_NUM_NODES> *m_integration_functor;
     std::shared_ptr<aperi::ConnectedEntityProcessor> m_element_node_processor;                                                                       // The element node processor.
+    aperi::Selector m_selector;                                                                                                                      // The selector for the element node processor.
     std::shared_ptr<aperi::ComputeInternalForceGaussian<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>>> m_compute_force;  // The compute force functor.
 };
 

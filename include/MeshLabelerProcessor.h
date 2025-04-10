@@ -287,9 +287,10 @@ class MeshLabelerProcessor {
             std::vector<std::string> active_sets;
             active_sets.push_back(m_set + "_active");
             stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+            stk::mesh::Selector owned_active_selector = active_selector & m_bulk_data->mesh_meta_data().locally_owned_part();
 
             // Loop over the active nodes, grab the first element in the connected entities list that is in the same set of parts
-            for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
                 for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                     stk::mesh::Entity node = (*bucket)[i_node];
 
