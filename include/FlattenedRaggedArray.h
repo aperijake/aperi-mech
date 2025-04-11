@@ -93,10 +93,10 @@ struct FlattenedRaggedArray {
             : start_view(start_view_in), length_view(length_view_in), item_view(item_view_in), expected(expected_in) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()(const size_t &subcell_id, const ItemType &item) const {
-            // Get the start and length for the cell
-            uint64_t start = start_view(subcell_id);
-            uint64_t length = length_view(subcell_id);
+        void operator()(const size_t &item_id, const ItemType &item) const {
+            // Get the start and length for the item
+            uint64_t start = start_view(item_id);
+            uint64_t length = length_view(item_id);
             uint64_t end = start + length;
 
             // Find the first slot that is the maximum uint value
