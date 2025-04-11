@@ -6,9 +6,26 @@
 namespace aperi {
 
 struct FlattenedRaggedArray {
-    explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in) {
-        start = Kokkos::View<uint64_t *>("start", num_items);
-        length = Kokkos::View<uint64_t *>("length", num_items);
+    // Default constructor
+    FlattenedRaggedArray() : num_items(0) {}
+
+    // Constructor
+    explicit FlattenedRaggedArray(size_t num_items_in) : num_items(num_items_in), start("start", num_items_in), length("length", num_items_in) {
+        Kokkos::deep_copy(start, 0);
+        Kokkos::deep_copy(length, 0);
+
+        start_host = Kokkos::create_mirror_view(start);
+        length_host = Kokkos::create_mirror_view(length);
+    }
+
+    // Destructor
+    ~FlattenedRaggedArray() = default;
+
+    // Resize the flattened ragged array
+    void Resize(size_t num_items_in) {
+        num_items = num_items_in;
+        Kokkos::resize(start, num_items);
+        Kokkos::resize(length, num_items);
         Kokkos::deep_copy(start, 0);
         Kokkos::deep_copy(length, 0);
 
