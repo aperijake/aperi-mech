@@ -156,11 +156,12 @@ KOKKOS_INLINE_FUNCTION stk::mesh::Entity IndexToEntity(const aperi::Index &index
     return ngp_mesh.get_entity(rank, index());
 }
 
-KOKKOS_INLINE_FUNCTION void IndexViewToEntityView(const Kokkos::View<aperi::Index *> &indices, const stk::mesh::BulkData &bulk, const stk::topology::rank_t &rank, Kokkos::View<stk::mesh::Entity *> &entities) {
+inline void IndexViewToEntityView(const Kokkos::View<aperi::Index *> &indices, const stk::mesh::BulkData &bulk, const stk::topology::rank_t &rank, Kokkos::View<stk::mesh::Entity *> &entities) {
     const stk::mesh::NgpMesh &ngp_mesh = stk::mesh::get_updated_ngp_mesh(bulk);
-    for (size_t i = 0; i < indices.size(); ++i) {
-        entities(i) = IndexToEntity(indices(i), ngp_mesh, rank);
-    }
+    Kokkos::parallel_for(
+        "IndexViewToEntityView", Kokkos::RangePolicy<>(0, indices.size()), KOKKOS_LAMBDA(const size_t i) {
+            entities(i) = IndexToEntity(indices(i), ngp_mesh, rank);
+        });
 }
 
 inline void ChangePartsHost(const std::string &part_name, const stk::topology::rank_t &rank, const stk::mesh::EntityVector &entities_to_change, stk::mesh::BulkData &bulk) {
