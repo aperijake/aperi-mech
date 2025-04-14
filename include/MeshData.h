@@ -24,22 +24,19 @@ namespace aperi {
 
 class NgpMeshData {
    public:
-    NgpMeshData(stk::mesh::NgpMesh *ngp_mesh) : m_ngp_mesh(ngp_mesh) {
-        // Throw an exception if the ngp mesh is null.
-        if (m_ngp_mesh == nullptr) {
-            throw std::runtime_error("Ngp mesh is null.");
-        }
-    }
+    NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh) {}
+
     KOKKOS_INLINE_FUNCTION aperi::Index LocalOffsetToIndex(uint64_t local_offset) const {
         stk::mesh::Entity entity(local_offset);
-        return aperi::Index(m_ngp_mesh->fast_mesh_index(entity));
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
+
     KOKKOS_INLINE_FUNCTION aperi::Index EntityToIndex(const stk::mesh::Entity &entity) const {
-        return aperi::Index(m_ngp_mesh->fast_mesh_index(entity));
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
    private:
-    stk::mesh::NgpMesh *m_ngp_mesh;
+    stk::mesh::NgpMesh m_ngp_mesh;
 };
 
 class MeshData {
@@ -57,7 +54,7 @@ class MeshData {
 
     void UpdateFieldDataStates(bool rotate_device_states = false) { m_bulk_data->update_field_data_states(rotate_device_states); }
 
-    NgpMeshData GetUpdatedNgpMesh() { return NgpMeshData(&stk::mesh::get_updated_ngp_mesh(*m_bulk_data)); }
+    NgpMeshData GetUpdatedNgpMesh() { return NgpMeshData(stk::mesh::get_updated_ngp_mesh(*m_bulk_data)); }
 
     template <typename T, size_t N>
     void UpdateFieldDataStates(const std::array<T, N> &query, bool rotate_device_states = false) {
