@@ -31,16 +31,13 @@ class ConnectedEntityProcessor {
      * @param mesh_data A shared pointer to the MeshData object.
      * @param sets A vector of strings representing the sets to process.
      */
-    ConnectedEntityProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets) {
+    ConnectedEntityProcessor(std::shared_ptr<aperi::MeshData> mesh_data) : m_mesh_data(mesh_data) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        m_selector = StkGetSelector(sets, meta_data);
-        m_owned_selector = m_selector & meta_data->locally_owned_part();
     }
 
     KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
@@ -106,13 +103,13 @@ class ConnectedEntityProcessor {
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachEntityAndConnected(ActionFunc &action_func) {
+    void ForEachEntityAndConnected(ActionFunc &action_func, const aperi::Selector &selector) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
 
         auto func = action_func;
 
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, EntityType, m_owned_selector,
+            m_ngp_mesh, EntityType, selector(),
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &entity_index) {
                 // Get the entities of the element
                 stk::mesh::NgpMesh::ConnectedEntities connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
@@ -131,29 +128,27 @@ class ConnectedEntityProcessor {
     }
 
     template <size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachElementAndConnectedNodes(ActionFunc &action_func) {
-        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(action_func);
+    void ForEachElementAndConnectedNodes(ActionFunc &action_func, const aperi::Selector &selector) {
+        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(action_func, selector);
     }
 
     template <size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachElementAndConnectedFaces(ActionFunc &action_func) {
-        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(action_func);
+    void ForEachElementAndConnectedFaces(ActionFunc &action_func, const aperi::Selector &selector) {
+        ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(action_func, selector);
+    }
+
+    template <typename ActionFunc>
+    void ForEachFaceAndConnectedElements(ActionFunc &action_func, const aperi::Selector &selector) {
+        ForEachEntityAndConnected<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK, 2>(action_func, selector);
     }
 
     std::shared_ptr<aperi::MeshData> GetMeshData() {
         return m_mesh_data;
     }
 
-    std::vector<std::string> GetSets() {
-        return m_sets;
-    }
-
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::vector<std::string> m_sets;               // The sets to process.
     stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_owned_selector;          // The selector for owned entities
     stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
 };
 

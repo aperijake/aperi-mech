@@ -50,13 +50,14 @@ bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
 
 void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data, const std::string &part_name, double density) {
     // Initialize the mesh data and element node processor
-    aperi::ConnectedEntityProcessor processor(mesh_data, {part_name});
+    aperi::Selector selector({part_name}, mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::ConnectedEntityProcessor processor(mesh_data);
 
     // Define the action kernel
     ComputeMassFromElementVolumeKernel action_kernel(mesh_data, density);
 
     // Call the for_each_element_and_node function
-    processor.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel);
+    processor.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel, selector);
 
     // Mark the mass_from_elements field as modified
     std::string mass_from_elements_name = "mass_from_elements";

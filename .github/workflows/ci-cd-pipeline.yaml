@@ -100,10 +100,11 @@ jobs:
             # Where the NEW_SECRET is genertated in developer settings on GitHub and added to the repository secrets.
             # or, it will be automatically updated when this action runs again.
 
-            echo "Initializing and updating submodules..."
-            git submodule update --init --recursive --remote
+            echo "Initializing and updating submodules to the commit referenced in the parent repository..."
+            git submodule sync
+            git submodule update --init --recursive
 
-            echo "Checking out appropriate branch..."
+            echo "Checking out appropriate branch for the parent repository..."
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               git fetch origin ${{ github.sha }}
               git checkout ${{ github.sha }}
@@ -112,9 +113,16 @@ jobs:
             else
               git checkout ${{ github.ref }}
             fi
+
+            # Ensure submodules are updated to the correct commit
+            echo "Ensuring submodules are on the correct commit..."
+            git submodule update --recursive
+
             git lfs pull # Pull LFS files
-            rm -rf build # Remove build directory, this prevents some false positives in tests
-            rm -rf protego-mech/build # Remove protego-mech build directory, this prevents some false positives in tests
+
+            # Clean up build directories to prevent false positives
+            rm -rf build
+            rm -rf protego-mech/build
           EOF
 
   build-release:

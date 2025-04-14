@@ -13,6 +13,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBLAS.hpp>
+#include <stk_mesh/base/FieldParallel.hpp>
 #include <stk_mesh/base/ForEachEntity.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/GetNgpField.hpp>
@@ -74,7 +75,7 @@ class MeshLabelerProcessor {
         SetActiveFieldForNodalIntegrationHost();
 
         // Parallel sum the active field
-        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
+        ParallelSumActiveField();
 
         // After setting the active field, check that the nodal integration mesh is correct
         CheckNodalIntegrationOnRefinedMeshHost();
@@ -125,6 +126,10 @@ class MeshLabelerProcessor {
 
         // Sync the fields to the device
         SyncFieldsToDevice();
+    }
+
+    void ParallelSumActiveField() {
+        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
     }
 
     void SyncFieldsToHost() {
@@ -267,33 +272,10 @@ class MeshLabelerProcessor {
                 }
             }
         }
-        // Get the MetaData from the bulk data
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
-        // Begin modification
-        m_bulk_data->modification_begin();
-
-        // Get or declare the universal active part
-        stk::mesh::Part *universal_active_part = meta_data->get_part("universal_active_part");
-        if (universal_active_part == nullptr) {
-            universal_active_part = &meta_data->declare_part("universal_active_part", stk::topology::NODE_RANK);
-        }
-
-        // Declare the active part for the current set
-        stk::mesh::Part *active_part = meta_data->get_part(m_set + "_active");
-        if (active_part == nullptr) {
-            active_part = &meta_data->declare_part(m_set + "_active", stk::topology::NODE_RANK);
-        }
-
-        // Prepare the parts to add and remove
-        stk::mesh::PartVector add_parts = {active_part, universal_active_part};
-        stk::mesh::PartVector remove_parts;  // No parts to remove
-
-        // Change entity parts
-        m_bulk_data->change_entity_parts(nodes_to_change, add_parts, remove_parts);
-
-        // End modification
-        m_bulk_data->modification_end();
+        //  Change the nodes to the active part
+        ChangePartsHost("universal_active_part", stk::topology::NODE_RANK, nodes_to_change, *m_bulk_data);
+        ChangePartsHost(m_set + "_active", stk::topology::NODE_RANK, nodes_to_change, *m_bulk_data);
     }
 
     void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {
@@ -305,9 +287,10 @@ class MeshLabelerProcessor {
             std::vector<std::string> active_sets;
             active_sets.push_back(m_set + "_active");
             stk::mesh::Selector active_selector = StkGetSelector(active_sets, &m_bulk_data->mesh_meta_data());
+            stk::mesh::Selector owned_active_selector = active_selector & m_bulk_data->mesh_meta_data().locally_owned_part();
 
             // Loop over the active nodes, grab the first element in the connected entities list that is in the same set of parts
-            for (stk::mesh::Bucket *bucket : active_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
                 for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                     stk::mesh::Entity node = (*bucket)[i_node];
 
@@ -337,30 +320,9 @@ class MeshLabelerProcessor {
             }
         }
 
-        // Get the MetaData from the bulk data
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-
-        // Begin modification
-        m_bulk_data->modification_begin();
-
-        // Get or declare the universal cells part
-        stk::mesh::Part *universal_cells_part = meta_data->get_part("universal_cells_part");
-        if (universal_cells_part == nullptr) {
-            universal_cells_part = &meta_data->declare_part("universal_cells_part", stk::topology::ELEMENT_RANK);
-        }
-
-        // Declare the cells part for the current set
-        stk::mesh::Part &cells_part = meta_data->declare_part(m_set + "_cells", stk::topology::ELEMENT_RANK);
-
-        // Prepare the parts to add and remove
-        stk::mesh::PartVector add_parts = {&cells_part, universal_cells_part};
-        stk::mesh::PartVector remove_parts;  // No parts to remove
-
-        // Change entity parts
-        m_bulk_data->change_entity_parts(elems_to_change, add_parts, remove_parts);
-
-        // End modification
-        m_bulk_data->modification_end();
+        //  Change the elements to the cells part
+        ChangePartsHost("universal_cells_part", stk::topology::ELEMENT_RANK, elems_to_change, *m_bulk_data);
+        ChangePartsHost(m_set + "_cells", stk::topology::ELEMENT_RANK, elems_to_change, *m_bulk_data);
     }
 
     void PutAllCellElementsOnTheSameProcessorHost(const std::unordered_map<unsigned long, int> &cell_id_to_processor_map) {

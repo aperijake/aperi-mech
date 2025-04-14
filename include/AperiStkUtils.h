@@ -6,7 +6,9 @@
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/FieldState.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_mesh/base/Part.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_mesh/base/Types.hpp>
@@ -40,6 +42,9 @@ inline stk::topology::rank_t GetTopologyRank(FieldDataTopologyRank data_topology
     }
     if (data_topology_rank == FieldDataTopologyRank::ELEMENT) {
         return stk::topology::ELEMENT_RANK;
+    }
+    if (data_topology_rank == FieldDataTopologyRank::FACE) {
+        return stk::topology::FACE_RANK;
     }
     throw std::invalid_argument("FieldData: Invalid data topology rank.");
 }
@@ -145,6 +150,42 @@ inline bool StkFieldExistsOn(const FieldQueryData<T> &field_query_data, const st
 inline aperi::Index EntityToIndex(stk::mesh::Entity entity, stk::mesh::BulkData &bulk) {
     const stk::mesh::MeshIndex &mesh_index = bulk.mesh_index(entity);
     return aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+}
+
+KOKKOS_INLINE_FUNCTION stk::mesh::Entity IndexToEntity(const aperi::Index &index, const stk::mesh::NgpMesh &ngp_mesh, const stk::topology::rank_t &rank) {
+    return ngp_mesh.get_entity(rank, index());
+}
+
+inline void IndexViewToEntityView(const Kokkos::View<aperi::Index *> &indices, const stk::mesh::BulkData &bulk, const stk::topology::rank_t &rank, Kokkos::View<stk::mesh::Entity *> &entities) {
+    const stk::mesh::NgpMesh &ngp_mesh = stk::mesh::get_updated_ngp_mesh(bulk);
+    Kokkos::parallel_for(
+        "IndexViewToEntityView", Kokkos::RangePolicy<>(0, indices.size()), KOKKOS_LAMBDA(const size_t i) {
+            entities(i) = IndexToEntity(indices(i), ngp_mesh, rank);
+        });
+}
+
+inline void ChangePartsHost(const std::string &part_name, const stk::topology::rank_t &rank, const stk::mesh::EntityVector &entities_to_change, stk::mesh::BulkData &bulk) {
+    // Get the MetaData from the bulk data
+    stk::mesh::MetaData *meta_data = &bulk.mesh_meta_data();
+
+    // Begin modification
+    bulk.modification_begin();
+
+    // Get or declare the new part
+    stk::mesh::Part *new_part = meta_data->get_part(part_name);
+    if (new_part == nullptr) {
+        new_part = &meta_data->declare_part(part_name, rank);
+    }
+
+    // Prepare the parts to add and remove
+    stk::mesh::PartVector add_parts = {new_part};
+    stk::mesh::PartVector remove_parts;  // No parts to remove
+
+    // Change entity parts
+    bulk.change_entity_parts(entities_to_change, add_parts, remove_parts);
+
+    // End modification
+    bulk.modification_end();
 }
 
 }  // namespace aperi
