@@ -37,10 +37,10 @@ class GenerateNodalDomainTestFixture : public MeshLabelerTestFixture {
         }
 
         // Number of elements in each direction = (num_nodes - 1) * 2
-        size_t num_elements_x = (m_num_nodes_x - 1) * 2;
-        size_t num_elements_y = (m_num_nodes_y - 1) * 2;
-        size_t num_elements_z = (m_num_nodes_z - 1) * 2;
-        return std::to_string(num_elements_x) + "x" + std::to_string(num_elements_y) + "x" + std::to_string(num_elements_z);
+        m_num_elements_x = (m_num_nodes_x - 1) * 2;
+        m_num_elements_y = (m_num_nodes_y - 1) * 2;
+        m_num_elements_z = (m_num_nodes_z - 1) * 2;
+        return std::to_string(m_num_elements_x) + "x" + std::to_string(m_num_elements_y) + "x" + std::to_string(m_num_elements_z);
     }
 
     void CreateAndReadNodalMesh() {
@@ -115,7 +115,10 @@ class GenerateNodalDomainTestFixture : public MeshLabelerTestFixture {
 
     size_t m_num_nodes_x = 2;
     size_t m_num_nodes_y = 2;
-    size_t m_num_nodes_z = 5;  // 4 was causing issues with 4 procs as 1 proc was getting cells
+    size_t m_num_nodes_z = 5;     // 4 was causing issues with 4 procs as 1 proc was getting cells
+    size_t m_num_elements_x = 2;  // Will be adjusted in CreateNodalMeshString
+    size_t m_num_elements_y = 2;
+    size_t m_num_elements_z = 8;
     size_t m_num_subcells = 1;
     bool m_activate_center_node = false;
 };
