@@ -2,6 +2,7 @@
 
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Comm.hpp>
+#include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <vector>
@@ -75,15 +76,31 @@ struct Selector {
         return GetCommMeshCounts()[stk::topology::NODE_RANK];
     }
 
+    size_t GetNumLocalNodes() const {
+        return GetLocalEntityCount(stk::topology::NODE_RANK);
+    }
+
     size_t GetNumElements() const {
         return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
+    }
+
+    size_t GetNumLocalElements() const {
+        return GetLocalEntityCount(stk::topology::ELEMENT_RANK);
     }
 
     size_t GetNumFaces() const {
         return GetCommMeshCounts()[stk::topology::FACE_RANK];
     }
 
+    size_t GetNumLocalFaces() const {
+        return GetLocalEntityCount(stk::topology::FACE_RANK);
+    }
+
    private:
+    size_t GetLocalEntityCount(const stk::topology::rank_t rank) const {
+        return stk::mesh::count_entities(*m_bulk_data, rank, m_selector);
+    }
+
     void MaskUsingOwnership() {
         if (m_ownership == SelectorOwnership::OWNED) {
             m_selector &= m_meta_data->locally_owned_part();
