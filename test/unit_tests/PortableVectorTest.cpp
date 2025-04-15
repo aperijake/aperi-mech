@@ -2,11 +2,11 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "DeviceVector.h"
+#include "PortableVector.h"
 
 using namespace aperi;
 
-class DeviceVectorTest : public ::testing::Test {
+class PortableVectorTest : public ::testing::Test {
    protected:
     void SetUp() override {
         // Already initialized by test runner
@@ -18,15 +18,15 @@ class DeviceVectorTest : public ::testing::Test {
 };
 
 // Test basic construction
-TEST_F(DeviceVectorTest, ConstructorTest) {
-    DeviceVector<int> vec(10);
+TEST_F(PortableVectorTest, ConstructorTest) {
+    PortableVector<int> vec(10);
     EXPECT_EQ(vec.SizeHost(), 0);
     EXPECT_EQ(vec.CapacityHost(), 10);
 }
 
 // Test pushing back elements
-TEST_F(DeviceVectorTest, PushBack) {
-    DeviceVector<double> vec(5);
+TEST_F(PortableVectorTest, PushBack) {
+    PortableVector<double> vec(5);
 
     // Get the push_back functor from vec
     auto push_back_functor = vec.GetPushBackFunctor();
@@ -51,8 +51,8 @@ TEST_F(DeviceVectorTest, PushBack) {
 }
 
 // Test copy constructor
-TEST_F(DeviceVectorTest, CopyConstructor) {
-    DeviceVector<double> vec1(5);
+TEST_F(PortableVectorTest, CopyConstructor) {
+    PortableVector<double> vec1(5);
 
     auto vec1_push_back_functor = vec1.GetPushBackFunctor();
 
@@ -65,7 +65,7 @@ TEST_F(DeviceVectorTest, CopyConstructor) {
     Kokkos::fence();
 
     // Create a copy
-    DeviceVector<double> vec2(vec1);
+    PortableVector<double> vec2(vec1);
 
     // Check the copy has the same data
     EXPECT_EQ(vec2.SizeHost(), 2);
@@ -88,8 +88,8 @@ TEST_F(DeviceVectorTest, CopyConstructor) {
 }
 
 // Test move constructor
-TEST_F(DeviceVectorTest, MoveConstructor) {
-    DeviceVector<int> vec1(3);
+TEST_F(PortableVectorTest, MoveConstructor) {
+    PortableVector<int> vec1(3);
 
     auto vec1_push_back_functor = vec1.GetPushBackFunctor();
 
@@ -102,7 +102,7 @@ TEST_F(DeviceVectorTest, MoveConstructor) {
     Kokkos::fence();
 
     // Move construct
-    DeviceVector<int> vec2(std::move(vec1));
+    PortableVector<int> vec2(std::move(vec1));
 
     // Check vec2 has taken ownership
     EXPECT_EQ(vec2.SizeHost(), 2);
@@ -119,9 +119,9 @@ TEST_F(DeviceVectorTest, MoveConstructor) {
 }
 
 // Test parallel push_back
-TEST_F(DeviceVectorTest, ParallelPushBack) {
+TEST_F(PortableVectorTest, ParallelPushBack) {
     const int numElements = 100;
-    DeviceVector<int> vec(numElements);
+    PortableVector<int> vec(numElements);
 
     auto push_back_functor = vec.GetPushBackFunctor();
 
@@ -153,8 +153,8 @@ TEST_F(DeviceVectorTest, ParallelPushBack) {
 }
 
 // Test the clear function
-TEST_F(DeviceVectorTest, Clear) {
-    DeviceVector<int> vec(5);
+TEST_F(PortableVectorTest, Clear) {
+    PortableVector<int> vec(5);
 
     auto push_back_functor = vec.GetPushBackFunctor();
 
@@ -174,8 +174,8 @@ TEST_F(DeviceVectorTest, Clear) {
 }
 
 // Test the () operator
-TEST_F(DeviceVectorTest, OperatorParentheses) {
-    DeviceVector<double> vec(5);
+TEST_F(PortableVectorTest, OperatorParentheses) {
+    PortableVector<double> vec(5);
     Kokkos::View<double*> other_data("other_data", 5);
 
     auto push_back_functor = vec.GetPushBackFunctor();

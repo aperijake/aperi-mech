@@ -10,36 +10,36 @@ namespace aperi {
  * @tparam T The type of the elements in the vector.
  */
 template <typename T>
-struct DeviceVector {
+struct PortableVector {
     Kokkos::View<T*> m_data;                        // The data of the vector
     Kokkos::View<size_t*> m_size_device;            // The size of the vector on the device
     size_t m_capacity_host;                         // The capacity of the vector
     Kokkos::View<size_t*>::HostMirror m_size_host;  // The size of the vector on the host
 
     /**
-     * @brief Constructs a DeviceVector with the given capacity.
+     * @brief Constructs a PortableVector with the given capacity.
      * @param capacity The initial capacity of the vector.
      */
-    DeviceVector(size_t capacity) : m_data("data", capacity), m_size_device("size_device", 1), m_capacity_host(capacity) {
+    PortableVector(size_t capacity) : m_data("data", capacity), m_size_device("size_device", 1), m_capacity_host(capacity) {
         m_size_host = Kokkos::create_mirror_view(m_size_device);
         m_size_host(0) = 0;
         Kokkos::deep_copy(m_size_device, m_size_host);
     }
 
     /**
-     * @brief Destructor for the DeviceVector.
+     * @brief Destructor for the PortableVector.
      */
-    ~DeviceVector() {
+    ~PortableVector() {
         // No need to manually free memory, Kokkos handles it
     }
 
     /**
-     * @brief Copy constructor for the DeviceVector.
-     * @param other The DeviceVector to copy from.
+     * @brief Copy constructor for the PortableVector.
+     * @param other The PortableVector to copy from.
      */
-    DeviceVector(const DeviceVector& other) : m_data("data_copy", other.m_capacity_host),
-                                              m_size_device("size_device_copy", 1),
-                                              m_capacity_host(other.m_capacity_host) {
+    PortableVector(const PortableVector& other) : m_data("data_copy", other.m_capacity_host),
+                                                  m_size_device("size_device_copy", 1),
+                                                  m_capacity_host(other.m_capacity_host) {
         m_size_host = Kokkos::create_mirror_view(m_size_device);
 
         // Copy size values
@@ -51,13 +51,13 @@ struct DeviceVector {
     }
 
     /**
-     * @brief Move constructor for the DeviceVector.
-     * @param other The DeviceVector to move from.
+     * @brief Move constructor for the PortableVector.
+     * @param other The PortableVector to move from.
      */
-    DeviceVector(DeviceVector&& other) noexcept : m_data(std::move(other.m_data)),
-                                                  m_size_device(std::move(other.m_size_device)),
-                                                  m_capacity_host(other.m_capacity_host),
-                                                  m_size_host(std::move(other.m_size_host)) {
+    PortableVector(PortableVector&& other) noexcept : m_data(std::move(other.m_data)),
+                                                      m_size_device(std::move(other.m_size_device)),
+                                                      m_capacity_host(other.m_capacity_host),
+                                                      m_size_host(std::move(other.m_size_host)) {
         // Create host mirror
         other.m_capacity_host = 0;
         other.m_size_device = Kokkos::View<size_t*>("empty_size_device", 1);
@@ -86,7 +86,7 @@ struct DeviceVector {
         void operator()(const T& value) const {
             size_t idx = Kokkos::atomic_fetch_add(&m_size_device(0), 1);
             if (idx >= m_data.extent(0)) {
-                Kokkos::abort("DeviceVector capacity exceeded");
+                Kokkos::abort("PortableVector capacity exceeded");
             } else {
                 m_data(idx) = value;
             }
