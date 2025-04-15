@@ -6,39 +6,56 @@
 
 using namespace aperi;
 
-class PortableVectorTest : public ::testing::Test {
-   protected:
-    void SetUp() override {
-        // Already initialized by test runner
+// Helper class with public methods for KOKKOS_LAMBDAs
+class PortableVectorTestHelper {
+   public:
+    template <typename T>
+    static void PushBackValues(PortableVector<T>& vec, const std::vector<T>& values) {
+        auto push_back_functor = vec.GetPushBackFunctor();
+
+        Kokkos::View<T*> d_values("values", values.size());
+        auto h_values = Kokkos::create_mirror_view(d_values);
+
+        for (size_t i = 0; i < values.size(); i++) {
+            h_values(i) = values[i];
+        }
+
+        Kokkos::deep_copy(d_values, h_values);
+
+        Kokkos::parallel_for(
+            values.size(), KOKKOS_LAMBDA(const int& i) {
+                push_back_functor(d_values(i));
+            });
+
+        Kokkos::fence();
     }
 
-    void TearDown() override {
-        // Will be finalized by test runner
+    template <typename T>
+    static void AccessValues(const PortableVector<T>& vec, Kokkos::View<T*> result, int count) {
+        Kokkos::parallel_for(
+            1, KOKKOS_LAMBDA(const int&) {
+                for (int i = 0; i < count; i++) {
+                    result(i) = vec(i);
+                }
+            });
+        Kokkos::fence();
     }
 };
 
 // Test basic construction
-TEST_F(PortableVectorTest, ConstructorTest) {
+TEST(PortableVectorTest, ConstructorTest) {
     PortableVector<int> vec(10);
     EXPECT_EQ(vec.SizeHost(), 0);
     EXPECT_EQ(vec.CapacityHost(), 10);
 }
 
 // Test pushing back elements
-TEST_F(PortableVectorTest, PushBack) {
+TEST(PortableVectorTest, PushBack) {
     PortableVector<double> vec(5);
 
-    // Get the push_back functor from vec
-    auto push_back_functor = vec.GetPushBackFunctor();
+    // Use the helper class instead of direct lambdas
+    PortableVectorTestHelper::PushBackValues(vec, {1.0, 2.0, 3.0});
 
-    Kokkos::parallel_for(
-        "TestPushBack", 1, KOKKOS_LAMBDA(const int&) {
-            push_back_functor(1.0);
-            push_back_functor(2.0);
-            push_back_functor(3.0);
-        });
-
-    Kokkos::fence();
     EXPECT_EQ(vec.SizeHost(), 3);
 
     // Get host mirror of data
@@ -51,18 +68,11 @@ TEST_F(PortableVectorTest, PushBack) {
 }
 
 // Test copy constructor
-TEST_F(PortableVectorTest, CopyConstructor) {
+TEST(PortableVectorTest, CopyConstructor) {
     PortableVector<double> vec1(5);
 
-    auto vec1_push_back_functor = vec1.GetPushBackFunctor();
-
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            vec1_push_back_functor(1.5);
-            vec1_push_back_functor(2.5);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to access values
+    PortableVectorTestHelper::PushBackValues(vec1, {1.5, 2.5});
 
     // Create a copy
     PortableVector<double> vec2(vec1);
@@ -77,29 +87,19 @@ TEST_F(PortableVectorTest, CopyConstructor) {
     EXPECT_DOUBLE_EQ(data_host(1), 2.5);
 
     // Check they're independent (modifying one doesn't affect the other)
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            vec1_push_back_functor(3.5);
-        });
-    Kokkos::fence();
+    // Use the helper class to access values
+    PortableVectorTestHelper::PushBackValues(vec1, {3.5});
 
     EXPECT_EQ(vec1.SizeHost(), 3);
     EXPECT_EQ(vec2.SizeHost(), 2);
 }
 
 // Test move constructor
-TEST_F(PortableVectorTest, MoveConstructor) {
+TEST(PortableVectorTest, MoveConstructor) {
     PortableVector<int> vec1(3);
 
-    auto vec1_push_back_functor = vec1.GetPushBackFunctor();
-
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            vec1_push_back_functor(10);
-            vec1_push_back_functor(20);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to access values
+    PortableVectorTestHelper::PushBackValues(vec1, {10, 20});
 
     // Move construct
     PortableVector<int> vec2(std::move(vec1));
@@ -118,20 +118,17 @@ TEST_F(PortableVectorTest, MoveConstructor) {
     EXPECT_EQ(data_host(1), 20);
 }
 
-// Test parallel push_back
-TEST_F(PortableVectorTest, ParallelPushBack) {
+// Test push_back on a larger vector
+TEST(PortableVectorTest, PushBackLarge) {
     const int numElements = 100;
     PortableVector<int> vec(numElements);
 
-    auto push_back_functor = vec.GetPushBackFunctor();
-
-    // Push elements in parallel
-    Kokkos::parallel_for(
-        numElements, KOKKOS_LAMBDA(const int i) {
-            push_back_functor(i);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to push back values
+    std::vector<int> values(numElements);
+    for (int i = 0; i < numElements; ++i) {
+        values[i] = i;
+    }
+    PortableVectorTestHelper::PushBackValues(vec, values);
 
     // Size should be numElements
     EXPECT_EQ(vec.SizeHost(), numElements);
@@ -153,18 +150,11 @@ TEST_F(PortableVectorTest, ParallelPushBack) {
 }
 
 // Test the clear function
-TEST_F(PortableVectorTest, Clear) {
+TEST(PortableVectorTest, Clear) {
     PortableVector<int> vec(5);
 
-    auto push_back_functor = vec.GetPushBackFunctor();
-
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            push_back_functor(1);
-            push_back_functor(2);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to push back values
+    PortableVectorTestHelper::PushBackValues(vec, {1, 2});
 
     EXPECT_EQ(vec.SizeHost(), 2);
 
@@ -174,31 +164,17 @@ TEST_F(PortableVectorTest, Clear) {
 }
 
 // Test the () operator
-TEST_F(PortableVectorTest, OperatorParentheses) {
+TEST(PortableVectorTest, OperatorParentheses) {
     PortableVector<double> vec(5);
     Kokkos::View<double*> other_data("other_data", 5);
 
-    auto push_back_functor = vec.GetPushBackFunctor();
-
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            push_back_functor(1.1);
-            push_back_functor(2.2);
-            push_back_functor(3.3);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to push back values
+    PortableVectorTestHelper::PushBackValues(vec, {1.1, 2.2, 3.3});
 
     EXPECT_EQ(vec.SizeHost(), 3);
 
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int&) {
-            other_data(0) = vec(0);
-            other_data(1) = vec(1);
-            other_data(2) = vec(2);
-        });
-
-    Kokkos::fence();
+    // Use the helper class to access values
+    PortableVectorTestHelper::AccessValues(vec, other_data, 3);
 
     auto other_data_host = Kokkos::create_mirror_view(other_data);
     Kokkos::deep_copy(other_data_host, other_data);
