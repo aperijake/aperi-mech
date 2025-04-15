@@ -348,6 +348,18 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema A2G_schema("A2G", "float", "the A2G parameter");
     YAML::Node A2G_node = A2G_schema.GetInputSchema();
 
+    // A node
+    aperi::InputSchema A_schema("A", "float", "the creep constant");
+    YAML::Node A_node = A_schema.GetInputSchema();
+
+    // n node
+    aperi::InputSchema n_schema("n", "float", "the creep exponent");
+    YAML::Node n_node = n_schema.GetInputSchema();
+
+    // m node
+    aperi::InputSchema m_schema("m", "float", "the thermal constant");
+    YAML::Node m_node = m_schema.GetInputSchema();
+
     // Linear elastic material properties node (small strain)
     aperi::InputSchema linear_elastic_schema("linear_elastic", "map", "the elastic material properties for the small strain model");
     linear_elastic_schema.AddAllOf(density_node);
@@ -386,6 +398,16 @@ YAML::Node GetInputSchema() {
     drucker_prager_schema.AddAllOf(A2G_node);
     YAML::Node drucker_prager_node = drucker_prager_schema.GetInputSchema();
 
+    // Power law creep material properties node
+    aperi::InputSchema power_law_creep_schema("power_law_creep", "map", "the power law creep material properties");
+    power_law_creep_schema.AddAllOf(density_node);
+    power_law_creep_schema.AddAllOf(bulk_modulus_node);
+    power_law_creep_schema.AddAllOf(shear_modulus_node);
+    power_law_creep_schema.AddAllOf(A_node);
+    power_law_creep_schema.AddAllOf(n_node);
+    power_law_creep_schema.AddAllOf(m_node);
+    YAML::Node power_law_creep_node = power_law_creep_schema.GetInputSchema();
+
     // Material node
     aperi::InputSchema material_schema("material", "map", "the material");
     material_schema.AddOneOf(linear_elastic_node);
@@ -393,6 +415,7 @@ YAML::Node GetInputSchema() {
     material_schema.AddOneOf(neo_hookean_node);
     material_schema.AddOneOf(plastic_node);
     material_schema.AddOneOf(drucker_prager_node);
+    material_schema.AddOneOf(power_law_creep_node);
     YAML::Node material_node = material_schema.GetInputSchema();
 
     // Integration order node
