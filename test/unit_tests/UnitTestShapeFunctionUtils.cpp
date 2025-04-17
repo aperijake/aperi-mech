@@ -2,6 +2,13 @@
 
 #include <gtest/gtest.h>
 
+#include "Constants.h"
+#include "FieldData.h"
+#include "FunctionValueStorageProcessor.h"
+#include "MaxEdgeLengthProcessor.h"
+#include "NeighborSearchProcessor.h"
+#include "ShapeFunctionsFunctorReproducingKernel.h"
+
 // Check partition of unity
 void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, double tolerance) {
     // Check the partition of unity
@@ -75,4 +82,34 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
             }
         }
     }
+}
+
+std::vector<aperi::FieldData> GetReproducingKernelShapeFunctionFields() {
+    std::vector<aperi::FieldData> shape_function_fields;
+
+    shape_function_fields.push_back(aperi::FieldData("num_neighbors", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));
+    shape_function_fields.push_back(aperi::FieldData("neighbors", aperi::FieldDataRank::CUSTOM, aperi::FieldDataTopologyRank::NODE, 1, aperi::MAX_NODE_NUM_NEIGHBORS, std::vector<uint64_t>{}, false));
+    shape_function_fields.push_back(aperi::FieldData("function_values", aperi::FieldDataRank::CUSTOM, aperi::FieldDataTopologyRank::NODE, 1, aperi::MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));
+    shape_function_fields.push_back(aperi::FieldData("kernel_radius", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
+    shape_function_fields.push_back(aperi::FieldData("max_edge_length", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
+
+    return shape_function_fields;
+}
+
+void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, const std::vector<double>& kernel_radius_scale_factors) {
+    // Compute the max edge length
+    aperi::MaxEdgeLengthProcessor max_edge_length_processor(mesh_data, part_names);
+    max_edge_length_processor.ComputeMaxEdgeLength();
+
+    // Find the neighbors within a variable ball
+    aperi::NeighborSearchProcessor search_processor(mesh_data, part_names);
+    search_processor.add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
+
+    // Create the ShapeFunctionsFunctorReproducingKernel functor
+    aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS> shape_functions_functor_reproducing_kernel;
+
+    // Compute the shape functions
+    aperi::BasesLinear bases;
+    aperi::FunctionValueStorageProcessor function_value_storage_processor(mesh_data, part_names, aperi::LagrangianFormulationType::Total);
+    function_value_storage_processor.compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(shape_functions_functor_reproducing_kernel, bases);
 }
