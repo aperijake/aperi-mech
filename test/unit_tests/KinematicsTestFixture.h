@@ -165,6 +165,9 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
+
+        // Update the field data states for the next increment
+        m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
     /**
@@ -180,7 +183,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         Eigen::Matrix<double, 3, 3> rotation_matrix;
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
-        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
+        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center);
         ComputeForce();
         CheckDisplacementIsNonZero();
 
@@ -189,6 +192,9 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
+
+        // Update the field data states for the next increment
+        m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
     /**
@@ -200,7 +206,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
     void TestRandomDisplacement() {
         TestNoDisplacement();
 
-        AddRandomValueToDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", -0.1, 0.1, aperi::FieldQueryState::NP1);
+        AddRandomValueToDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", -0.1, 0.1);
 
         ComputeForce();
         CheckDisplacementIsNonZero();
@@ -210,6 +216,9 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
+
+        // Update the field data states for the next increment
+        m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
     /**
@@ -222,7 +231,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         TestNoDisplacement();
 
         Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
-        ApplyLinearDeformationGradient(*m_mesh_data, m_active_part_names, "displacement_coefficients", deformation_gradient, aperi::FieldQueryState::NP1);
+        ApplyLinearDeformationGradient(*m_mesh_data, m_active_part_names, "displacement_coefficients", deformation_gradient);
 
         ComputeForce();
         CheckDisplacementIsNonZero();
@@ -244,6 +253,9 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
+
+        // Update the field data states for the next increment
+        m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
     /**
@@ -260,24 +272,27 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         TestNoDisplacement();
         TestRandomDisplacement();
 
-        // Get the Green Lagrange strain before rotation
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
+        // Get the Green Lagrange strain before rotation (state has already been updated)
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_n = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::N);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_n = ComputeGreenLagrangeStrain(displacement_gradient_n);
 
         // Rotate
         Eigen::Matrix<double, 3, 3> rotation_matrix;
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
-        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
+        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center);
         ComputeForce();
         CheckDisplacementIsNonZero();
 
-        displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
 
-        Eigen::Matrix<double, Eigen::Dynamic, 9> new_green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = new_green_lagrange - green_lagrange;
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_np1 = ComputeGreenLagrangeStrain(displacement_gradient_np1);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = green_lagrange_np1 - green_lagrange_n;
         EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero";
+
+        // Update the field data states for the next increment
+        m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
     size_t m_num_nodes_x = 2;

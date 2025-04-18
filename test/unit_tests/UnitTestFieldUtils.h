@@ -306,23 +306,36 @@ void RandomSetValuesFromList(const aperi::MeshData& mesh_data, const std::vector
     entity_processor.SyncAllFieldsHostToDevice();
 }
 
-inline void RotateDisplacements(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const Eigen::Matrix3d& rotation_matrix, const Eigen::Vector3d& rotation_center, aperi::FieldQueryState field_query_state) {
-    std::array<aperi::FieldQueryData<double>, 2> field_query_data_array;
+/**
+ * @brief Rotate the displacements of a field
+ * @param mesh_data The mesh data
+ * @param set_names The set names
+ * @param field_name The displacement field name
+ * @param rotation_matrix The rotation matrix
+ * @param rotation_center The rotation center
+ *
+ * This function rotates a body in its deformed configuration.
+ * The new displacement is added to the old displacement and stored in the NP1 field.
+ */
+inline void RotateDisplacements(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const Eigen::Matrix3d& rotation_matrix, const Eigen::Vector3d& rotation_center) {
+    std::array<aperi::FieldQueryData<double>, 3> field_query_data_array;
     field_query_data_array[0] = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
-    field_query_data_array[1] = {field_name, field_query_state, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[1] = {field_name, aperi::FieldQueryState::N, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[2] = {field_name, aperi::FieldQueryState::NP1, aperi::FieldDataTopologyRank::NODE};
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
-    aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 2, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 3, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
     entity_processor.SyncAllFieldsDeviceToHost();
 
     // Parallel communicate field values
     entity_processor.CommunicateAllFieldData();
 
     // Get the sum of the field values
-    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 2>& i_entity_start, const std::array<size_t, 2>& num_components, std::array<double*, 2>& field_data) {
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 3>& i_entity_start, const std::array<size_t, 3>& num_components, std::array<double*, 3>& field_data) {
         ASSERT_EQ(num_components[0], 3) << "Number of components is not consistent for coordinates field";
         ASSERT_EQ(num_components[1], 3) << "Number of components is not consistent for field " << field_name;
+        ASSERT_EQ(num_components[2], 3) << "Number of components is not consistent for field " << field_name;
         // Get current coordinates = coordinates + displacements
         Eigen::Vector3d current_coordinates = {field_data[0][i_entity_start[0]] + field_data[1][i_entity_start[1]], field_data[0][i_entity_start[0] + 1] + field_data[1][i_entity_start[1] + 1], field_data[0][i_entity_start[0] + 2] + field_data[1][i_entity_start[1] + 2]};
 
@@ -333,38 +346,8 @@ inline void RotateDisplacements(const aperi::MeshData& mesh_data, const std::vec
         Eigen::Vector3d displacement = rotated_position - current_coordinates;
 
         // Store displacement
-        field_data[1][i_entity_start[1]] += displacement(0);
-        field_data[1][i_entity_start[1] + 1] += displacement(1);
-        field_data[1][i_entity_start[1] + 2] += displacement(2);
-    });
-
-    // Parallel communicate field values
-    entity_processor.CommunicateAllFieldData();
-
-    // Sync the fields to the device
-    entity_processor.SyncAllFieldsHostToDevice();
-}
-
-inline void AddRandomValueToDisplacements(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, double min, double max, aperi::FieldQueryState field_query_state, int seed = 42) {
-    std::array<aperi::FieldQueryData<double>, 1> field_query_data_array;
-    field_query_data_array[0] = {field_name, field_query_state, aperi::FieldDataTopologyRank::NODE};
-
-    // Seed the random number generator
-    std::srand(seed);
-
-    // Make a entity processor
-    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
-    aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 1, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
-    entity_processor.SyncAllFieldsDeviceToHost();
-
-    // Parallel communicate field values
-    entity_processor.CommunicateAllFieldData();
-
-    // Get the sum of the field values
-    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& num_components, std::array<double*, 1>& field_data) {
-        for (size_t i = 0; i < num_components[0]; i++) {
-            double random_value = min + static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX / (max - min)));
-            field_data[0][i_entity_start[0] + i] += random_value;
+        for (size_t i = 0; i < num_components[1]; i++) {
+            field_data[2][i_entity_start[1] + i] = displacement(i) + field_data[1][i_entity_start[1] + i];
         }
     });
 
@@ -375,10 +358,25 @@ inline void AddRandomValueToDisplacements(const aperi::MeshData& mesh_data, cons
     entity_processor.SyncAllFieldsHostToDevice();
 }
 
-inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const Eigen::Matrix3d& deformation_gradient, aperi::FieldQueryState field_query_state) {
+/**
+ * @brief Add a random value to the displacements of a field
+ * @param mesh_data The mesh data
+ * @param set_names The set names
+ * @param field_name The displacement field name
+ * @param min The minimum value
+ * @param max The maximum value
+ * @param seed The random seed
+ *
+ * This function adds a random value to the displacements of a field.
+ * The new displacement is added to the old displacement and stored in the NP1 field.
+ */
+inline void AddRandomValueToDisplacements(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, double min, double max, int seed = 42) {
     std::array<aperi::FieldQueryData<double>, 2> field_query_data_array;
-    field_query_data_array[0] = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
-    field_query_data_array[1] = {field_name, field_query_state, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[0] = {field_name, aperi::FieldQueryState::N, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[1] = {field_name, aperi::FieldQueryState::NP1, aperi::FieldDataTopologyRank::NODE};
+
+    // Seed the random number generator
+    std::srand(seed);
 
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
@@ -390,8 +388,49 @@ inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, con
 
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 2>& i_entity_start, const std::array<size_t, 2>& num_components, std::array<double*, 2>& field_data) {
+        for (size_t i = 0; i < num_components[0]; i++) {
+            double random_value = min + static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX / (max - min)));
+            field_data[1][i_entity_start[0] + i] = random_value + field_data[0][i_entity_start[0] + i];
+        }
+    });
+
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
+
+    // Sync the fields to the device
+    entity_processor.SyncAllFieldsHostToDevice();
+}
+
+/**
+ * @brief Apply a linear deformation gradient to a field
+ * @param mesh_data The mesh data
+ * @param set_names The set names
+ * @param field_name The displacement field name
+ * @param deformation_gradient The deformation gradient
+ *
+ * This function applies a linear deformation gradient to a field.
+ * The linear displacement is calculated from the old coordinates and the deformation gradient.
+ * The new displacement is added to the old displacement and stored in the NP1 field.
+ */
+inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, const Eigen::Matrix3d& deformation_gradient) {
+    std::array<aperi::FieldQueryData<double>, 3> field_query_data_array;
+    field_query_data_array[0] = {mesh_data.GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[1] = {field_name, aperi::FieldQueryState::N, aperi::FieldDataTopologyRank::NODE};
+    field_query_data_array[2] = {field_name, aperi::FieldQueryState::NP1, aperi::FieldDataTopologyRank::NODE};
+
+    // Make a entity processor
+    std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
+    aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 3, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
+
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
+
+    // Get the sum of the field values
+    entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 3>& i_entity_start, const std::array<size_t, 3>& num_components, std::array<double*, 3>& field_data) {
         ASSERT_EQ(num_components[0], 3) << "Number of components is not consistent for coordinates field";
         ASSERT_EQ(num_components[1], 3) << "Number of components is not consistent for field " << field_name;
+        ASSERT_EQ(num_components[2], 3) << "Number of components is not consistent for field " << field_name;
         // Get current coordinates = coordinates + displacements
         Eigen::Vector3d current_coordinates = {field_data[0][i_entity_start[0]] + field_data[1][i_entity_start[1]], field_data[0][i_entity_start[0] + 1] + field_data[1][i_entity_start[1] + 1], field_data[0][i_entity_start[0] + 2] + field_data[1][i_entity_start[1] + 2]};
 
@@ -401,10 +440,10 @@ inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, con
         // Calculate displacement as difference between new and original position
         Eigen::Vector3d displacement = new_position - current_coordinates;
 
-        // Store displacement
-        field_data[1][i_entity_start[1]] += displacement(0);
-        field_data[1][i_entity_start[1] + 1] += displacement(1);
-        field_data[1][i_entity_start[1] + 2] += displacement(2);
+        // Store displacement. Add the new displacement to the old displacement and store it in the NP1 field
+        for (size_t i = 0; i < 3; i++) {
+            field_data[2][i_entity_start[1] + i] = field_data[1][i_entity_start[1] + i] + displacement(i);
+        }
     });
 
     // Parallel communicate field values
@@ -419,14 +458,14 @@ template <typename T, size_t N, size_t M>
 inline Eigen::Matrix<T, N, M> GetRandomParallelConsistentMatrix() {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    Eigen::Matrix<T, N, M> local_matrix;
+    Eigen::Matrix<T, N, M> matrix;
+
     if (rank == 0) {
-        local_matrix.setRandom();
-    } else {
-        local_matrix.setZero();
+        matrix.setRandom();
     }
-    // Communicate rank 0's values to all ranks
-    Eigen::Matrix<T, N, M> global_matrix;
-    MPI_Allreduce(local_matrix.data(), global_matrix.data(), N * M, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    return global_matrix;
+
+    // Broadcast rank 0's matrix directly to all ranks
+    MPI_Bcast(matrix.data(), N * M, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    return matrix;
 }
