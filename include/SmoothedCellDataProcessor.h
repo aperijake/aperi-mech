@@ -29,6 +29,7 @@
 #include "MeshLabeler.h"
 #include "MeshLabelerParameters.h"
 #include "SmoothedCellData.h"
+#include "Timer.h"
 
 namespace aperi {
 

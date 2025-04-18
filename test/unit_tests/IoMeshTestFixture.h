@@ -51,9 +51,12 @@ class IoMeshTestFixture : public CaptureOutputTest {
         m_io_mesh->CompleteInitialization();
     }
 
-    void WriteDebugOutput(double time = 0.0) {
+    void CreateDebugOutputFile() {
         m_io_mesh->CreateFieldResultsFile(m_output_filename);
         m_io_mesh->AddFieldResultsOutput(m_field_data);
+    }
+
+    void WriteDebugOutput(double time = 0.0) {
         m_io_mesh->WriteFieldResults(time);
     }
 
