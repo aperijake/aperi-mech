@@ -113,147 +113,6 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         m_strain_smoothing_processor->PopulateElementOutputs();
     }
 
-    void CheckDisplacementIsZero() {
-        Eigen::Matrix<double, Eigen::Dynamic, 3> displacement_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, "displacement_coefficients", aperi::FieldQueryState::NP1);
-        EXPECT_NEAR(displacement_np1.norm(), 0.0, 1.0e-10) << "Displacement is not zero";
-    }
-
-    void CheckDisplacementIsNonZero() {
-        Eigen::Matrix<double, Eigen::Dynamic, 3> displacement_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, "displacement_coefficients", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_np1.norm(), 1.0e-10) << "Displacement is zero";
-    }
-
-    Eigen::Matrix<double, Eigen::Dynamic, 9> ComputeGreenLagrangeStrain(const Eigen::Matrix<double, Eigen::Dynamic, 9> &displacement_gradient_np1) {
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange(displacement_gradient_np1.rows(), 9);
-        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
-            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
-            const Eigen::Matrix3d right_cauchy_green_mat = deformationt_gradient_mat.transpose() * deformationt_gradient_mat;
-            const Eigen::Matrix3d green_lagrange_mat = 0.5 * (right_cauchy_green_mat - Eigen::Matrix3d::Identity());
-            green_lagrange.row(i) = green_lagrange_mat.reshaped<Eigen::RowMajor>(1, 9);
-        }
-        return green_lagrange;
-    }
-
-    /**
-     * Check the displacement gradient and Green Lagrange strain for a simple rotation
-     *
-     * - Check that the displacement gradient is zero before the rotation
-     * - Sets the displacement to be a simple rotation
-     * - Check that the displacement gradient is non-zero after the rotation
-     * - Check that the Green Lagrange strain is zero after the rotation
-     */
-    void TestSimpleRotation() {
-        ComputeForce();
-        CheckDisplacementIsZero();
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_NEAR(displacement_gradient_np1.norm(), 0.0, 1.0e-12) << "Displacement gradient is not zero";
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
-
-        Eigen::Matrix<double, 3, 3> rotation_matrix;
-        rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
-        Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
-        std::string active_part_name = m_part_names[0] + "_active";
-        RotateDisplacements(*m_mesh_data, {active_part_name}, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
-        ComputeForce();
-        CheckDisplacementIsNonZero();
-
-        displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
-
-        green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
-    }
-
-    /**
-     * Check the displacement gradient and Green Lagrange strain for a random displacement
-     *
-     * - Check that the displacement gradient is zero before the random displacement
-     * - Sets the displacement to be random
-     * - Check that the displacement gradient is non-zero after
-     * - Check that the Green Lagrange strain is non-zero after
-     */
-    void TestRandomDisplacement() {
-        ComputeForce();
-        CheckDisplacementIsZero();
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_NEAR(displacement_gradient_np1.norm(), 0.0, 1.0e-12) << "Displacement gradient is not zero";
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
-
-        std::string active_part_name = m_part_names[0] + "_active";
-        AddRandomValueToDisplacements(*m_mesh_data, {active_part_name}, "displacement_coefficients", -0.1, 0.1, aperi::FieldQueryState::NP1);
-
-        ComputeForce();
-        CheckDisplacementIsNonZero();
-
-        displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
-
-        green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
-    }
-
-    /**
-     * Check the displacement gradient and Green Lagrange strain for a linear deformation gradient
-     *
-     * - Check that the displacement gradient is zero before applying the deformation gradient
-     * - Sets the displacement to be a linear deformation gradient
-     * - Check that the displacement gradient is non-zero after
-     * - Check that the Green Lagrange strain is non-zero after
-     */
-    void TestLinearDeformationGradient() {
-        ComputeForce();
-        CheckDisplacementIsZero();
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_NEAR(displacement_gradient_np1.norm(), 0.0, 1.0e-12) << "Displacement gradient is not zero";
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
-
-        std::string active_part_name = m_part_names[0] + "_active";
-        Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
-        ApplyLinearDeformationGradient(*m_mesh_data, {active_part_name}, "displacement_coefficients", deformation_gradient, aperi::FieldQueryState::NP1);
-
-        ComputeForce();
-        CheckDisplacementIsNonZero();
-
-        displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
-        // Check that the displacement gradient is equal to the deformation gradient - identity
-        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
-            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
-            const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient;
-            EXPECT_NEAR(difference.norm(), 0.0, 1.0e-12) << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1;
-            if (difference.norm() > 1.0e-12) {
-                aperi::CoutP0() << "output deformation_gradient =\n"
-                                << deformationt_gradient_mat << std::endl;
-                aperi::CoutP0() << "input def_gradient =\n"
-                                << deformation_gradient << std::endl;
-            }
-        }
-
-        green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
-        EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
-    }
-
-    /**
-     * Check the displacement gradient and Green Lagrange strain for a random displacement then rotation
-     *
-     * - Check that the displacement gradient is zero before the random displacement
-     * - Sets the displacement to be random
-     * - Check that the displacement gradient is non-zero after the rotation
-     * - Check that the Green Lagrange strain is non-zero after the rotation
-     *
-     * - Rigidly rotate the deformed mesh
-     * - Check that the displacement gradient is non-zero after the rotation
-     * - Check that the Green Lagrange strain is the same after the rotation
-     */
     void ComputeValueFromGeneralizedField() {
         std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
         src_field_query_data[0] = {"displacement_coefficients", aperi::FieldQueryState::NP1};
@@ -276,45 +135,142 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
     }
 
-    void TestRandomDisplacementThenRotation() {
-        // Initial state
+    void CheckDisplacementIsZero() {
+        Eigen::Matrix<double, Eigen::Dynamic, 3> displacement_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, "displacement_coefficients", aperi::FieldQueryState::NP1);
+        EXPECT_NEAR(displacement_np1.norm(), 0.0, 1.0e-10) << "Displacement is not zero";
+    }
+
+    void CheckDisplacementIsNonZero() {
+        Eigen::Matrix<double, Eigen::Dynamic, 3> displacement_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, "displacement_coefficients", aperi::FieldQueryState::NP1);
+        EXPECT_GT(displacement_np1.norm(), 1.0e-10) << "Displacement is zero";
+    }
+
+    Eigen::Matrix<double, Eigen::Dynamic, 9> ComputeGreenLagrangeStrain(const Eigen::Matrix<double, Eigen::Dynamic, 9> &displacement_gradient_np1) {
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange(displacement_gradient_np1.rows(), 9);
+        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
+            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
+            const Eigen::Matrix3d right_cauchy_green_mat = deformationt_gradient_mat.transpose() * deformationt_gradient_mat;
+            const Eigen::Matrix3d green_lagrange_mat = 0.5 * (right_cauchy_green_mat - Eigen::Matrix3d::Identity());
+            green_lagrange.row(i) = green_lagrange_mat.reshaped<Eigen::RowMajor>(1, 9);
+        }
+        return green_lagrange;
+    }
+
+    void TestNoDisplacement() {
         ComputeForce();
         CheckDisplacementIsZero();
-        // ComputeValueFromGeneralizedField();
-        // CreateDebugOutputFile();
-        // WriteDebugOutput(0.0);
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_NEAR(displacement_gradient_np1.norm(), 0.0, 1.0e-12) << "Displacement gradient is not zero";
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
+    }
 
-        std::string active_part_name = m_part_names[0] + "_active";
+    /**
+     * Check the displacement gradient and Green Lagrange strain for a simple rotation
+     * - Sets the displacement to be a simple rotation
+     * - Check that the displacement gradient is non-zero after the rotation
+     * - Check that the Green Lagrange strain is zero after the rotation
+     */
+    void TestSimpleRotation() {
+        TestNoDisplacement();
 
-        // Add random displacement
-        AddRandomValueToDisplacements(*m_mesh_data, {active_part_name}, "displacement_coefficients", -0.1, 0.1, aperi::FieldQueryState::NP1);
+        // Create a rotation matrix
+        Eigen::Matrix<double, 3, 3> rotation_matrix;
+        rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
+        Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
+        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
+        ComputeForce();
+        CheckDisplacementIsNonZero();
+
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
+
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
+        EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
+    }
+
+    /**
+     * Check the displacement gradient and Green Lagrange strain for a random displacement
+     * - Sets the displacement to be random
+     * - Check that the displacement gradient is non-zero after
+     * - Check that the Green Lagrange strain is non-zero after
+     */
+    void TestRandomDisplacement() {
+        TestNoDisplacement();
+
+        AddRandomValueToDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", -0.1, 0.1, aperi::FieldQueryState::NP1);
 
         ComputeForce();
         CheckDisplacementIsNonZero();
-        // ComputeValueFromGeneralizedField();
-        // WriteDebugOutput(1.0);
 
-        displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
 
-        green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
+    }
+
+    /**
+     * Check the displacement gradient and Green Lagrange strain for a linear deformation gradient
+     * - Sets the displacement to be a linear deformation gradient
+     * - Check that the displacement gradient is non-zero after
+     * - Check that the Green Lagrange strain is non-zero after
+     */
+    void TestLinearDeformationGradient() {
+        TestNoDisplacement();
+
+        Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
+        ApplyLinearDeformationGradient(*m_mesh_data, m_active_part_names, "displacement_coefficients", deformation_gradient, aperi::FieldQueryState::NP1);
+
+        ComputeForce();
+        CheckDisplacementIsNonZero();
+
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
+        // Check that the displacement gradient is equal to the deformation gradient - identity
+        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
+            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
+            const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient;
+            EXPECT_NEAR(difference.norm(), 0.0, 1.0e-12) << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1;
+            if (difference.norm() > 1.0e-12) {
+                aperi::CoutP0() << "output deformation_gradient =\n"
+                                << deformationt_gradient_mat << std::endl;
+                aperi::CoutP0() << "input def_gradient =\n"
+                                << deformation_gradient << std::endl;
+            }
+        }
+
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
+        EXPECT_GT(green_lagrange.norm(), 1.0e-12) << "Green Lagrange is zero";
+    }
+
+    /**
+     * Check the displacement gradient and Green Lagrange strain for a random displacement then rotation
+     * - Sets the displacement to be random
+     * - Check that the displacement gradient is non-zero after the rotation
+     * - Check that the Green Lagrange strain is non-zero after the rotation
+     *
+     * - Rigidly rotate the deformed mesh
+     * - Check that the displacement gradient is non-zero after the rotation
+     * - Check that the Green Lagrange strain is the same after the rotation
+     */
+    void TestRandomDisplacementThenRotation() {
+        TestNoDisplacement();
+        TestRandomDisplacement();
+
+        // Get the Green Lagrange strain before rotation
+        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
 
         // Rotate
         Eigen::Matrix<double, 3, 3> rotation_matrix;
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
-        RotateDisplacements(*m_mesh_data, {active_part_name}, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
+        RotateDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", rotation_matrix, rotation_center, aperi::FieldQueryState::NP1);
         ComputeForce();
         CheckDisplacementIsNonZero();
-        // ComputeValueFromGeneralizedField();
-        // WriteDebugOutput(2.0);
 
         displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
@@ -328,6 +284,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
     size_t m_num_nodes_y = 2;
     size_t m_num_nodes_z = 5;  // 4 was causing issues with 4 procs as 1 proc was getting cells
     std::vector<std::string> m_part_names = {"block_1"};
+    std::vector<std::string> m_active_part_names = {"block_1_active"};
 
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
