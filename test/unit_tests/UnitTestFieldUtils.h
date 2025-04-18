@@ -56,6 +56,9 @@ Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& 
     aperi::AperiEntityProcessor<Rank, 1, T> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
     entity_processor.SyncAllFieldsDeviceToHost();
 
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
+
     // Get the sum of the field values
     size_t num_components = 0;
     bool num_components_set = false;
@@ -313,6 +316,9 @@ inline void RotateDisplacements(const aperi::MeshData& mesh_data, const std::vec
     aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 2, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
     entity_processor.SyncAllFieldsDeviceToHost();
 
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
+
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 2>& i_entity_start, const std::array<size_t, 2>& num_components, std::array<double*, 2>& field_data) {
         ASSERT_EQ(num_components[0], 3) << "Number of components is not consistent for coordinates field";
@@ -349,6 +355,10 @@ inline void AddRandomValueToDisplacements(const aperi::MeshData& mesh_data, cons
     // Make a entity processor
     std::shared_ptr<aperi::MeshData> mesh_data_ptr = std::make_shared<aperi::MeshData>(mesh_data);
     aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 1, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
+    entity_processor.SyncAllFieldsDeviceToHost();
+
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
 
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 1>& i_entity_start, const std::array<size_t, 1>& num_components, std::array<double*, 1>& field_data) {
@@ -375,6 +385,9 @@ inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, con
     aperi::AperiEntityProcessor<aperi::FieldDataTopologyRank::NODE, 2, double> entity_processor(field_query_data_array, mesh_data_ptr, set_names);
     entity_processor.SyncAllFieldsDeviceToHost();
 
+    // Parallel communicate field values
+    entity_processor.CommunicateAllFieldData();
+
     // Get the sum of the field values
     entity_processor.for_each_owned_entity_host([&](const std::array<size_t, 2>& i_entity_start, const std::array<size_t, 2>& num_components, std::array<double*, 2>& field_data) {
         ASSERT_EQ(num_components[0], 3) << "Number of components is not consistent for coordinates field";
@@ -399,4 +412,21 @@ inline void ApplyLinearDeformationGradient(const aperi::MeshData& mesh_data, con
 
     // Sync the fields to the device
     entity_processor.SyncAllFieldsHostToDevice();
+}
+
+// Get a random Eigen::Matrix that is parallel consistent
+template <typename T, size_t N, size_t M>
+inline Eigen::Matrix<T, N, M> GetRandomParallelConsistentMatrix() {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    Eigen::Matrix<T, N, M> local_matrix;
+    if (rank == 0) {
+        local_matrix.setRandom();
+    } else {
+        local_matrix.setZero();
+    }
+    // Communicate rank 0's values to all ranks
+    Eigen::Matrix<T, N, M> global_matrix;
+    MPI_Allreduce(local_matrix.data(), global_matrix.data(), N * M, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    return global_matrix;
 }

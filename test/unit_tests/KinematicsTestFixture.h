@@ -19,7 +19,6 @@
 class KinematicsTestFixture : public MeshLabelerTestFixture {
    protected:
     void SetUp() override {
-        m_capture_output = false;
         // Run MeshLabelerTestFixture::SetUp first
         MeshLabelerTestFixture::SetUp();
     }
@@ -58,7 +57,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         bool use_one_pass_method = true;
         std::string force_field_name = use_one_pass_method ? "force_coefficients" : "force";
 
-        size_t num_neighbors = use_one_pass_method ? aperi::MAX_NODE_NUM_NEIGHBORS * 3 : 8;
+        size_t num_neighbors = use_one_pass_method ? aperi::MAX_NODE_NUM_NEIGHBORS * 3 : aperi::HEX8_NUM_NODES;
 
         // Displement field name
         std::string displacement_field_name = "displacement_coefficients";
@@ -218,7 +217,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         EXPECT_NEAR(green_lagrange.norm(), 0.0, 1.0e-12) << "Green Lagrange is not zero";
 
         std::string active_part_name = m_part_names[0] + "_active";
-        Eigen::Matrix3d deformation_gradient = Eigen::Matrix3d::Identity() + Eigen::Matrix3d::Random() * 0.1;
+        Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
         ApplyLinearDeformationGradient(*m_mesh_data, {active_part_name}, "displacement_coefficients", deformation_gradient, aperi::FieldQueryState::NP1);
 
         ComputeForce();
@@ -230,7 +229,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
             const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
             const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient;
-            EXPECT_NEAR(difference.norm(), 0.0, 1.0e-12) << "Displacement gradient is not equal to the deformation gradient - identity";
+            EXPECT_NEAR(difference.norm(), 0.0, 1.0e-12) << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1;
             if (difference.norm() > 1.0e-12) {
                 aperi::CoutP0() << "output deformation_gradient =\n"
                                 << deformationt_gradient_mat << std::endl;

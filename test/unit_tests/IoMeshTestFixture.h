@@ -31,7 +31,7 @@ class IoMeshTestFixture : public CaptureOutputTest {
         io_mesh_parameters.compose_output = true;
         io_mesh_parameters.minimize_open_files = false;
         io_mesh_parameters.add_faces = true;
-        io_mesh_parameters.aura_option = true;
+        // io_mesh_parameters.aura_option = true;
         m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
     }
 
