@@ -25,4 +25,6 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
 // TODO(jake): Required Fields should be handled in the ShapeFunction classes
 std::vector<aperi::FieldData> GetReproducingKernelShapeFunctionFields();
 
-void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"}, const std::vector<double>& kernel_radius_scale_factors = {1.1});
+void SetMaxEdgeLengthAndFindNeighbors(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"}, const std::vector<double>& kernel_radius_scale_factors = {1.1});
+
+void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"});

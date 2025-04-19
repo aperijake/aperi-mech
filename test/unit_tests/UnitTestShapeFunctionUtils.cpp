@@ -96,7 +96,7 @@ std::vector<aperi::FieldData> GetReproducingKernelShapeFunctionFields() {
     return shape_function_fields;
 }
 
-void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, const std::vector<double>& kernel_radius_scale_factors) {
+void SetMaxEdgeLengthAndFindNeighbors(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, const std::vector<double>& kernel_radius_scale_factors) {
     // Compute the max edge length
     aperi::MaxEdgeLengthProcessor max_edge_length_processor(mesh_data, part_names);
     max_edge_length_processor.ComputeMaxEdgeLength();
@@ -104,7 +104,9 @@ void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshDat
     // Find the neighbors within a variable ball
     aperi::NeighborSearchProcessor search_processor(mesh_data, part_names);
     search_processor.add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
+}
 
+void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names) {
     // Create the ShapeFunctionsFunctorReproducingKernel functor
     aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS> shape_functions_functor_reproducing_kernel;
 
