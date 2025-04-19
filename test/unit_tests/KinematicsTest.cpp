@@ -158,3 +158,153 @@ TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelRandomDispl
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestRandomDisplacementThenRotation(lagrangian_formulation_type);
 }
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarSimpleRotation) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = false;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestSimpleRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacement) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = false;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestRandomDisplacement(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradient) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = false;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestLinearDeformationGradient(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacementThenRotation) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = false;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestRandomDisplacementThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradientThenRotations) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = false;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesSimpleRotation) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = true;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestSimpleRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacement) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = true;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestRandomDisplacement(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformationGradient) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = true;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestLinearDeformationGradient(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacementThenRotation) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = true;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestRandomDisplacementThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformationGradientThenRotations) {
+    // Skip this test if we have more than 4 processes
+    if (m_num_procs > 4) {
+        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
+    }
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel with f_bar
+    double support_scale = 1.1;
+    size_t num_subcells = 0;  // 0 means all elements are subcells
+    bool activate_center_node = true;
+    bool use_f_bar = true;
+    SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
+    TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
+}

@@ -20,8 +20,9 @@ std::vector<size_t> GetNumElementForNodalMesh(size_t num_nodes_x, size_t num_nod
 /**
  * Set the active field on a nodal mesh
  * @param mesh_data Shared pointer to the mesh data
+ * @param activate_center_node Whether to activate the center node
  */
-void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data);
+void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, bool activate_center_node);
 
 /**
  * Label a generated nodal mesh

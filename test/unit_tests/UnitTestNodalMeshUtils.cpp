@@ -26,7 +26,7 @@ std::vector<size_t> GetNumElementForNodalMesh(size_t num_nodes_x, size_t num_nod
     return num_elements;
 }
 
-void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data) {
+void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, bool activate_center_node) {
     // Get the mesh data
     stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
     stk::mesh::MetaData *meta_data = &bulk_data->mesh_meta_data();
@@ -50,6 +50,8 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
             // If all coordinates are evenly divisible by 2.0, set the active field to 1
             if (std::fmod(coordinates_data[0], 2.0) == 0.0 && std::fmod(coordinates_data[1], 2.0) == 0.0 && std::fmod(coordinates_data[2], 2.0) == 0.0) {
                 active_field_data[0] = 1;
+            } else if (activate_center_node && std::fmod(coordinates_data[0] - 1.0, 2.0) == 0.0 && std::fmod(coordinates_data[1] - 1.0, 2.0) == 0.0 && std::fmod(coordinates_data[2] - 1.0, 2.0) == 0.0) {
+                active_field_data[0] = 2;
             } else {
                 // Set the active field to 0
                 active_field_data[0] = 0;
@@ -60,7 +62,7 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
 
 void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node) {
     // Set the active field for nodal integration
-    SetActiveFieldOnNodalMesh(mesh_data);
+    SetActiveFieldOnNodalMesh(mesh_data, activate_center_node);
 
     std::string set = "block_1";
 

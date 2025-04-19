@@ -73,6 +73,10 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         CreateAndReadNodalMesh();
         std::vector<aperi::FieldData> extra_fields = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, lagrangian_formulation_type, false);
+        if (use_f_bar) {
+            extra_fields.push_back(aperi::FieldData("displacement_gradient_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+            extra_fields.push_back(aperi::FieldData("pk1_stress_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+        }
 
         AddFieldsAndCreateMeshLabeler(extra_fields);
         if (element_integration) {
@@ -145,7 +149,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         }
     }
 
-    void ComputeForce(aperi::LagrangianFormulationType lagrangian_formulation_type) {
+    void ComputeNextIncrement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
         if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
             aperi::Field<double> displacement_coefficients_field_n(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients", aperi::FieldQueryState::N});
             aperi::Field<double> displacement_coefficients_field_np1(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients", aperi::FieldQueryState::NP1});
@@ -198,7 +202,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
     }
 
     void TestNoDisplacement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -225,7 +229,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
         RotateDisplacements(*m_mesh_data, m_active_part_names, rotation_matrix, rotation_center);
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -249,7 +253,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         AddRandomValueToDisplacements(*m_mesh_data, m_active_part_names, "displacement_coefficients", -0.1, 0.1);
 
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -274,7 +278,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
         ApplyLinearDeformationGradient(*m_mesh_data, m_active_part_names, deformation_gradient);
 
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -322,7 +326,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
         RotateDisplacements(*m_mesh_data, m_active_part_names, rotation_matrix, rotation_center);
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -349,7 +353,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         rotation_matrix << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;  // Rotation about z-axis
         Eigen::Vector3d rotation_center = {0.5, 0.5, 0.5};
         RotateDisplacements(*m_mesh_data, m_active_part_names, rotation_matrix, rotation_center);
-        ComputeForce(lagrangian_formulation_type);
+        ComputeNextIncrement(lagrangian_formulation_type);
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
