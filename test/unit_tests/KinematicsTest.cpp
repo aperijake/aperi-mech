@@ -5,11 +5,12 @@
 #include "KinematicsTestFixture.h"
 #include "UnitTestFieldUtils.h"
 
+/**
+ * ===============================================
+ * Element reproducing kernel tests.
+ * ===============================================
+ */
 TEST_F(KinematicsTestFixture, ElementReproducingKernelSimpleRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup element reproducing kernel. Small support so effectively FEM
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     double support_scale = 0.1;
@@ -18,10 +19,6 @@ TEST_F(KinematicsTestFixture, ElementReproducingKernelSimpleRotation) {
 }
 
 TEST_F(KinematicsTestFixture, ElementReproducingKernelRandomDisplacement) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup element reproducing kernel. Small support so effectively FEM
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     double support_scale = 0.1;
@@ -30,15 +27,19 @@ TEST_F(KinematicsTestFixture, ElementReproducingKernelRandomDisplacement) {
 }
 
 TEST_F(KinematicsTestFixture, ElementReproducingKernelLinearDeformationGradient) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup element reproducing kernel. Small support so effectively FEM
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     double support_scale = 0.1;
     SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
     TestLinearDeformationGradient(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, ElementReproducingKernelLinearDeformationGradientMultipleIncrements) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradientMultipleIncrements(lagrangian_formulation_type);
 }
 
 TEST_F(KinematicsTestFixture, ElementReproducingKernelRandomDisplacementThenRotation) {
@@ -49,22 +50,34 @@ TEST_F(KinematicsTestFixture, ElementReproducingKernelRandomDisplacementThenRota
     TestRandomDisplacementThenRotation(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, ElementReproducingKernelRandomDisplacementWhileRotating) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestRandomDisplacementWhileRotating(lagrangian_formulation_type);
+}
+
 TEST_F(KinematicsTestFixture, ElementReproducingKernelLinearDeformationGradientThenRotations) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     double support_scale = 0.1;
     SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
     TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, ElementReproducingKernelLinearDeformationGradientWhileRotating) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradientWhileRotating(lagrangian_formulation_type);
+}
+
+/**
+ * ===============================================
+ * Nodal reproducing kernel tests.
+ * ===============================================
+ */
 TEST_F(KinematicsTestFixture, NodalReproducingKernelSimpleRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel
     SetupNodalReproducingKernel(lagrangian_formulation_type);
@@ -72,10 +85,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelSimpleRotation) {
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelRandomDisplacement) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel
     SetupNodalReproducingKernel(lagrangian_formulation_type);
@@ -83,43 +92,53 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelRandomDisplacement) {
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelLinearDeformationGradient) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestLinearDeformationGradient(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, NodalReproducingKernelLinearDeformationGradientMultipleIncrements) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestLinearDeformationGradientMultipleIncrements(lagrangian_formulation_type);
+}
+
 TEST_F(KinematicsTestFixture, NodalReproducingKernelRandomDisplacementThenRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestRandomDisplacementThenRotation(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, NodalReproducingKernelRandomDisplacementWhileRotating) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestRandomDisplacementWhileRotating(lagrangian_formulation_type);
+}
+
 TEST_F(KinematicsTestFixture, NodalReproducingKernelLinearDeformationGradientThenRotations) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, NodalReproducingKernelLinearDeformationGradientWhileRotating) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
+    // Setup nodal reproducing kernel
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestLinearDeformationGradientWhileRotating(lagrangian_formulation_type);
+}
+
+/**
+ * ===============================================
+ * Updated Lagrangian nodal reproducing kernel tests.
+ * ===============================================
+ */
 TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelSimpleRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup nodal reproducing kernel
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
     SetupNodalReproducingKernel(lagrangian_formulation_type);
@@ -127,10 +146,6 @@ TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelSimpleRotat
 }
 
 TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelRandomDisplacement) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup nodal reproducing kernel
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
     SetupNodalReproducingKernel(lagrangian_formulation_type);
@@ -138,32 +153,53 @@ TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelRandomDispl
 }
 
 TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelLinearDeformationGradient) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup nodal reproducing kernel
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestLinearDeformationGradient(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelLinearDeformationGradientMultipleIncrements) {
+    // Setup nodal reproducing kernel
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestLinearDeformationGradientMultipleIncrements(lagrangian_formulation_type);
+}
+
 TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelRandomDisplacementThenRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     // Setup nodal reproducing kernel
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
     SetupNodalReproducingKernel(lagrangian_formulation_type);
     TestRandomDisplacementThenRotation(lagrangian_formulation_type);
 }
 
+TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelRandomDisplacementWhileRotating) {
+    // Setup nodal reproducing kernel
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestRandomDisplacementWhileRotating(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelLinearDeformationGradientThenRotations) {
+    // Setup nodal reproducing kernel
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedLagrangianNodalReproducingKernelLinearDeformationGradientWhileRotating) {
+    // Setup nodal reproducing kernel
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    SetupNodalReproducingKernel(lagrangian_formulation_type);
+    TestLinearDeformationGradientWhileRotating(lagrangian_formulation_type);
+}
+
+/**
+ * ===============================================
+ * Nodal reproducing kernel with f_bar tests.
+ * ===============================================
+ */
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarSimpleRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -175,10 +211,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarSimpleRotation) {
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacement) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -190,10 +222,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacement) {
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradient) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -205,10 +233,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradien
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacementThenRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -220,10 +244,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarRandomDisplacementThenRo
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradientThenRotations) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -234,11 +254,12 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarLinearDeformationGradien
     TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
 }
 
+/**
+ * ===============================================
+ * Nodal reproducing kernel with f_bar and bubbles tests.
+ * ===============================================
+ */
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesSimpleRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -250,10 +271,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesSimpleRotation) {
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacement) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -265,10 +282,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacemen
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformationGradient) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -280,10 +293,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformation
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacementThenRotation) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -295,10 +304,6 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesRandomDisplacemen
 }
 
 TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformationGradientThenRotations) {
-    // Skip this test if we have more than 4 processes
-    if (m_num_procs > 4) {
-        GTEST_SKIP() << "This test is only valid for 4 or fewer processes.";
-    }
     aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
     // Setup nodal reproducing kernel with f_bar
     double support_scale = 1.1;
@@ -307,4 +312,71 @@ TEST_F(KinematicsTestFixture, NodalReproducingKernelFbarBubblesLinearDeformation
     bool use_f_bar = true;
     SetupNodalReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar);
     TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
+}
+
+/**
+ * ===============================================
+ * Element reproducing kernel tests, Updated Lagrangian formulation.
+ * ===============================================
+ */
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelSimpleRotation) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestSimpleRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelRandomDisplacement) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestRandomDisplacement(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelLinearDeformationGradient) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradient(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelLinearDeformationGradientMultipleIncrements) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradientMultipleIncrements(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelRandomDisplacementThenRotation) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestRandomDisplacementThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelRandomDisplacementWhileRotating) {
+    // Setup element reproducing kernel. Small support so effectively FEM
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestRandomDisplacementWhileRotating(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelLinearDeformationGradientThenRotations) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradientThenRotation(lagrangian_formulation_type);
+}
+
+TEST_F(KinematicsTestFixture, UpdatedElementReproducingKernelLinearDeformationGradientWhileRotating) {
+    aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Updated;
+    double support_scale = 0.1;
+    SetupElementReproducingKernel(lagrangian_formulation_type, support_scale);
+    TestLinearDeformationGradientWhileRotating(lagrangian_formulation_type);
 }
