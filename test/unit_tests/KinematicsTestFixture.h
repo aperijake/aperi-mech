@@ -179,6 +179,13 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         aperi::Field<double> generalized_current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_n", aperi::FieldQueryState::None});
         aperi::Field<double> generalized_current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_np1", aperi::FieldQueryState::None});
         aperi::SwapFields(generalized_current_coordinates_n_field, generalized_current_coordinates_np1_field);
+
+        // Mark the fields as modified on device
+        displacement_inc_field.MarkModifiedOnDevice();
+        current_coordinates_np1_field.MarkModifiedOnDevice();
+        current_coordinates_n_field.MarkModifiedOnDevice();
+        generalized_current_coordinates_np1_field.MarkModifiedOnDevice();
+        generalized_current_coordinates_n_field.MarkModifiedOnDevice();
     }
 
     void PrepareForNextIncrement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
@@ -201,6 +208,10 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         // Set the generalized current coordinates np1 field to be the sum of the coordinates and the displacement coefficients np1 field
         aperi::AXPBYZField(1.0, coordinates_field, 1.0, displacement_coefficients_field_np1, generalized_current_coordinates_np1_field);
+
+        // Mark the fields as modified on device
+        displacement_coefficients_field_np1.MarkModifiedOnDevice();
+        generalized_current_coordinates_np1_field.MarkModifiedOnDevice();
 
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(1.0e-6);
