@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Constants.h"
+
 namespace aperi {
 struct FieldData;
 class MeshData;
@@ -27,4 +29,4 @@ std::vector<aperi::FieldData> GetReproducingKernelShapeFunctionFields();
 
 void SetMaxEdgeLengthAndFindNeighbors(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"}, const std::vector<double>& kernel_radius_scale_factors = {1.1});
 
-void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"});
+void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names = {"block_1"}, const aperi::LagrangianFormulationType& lagrangian_formulation_type = aperi::LagrangianFormulationType::Total);

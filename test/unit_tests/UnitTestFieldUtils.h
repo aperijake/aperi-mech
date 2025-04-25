@@ -48,7 +48,7 @@ void CheckEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<
 
 // Get the Entity Field Values as an Eigen Matrix
 template <aperi::FieldDataTopologyRank Rank, typename T, size_t N>
-Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, aperi::FieldQueryState field_query_state) {
+Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& mesh_data, const std::vector<std::string>& set_names, const std::string& field_name, aperi::FieldQueryState field_query_state, bool communicate = true) {
     std::array<aperi::FieldQueryData<T>, 1> field_query_data_array = {{{field_name, field_query_state, Rank}}};
 
     // Make a entity processor
@@ -57,7 +57,9 @@ Eigen::Matrix<T, Eigen::Dynamic, N> GetEntityFieldValues(const aperi::MeshData& 
     entity_processor.SyncAllFieldsDeviceToHost();
 
     // Parallel communicate field values
-    entity_processor.CommunicateAllFieldData();
+    if (communicate) {
+        entity_processor.CommunicateAllFieldData();
+    }
 
     // Get the sum of the field values
     size_t num_components = 0;

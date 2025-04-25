@@ -22,7 +22,6 @@
 class KinematicsTestFixture : public MeshLabelerTestFixture {
    protected:
     void SetUp() override {
-        m_capture_output = false;
         // Run MeshLabelerTestFixture::SetUp first
         MeshLabelerTestFixture::SetUp();
 
@@ -66,9 +65,19 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         return aperi::CreateMaterial(material_node);
     }
 
-    void UpdateShapeFunctions(bool use_one_pass_method = true) {
-        // Compute shape functions and derivatives
-        ComputeReproducingKernelShapeFunctions(m_mesh_data, m_part_names);
+    void UpdateShapeFunctions(const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool check_for_new_shape_functions, bool use_one_pass_method) {
+        // Get the current shape functions
+        Eigen::Matrix<double, Eigen::Dynamic, aperi::MAX_NODE_NUM_NEIGHBORS> shape_functions_in = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, aperi::MAX_NODE_NUM_NEIGHBORS>(*m_mesh_data, {"block_1"}, "function_values", aperi::FieldQueryState::None, false /*parallel_communicate*/);
+
+        // Compute the shape functions
+        ComputeReproducingKernelShapeFunctions(m_mesh_data, m_part_names, lagrangian_formulation_type);
+
+        // Check that the shape functions are different
+        if (check_for_new_shape_functions) {
+            Eigen::Matrix<double, Eigen::Dynamic, aperi::MAX_NODE_NUM_NEIGHBORS> shape_functions_out = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, aperi::MAX_NODE_NUM_NEIGHBORS>(*m_mesh_data, {"block_1"}, "function_values", aperi::FieldQueryState::None, false /*parallel_communicate*/);
+            EXPECT_GT((shape_functions_out - shape_functions_in).norm(), 1e-10) << "Shape functions should be different after recomputing.";
+        }
+
         m_strain_smoothing_processor->ComputeFunctionDerivatives<aperi::HEX8_NUM_NODES>(*m_smoothed_quadrature_host_functor.get(), use_one_pass_method);
     }
 
@@ -108,6 +117,11 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         // Also use updated lagrangian formulation type to set the fields
         SetFieldDataForLagrangianFormulation(m_mesh_data, aperi::LagrangianFormulationType::Updated);
+        aperi::Field<double> coordinates_field(m_mesh_data, aperi::FieldQueryData<double>{m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None});
+        aperi::Field<double> generalized_current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_n", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+        aperi::Field<double> generalized_current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_np1", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+        aperi::CopyField(coordinates_field, generalized_current_coordinates_n_field);
+        aperi::CopyField(coordinates_field, generalized_current_coordinates_np1_field);
 
         SetMaxEdgeLengthAndFindNeighbors(m_mesh_data, m_part_names, {support_scale});
 
@@ -132,7 +146,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         m_smoothed_quadrature_host_functor = std::make_shared<aperi::SmoothedQuadratureHex8>();
 
         // Update the shape functions
-        UpdateShapeFunctions(use_one_pass_method);
+        UpdateShapeFunctions(lagrangian_formulation_type, false /*check for new shape functions*/, use_one_pass_method);
     }
 
     void SetupNodalReproducingKernel(aperi::LagrangianFormulationType lagrangian_formulation_type, double support_scale = 1.1, size_t num_subcells = 1, bool activate_center_node = false, bool use_f_bar = false) {
@@ -181,37 +195,40 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         aperi::SwapFields(generalized_current_coordinates_n_field, generalized_current_coordinates_np1_field);
 
         // Mark the fields as modified on device
-        displacement_inc_field.MarkModifiedOnDevice();
         current_coordinates_np1_field.MarkModifiedOnDevice();
-        current_coordinates_n_field.MarkModifiedOnDevice();
-        generalized_current_coordinates_np1_field.MarkModifiedOnDevice();
-        generalized_current_coordinates_n_field.MarkModifiedOnDevice();
+        current_coordinates_np1_field.Communicate();
     }
 
-    void PrepareForNextIncrement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
+    void PrepareForNextIncrement(aperi::LagrangianFormulationType lagrangian_formulation_type, bool check_for_new_shape_functions = false) {
         if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
-            UpdateShapeFunctions();
+            UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);
+        } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Incremental) {
+            aperi::Field<uint64_t> num_neighbors_field(m_mesh_data, aperi::FieldQueryData<uint64_t>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+            aperi::AddValue(num_neighbors_field, -3, m_part_names);  // Decrement the number of neighbors
+            UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);
         }
         m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
     }
 
-    void ComputeIncrement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
+    void ComputeIncrement() {
         // Set the displacement coefficients fields. Really just needed for total lagrangian, but we set them for all formulations for consistency.
         aperi::Field<double> displacement_coefficients_field_n(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients", aperi::FieldQueryState::N});
         aperi::Field<double> displacement_coefficients_field_np1(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients", aperi::FieldQueryState::NP1});
         aperi::Field<double> displacement_coefficients_inc_field(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients_inc", aperi::FieldQueryState::None});
+        aperi::Field<double> generalized_current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_n", aperi::FieldQueryState::None});
         aperi::Field<double> generalized_current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_np1", aperi::FieldQueryState::None});
-        aperi::Field<double> coordinates_field(m_mesh_data, aperi::FieldQueryData<double>{m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None});
 
         // Set the displacement np1 field to be the sum of the displacement n and the increment
-        aperi::AXPBYZField(1.0, displacement_coefficients_field_n, 1.0, displacement_coefficients_inc_field, displacement_coefficients_field_np1);
+        aperi::AXPBYZField(1.0, displacement_coefficients_field_n, 1.0, displacement_coefficients_inc_field, displacement_coefficients_field_np1, m_active_part_names);
 
-        // Set the generalized current coordinates np1 field to be the sum of the coordinates and the displacement coefficients np1 field
-        aperi::AXPBYZField(1.0, coordinates_field, 1.0, displacement_coefficients_field_np1, generalized_current_coordinates_np1_field);
+        // Set the generalized current coordinates np1 field to be the sum of the generalized current coordinates n and the displacement coefficients increment
+        aperi::AXPBYZField(1.0, generalized_current_coordinates_n_field, 1.0, displacement_coefficients_inc_field, generalized_current_coordinates_np1_field, m_active_part_names);
 
         // Mark the fields as modified on device
         displacement_coefficients_field_np1.MarkModifiedOnDevice();
         generalized_current_coordinates_np1_field.MarkModifiedOnDevice();
+        displacement_coefficients_field_np1.Communicate();
+        generalized_current_coordinates_np1_field.Communicate();
 
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(1.0e-6);
@@ -242,8 +259,8 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         return green_lagrange;
     }
 
-    void TestNoDisplacement(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        ComputeIncrement(lagrangian_formulation_type);
+    void TestNoDisplacement() {
+        ComputeIncrement();
         CheckDisplacementIsZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -260,13 +277,13 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
      * - Check that the Green Lagrange strain is zero after the rotation
      */
     void TestSimpleRotation(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        TestNoDisplacement(lagrangian_formulation_type);
+        TestNoDisplacement();
         PrepareForNextIncrement(lagrangian_formulation_type);
 
         aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"current_coordinates_np1", aperi::FieldQueryState::None};
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
-        ComputeIncrement(lagrangian_formulation_type);
+        ComputeIncrement();
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -284,14 +301,14 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
      */
     void TestRandomDisplacement(aperi::LagrangianFormulationType lagrangian_formulation_type, bool check_original_state = true) {
         if (check_original_state) {
-            TestNoDisplacement(lagrangian_formulation_type);
+            TestNoDisplacement();
             PrepareForNextIncrement(lagrangian_formulation_type);
         }
 
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetRandomIncrement(*m_mesh_data, m_active_part_names, displacement_inc_field_query_data, -0.1, 0.1);
 
-        ComputeIncrement(lagrangian_formulation_type);
+        ComputeIncrement();
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -309,7 +326,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
      */
     Eigen::Matrix3d TestLinearDeformationGradient(aperi::LagrangianFormulationType lagrangian_formulation_type, bool check_original_state = true, const Eigen::Matrix3d &previous_deformation_gradient = Eigen::Matrix3d::Identity()) {
         if (check_original_state) {
-            TestNoDisplacement(lagrangian_formulation_type);
+            TestNoDisplacement();
             PrepareForNextIncrement(lagrangian_formulation_type);
         }
 
@@ -318,23 +335,36 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetLinearDeformationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, deformation_gradient);
 
-        ComputeIncrement(lagrangian_formulation_type);
+        ComputeIncrement();
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
+
+        std::ostringstream oss;
+        bool has_failure = false;
         // Check that the displacement gradient is equal to the deformation gradient - identity
         for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
             const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
             const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient * previous_deformation_gradient;
-            EXPECT_NEAR(difference.norm(), 0.0, 1.0e-12) << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1;
-            if (difference.norm() > 1.0e-12) {
-                aperi::CoutP0() << "expected deformation gradient =  " << (deformation_gradient * previous_deformation_gradient).reshaped<Eigen::RowMajor>(1, 9) << std::endl;
-                aperi::CoutP0() << "output deformation gradient =    " << deformationt_gradient_mat.reshaped<Eigen::RowMajor>(1, 9) << std::endl;
-                aperi::CoutP0() << "increment deformation gradient = " << deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl;
-                aperi::CoutP0() << "previous deformation gradient =  " << previous_deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl;
-                break;
+            double norm_difference = difference.norm();
+            if (norm_difference > 1.0e-12) {
+                has_failure = true;
+                oss << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1 << std::endl
+                    << "Norm difference for element " << i << " is: " << norm_difference << std::endl
+                    << "Expected deformation gradient = " << (deformation_gradient * previous_deformation_gradient).reshaped<Eigen::RowMajor>(1, 9) << std::endl
+                    << "Output deformation gradient =   " << deformationt_gradient_mat.reshaped<Eigen::RowMajor>(1, 9) << std::endl
+                    << "Increment deformation gradient = " << deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl
+                    << "Previous deformation gradient =  " << previous_deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl;
             }
+        }
+        // Parallel check for failures
+        bool global_failure;
+        MPI_Allreduce(&has_failure, &global_failure, 1, MPI_C_BOOL, MPI_LOR, MPI_COMM_WORLD);
+        EXPECT_FALSE(global_failure);
+        if (global_failure) {
+            std::string error_message = oss.str();
+            aperi::Cout() << error_message << std::endl;
         }
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange = ComputeGreenLagrangeStrain(displacement_gradient_np1);
@@ -344,12 +374,12 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
     }
 
     void TestLinearDeformationGradientMultipleIncrements(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        TestNoDisplacement(lagrangian_formulation_type);
+        TestNoDisplacement();
         PrepareForNextIncrement(lagrangian_formulation_type);
         Eigen::Matrix3d previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
     }
 
@@ -364,87 +394,61 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
      * - Check that the Green Lagrange strain is the same after the rotation
      */
     void TestRandomDisplacementThenRotation(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        TestNoDisplacement(lagrangian_formulation_type);
+        TestNoDisplacement();
         PrepareForNextIncrement(lagrangian_formulation_type);
         TestRandomDisplacement(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         TestRandomDisplacement(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         TestRandomDisplacement(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
 
         // Get the Green Lagrange strain before rotation (state has already been updated)
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_n = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::N);
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_n = ComputeGreenLagrangeStrain(displacement_gradient_n);
 
-        // Rotate
-        aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"generalized_current_coordinates_n", aperi::FieldQueryState::None};
+        // Set the rotation increment
+        aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"current_coordinates_np1", aperi::FieldQueryState::None};
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
-        ComputeIncrement(lagrangian_formulation_type);
+
+        // Get the expected coordinates after rotation
+        Eigen::Matrix<double, Eigen::Dynamic, 3> expected_coordinates_np2 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, m_active_part_names, "current_coordinates_np1", aperi::FieldQueryState::None) + GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, m_active_part_names, "displacement_coefficients_inc", aperi::FieldQueryState::None);
+
+        // Recaculate the rotation increment if the lagrangian formulation type is Total or Incremental
+        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Total || lagrangian_formulation_type == aperi::LagrangianFormulationType::Incremental) {
+            mesh_coordinates_field_query_data = aperi::FieldQueryData<double>{"generalized_current_coordinates_n", aperi::FieldQueryState::None};
+            SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
+        }
+
+        ComputeIncrement();
         CheckDisplacementIsNonZero();
+
+        // Check that the coordinates after rotation match the expected coordinates
+        Eigen::Matrix<double, Eigen::Dynamic, 3> actual_coordinates_np2 = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, m_active_part_names, "current_coordinates_np1", aperi::FieldQueryState::None);
+        EXPECT_LT((expected_coordinates_np2 - actual_coordinates_np2).norm(), 1.0e-12) << "Coordinates after rotation do not match expected coordinates.";
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_np1 = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = green_lagrange_np1 - green_lagrange_n;
-        EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero. "
-                                                              << "Green Lagrange with rotation norm: " << green_lagrange_np1
-                                                              << ", Green Lagrange without rotation norm: " << green_lagrange_n;
-    }
-
-    void TestRandomDisplacementWhileRotating(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        // Randomly displace the mesh a few times
-        TestNoDisplacement(lagrangian_formulation_type);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        TestRandomDisplacement(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        TestRandomDisplacement(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        TestRandomDisplacement(lagrangian_formulation_type, false);
-        // Don't prepare for next increment here, as we want to add the rotation to the current state
-
-        // Get the Green Lagrange strain before rotation (state has not been updated)
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_no_rotation = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_no_rotation = ComputeGreenLagrangeStrain(displacement_gradient_no_rotation);
-
-        // Rotate, using the current coordinates np1 field after last linear deformation increment
-        aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"generalized_current_coordinates_n", aperi::FieldQueryState::None};
-        aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
-        SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
-
-        // That gave the displacement_coefficients_inc field for the last linear deformation state, but we need the displacement_coefficients_inc field from the state before that.
-        aperi::Field<double> displacement_coefficients_inc_field(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients_inc", aperi::FieldQueryState::None});
-        aperi::Field<double> temp_field(m_mesh_data, aperi::FieldQueryData<double>{"temp", aperi::FieldQueryState::None});
-        aperi::Field<double> current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_n", aperi::FieldQueryState::None});
-        aperi::Field<double> current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"generalized_current_coordinates_np1", aperi::FieldQueryState::None});
-        aperi::AXPBYZField(1.0, displacement_coefficients_inc_field, -1.0, current_coordinates_np1_field, temp_field);
-        aperi::AXPBYZField(1.0, temp_field, 1.0, current_coordinates_n_field, displacement_coefficients_inc_field);
-
-        // Rotate
-        ComputeIncrement(lagrangian_formulation_type);
-        CheckDisplacementIsNonZero();
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_with_rotation = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_gradient_with_rotation.norm(), 1.0e-12) << "Displacement gradient is zero";
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_with_rotation = ComputeGreenLagrangeStrain(displacement_gradient_with_rotation);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = green_lagrange_with_rotation - green_lagrange_no_rotation;
-        EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero. "
-                                                              << "Green Lagrange with rotation: " << green_lagrange_with_rotation
-                                                              << ", Green Lagrange without rotation norm: " << green_lagrange_no_rotation;
+        EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero."
+                                                              << "\nGreen Lagrange with rotation norm:\n"
+                                                              << green_lagrange_np1
+                                                              << "\nGreen Lagrange without rotation norm:\n"
+                                                              << green_lagrange_n;
     }
 
     void TestLinearDeformationGradientThenRotation(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        TestNoDisplacement(lagrangian_formulation_type);
+        TestNoDisplacement();
         PrepareForNextIncrement(lagrangian_formulation_type);
         Eigen::Matrix3d previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
         previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
-        PrepareForNextIncrement(lagrangian_formulation_type);
+        PrepareForNextIncrement(lagrangian_formulation_type, true /*check for new shape functions*/);
 
         // Get the Green Lagrange strain before rotation (state has already been updated)
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_n = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::N);
@@ -454,7 +458,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"current_coordinates_np1", aperi::FieldQueryState::None};
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
-        ComputeIncrement(lagrangian_formulation_type);
+        ComputeIncrement();
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
@@ -462,49 +466,11 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_np1 = ComputeGreenLagrangeStrain(displacement_gradient_np1);
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = green_lagrange_np1 - green_lagrange_n;
-        EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero. "
-                                                              << "Green Lagrange with rotation: " << green_lagrange_n
-                                                              << ", Green Lagrange without rotation: " << green_lagrange_np1;
-    }
-
-    void TestLinearDeformationGradientWhileRotating(aperi::LagrangianFormulationType lagrangian_formulation_type) {
-        TestNoDisplacement(lagrangian_formulation_type);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        Eigen::Matrix3d previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
-        PrepareForNextIncrement(lagrangian_formulation_type);
-        previous_deformation_gradient = TestLinearDeformationGradient(lagrangian_formulation_type, false, previous_deformation_gradient);
-        // Don't prepare for next increment here, as we want to add the rotation to the current state
-
-        // Get the Green Lagrange strain before rotation (state has not been updated)
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_no_rotation = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_no_rotation = ComputeGreenLagrangeStrain(displacement_gradient_no_rotation);
-
-        // Rotate, using the current coordinates np1 field after last linear deformation increment
-        aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"current_coordinates_np1", aperi::FieldQueryState::None};
-        aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
-        SetRotationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, m_rotation_matrix, m_rotation_center);
-
-        // That gave the displacement_coefficients_inc field for the last linear deformation state, but we need the displacement_coefficients_inc field from the state before that.
-        aperi::Field<double> displacement_coefficients_inc_field(m_mesh_data, aperi::FieldQueryData<double>{"displacement_coefficients_inc", aperi::FieldQueryState::None});
-        aperi::Field<double> temp_field(m_mesh_data, aperi::FieldQueryData<double>{"temp", aperi::FieldQueryState::None});
-        aperi::Field<double> current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"current_coordinates_n", aperi::FieldQueryState::None});
-        aperi::Field<double> current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"current_coordinates_np1", aperi::FieldQueryState::None});
-        aperi::AXPBYZField(1.0, displacement_coefficients_inc_field, 1.0, current_coordinates_np1_field, temp_field);
-        aperi::AXPBYZField(1.0, temp_field, -1.0, current_coordinates_n_field, displacement_coefficients_inc_field);
-
-        ComputeIncrement(lagrangian_formulation_type);
-        CheckDisplacementIsNonZero();
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_with_rotation = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
-        EXPECT_GT(displacement_gradient_with_rotation.norm(), 1.0e-12) << "Displacement gradient is zero";
-
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_with_rotation = ComputeGreenLagrangeStrain(displacement_gradient_with_rotation);
-        Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange_diff = green_lagrange_with_rotation - green_lagrange_no_rotation;
         EXPECT_NEAR(green_lagrange_diff.norm(), 0.0, 1.0e-12) << "Green Lagrange difference after rotation is not zero."
-                                                              << "\nGreen Lagrange with rotation, 1st row:" << green_lagrange_with_rotation.row(0)
-                                                              << "\nGreen Lagrange no rotation, 1st row:" << green_lagrange_no_rotation.row(0);
+                                                              << "\nGreen Lagrange with rotation:\n"
+                                                              << green_lagrange_n.row(0)
+                                                              << "\nGreen Lagrange without rotation:\n"
+                                                              << green_lagrange_np1.row(0);
     }
 
     size_t m_num_nodes_x = 2;

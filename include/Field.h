@@ -386,6 +386,24 @@ class Field {
         return m_field;
     }
 
+    /**
+     * @brief == operator to compare two fields.
+     * @param other The other field to compare with.
+     * @return True if the fields are equal, false otherwise.
+     */
+    bool operator==(const aperi::Field<T> &other) const {
+        return m_field == other.m_field;
+    }
+
+    /**
+     * @brief != operator to compare two fields.
+     * @param other The other field to compare with.
+     * @return True if the fields are not equal, false otherwise.
+     */
+    bool operator!=(const aperi::Field<T> &other) const {
+        return !(*this == other);
+    }
+
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     stk::mesh::Field<T> *m_field;                  // The field object.

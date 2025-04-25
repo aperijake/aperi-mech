@@ -106,12 +106,12 @@ void SetMaxEdgeLengthAndFindNeighbors(const std::shared_ptr<aperi::MeshData>& me
     search_processor.add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
 }
 
-void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names) {
+void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, const aperi::LagrangianFormulationType& lagrangian_formulation_type) {
     // Create the ShapeFunctionsFunctorReproducingKernel functor
     aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS> shape_functions_functor_reproducing_kernel;
 
     // Compute the shape functions
     aperi::BasesLinear bases;
-    aperi::FunctionValueStorageProcessor function_value_storage_processor(mesh_data, part_names, aperi::LagrangianFormulationType::Total);
+    aperi::FunctionValueStorageProcessor function_value_storage_processor(mesh_data, part_names, lagrangian_formulation_type);
     function_value_storage_processor.compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(shape_functions_functor_reproducing_kernel, bases);
 }
