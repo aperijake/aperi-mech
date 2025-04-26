@@ -204,7 +204,8 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
             UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);
         } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Incremental) {
             aperi::Field<uint64_t> num_neighbors_field(m_mesh_data, aperi::FieldQueryData<uint64_t>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
-            aperi::AddValue(num_neighbors_field, -3, m_part_names);  // Decrement the number of neighbors
+            aperi::Selector selector = aperi::Selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+            aperi::AddValue(num_neighbors_field, -3, selector);  // Decrement the number of neighbors
             UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);
         }
         m_mesh_data->UpdateFieldDataStates(true /*rotate device state*/);
@@ -250,7 +251,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
     Eigen::Matrix<double, Eigen::Dynamic, 9> ComputeGreenLagrangeStrain(const Eigen::Matrix<double, Eigen::Dynamic, 9> &displacement_gradient_np1) {
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange(displacement_gradient_np1.rows(), 9);
-        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
+        for (size_t i = 0, e = displacement_gradient_np1.rows(); i < e; ++i) {
             const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
             const Eigen::Matrix3d right_cauchy_green_mat = deformationt_gradient_mat.transpose() * deformationt_gradient_mat;
             const Eigen::Matrix3d green_lagrange_mat = 0.5 * (right_cauchy_green_mat - Eigen::Matrix3d::Identity());
@@ -344,7 +345,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         std::ostringstream oss;
         bool has_failure = false;
         // Check that the displacement gradient is equal to the deformation gradient - identity
-        for (size_t i = 0; i < displacement_gradient_np1.rows(); ++i) {
+        for (size_t i = 0, e = displacement_gradient_np1.rows(); i < e; ++i) {
             const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
             const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient * previous_deformation_gradient;
             double norm_difference = difference.norm();
