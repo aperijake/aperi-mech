@@ -6,6 +6,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldTestFixture.h"
+#include "FieldUtils.h"
 #include "MeshData.h"
 
 // Test node field access using raw pointers
@@ -616,4 +617,86 @@ TEST_F(FieldTestFixture, CheckMatrixMapAddresses) {
     if (error_flag_host) {
         FAIL() << "CheckMatrixMapAddressesFunctor detected mismatched addresses.";
     }
+}
+
+// Create a functor to verify the results
+struct AXPBYZ_TestVerifyFunctor {
+    AXPBYZ_TestVerifyFunctor(aperi::Field<double> &x, aperi::Field<double> &y, aperi::Field<double> &z,
+                             double a, double b, Kokkos::View<int> error_flag)
+        : m_x(x), m_y(y), m_z(z), m_a(a), m_b(b), m_error_flag(error_flag) {}
+
+    KOKKOS_INLINE_FUNCTION void operator()(const aperi::Index &index) const {
+        // For each component
+        for (int i = 0; i < 3; i++) {
+            // Compute expected value
+            double expected = m_a * m_x(index, i) + m_b * m_y(index, i);
+
+            // Check if the actual value matches the expected value
+            if (Kokkos::abs(m_z(index, i) - expected) > 1.0e-10) {
+                // Set error flag
+                Kokkos::atomic_fetch_or(&m_error_flag(), 1);
+                printf("Error at node (%u, %u) component %d: Expected %f, got %f\n",
+                       index.bucket_id(), index.bucket_ord(), i, expected, m_z(index, i));
+            }
+        }
+    }
+
+    aperi::Field<double> m_x;
+    aperi::Field<double> m_y;
+    aperi::Field<double> m_z;
+    double m_a;
+    double m_b;
+    Kokkos::View<int> m_error_flag;
+};
+
+// Test AXPBYZField
+TEST_F(FieldTestFixture, AXPBYZFields) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data for the three fields
+    aperi::FieldQueryData<double> x_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::FieldQueryData<double> y_query_data{"nodal_field", aperi::FieldQueryState::N};
+    aperi::FieldQueryData<double> z_query_data{"nodal_field_2", aperi::FieldQueryState::None};
+
+    // Create the fields
+    aperi::Field<double> x_field(m_mesh_data, x_query_data);
+    aperi::Field<double> y_field(m_mesh_data, y_query_data);
+    aperi::Field<double> z_field(m_mesh_data, z_query_data);
+
+    // Randomize the x and y fields
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed_x = 42;
+    size_t seed_y = 43;
+
+    m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+    m_node_processor->RandomizeField(1, min, max, seed_y);  // y field (N)
+
+    // Constants for the operation z = ax + by
+    double a = 2.5;
+    double b = -1.5;
+
+    // Perform the operation with the AXPBYZField utility
+    aperi::AXPBYZField(a, x_field, b, y_field, z_field);
+
+    // Verify the result by manually computing z = ax + by for each node
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+    // Create a Kokkos::View to store the error flag
+    Kokkos::View<int> error_flag("error_flag");
+    Kokkos::deep_copy(error_flag, 0);
+
+    // Create the verify functor
+    AXPBYZ_TestVerifyFunctor verify_func(x_field, y_field, z_field, a, b, error_flag);
+
+    // Loop over each node and verify the results
+    ForEachNode(verify_func, *m_mesh_data, selector);
+
+    // Copy the error flag back to the host
+    int error_flag_host;
+    Kokkos::deep_copy(error_flag_host, error_flag);
+
+    // Check for errors
+    EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
 }

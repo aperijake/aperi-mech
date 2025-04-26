@@ -54,7 +54,7 @@ class ComputeInternalForceBase {
             throw std::runtime_error("Mesh data is null.");
         }
 
-        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi || m_lagrangian_formulation_type == LagrangianFormulationType::Incremental) {
             displacements_field_name += "_inc";
         }
 
@@ -118,7 +118,7 @@ class ComputeInternalForceBase {
             m_state_n_field.UpdateField();
             m_state_np1_field.UpdateField();
         }
-        if (m_lagrangian_formulation_type != LagrangianFormulationType::Total) {
+        if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             m_reference_displacement_gradient_field.UpdateField();
         }
     }
@@ -153,6 +153,9 @@ class ComputeInternalForceBase {
             const auto reference_displacement_gradient_map = m_reference_displacement_gradient_field.GetConstEigenMatrixMap<3, 3>(elem_index);
             m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient + reference_displacement_gradient_map + input_displacement_gradient * reference_displacement_gradient_map);
 
+        } else if (m_lagrangian_formulation_type == LagrangianFormulationType::Incremental) {
+            const auto displacement_gradient_n_map = m_displacement_gradient_n_field.GetConstEigenMatrixMap<3, 3>(elem_index);
+            m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient + displacement_gradient_n_map);
         } else {
             // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration. Input displacement gradient is the total displacement gradient.
             m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient);

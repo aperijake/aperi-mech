@@ -12,7 +12,6 @@
 class MeshLabelerTestFixture : public IoMeshTestFixture {
    protected:
     void SetUp() override {
-        m_capture_output = false;
         // Run IoMeshTestFixture::SetUp first
         IoMeshTestFixture::SetUp();
     }

@@ -1,6 +1,9 @@
 ############# PERFORMANCE TESTING #############
 file(GLOB PERFORMANCE_TEST_SOURCES "test/performance_tests/gtests/*.cpp")
-list(APPEND PERFORMANCE_TEST_SOURCES "test/unit_tests/UnitTestUtils.cpp")
+file(GLOB UNITTEST_UTILS "test/unit_tests/UnitTest*Utils.cpp")
+if(UNITTEST_UTILS)
+    list(APPEND PERFORMANCE_TEST_SOURCES ${UNITTEST_UTILS})
+endif()
 
 # Add an executable for the unit tests
 add_executable(performance_tests

@@ -47,6 +47,12 @@ class FieldTestFixture : public ::testing::Test {
         stk::io::set_field_output_type(*p_nodal_field, stk::io::FieldOutputType::VECTOR_3D);
         stk::io::set_field_role(*p_nodal_field, Ioss::Field::TRANSIENT);
 
+        // Declare another nodal field, not stated field
+        DoubleField *p_nodal_field_2 = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field_2", 1);
+        stk::mesh::put_field_on_entire_mesh(*p_nodal_field_2, 3);
+        stk::io::set_field_output_type(*p_nodal_field_2, stk::io::FieldOutputType::VECTOR_3D);
+        stk::io::set_field_role(*p_nodal_field_2, Ioss::Field::TRANSIENT);
+
         // Declare a element field, not stated field
         DoubleField *p_element_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "element_field", 1);
         stk::mesh::put_field_on_entire_mesh(*p_element_field, 9);
@@ -59,12 +65,13 @@ class FieldTestFixture : public ::testing::Test {
         m_mesh_data = std::make_shared<aperi::MeshData>(m_bulk_data.get());
 
         // Create the field query data for the node processor
-        std::array<aperi::FieldQueryData<double>, 2> field_query_data_vec;
+        std::array<aperi::FieldQueryData<double>, 3> field_query_data_vec;
         field_query_data_vec[0] = {"nodal_field", aperi::FieldQueryState::NP1};
         field_query_data_vec[1] = {"nodal_field", aperi::FieldQueryState::N};
+        field_query_data_vec[2] = {"nodal_field_2", aperi::FieldQueryState::None};
 
         // Create the node processor
-        m_node_processor = std::make_shared<aperi::NodeProcessor<2>>(field_query_data_vec, m_mesh_data);
+        m_node_processor = std::make_shared<aperi::NodeProcessor<3>>(field_query_data_vec, m_mesh_data);
 
         // Create the field query data for the element processor
         std::array<aperi::FieldQueryData<double>, 1> field_query_data_vec_element;
@@ -158,6 +165,6 @@ class FieldTestFixture : public ::testing::Test {
     size_t m_num_elements_z = 10;
     std::shared_ptr<stk::mesh::BulkData> m_bulk_data;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::shared_ptr<aperi::NodeProcessor<2>> m_node_processor;
+    std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor;
     std::shared_ptr<aperi::ElementProcessor<1>> m_element_processor;
 };

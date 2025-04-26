@@ -19,7 +19,7 @@ TEST_F(GenerateNodalDomainTestFixture, LabelFieldsForNodalSmoothing) {
     size_t num_elements_y = (m_num_nodes_y - 1) * 2;
     size_t num_elements_z = (m_num_nodes_z - 1) * 2;
 
-    LabelGeneratedNodalMesh();
+    LabelGeneratedNodalMesh(m_mesh_data, m_num_subcells, m_activate_center_node);
 
     size_t total_nodes = (num_elements_x + 1) * (num_elements_y + 1) * (num_elements_z + 1);
     size_t active_nodes = m_num_nodes_x * m_num_nodes_y * m_num_nodes_z;

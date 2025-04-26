@@ -24,6 +24,7 @@ enum class IntegrationSchemeType { GaussQuadrature,
                                    StrainSmoothing };
 
 enum class LagrangianFormulationType { Total,
+                                       Incremental,
                                        Updated,
                                        Semi };
 

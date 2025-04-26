@@ -31,7 +31,7 @@ class IoMeshTestFixture : public CaptureOutputTest {
         io_mesh_parameters.compose_output = true;
         io_mesh_parameters.minimize_open_files = false;
         io_mesh_parameters.add_faces = true;
-        io_mesh_parameters.aura_option = true;
+        // io_mesh_parameters.aura_option = true;
         m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
     }
 
@@ -51,9 +51,12 @@ class IoMeshTestFixture : public CaptureOutputTest {
         m_io_mesh->CompleteInitialization();
     }
 
-    void WriteDebugOutput(double time = 0.0) {
+    void CreateDebugOutputFile() {
         m_io_mesh->CreateFieldResultsFile(m_output_filename);
         m_io_mesh->AddFieldResultsOutput(m_field_data);
+    }
+
+    void WriteDebugOutput(double time = 0.0) {
         m_io_mesh->WriteFieldResults(time);
     }
 

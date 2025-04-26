@@ -29,6 +29,7 @@
 #include "MeshLabeler.h"
 #include "MeshLabelerParameters.h"
 #include "SmoothedCellData.h"
+#include "Timer.h"
 
 namespace aperi {
 
@@ -238,11 +239,11 @@ class SmoothedCellDataProcessor {
         bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
 
         if (m_verbose) {
-            aperi::CoutP0() << "Number of cells: " << num_cells << std::endl;
-            aperi::CoutP0() << "Number of subcells: " << num_subcells << std::endl;
-            aperi::CoutP0() << "Number of elements: " << num_elements << std::endl;
-            aperi::CoutP0() << "Estimated number of node-cell pairs: " << estimated_num_nodes << std::endl;
-            aperi::CoutP0() << "Use f_bar: " << (use_f_bar ? "true" : "false") << std::endl;
+            aperi::Cout() << "Number of cells: " << num_cells << std::endl;
+            aperi::Cout() << "Number of subcells: " << num_subcells << std::endl;
+            aperi::Cout() << "Number of elements: " << num_elements << std::endl;
+            aperi::Cout() << "Estimated number of node-cell pairs: " << estimated_num_nodes << std::endl;
+            aperi::Cout() << "Use f_bar: " << (use_f_bar ? "true" : "false") << std::endl;
         }
 
         return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
@@ -274,7 +275,7 @@ class SmoothedCellDataProcessor {
         m_smoothed_cell_data->CompleteAddingSubcellElementCSRIndicesOnDevice();
 
         if (m_verbose) {
-            aperi::CoutP0() << "Number of subcell elements added: " << m_smoothed_cell_data->TotalNumElements() << std::endl;
+            aperi::Cout() << "Number of subcell elements added: " << m_smoothed_cell_data->TotalNumElements() << std::endl;
         }
     }
 
@@ -345,7 +346,7 @@ class SmoothedCellDataProcessor {
         m_smoothed_cell_data->CompleteAddingCellNumSubcellsOnDevice();
 
         if (m_verbose) {
-            aperi::CoutP0() << "Number of cell subcells added: " << m_smoothed_cell_data->NumSubcells() << std::endl;
+            aperi::Cout() << "Number of cell subcells added: " << m_smoothed_cell_data->NumSubcells() << std::endl;
         }
     }
 
@@ -519,7 +520,7 @@ class SmoothedCellDataProcessor {
         m_smoothed_cell_data->CompleteAddingSubcellNodeCSRIndicesOnDevice(set_start_from_lengths);
 
         if (m_verbose) {
-            aperi::CoutP0() << "Number of subcell-neighbor pairs added: " << m_smoothed_cell_data->TotalNumNodes() << std::endl;
+            aperi::Cout() << "Number of subcell-neighbor pairs added: " << m_smoothed_cell_data->TotalNumNodes() << std::endl;
         }
 
         // Get the views after potential resizing
