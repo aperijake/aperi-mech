@@ -6,11 +6,11 @@
 #include <string>
 
 #include "Materials/Base.h"
+#include "Materials/DruckerPrager.h"
 #include "Materials/Elastic.h"
 #include "Materials/LinearElastic.h"
 #include "Materials/NeoHooke.h"
 #include "Materials/Plastic.h"
-#include "Materials/DruckerPrager.h"
 #include "Materials/PowerLawCreep.h"
 
 namespace aperi {
@@ -108,8 +108,8 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A2G", A2G);
         return std::make_shared<DruckerPragerMaterial>(material_properties);
 
-    } else if (material_node["power law creep"].IsDefined()) {
-        YAML::Node dp_node = material_node["power law creep"];
+    } else if (material_node["power_law_creep"].IsDefined()) {
+        YAML::Node dp_node = material_node["power_law_creep"];
         material_properties->material_type = MaterialType::POWER_LAW_CREEP;
         material_properties->density = dp_node["density"].as<double>();
         double bulk_modulus = dp_node["bulk_modulus"].as<double>();

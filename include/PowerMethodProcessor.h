@@ -459,15 +459,15 @@ class PowerMethodProcessor {
 
         if (converged) {
             if (is_oscillating) {
-                // For oscillating pattern, use the maximum for safety
-                stable_time_increment = recent_values.maxCoeff();
+                // For oscillating pattern, use the minimum from the window
+                stable_time_increment = recent_values.minCoeff();
             } else {
                 // For normal convergence, use the last value
                 stable_time_increment = stable_time_step_np1;
             }
         } else {
-            // If not converged, use the maximum from the window for safety
-            stable_time_increment = recent_values.maxCoeff();
+            // If not converged, use the minimum of the recent values for a conservative estimate
+            stable_time_increment = recent_values.minCoeff();
         }
 
         // Update the power method stats
