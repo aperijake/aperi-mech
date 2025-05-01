@@ -123,6 +123,13 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A", A);
         material_properties->properties.emplace("n", n);
         material_properties->properties.emplace("m", m);
+        if (dp_node["constant_temperature"].IsDefined()) {
+            material_properties->properties.emplace("constant_temperature", dp_node["constant_temperature"].as<double>());
+            material_properties->properties.emplace("use_constant_temperature", 1);
+        } else {
+            material_properties->properties.emplace("constant_temperature", 0.0);
+            material_properties->properties.emplace("use_constant_temperature", 0);
+        }
         return std::make_shared<PowerLawCreepMaterial>(material_properties);
 
     } else {

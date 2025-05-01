@@ -63,11 +63,13 @@ class PowerLawCreepMaterial : public Material {
         double A = m_material_properties->properties.at("A");
         double n = m_material_properties->properties.at("n");
         double m = m_material_properties->properties.at("m");
+        bool use_constant_temperature = m_material_properties->properties.at("use_constant_temperature") > 0;
+        double constant_temperature = m_material_properties->properties.at("constant_temperature");
         Kokkos::parallel_for(
             "CreateObjects",
             1,
             KOKKOS_LAMBDA(const int&) {
-                new ((PowerLawCreepGetStressFunctor*)stress_functor) PowerLawCreepGetStressFunctor(bulk_modulus, shear_modulus, A, n, m);
+                new ((PowerLawCreepGetStressFunctor*)stress_functor) PowerLawCreepGetStressFunctor(bulk_modulus, shear_modulus, A, n, m, use_constant_temperature, constant_temperature);
             });
         m_stress_functor = stress_functor;
     }
@@ -97,17 +99,22 @@ class PowerLawCreepMaterial : public Material {
         };
 
         KOKKOS_FUNCTION
-        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m) : m_bulk_modulus(K),
-                                                                                          m_shear_modulus(G),
-                                                                                          m_A(A),
-                                                                                          m_n(n),
-                                                                                          m_m(m) {
+        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m, bool use_constant_temperature, double constant_temperature)
+            : m_bulk_modulus(K),
+              m_shear_modulus(G),
+              m_A(A),
+              m_n(n),
+              m_m(m),
+              m_use_constant_temperature(use_constant_temperature),
+              m_constant_temperature(constant_temperature) {
             if (m_A < 0.0)
                 Kokkos::abort("PowerLawCreep: A must be > 0");
             if (m_n < 0.0)
                 Kokkos::abort("PowerLawCreep: n must be > 0");
             if (m_m < 0.0)
                 Kokkos::abort("PowerLawCreep: m must be > 0");
+            if (!m_use_constant_temperature)
+                Kokkos::abort("PowerLawCreep: currently have to use constant temperature, but use_constant_temperature is false");
         }
 
         KOKKOS_INLINE_FUNCTION
@@ -136,14 +143,10 @@ class PowerLawCreepMaterial : public Material {
             const int max_steps = 100;
             double min_stepsize = timestep / max_steps;
 
-            /* We don't yet track a temperature */
-            auto temp_n = 295.0;
-            // auto temp_n = 0.0;
+            auto temp_n = m_use_constant_temperature ? m_constant_temperature : 0.0;
             auto a1 = (temp_n == 0.0) ? 0.0 : m_A * Kokkos::exp(-m_m / temp_n);
 
-            /* We don't yet track a temperature */
-            auto temp_np1 = 295.0;
-            // auto temp_np1 = 0.0;
+            auto temp_np1 = m_use_constant_temperature ? m_constant_temperature : 0.0;
             auto da = (temp_np1 == 0.0) ? -a1 : m_A * Kokkos::exp(-m_m / temp_np1) - a1;
 
             // time step estimate
@@ -222,9 +225,11 @@ class PowerLawCreepMaterial : public Material {
        private:
         double m_bulk_modulus;
         double m_shear_modulus;
-        double m_A;  // creep constant
-        double m_n;  // creep exponent
-        double m_m;  // thermal constant
+        double m_A;                       // creep constant
+        double m_n;                       // creep exponent
+        double m_m;                       // thermal constant
+        bool m_use_constant_temperature;  // use a constant temperature
+        double m_constant_temperature;    // constant temperature value
     };
 
     // TODO(jake): get rid of this in favor of the above HasState

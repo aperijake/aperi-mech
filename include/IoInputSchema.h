@@ -360,6 +360,10 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema m_schema("m", "float", "the thermal constant");
     YAML::Node m_node = m_schema.GetInputSchema();
 
+    // Constant temperature node
+    aperi::InputSchema constant_temperature_schema("constant_temperature", "float", "use a constant temperature of the given value");
+    YAML::Node constant_temperature_node = constant_temperature_schema.GetInputSchema();
+
     // Linear elastic material properties node (small strain)
     aperi::InputSchema linear_elastic_schema("linear_elastic", "map", "the elastic material properties for the small strain model");
     linear_elastic_schema.AddAllOf(density_node);
@@ -406,6 +410,7 @@ YAML::Node GetInputSchema() {
     power_law_creep_schema.AddAllOf(A_node);
     power_law_creep_schema.AddAllOf(n_node);
     power_law_creep_schema.AddAllOf(m_node);
+    power_law_creep_schema.AddOptional(constant_temperature_node);
     YAML::Node power_law_creep_node = power_law_creep_schema.GetInputSchema();
 
     // Material node
