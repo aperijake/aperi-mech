@@ -69,13 +69,12 @@ class NeoHookeanMaterial : public Material {
         KOKKOS_INLINE_FUNCTION
         void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
                        const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
-                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
-                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
                        const double& timestep,
                        const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
-                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
-            // Assert that the displacement gradient is not null
-            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const override {
+            KOKKOS_ASSERT(CheckInput(displacement_gradient_np1, velocity_gradient_np1, state_n, state_np1, timestep, pk1_stress_n, pk1_stress_np1));
 
             // Left Cauchy-Green tensor - I
             const Eigen::Matrix3d B_minus_I = *displacement_gradient_np1 * displacement_gradient_np1->transpose() + displacement_gradient_np1->transpose() + *displacement_gradient_np1;
@@ -89,7 +88,7 @@ class NeoHookeanMaterial : public Material {
             const Eigen::Matrix3d F = *displacement_gradient_np1 + I;
 
             // First Piola-Kirchhoff stress
-            pk1_stress = tau * InvertMatrix(F).transpose();
+            pk1_stress_np1 = tau * InvertMatrix(F).transpose();
         }
 
        private:

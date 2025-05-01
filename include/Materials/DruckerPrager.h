@@ -96,22 +96,12 @@ class DruckerPragerMaterial : public Material {
         void GetStress(
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
-            const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
-            Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+            const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+            Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
             const double& timestep,
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
-            Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
-            // Assert that the displacement, velocity gradients, state, and pk1 stress are not null
-            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
-            KOKKOS_ASSERT(displacement_gradient_np1->data() != nullptr);
-            KOKKOS_ASSERT(velocity_gradient_np1 != nullptr);
-            KOKKOS_ASSERT(velocity_gradient_np1->data() != nullptr);
-            KOKKOS_ASSERT(state_old != nullptr);
-            KOKKOS_ASSERT(state_old->data() != nullptr);
-            KOKKOS_ASSERT(state_new != nullptr);
-            KOKKOS_ASSERT(state_new->data() != nullptr);
-            KOKKOS_ASSERT(pk1_stress_n != nullptr);
-            KOKKOS_ASSERT(pk1_stress_n->data() != nullptr);
+            Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const override {
+            KOKKOS_ASSERT(CheckInput(displacement_gradient_np1, velocity_gradient_np1, state_n, state_np1, timestep, pk1_stress_n, pk1_stress_np1));
 
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
             auto Ez = I / Kokkos::sqrt(3.0);
@@ -215,16 +205,15 @@ class DruckerPragerMaterial : public Material {
                 }
             }
 
-
             auto depdev = tensor::deviatoric_part(dep);
             const double dep_trace = dep.trace();
             auto deqps = Kokkos::sqrt(tensor::double_dot(depdev, depdev) + (dep_trace * dep_trace) / 3.0);
 
             // Update the state
-            state_new->coeffRef(PLASTIC_STRAIN) = state_old->coeff(PLASTIC_STRAIN) + deqps;
-            state_new->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) = state_old->coeff(VOLUMETRIC_PLASTIC_STRAIN) + dep_trace;
+            state_np1->coeffRef(PLASTIC_STRAIN) = state_n->coeff(PLASTIC_STRAIN) + deqps;
+            state_np1->coeffRef(VOLUMETRIC_PLASTIC_STRAIN) = state_n->coeff(VOLUMETRIC_PLASTIC_STRAIN) + dep_trace;
 
-            pk1_stress = tau * F.inverse().transpose();
+            pk1_stress_np1 = tau * F.inverse().transpose();
         }
 
         KOKKOS_INLINE_FUNCTION

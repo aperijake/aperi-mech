@@ -87,18 +87,17 @@ class PlasticMaterial : public Material {
         KOKKOS_INLINE_FUNCTION
         void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
                        const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
-                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
-                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                       const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+                       Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
                        const double& timestep,
                        const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
-                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
+                       Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const override {
             // in "Computational Methods for Plasticity", page 260, box 7.5
 
-            // Assert that the displacement gradient is not null
-            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+            KOKKOS_ASSERT(CheckInput(displacement_gradient_np1, velocity_gradient_np1, state_n, state_np1, timestep, pk1_stress_n, pk1_stress_np1));
 
             // Get the plastic strain state
-            double plastic_strain = state_old->coeff(PLASTIC_STRAIN);
+            double plastic_strain = state_n->coeff(PLASTIC_STRAIN);
 
             // Identity matrix
             const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
@@ -136,9 +135,9 @@ class PlasticMaterial : public Material {
             }
 
             // Update the state
-            state_new->coeffRef(PLASTIC_STRAIN) = plastic_strain;
+            state_np1->coeffRef(PLASTIC_STRAIN) = plastic_strain;
 
-            pk1_stress = (deviatoric_stress + pressure * I);
+            pk1_stress_np1 = (deviatoric_stress + pressure * I);
         }
 
         KOKKOS_INLINE_FUNCTION

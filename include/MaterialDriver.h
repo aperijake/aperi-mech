@@ -84,8 +84,8 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
         auto velocity_gradient_map = Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(velocity_gradient.data(), stride);
 
         // Set up the pk1 stress map
-        Eigen::Matrix<double, 3, 3> pk1_stress;
-        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> pk1_stress_map(pk1_stress.data(), stride);
+        Eigen::Matrix<double, 3, 3> pk1_stress_np1;
+        Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> pk1_stress_map(pk1_stress_np1.data(), stride);
 
         // Set up the state maps
         Eigen::InnerStride<Eigen::Dynamic> state_stride(1);
@@ -104,15 +104,15 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
         if (stress_output_type == aperi::StressOutputType::SECOND_PIOLA_KIRCHHOFF) {
             // Convert first Piola-Kirchhoff stress to second Piola-Kirchhoff stress
             Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient_np1 + Eigen::Matrix<double, 3, 3>::Identity();
-            stress(i) = deformation_gradient.inverse() * pk1_stress;
+            stress(i) = deformation_gradient.inverse() * pk1_stress_np1;
         } else if (stress_output_type == aperi::StressOutputType::CAUCHY) {
             // Convert first Piola-Kirchhoff stress to Cauchy stress
             Eigen::Matrix<double, 3, 3> deformation_gradient = displacement_gradient_np1 + Eigen::Matrix<double, 3, 3>::Identity();
             double J = deformation_gradient.determinant();
-            stress(i) = pk1_stress * deformation_gradient.transpose() / J;
+            stress(i) = pk1_stress_np1 * deformation_gradient.transpose() / J;
         } else if (stress_output_type == aperi::StressOutputType::FIRST_PIOLA_KIRCHHOFF) {
             // Return the first Piola-Kirchhoff stress
-            stress(i) = pk1_stress;
+            stress(i) = pk1_stress_np1;
         } else {
             aperi::CerrP0() << "Invalid stress output type\n";
             return;

@@ -41,13 +41,13 @@ namespace aperi {
 
 // Power method convergence stats
 struct PowerMethodStats {
-    double stable_time_step = 0;
+    double stable_time_step = 1.0e-16;  // Default to a very small value
     size_t num_iterations = 0;
     bool converged = false;
     std::vector<double> stable_time_step_for_iterations;
 
     void Reset(size_t max_num_iterations) {
-        stable_time_step = 0;
+        stable_time_step = 1.0e-16;  // Reset to a very small value
         num_iterations = 0;
         converged = false;
         stable_time_step_for_iterations.clear();
@@ -371,7 +371,7 @@ class PowerMethodProcessor {
 
         // Initialize the stable time step
         double stable_time_step_n = m_power_method_stats.stable_time_step;
-        double stable_time_step_np1 = time_increment == 0.0 ? 1.0 : time_increment;
+        double stable_time_step_np1 = time_increment == 0.0 ? 1.0e-16 : time_increment;
 
         // Initialize the power method stats
         m_power_method_stats.Reset(num_iterations);

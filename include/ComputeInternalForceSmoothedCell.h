@@ -66,7 +66,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Loop over all the subcells
         Kokkos::parallel_for(
             "for_each_subcell_compute_displacement_gradient", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
-                // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 
@@ -166,7 +165,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Loop over all the subcells
         Kokkos::parallel_for(
             "for_each_subcell_compute_stress", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
-                // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 
@@ -285,7 +283,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // Loop over all the subcells
         Kokkos::parallel_for(
             "for_each_subcell_compute_internal_force", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id) {
-                // Create a map around the state_old and state_new pointers
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
 

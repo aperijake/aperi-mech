@@ -15,13 +15,13 @@ namespace aperi {
  * @brief Enum representing the type of material.
  */
 enum MaterialType {
-    ELASTIC,        /**< Elastic material type */
-    LINEAR_ELASTIC, /**< Linear elastic material type */
-    NEO_HOOKEAN,    /**< Neo-Hookean material type */
-    PLASTIC,        /**< Plastic material type */
-    DRUCKER_PRAGER, /**< Drucker-Prager material type */
+    ELASTIC,         /**< Elastic material type */
+    LINEAR_ELASTIC,  /**< Linear elastic material type */
+    NEO_HOOKEAN,     /**< Neo-Hookean material type */
+    PLASTIC,         /**< Plastic material type */
+    DRUCKER_PRAGER,  /**< Drucker-Prager material type */
     POWER_LAW_CREEP, /**< Power Law creep material type */
-    NONE            /**< No material type */
+    NONE             /**< No material type */
 };
 
 /**
@@ -71,11 +71,49 @@ class Material {
         KOKKOS_FUNCTION
         virtual void GetStress(const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
                                const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
-                               const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
-                               Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+                               const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+                               Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
                                const double& timestep,
                                const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
-                               Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const = 0;
+                               Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const = 0;
+
+        KOKKOS_INLINE_FUNCTION
+        bool CheckInput(
+            const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
+            const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
+            const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+            const Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
+            const double& timestep,
+            const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
+            Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const {
+            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+            KOKKOS_ASSERT(displacement_gradient_np1->data() != nullptr);
+
+            if (NeedsVelocityGradient()) {
+                KOKKOS_ASSERT(velocity_gradient_np1 != nullptr);
+                KOKKOS_ASSERT(velocity_gradient_np1->data() != nullptr);
+            }
+
+            if (HasState()) {
+                KOKKOS_ASSERT(state_n != nullptr);
+                KOKKOS_ASSERT(state_n->data() != nullptr);
+                KOKKOS_ASSERT(state_np1 != nullptr);
+                KOKKOS_ASSERT(state_np1->data() != nullptr);
+                KOKKOS_ASSERT(state_n->size() == NumberOfStateVariables());
+                KOKKOS_ASSERT(state_np1->size() == NumberOfStateVariables());
+            }
+
+            KOKKOS_ASSERT(timestep > 0.0);
+
+            if (NeedsOldStress()) {
+                KOKKOS_ASSERT(pk1_stress_n != nullptr);
+                KOKKOS_ASSERT(pk1_stress_n->data() != nullptr);
+            }
+
+            KOKKOS_ASSERT(pk1_stress_np1.data() != nullptr);
+
+            return true;
+        }
 
         KOKKOS_INLINE_FUNCTION
         virtual bool HasState() const {
