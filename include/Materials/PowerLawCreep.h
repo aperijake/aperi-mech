@@ -63,11 +63,13 @@ class PowerLawCreepMaterial : public Material {
         double A = m_material_properties->properties.at("A");
         double n = m_material_properties->properties.at("n");
         double m = m_material_properties->properties.at("m");
+        bool use_constant_temperature = m_material_properties->properties.at("use_constant_temperature") > 0;
+        double constant_temperature = m_material_properties->properties.at("constant_temperature");
         Kokkos::parallel_for(
             "CreateObjects",
             1,
             KOKKOS_LAMBDA(const int&) {
-                new ((PowerLawCreepGetStressFunctor*)stress_functor) PowerLawCreepGetStressFunctor(bulk_modulus, shear_modulus, A, n, m);
+                new ((PowerLawCreepGetStressFunctor*)stress_functor) PowerLawCreepGetStressFunctor(bulk_modulus, shear_modulus, A, n, m, use_constant_temperature, constant_temperature);
             });
         m_stress_functor = stress_functor;
     }
@@ -97,56 +99,59 @@ class PowerLawCreepMaterial : public Material {
         };
 
         KOKKOS_FUNCTION
-        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m) : m_bulk_modulus(K),
-                                                                                          m_shear_modulus(G),
-                                                                                          m_A(A),
-                                                                                          m_n(n),
-                                                                                          m_m(m) {
+        PowerLawCreepGetStressFunctor(double K, double G, double A, double n, double m, bool use_constant_temperature, double constant_temperature)
+            : m_bulk_modulus(K),
+              m_shear_modulus(G),
+              m_A(A),
+              m_n(n),
+              m_m(m),
+              m_use_constant_temperature(use_constant_temperature),
+              m_constant_temperature(constant_temperature) {
             if (m_A < 0.0)
                 Kokkos::abort("PowerLawCreep: A must be > 0");
             if (m_n < 0.0)
                 Kokkos::abort("PowerLawCreep: n must be > 0");
             if (m_m < 0.0)
                 Kokkos::abort("PowerLawCreep: m must be > 0");
+            if (!m_use_constant_temperature)
+                Kokkos::abort("PowerLawCreep: currently have to use constant temperature, but use_constant_temperature is false");
         }
 
         KOKKOS_INLINE_FUNCTION
         void GetStress(
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
-            const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_old,
-            Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_new,
+            const Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_n,
+            Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1,
             const double& timestep,
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
-            Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress) const override {
-            KOKKOS_ASSERT(displacement_gradient_np1 != nullptr);
+            Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const override {
+            KOKKOS_ASSERT(CheckInput(displacement_gradient_np1, velocity_gradient_np1, state_n, state_np1, timestep, pk1_stress_n, pk1_stress_np1));
 
             const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix<double, 3, 3>::Identity();
             auto F = *displacement_gradient_np1 + I;
             auto J = F.determinant();
-            Eigen::Matrix<double, 3, 3> stress = 1.0 / J * pk1_stress * F.transpose();
+            Eigen::Matrix<double, 3, 3> stress = 1.0 / J * *pk1_stress_n * F.transpose();
             auto stress_deviator = tensor::deviatoric_part(stress);
 
             auto de = 0.5 * (*velocity_gradient_np1 + velocity_gradient_np1->transpose()) * timestep;
             auto dedev = tensor::deviatoric_part(de);
+            Eigen::Matrix<double, 3, 3> creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
 
             const auto amult = 0.98;
 
             const int max_steps = 100;
             double min_stepsize = timestep / max_steps;
 
-            /* We don't yet track a temperature */
-            auto temp_old = 0.0;
-            auto a1 = (temp_old == 0.0) ? 0.0 : m_A * Kokkos::exp(-m_m / temp_old);
+            auto temp_n = m_use_constant_temperature ? m_constant_temperature : 0.0;
+            auto a1 = (temp_n == 0.0) ? 0.0 : m_A * Kokkos::exp(-m_m / temp_n);
 
-            /* We don't yet track a temperature */
-            auto temp_new = 0.0;
-            auto da = (temp_new == 0.0) ? -a1 : m_A * Kokkos::exp(-m_m / temp_new) - a1;
-
-            Eigen::Matrix<double, 3, 3> creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
+            auto temp_np1 = m_use_constant_temperature ? m_constant_temperature : 0.0;
+            auto da = (temp_np1 == 0.0) ? -a1 : m_A * Kokkos::exp(-m_m / temp_np1) - a1;
 
             // time step estimate
-            auto effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
+            double sqrtThreeOverTwo = Kokkos::sqrt(3.0 / 2.0);
+            auto effective_stress = tensor::magnitude(stress_deviator) * sqrtThreeOverTwo;
             auto edotvm = a1 * Kokkos::pow(effective_stress, m_n - 1.0);
 
             auto critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
@@ -154,27 +159,30 @@ class PowerLawCreepMaterial : public Material {
 
             auto tn = 0.0;
             auto tp = dt;
+            size_t step_count = 0;
             while (true) {
-                auto dt_n = timestep;
                 auto dp = 3.0 / 2.0 * stress_deviator * edotvm;
                 auto sdot = 2.0 * m_shear_modulus * (dedev / timestep - dp);
 
                 stress_deviator += sdot * dt;
-                effective_stress = tensor::magnitude(stress_deviator) * Kokkos::sqrt(3.0 / 2.0);
+                effective_stress = tensor::magnitude(stress_deviator) * sqrtThreeOverTwo;
 
                 auto a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
                 edotvm = a * Kokkos::pow(effective_stress, m_n - 1.0);
 
+                // printf("PowerLawCreep: Step %zu, tn = %.4e, tp = %.4e, dt = %.4e, edotvm = %.4e, critical_timestep = %.4e, timestep = %.4e\n",
+                //        step_count, tn, tp, dt, edotvm, critical_timestep, timestep);
+                if (tp >= timestep) {
+                    break;
+                } else if (step_count++ > max_steps) {
+                    Kokkos::abort("PowerLawCreep: Maximum number of steps exceeded without reaching the timestep.");
+                }
+
                 critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
 
-                dt_n = Kokkos::min(critical_timestep, dt_n);
-                if (dt_n < min_stepsize)
-                    dt_n = min_stepsize;
+                auto dt_n = Kokkos::max(Kokkos::min(critical_timestep, timestep), min_stepsize);
 
                 tn = tp;
-                if (tn >= timestep)
-                    break;
-
                 tp = Kokkos::min(timestep, tp + dt_n);
                 dt = tp - tn;
             }
@@ -186,12 +194,12 @@ class PowerLawCreepMaterial : public Material {
             // Update the state
             creep_strain -= stress_deviator / 2.0 / m_shear_modulus;
             auto eff_creep_strain = Kokkos::sqrt(2.0 / 3.0) * tensor::magnitude(creep_strain);
-            state_new->coeffRef(EFFECTIVE_CREEP_STRAIN) += eff_creep_strain;
+            state_np1->coeffRef(EFFECTIVE_CREEP_STRAIN) = eff_creep_strain + state_n->coeff(EFFECTIVE_CREEP_STRAIN);
 
             // effective stress rate
             auto ds = 2.0 * m_shear_modulus * (dedev / timestep - 3.0 * edotvm * stress_deviator / 2.0);
-            state_new->coeffRef(EFFECTIVE_STRESS_RATE) = Kokkos::sqrt(3.0 / 2.0) * tensor::magnitude(ds);
-            pk1_stress = J * stress * F.inverse().transpose();
+            state_np1->coeffRef(EFFECTIVE_STRESS_RATE) = sqrtThreeOverTwo * tensor::magnitude(ds);
+            pk1_stress_np1 = J * stress * F.inverse().transpose();
         }
 
         KOKKOS_INLINE_FUNCTION
@@ -209,12 +217,19 @@ class PowerLawCreepMaterial : public Material {
             return true;
         }
 
+        KOKKOS_INLINE_FUNCTION
+        bool NeedsOldStress() const override {
+            return true;
+        }
+
        private:
         double m_bulk_modulus;
         double m_shear_modulus;
-        double m_A;  // creep constant
-        double m_n;  // creep exponent
-        double m_m;  // thermal constant
+        double m_A;                       // creep constant
+        double m_n;                       // creep exponent
+        double m_m;                       // thermal constant
+        bool m_use_constant_temperature;  // use a constant temperature
+        double m_constant_temperature;    // constant temperature value
     };
 
     // TODO(jake): get rid of this in favor of the above HasState
@@ -224,6 +239,11 @@ class PowerLawCreepMaterial : public Material {
 
     // TODO(jake): get rid of this in favor of the above NeedsVelocityGradient
     bool NeedsVelocityGradient() const override {
+        return true;
+    }
+
+    // TODO(jake): get rid of this in favor of the above NeedsOldStress
+    bool NeedsOldStress() const override {
         return true;
     }
 };

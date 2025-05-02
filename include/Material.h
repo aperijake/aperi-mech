@@ -6,11 +6,11 @@
 #include <string>
 
 #include "Materials/Base.h"
+#include "Materials/DruckerPrager.h"
 #include "Materials/Elastic.h"
 #include "Materials/LinearElastic.h"
 #include "Materials/NeoHooke.h"
 #include "Materials/Plastic.h"
-#include "Materials/DruckerPrager.h"
 #include "Materials/PowerLawCreep.h"
 
 namespace aperi {
@@ -108,8 +108,8 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A2G", A2G);
         return std::make_shared<DruckerPragerMaterial>(material_properties);
 
-    } else if (material_node["power law creep"].IsDefined()) {
-        YAML::Node dp_node = material_node["power law creep"];
+    } else if (material_node["power_law_creep"].IsDefined()) {
+        YAML::Node dp_node = material_node["power_law_creep"];
         material_properties->material_type = MaterialType::POWER_LAW_CREEP;
         material_properties->density = dp_node["density"].as<double>();
         double bulk_modulus = dp_node["bulk_modulus"].as<double>();
@@ -123,6 +123,13 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("A", A);
         material_properties->properties.emplace("n", n);
         material_properties->properties.emplace("m", m);
+        if (dp_node["constant_temperature"].IsDefined()) {
+            material_properties->properties.emplace("constant_temperature", dp_node["constant_temperature"].as<double>());
+            material_properties->properties.emplace("use_constant_temperature", 1);
+        } else {
+            material_properties->properties.emplace("constant_temperature", 0.0);
+            material_properties->properties.emplace("use_constant_temperature", 0);
+        }
         return std::make_shared<PowerLawCreepMaterial>(material_properties);
 
     } else {
