@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745640038848,
+  "lastUpdate": 1746231478888,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -2131,6 +2131,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "Element_Other_fem_taylor_bar_gpu_np_1",
             "value": 0.0286393,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "95c9b5808626aa1c7e3961113347e3d13f582526",
+          "message": "Merge pull request #99 from aperijake/material_separation [skip ci]\n\nCreep model fixes",
+          "timestamp": "2025-05-02T23:14:01Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/95c9b5808626aa1c7e3961113347e3d13f582526"
+        },
+        "date": 1746231478022,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Element_CreateElementForceProcessor_fem_taylor_bar_cpu_np_1",
+            "value": 0.000008968,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_fem_taylor_bar_cpu_np_1",
+            "value": 0.496721,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_fem_taylor_bar_cpu_np_4",
+            "value": 0.00001029,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_fem_taylor_bar_cpu_np_4",
+            "value": 0.0930841,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_fem_taylor_bar_gpu_np_1",
+            "value": 0.0665761,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_fem_taylor_bar_gpu_np_1",
+            "value": 0.0288669,
             "unit": "seconds"
           }
         ]
