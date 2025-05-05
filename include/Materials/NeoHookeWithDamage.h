@@ -54,10 +54,11 @@ class NeoHookeanWithDamageMaterial : public Material {
         double lambda = m_material_properties->properties.at("lambda");
         double two_mu = m_material_properties->properties.at("two_mu");
         double I1_critical = m_material_properties->properties.at("I1_critical");
-        double beta = m_material_properties->properties.at("beta");
+        double I1_failure = m_material_properties->properties.at("I1_failure");
+        double alpha = m_material_properties->properties.at("alpha");
         Kokkos::parallel_for(
             "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
-                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, beta);
+                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, I1_failure, alpha);
             });
         m_stress_functor = stress_functor;
     }
@@ -88,16 +89,32 @@ class NeoHookeanWithDamageMaterial : public Material {
      */
     struct NeoHookeanWithDamageGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
-        NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double beta)
-            : m_lambda(lambda), m_mu(two_mu / 2.0), I1_critical(I1_critical), beta(beta) {
-            if (m_lambda < 0.0)
+        NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha)
+            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha) {
+            if (m_lambda < 0.0) {
+                printf("NeoHookeanWithDamage: lambda: %f\n", m_lambda);
                 Kokkos::abort("NeoHookeanWithDamage: lambda must be >= 0");
-            if (m_mu < 0.0)
+            }
+            if (m_mu < 0.0) {
+                printf("NeoHookeanWithDamage: mu: %f\n", m_mu);
                 Kokkos::abort("NeoHookeanWithDamage: mu must be >= 0");
-            if (I1_critical < 0.0)
+            }
+            if (m_I1_critical < 0.0) {
+                printf("NeoHookeanWithDamage: I1_critical: %f\n", m_I1_critical);
                 Kokkos::abort("NeoHookeanWithDamage: I1_critical must be >= 0");
-            if (beta < 0.0)
-                Kokkos::abort("NeoHookeanWithDamage: beta must be >= 0");
+            }
+            if (m_I1_failure < 0.0) {
+                printf("NeoHookeanWithDamage: I1_failure: %f\n", m_I1_failure);
+                Kokkos::abort("NeoHookeanWithDamage: I1_failure must be >= 0");
+            }
+            if (m_I1_critical >= m_I1_failure) {
+                printf("I1_critical: %f, I1_failure: %f\n", m_I1_critical, m_I1_failure);
+                Kokkos::abort("NeoHookeanWithDamage: I1_critical must be < I1_failure");
+            }
+            if (m_alpha < 0.0) {
+                printf("NeoHookeanWithDamage: alpha: %f\n", m_alpha);
+                Kokkos::abort("NeoHookeanWithDamage: alpha must be >= 0");
+            }
         }
 
         enum StateVariables {
@@ -140,14 +157,16 @@ class NeoHookeanWithDamageMaterial : public Material {
 
             // Damage evolution
             double Dnew = Dn;
-            if (I1 > I1_critical) {
-                double D_increment = beta * (I1 - I1_critical);
-                // Update damage state, ensuring it does not decrease
-                Dnew = D_increment > 0.0 ? Dn + D_increment : Dn;
-                // Ensure damage does not exceed 1.0
-                if (Dnew > 1.0) {
-                    Dnew = 1.0;
-                }
+            if (I1 > m_I1_failure) {
+                // If I1 exceeds the failure threshold, set damage to 1.0
+                Dnew = 1.0;
+            } else if (I1 > m_I1_critical) {
+                // Position along the damage evolution curve
+                double s = (I1 - m_I1_critical) / (m_I1_failure - m_I1_critical);
+                // Damage based on the evolution law. m_alpha is the exponent controlling the evolution rate
+                Dnew = Kokkos::pow(s, m_alpha);
+                Dnew = Kokkos::clamp(Dnew, 0.0, 1.0);  // Ensure Dnew is within [0, 1]
+                Dnew = Kokkos::max(Dnew, Dn);          // Ensure damage does not decrease
             }
             // Update state variable
             state_np1->coeffRef(DAMAGE) = Dnew;
@@ -167,10 +186,11 @@ class NeoHookeanWithDamageMaterial : public Material {
         }
 
        private:
-        double m_lambda;    /**< The lambda parameter */
-        double m_mu;        /**< The mu parameter */
-        double I1_critical; /**< Critical value of I1 for damage initiation */
-        double beta;        /**< Damage evolution rate */
+        double m_lambda;      /**< The lambda parameter */
+        double m_mu;          /**< The mu parameter */
+        double m_I1_critical; /**< Critical value of I1 for damage initiation */
+        double m_I1_failure;  /**< Critical value of I1 for complete failure */
+        double m_alpha;       /**< Damage evolution exponent */
     };
 
     // TODO(jake): get rid of this in favor of the above HasState

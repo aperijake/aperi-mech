@@ -364,9 +364,13 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema I1_critical_schema("I1_critical", "float", "the I1 value at which damage starts");
     YAML::Node I1_critical_node = I1_critical_schema.GetInputSchema();
 
-    // beta node
-    aperi::InputSchema beta_schema("beta", "float", "the beta parameter");
-    YAML::Node beta_node = beta_schema.GetInputSchema();
+    // I1 failure node
+    aperi::InputSchema I1_failure_schema("I1_failure", "float", "the I1 value at which damage is complete");
+    YAML::Node I1_failure_node = I1_failure_schema.GetInputSchema();
+
+    // alpha node
+    aperi::InputSchema alpha_schema("alpha", "float", "the alpha (exponent) parameter");
+    YAML::Node alpha_node = alpha_schema.GetInputSchema();
 
     // Constant temperature node
     aperi::InputSchema constant_temperature_schema("constant_temperature", "float", "use a constant temperature of the given value");
@@ -399,7 +403,8 @@ YAML::Node GetInputSchema() {
     neo_hookean_with_damage_schema.AddAllOf(youngs_modulus_node);
     neo_hookean_with_damage_schema.AddAllOf(poissons_ratio_node);
     neo_hookean_with_damage_schema.AddAllOf(I1_critical_node);
-    neo_hookean_with_damage_schema.AddAllOf(beta_node);
+    neo_hookean_with_damage_schema.AddAllOf(I1_failure_node);
+    neo_hookean_with_damage_schema.AddAllOf(alpha_node);
     YAML::Node neo_hookean_with_damage_node = neo_hookean_with_damage_schema.GetInputSchema();
 
     // Plastic material properties node

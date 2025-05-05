@@ -87,9 +87,11 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("lambda", youngs_modulus * poissons_ratio / ((1.0 + poissons_ratio) * (1.0 - 2.0 * poissons_ratio)));
 
         double I1_critical = neo_hookean_node["I1_critical"].as<double>();
-        double beta = neo_hookean_node["beta"].as<double>();
+        double I1_failure = neo_hookean_node["I1_failure"].as<double>();
+        double alpha = neo_hookean_node["alpha"].as<double>();
         material_properties->properties.emplace("I1_critical", I1_critical);
-        material_properties->properties.emplace("beta", beta);
+        material_properties->properties.emplace("I1_failure", I1_failure);
+        material_properties->properties.emplace("alpha", alpha);
 
         return std::make_shared<NeoHookeanWithDamageMaterial>(material_properties);
 
