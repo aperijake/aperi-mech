@@ -15,13 +15,14 @@ namespace aperi {
  * @brief Enum representing the type of material.
  */
 enum MaterialType {
-    ELASTIC,         /**< Elastic material type */
-    LINEAR_ELASTIC,  /**< Linear elastic material type */
-    NEO_HOOKEAN,     /**< Neo-Hookean material type */
-    PLASTIC,         /**< Plastic material type */
-    DRUCKER_PRAGER,  /**< Drucker-Prager material type */
-    POWER_LAW_CREEP, /**< Power Law creep material type */
-    NONE             /**< No material type */
+    ELASTIC,                 /**< Elastic material type */
+    LINEAR_ELASTIC,          /**< Linear elastic material type */
+    NEO_HOOKEAN,             /**< Neo-Hookean material type */
+    NEO_HOOKEAN_WITH_DAMAGE, /**< Neo-Hookean material type with damage */
+    PLASTIC,                 /**< Plastic material type */
+    DRUCKER_PRAGER,          /**< Drucker-Prager material type */
+    POWER_LAW_CREEP,         /**< Power Law creep material type */
+    NONE                     /**< No material type */
 };
 
 /**
