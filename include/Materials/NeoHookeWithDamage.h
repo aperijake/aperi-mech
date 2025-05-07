@@ -168,11 +168,29 @@ class NeoHookeanWithDamageMaterial : public Material {
                 Dnew = Kokkos::clamp(Dnew, 0.0, 1.0);  // Ensure Dnew is within [0, 1]
                 Dnew = Kokkos::max(Dnew, Dn);          // Ensure damage does not decrease
             }
-            // Update state variable
-            state_np1->coeffRef(DAMAGE) = Dnew;
-
             // First Piola–Kirchhoff stress and damage degradation
             pk1_stress_np1 = tau * InvertMatrix(F).transpose() * (1.0 - Dnew);
+
+            // Check if this is a new failure, if so set Dnew to 2.0 to indicate the material just failed
+            if (Dnew == 1.0 && Dn < 1.0) {
+                Dnew = 2.0;
+            }
+
+            // Update state variable
+            state_np1->coeffRef(DAMAGE) = Dnew;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const {
+            double D = state_np1->coeffRef(DAMAGE);
+            if (D == 2.0) {
+                // Set to 1.0 and return JUST_FAILED
+                state_np1->coeffRef(DAMAGE) = 1.0;
+                return MaterialSeparationState::JUST_FAILED;
+            } else if (D >= 1.0) {
+                return MaterialSeparationState::FAILED;
+            }
+            return MaterialSeparationState::INTACT;
         }
 
         KOKKOS_INLINE_FUNCTION

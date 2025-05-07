@@ -132,6 +132,28 @@ void ExplicitSolver::WriteOutput(double time) {
     m_io_mesh->WriteFieldResults(time);
 }
 
+void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
+    bool update_shape_functions = false;
+
+    // If using the semi-Lagrangian formulation and it is time to update the reference configuration
+    if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
+        update_shape_functions = true;
+    }
+
+    // If has material separation and a material separation event is triggered
+    // for (const auto &internal_force_contribution : m_internal_force_contributions) {
+    //    update_shape_functions = update_shape_functions || internal_force_contribution->CheckUpdateEvent();
+    //}
+
+    if (update_shape_functions) {
+        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);
+        explicit_time_integrator->UpdateReferenceConfiguration();
+        for (const auto &internal_force_contribution : m_internal_force_contributions) {
+            internal_force_contribution->UpdateShapeFunctions();
+        }
+    }
+}
+
 void LogLine(int width = 89) {
     aperi::CoutP0() << std::setw(width) << std::setfill('-') << "-" << std::endl;
     aperi::CoutP0() << std::setfill(' ');
@@ -331,14 +353,8 @@ double ExplicitSolver::Solve() {
             WriteOutput(time);
         }
 
-        // Update the reference configuration, if using the semi-Lagrangian formulation and it is time to update the reference configuration
-        if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);
-            explicit_time_integrator->UpdateReferenceConfiguration();
-            for (const auto &internal_force_contribution : m_internal_force_contributions) {
-                internal_force_contribution->UpdateShapeFunctions();
-            }
-        }
+        // Update the shape functions
+        UpdateShapeFunctions(n, explicit_time_integrator);
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogLine();

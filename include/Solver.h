@@ -299,6 +299,13 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * @brief Writes the output.
      */
     void WriteOutput(double time);
+
+    /**
+     * @brief Updates the shape functions.
+     * @param n The current time step index.
+     * @param explicit_time_integrator The explicit time integrator object.
+     */
+    void UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
 };
 
 /**

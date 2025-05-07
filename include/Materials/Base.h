@@ -26,6 +26,15 @@ enum MaterialType {
 };
 
 /**
+ * @brief Enum representing the state of material separation.
+ */
+enum class MaterialSeparationState {
+    INTACT,
+    FAILED,
+    JUST_FAILED
+};
+
+/**
  * @brief Struct representing the properties of a material.
  */
 struct MaterialProperties {
@@ -77,6 +86,11 @@ class Material {
                                const double& timestep,
                                const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* pk1_stress_n,
                                Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const = 0;
+
+        KOKKOS_INLINE_FUNCTION
+        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const {
+            return MaterialSeparationState::INTACT;
+        }
 
         KOKKOS_INLINE_FUNCTION
         bool CheckInput(

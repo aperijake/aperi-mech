@@ -37,6 +37,16 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {}
 
     /**
+     * @brief Destructor for ComputeInternalForceSmoothedCell.
+     */
+    virtual ~ComputeInternalForceSmoothedCell() = default;
+
+    KOKKOS_FUNCTION
+    virtual void HandleMaterialSeparation(const size_t &subcell_id) const {
+        // Handle material separation logic here
+    }
+
+    /**
      * @brief Computes the internal force for each cell.
      * @param scd The smoothed cell data.
      */
@@ -189,6 +199,12 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Compute the stress, pk1_bar value if using F-bar
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), &pk1_stress_n_map, pk1_stress_map);
+
+                // Handle material separation
+                if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
+                    // Handle material separation
+                    HandleMaterialSeparation(subcell_id);
+                }
             });
 
         // If using f_bar, unbar the stress
