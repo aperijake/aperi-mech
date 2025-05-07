@@ -18,31 +18,38 @@ namespace aperi {
 /**
  * @brief Functor for computing the internal force of an element using strain smoothing.
  */
-class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
+class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
+   protected:
+    using SeparationHandlerType = void (*)(const size_t &);
+    SeparationHandlerType d_separation_handler;
+
    public:
     /**
-     * @brief Constructs a ComputeInternalForceSmoothedCell object.
+     * @brief Constructs a ComputeInternalForceSmoothedCellBase object.
      * @param mesh_data A shared pointer to the MeshData object.
      * @param displacements_field_name The name of the displacements field.
      * @param force_field_name The name of the force field.
      * @param material The material object.
      * @param lagrangian_formulation_type The Lagrangian formulation type.
      */
-    ComputeInternalForceSmoothedCell(std::shared_ptr<aperi::MeshData> mesh_data,
-                                     std::string displacements_field_name,
-                                     const std::string &force_field_name,
-                                     const Material &material,
-                                     const LagrangianFormulationType &lagrangian_formulation_type,
-                                     bool use_f_bar)
-        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {}
+    ComputeInternalForceSmoothedCellBase(std::shared_ptr<aperi::MeshData> mesh_data,
+                                         std::string displacements_field_name,
+                                         const std::string &force_field_name,
+                                         const Material &material,
+                                         const LagrangianFormulationType &lagrangian_formulation_type,
+                                         bool use_f_bar)
+        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {
+        // Initialize the separation handler
+        d_separation_handler = &ComputeInternalForceSmoothedCellBase::BaseHandleMaterialSeparationImpl;
+    }
 
     /**
-     * @brief Destructor for ComputeInternalForceSmoothedCell.
+     * @brief Destructor for ComputeInternalForceSmoothedCellBase.
      */
-    virtual ~ComputeInternalForceSmoothedCell() = default;
+    virtual ~ComputeInternalForceSmoothedCellBase() = default;
 
     KOKKOS_FUNCTION
-    virtual void HandleMaterialSeparation(const size_t &subcell_id) const {
+    static void BaseHandleMaterialSeparationImpl(const size_t &subcell_id) {
         // Handle material separation logic here
     }
 
@@ -203,7 +210,7 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 // Handle material separation
                 if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
                     // Handle material separation
-                    HandleMaterialSeparation(subcell_id);
+                    d_separation_handler(subcell_id);
                 }
             });
 
@@ -343,5 +350,23 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
             });
     }
 };
+
+/**
+ * @brief Standard implementation of internal force computation
+ */
+class AperiComputeInternalForceSmoothedCell : public ComputeInternalForceSmoothedCellBase {
+   public:
+    // Inherit constructor
+    using ComputeInternalForceSmoothedCellBase::ComputeInternalForceSmoothedCellBase;
+
+    virtual ~AperiComputeInternalForceSmoothedCell() = default;
+};
+
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoComputeInternalForceSmoothedCell.h"
+typedef ProtegoComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+#else
+typedef AperiComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+#endif
 
 }  // namespace aperi
