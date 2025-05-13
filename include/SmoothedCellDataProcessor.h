@@ -207,10 +207,11 @@ class SmoothedCellDataProcessor {
         max_edge_length_processor.ComputeMaxEdgeLength();
     }
 
-    std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
-        // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-
+    /**
+     * @brief Get the sizes of the smoothed cell data.
+     * @return The sizes of the smoothed cell data.
+     */
+    SmoothedCellDataSizes GetSmoothedCellDataSizes(size_t estimated_num_nodes_per_cell) {
         // Create the cells selector
         std::vector<std::string> cells_sets;
         // If sets are named the same with _cells at the end, use those.
@@ -236,17 +237,27 @@ class SmoothedCellDataProcessor {
         size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
         size_t num_subcells = num_subcells_per_cell < 1 ? num_elements : num_subcells_per_cell * num_cells;
 
-        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
+        return {num_cells, num_subcells, num_elements, estimated_num_nodes};
+    }
+
+    std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+        // Create a scoped timer
+        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
+
+        // Get the sizes of the smoothed cell data
+        SmoothedCellDataSizes sizes = GetSmoothedCellDataSizes(estimated_num_nodes_per_cell);
+
+        bool use_f_bar = m_use_f_bar && sizes.num_subcells != sizes.num_cells;
 
         if (m_verbose) {
-            aperi::Cout() << "Number of cells: " << num_cells << std::endl;
-            aperi::Cout() << "Number of subcells: " << num_subcells << std::endl;
-            aperi::Cout() << "Number of elements: " << num_elements << std::endl;
-            aperi::Cout() << "Estimated number of node-cell pairs: " << estimated_num_nodes << std::endl;
+            aperi::Cout() << "Number of cells: " << sizes.num_cells << std::endl;
+            aperi::Cout() << "Number of subcells: " << sizes.num_subcells << std::endl;
+            aperi::Cout() << "Number of elements: " << sizes.num_elements << std::endl;
+            aperi::Cout() << "Estimated number of node-cell pairs: " << sizes.estimated_num_nodes << std::endl;
             aperi::Cout() << "Use f_bar: " << (use_f_bar ? "true" : "false") << std::endl;
         }
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
+        return std::make_shared<aperi::SmoothedCellData>(sizes.num_cells, sizes.num_subcells, sizes.num_elements, sizes.estimated_num_nodes, use_f_bar);
     }
 
     void AddSubcellNumElements() {

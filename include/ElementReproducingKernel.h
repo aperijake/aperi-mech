@@ -65,8 +65,10 @@ class ElementReproducingKernel : public ElementBase {
 
     void FinishPreprocessing() override {
         // Run neighbor search on all parts before doing this
+        ComputeAndStoreFunctionValues();
+        m_compute_force->FinishPreprocessing(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
         BuildSmoothedCellData();
-        UpdateShapeFunctions();
+        ComputeFunctionDerivatives();
     }
 
     ReproducingKernelInfo GetReproducingKernelInfo() const override {
@@ -104,19 +106,21 @@ class ElementReproducingKernel : public ElementBase {
      */
     virtual void ComputeFunctionDerivatives() = 0;
 
+    size_t GetEstimatedTotalNumberOfNeighbors() const {
+        // Estimate the number of neighbors on each cell
+        // - If one pass method approximates the number of neighbors as MAX_NODE_NUM_NEIGHBORS * 3
+        // - If two pass method uses the exact number of nodes in each element
+        return m_use_one_pass_method ? MAX_NODE_NUM_NEIGHBORS * 3 : NumCellNodes;
+    }
+
     /**
      * @brief Builds the smoothed cell data.
      *
      * This function builds the smoothed cell data for the element.
      */
     void BuildSmoothedCellData() {
-        // Estimate the number of neighbors on each cell
-        // - If one pass method approximates the number of neighbors as MAX_NODE_NUM_NEIGHBORS * 3
-        // - If two pass method uses the exact number of nodes in each element
-        size_t num_neighbors = m_use_one_pass_method ? MAX_NODE_NUM_NEIGHBORS * 3 : NumCellNodes;
-
         // Build the smoothed cell data
-        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(num_neighbors, m_use_one_pass_method);
+        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(GetEstimatedTotalNumberOfNeighbors(), m_use_one_pass_method);
 
         // Add the strain smoothing timer manager to the timer manager
         m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());

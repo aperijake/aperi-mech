@@ -49,10 +49,16 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
     virtual ~ComputeInternalForceSmoothedCellBase() = default;
 
     /**
-     * @brief Initializes the material separator. Default implementation does nothing.
-     * @param num_subcells The number of subcells.
+     * @brief Resets anything needed for the next increment.
      */
-    virtual void InitializeMaterialSeparator(size_t num_subcells) {
+    virtual void ResetForIncrement() {
+    }
+
+    /**
+     * @brief Finishes preprocessing after instantiation and other required operations from elsewhere have been completed.
+     */
+    virtual void FinishPreprocessing(const SmoothedCellDataSizes &smoothed_cell_data_sizes) {
+        // Finish preprocessing logic here
     }
 
     /**
@@ -73,13 +79,13 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
      * @param scd The smoothed cell data.
      */
     void ForEachCellComputeForce(const SmoothedCellData &scd) {
+        // Reset for the next increment
+        ResetForIncrement();
+
         // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
         const size_t num_subcells = scd.NumSubcells();
         assert(num_subcells >= num_cells);
-
-        // Initialize the material separator
-        InitializeMaterialSeparator(num_subcells);
 
         // If using f_bar, only use it if there are more subcells than cells
         bool use_f_bar = m_use_f_bar && num_subcells != num_cells;

@@ -11,6 +11,13 @@
 
 namespace aperi {
 
+struct SmoothedCellDataSizes {
+    size_t num_cells;
+    size_t num_subcells;
+    size_t num_elements;
+    size_t estimated_num_nodes;
+};
+
 // Struct holding the three unsigned for the map: cell_id, bucket_id, and bucket_ord
 struct NodeToViewIndexMapKey {
     uint64_t cell_id;
