@@ -43,6 +43,7 @@ class ComputeInternalForceBase {
           m_has_state(material.HasState()),
           m_needs_velocity_gradient(material.NeedsVelocityGradient()),
           m_needs_old_stress(material.NeedsOldStress()),
+          m_has_damage(material.HasDamage()),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_time_increment_device("TimeIncrementDevice"),
           m_stress_functor(*material.GetStressFunctor()) {
@@ -218,6 +219,7 @@ class ComputeInternalForceBase {
     bool m_has_state;                                                      // Whether the material has state.
     bool m_needs_velocity_gradient;                                        // Whether the material needs the velocity gradient.
     bool m_needs_old_stress;                                               // Whether the material needs the old stress.
+    bool m_has_damage;                                                     // Whether the material has damage.
     const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type.
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device.

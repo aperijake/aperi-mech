@@ -48,6 +48,15 @@ class InternalForceContribution : public ForceContribution {
     }
 
     /**
+     * @brief Check if an event happened that requires a shape function update.
+     *
+     * @return True if an update is needed, false otherwise.
+     */
+    bool CheckIfUpdateIsNeeded() const {
+        return m_element->CheckIfUpdateIsNeeded();
+    }
+
+    /**
      * @brief Update the shape functions values and derivatives.
      *
      * @return void
@@ -72,15 +81,6 @@ class InternalForceContribution : public ForceContribution {
      */
     std::shared_ptr<Material> GetMaterial() const {
         return m_internal_force_contribution_parameters.material;
-    }
-
-    /**
-     * @brief Gets the field data associated with the force contribution.
-     *
-     * @return A vector of FieldData objects.
-     */
-    std::vector<FieldData> GetFieldData() const {
-        return m_internal_force_contribution_parameters.material->GetFieldData();
     }
 
     /**

@@ -11,6 +11,10 @@
 #include "Materials/Base.h"
 #include "MathUtils.h"
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoMaterialSeparator.h"
+#endif
+
 namespace aperi {
 
 /**
@@ -35,6 +39,7 @@ class NeoHookeanWithDamageMaterial : public Material {
      * @return The field data of the material.
      */
     std::vector<aperi::FieldData> GetFieldData() override {
+        std::vector<aperi::FieldData> field_data;
         std::vector<double> initial_state(2, 0.0);
         auto state = aperi::FieldData(
             "state",
@@ -43,7 +48,13 @@ class NeoHookeanWithDamageMaterial : public Material {
             2 /*number of states*/,
             2 /*state size*/,
             initial_state);
-        return {state};
+        field_data.push_back(state);
+#ifdef USE_PROTEGO_MECH
+        // Add the material separator field data
+        std::vector<aperi::FieldData> protego_field_data = protego::MaterialSeparator::GetFieldData();
+        field_data.insert(field_data.end(), protego_field_data.begin(), protego_field_data.end());
+#endif
+        return field_data;
     }
 
     /**
@@ -213,6 +224,10 @@ class NeoHookeanWithDamageMaterial : public Material {
 
     // TODO(jake): get rid of this in favor of the above HasState
     bool HasState() const override {
+        return true;
+    }
+
+    bool HasDamage() const override {
         return true;
     }
 };

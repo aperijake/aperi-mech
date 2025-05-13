@@ -188,6 +188,10 @@ class Material {
         return false;
     }
 
+    virtual bool HasDamage() const {
+        return false;
+    }
+
    protected:
     std::shared_ptr<MaterialProperties> m_material_properties; /**< The properties of the material */
     StressFunctor* m_stress_functor;                           /**< The stress functor of the elastic material */

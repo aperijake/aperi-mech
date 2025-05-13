@@ -48,9 +48,24 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
      */
     virtual ~ComputeInternalForceSmoothedCellBase() = default;
 
+    /**
+     * @brief Initializes the material separator. Default implementation does nothing.
+     * @param num_subcells The number of subcells.
+     */
+    virtual void InitializeMaterialSeparator(size_t num_subcells) {
+    }
+
+    /**
+     * @brief Handles material separation for the given subcell.
+     * @param subcell_id The ID of the subcell.
+     */
     KOKKOS_FUNCTION
     static void BaseHandleMaterialSeparationImpl(const size_t &subcell_id) {
         // Handle material separation logic here
+    }
+
+    virtual size_t NumFailedSubcells() const {
+        return 0;
     }
 
     /**
@@ -58,13 +73,13 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
      * @param scd The smoothed cell data.
      */
     void ForEachCellComputeForce(const SmoothedCellData &scd) {
-        // Get the NGP mesh
-        stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_mesh_data->GetBulkData());
-
         // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
         const size_t num_subcells = scd.NumSubcells();
         assert(num_subcells >= num_cells);
+
+        // Initialize the material separator
+        InitializeMaterialSeparator(num_subcells);
 
         // If using f_bar, only use it if there are more subcells than cells
         bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
@@ -362,9 +377,16 @@ class AperiComputeInternalForceSmoothedCell : public ComputeInternalForceSmoothe
     virtual ~AperiComputeInternalForceSmoothedCell() = default;
 };
 
+}  // namespace aperi
+
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoComputeInternalForceSmoothedCell.h"
-typedef ProtegoComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+#endif
+
+namespace aperi {
+
+#ifdef USE_PROTEGO_MECH
+typedef protego::ProtegoComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
 #else
 typedef AperiComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
 #endif

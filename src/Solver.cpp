@@ -141,9 +141,9 @@ void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<Explic
     }
 
     // If has material separation and a material separation event is triggered
-    // for (const auto &internal_force_contribution : m_internal_force_contributions) {
-    //    update_shape_functions = update_shape_functions || internal_force_contribution->CheckUpdateEvent();
-    //}
+    for (const auto &internal_force_contribution : m_internal_force_contributions) {
+        update_shape_functions = update_shape_functions || internal_force_contribution->CheckIfUpdateIsNeeded();
+    }
 
     if (update_shape_functions) {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);

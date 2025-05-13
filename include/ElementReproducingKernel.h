@@ -73,6 +73,13 @@ class ElementReproducingKernel : public ElementBase {
         return ReproducingKernelInfo{m_part_names, {m_kernel_radius_scale_factor}};
     }
 
+    bool CheckIfUpdateIsNeeded() const override {
+        if (m_compute_force == nullptr) {
+            return false;
+        }
+        return m_compute_force->NumFailedSubcells() > 0;
+    }
+
     /**
      * @brief Destroys a ElementReproducingKernel object.
      */
