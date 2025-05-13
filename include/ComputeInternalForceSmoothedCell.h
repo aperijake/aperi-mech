@@ -20,7 +20,8 @@ namespace aperi {
  */
 class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
    protected:
-    using SeparationHandlerType = void (*)(const size_t &);
+    using SeparationHandlerType = void (*)(void *context, const size_t &);
+    void *d_separation_context = nullptr;
     SeparationHandlerType d_separation_handler;
 
    public:
@@ -66,7 +67,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
      * @param subcell_id The ID of the subcell.
      */
     KOKKOS_FUNCTION
-    static void BaseHandleMaterialSeparationImpl(const size_t &subcell_id) {
+    static void BaseHandleMaterialSeparationImpl(void *context, const size_t &subcell_id) {
         // Handle material separation logic here
     }
 
@@ -231,7 +232,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
                 // Handle material separation
                 if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
                     // Handle material separation
-                    d_separation_handler(subcell_id);
+                    d_separation_handler(d_separation_context, subcell_id);
                 }
             });
 
