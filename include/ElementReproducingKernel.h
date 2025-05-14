@@ -65,7 +65,7 @@ class ElementReproducingKernel : public ElementBase {
 
     void FinishPreprocessing() override {
         // Run neighbor search on all parts before doing this
-        ComputeAndStoreFunctionValues();
+        ComputeAndStoreFunctionValues(false /*check_failed_subcells*/);  // Dont want to check for failed subcells on the first pass
         m_compute_force->FinishPreprocessing(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
         BuildSmoothedCellData();
         ComputeFunctionDerivatives();
@@ -183,13 +183,21 @@ class ElementReproducingKernel : public ElementBase {
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
     };
 
-    void ComputeAndStoreFunctionValues() {
+    void ComputeAndStoreFunctionValues(const bool check_failed_subcells = true) {
         // Create an instance of the functor
         FunctionFunctorWrapper<MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
         // Create the bases
         aperi::BasesLinear bases;
 
+        // If using protego-mech and there are failed subcells then update the neighbors
+#ifdef USE_PROTEGO_MECH
+        if (check_failed_subcells) {
+            if (m_compute_force->NumFailedSubcells() > 0) {
+                m_function_value_storage_processor->UpdateNeighbors(m_compute_force->GetMaterialSeparatorData());
+            }
+        }
+#endif
         // Compute and store the function values
         m_function_value_storage_processor->compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 

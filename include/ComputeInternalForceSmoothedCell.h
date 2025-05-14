@@ -75,6 +75,10 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         return 0;
     }
 
+    virtual std::shared_ptr<void> GetMaterialSeparatorData() const {
+        return nullptr;
+    }
+
     /**
      * @brief Computes the internal force for each cell.
      * @param scd The smoothed cell data.
