@@ -101,7 +101,7 @@ class NeoHookeanWithDamageMaterial : public Material {
     struct NeoHookeanWithDamageGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
         NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha)
-            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha) {
+            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(0.99) {
             if (m_lambda < 0.0) {
                 printf("NeoHookeanWithDamage: lambda: %f\n", m_lambda);
                 Kokkos::abort("NeoHookeanWithDamage: lambda must be >= 0");
@@ -126,6 +126,10 @@ class NeoHookeanWithDamageMaterial : public Material {
                 printf("NeoHookeanWithDamage: alpha: %f\n", m_alpha);
                 Kokkos::abort("NeoHookeanWithDamage: alpha must be >= 0");
             }
+            if (m_max_effective_damage < 0.0 || m_max_effective_damage > 1.0) {
+                printf("NeoHookeanWithDamage: max_effective_damage: %f\n", m_max_effective_damage);
+                Kokkos::abort("NeoHookeanWithDamage: max_effective_damage must be in [0, 1]");
+            }
         }
 
         enum StateVariables {
@@ -145,13 +149,7 @@ class NeoHookeanWithDamageMaterial : public Material {
 
             // Read previous damage
             double Dn = state_n->coeffRef(DAMAGE);
-
-            if (Dn >= 1.0) {
-                // If damage is already at maximum, return zero stress
-                pk1_stress_np1.setZero();
-                state_np1->coeffRef(DAMAGE) = 1.0;
-                return;
-            }
+            Dn = Kokkos::clamp(Dn, 0.0, m_max_effective_damage);  // Ensure Dn is within [0, m_max_effective_damage]
 
             // Left Cauchy-Green tensor - I
             const Eigen::Matrix3d B_minus_I = *displacement_gradient_np1 * displacement_gradient_np1->transpose() + displacement_gradient_np1->transpose() + *displacement_gradient_np1;
@@ -179,12 +177,27 @@ class NeoHookeanWithDamageMaterial : public Material {
                 Dnew = Kokkos::clamp(Dnew, 0.0, 1.0);  // Ensure Dnew is within [0, 1]
                 Dnew = Kokkos::max(Dnew, Dn);          // Ensure damage does not decrease
             }
+
+            // Early exit if damage is zero
+            if (Dnew == 0.0) {
+                pk1_stress_np1 = tau * InvertMatrix(F).transpose();
+                state_np1->coeffRef(DAMAGE) = Dnew;
+                return;
+            }
+
+            bool is_failed = false;
+            if (Dnew >= m_max_effective_damage) {
+                // If damage is close to 1.0, set it to the maximum effective damage
+                is_failed = true;
+                Dnew = m_max_effective_damage;
+            }
+
             // First Piola–Kirchhoff stress and damage degradation
             pk1_stress_np1 = tau * InvertMatrix(F).transpose() * (1.0 - Dnew);
 
-            // Check if this is a new failure, if so set Dnew to 2.0 to indicate the material just failed
-            if (Dnew == 1.0 && Dn < 1.0) {
-                Dnew = 2.0;
+            // Check if this is a new failure, if so set Dnew to the failure magic number to indicate failure
+            if (is_failed && Dn < m_max_effective_damage) {
+                Dnew = m_failure_magic_number;
             }
 
             // Update state variable
@@ -194,9 +207,9 @@ class NeoHookeanWithDamageMaterial : public Material {
         KOKKOS_INLINE_FUNCTION
         virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const {
             double D = state_np1->coeffRef(DAMAGE);
-            if (D == 2.0) {
+            if (D == m_failure_magic_number) {
                 // Set to 1.0 and return JUST_FAILED
-                state_np1->coeffRef(DAMAGE) = 1.0;
+                state_np1->coeffRef(DAMAGE) = m_max_effective_damage;
                 return MaterialSeparationState::JUST_FAILED;
             } else if (D >= 1.0) {
                 return MaterialSeparationState::FAILED;
@@ -215,11 +228,13 @@ class NeoHookeanWithDamageMaterial : public Material {
         }
 
        private:
-        double m_lambda;      /**< The lambda parameter */
-        double m_mu;          /**< The mu parameter */
-        double m_I1_critical; /**< Critical value of I1 for damage initiation */
-        double m_I1_failure;  /**< Critical value of I1 for complete failure */
-        double m_alpha;       /**< Damage evolution exponent */
+        double m_lambda;                     /**< The lambda parameter */
+        double m_mu;                         /**< The mu parameter */
+        double m_I1_critical;                /**< Critical value of I1 for damage initiation */
+        double m_I1_failure;                 /**< Critical value of I1 for complete failure */
+        double m_alpha;                      /**< Damage evolution exponent */
+        double m_max_effective_damage;       /**< Maximum effective damage value */
+        double m_failure_magic_number = 2.0; /**< Magic number for failure */
     };
 
     // TODO(jake): get rid of this in favor of the above HasState
