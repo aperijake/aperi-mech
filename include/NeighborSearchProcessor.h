@@ -400,6 +400,8 @@ class NeighborSearchProcessor {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
         const int my_rank = m_bulk_data->parallel_rank();
 
+        size_t too_many_neighbors_count = 0;
+
         for (size_t i = 0; i < host_search_results.size(); ++i) {
             auto result = host_search_results(i);
             if (result.domainIdentProc.proc() == my_rank) {
@@ -437,7 +439,7 @@ class NeighborSearchProcessor {
                 // Shift the function values and neighbors to make room for the new neighbor
                 size_t reverse_start_index = (size_t)num_neighbors;
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %lu has too many neighbors. The furthest neighbor will be removed.\n", static_cast<long unsigned int>(m_bulk_data->identifier(node)));
+                    ++too_many_neighbors_count;
                     --reverse_start_index;
                 } else {
                     num_neighbors += 1;
@@ -453,6 +455,14 @@ class NeighborSearchProcessor {
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
             }
         }
+
+        // Report the number of extra neighbors
+        size_t global_too_many_neighbors_count = 0;
+        MPI_Allreduce(&too_many_neighbors_count, &global_too_many_neighbors_count, 1, MPI_UNSIGNED_LONG, MPI_SUM, m_bulk_data->parallel());
+        if (global_too_many_neighbors_count > 0) {
+            aperi::CoutP0() << "Warning: Found " << global_too_many_neighbors_count << " total extra neighbors. Truncated any neighbor lists that were longer than " << MAX_NODE_NUM_NEIGHBORS << " neighbors. Removed furthest neighbors." << std::endl;
+        }
+
         // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
         m_node_neighbors_field->modify_on_host();
         m_node_num_neighbors_field->modify_on_host();
