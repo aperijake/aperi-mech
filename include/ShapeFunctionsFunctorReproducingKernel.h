@@ -156,9 +156,12 @@ struct ShapeFunctionsFunctorReproducingKernel {
         // Allocate basis vector (H)
         Eigen::Matrix<double, Bases::size, 1> H = Eigen::Matrix<double, Bases::size, 1>::Zero();
 
+        size_t num_nonzero_kernel_values = actual_num_neighbors;
+
         // Loop over neighbor nodes
         for (size_t i = 0; i < actual_num_neighbors; i++) {
             if (kernel_values(i, 0) == 0.0) {
+                --num_nonzero_kernel_values;
                 continue;
             }
 
@@ -167,6 +170,12 @@ struct ShapeFunctionsFunctorReproducingKernel {
 
             // Compute moment matrix (M)
             M += kernel_values(i, 0) * H * H.transpose();
+        }
+
+        if (num_nonzero_kernel_values < Bases::size) {
+            // Throw an error if the number of neighbors is less than the matrix size
+            printf("The number of neighbors with non-zero kernel values is less than the matrix size. Number of neighbors: %zu, Matrix size: %zu\n", num_nonzero_kernel_values, Bases::size);
+            Kokkos::abort("Aborting due to insufficient number of neighbors.");
         }
 
         // Compute M^-1
