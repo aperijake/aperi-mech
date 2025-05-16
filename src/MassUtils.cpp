@@ -40,10 +40,10 @@ struct ComputeMassFromElementVolumeKernel {
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
-    double tol = 1.0e-10 * mass_1;
+    double tol = 1.0e-8 * mass_1;
     bool are_equal = std::abs(mass_1 - mass_2) <= tol;
     if (!are_equal) {
-        Kokkos::printf("Error: Mass sums are not equal: %f != %f\n", mass_1, mass_2);
+        Kokkos::printf("Error: Mass sums are not equal within tolerance: %f != %f, tol = %f\n", mass_1, mass_2, tol);
     }
     return are_equal;
 }

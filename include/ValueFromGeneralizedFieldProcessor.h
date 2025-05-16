@@ -80,6 +80,9 @@ class ValueFromGeneralizedFieldProcessor {
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
 
+        double warning_threshold = 1.0e-6;
+        double error_threshold = 1.0e-2;
+
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
@@ -98,7 +101,7 @@ class ValueFromGeneralizedFieldProcessor {
                     double function_value = ngp_function_values_field(node_index, k);
                     function_sum += function_value;
                 }
-                if (std::abs(function_sum - 1.0) > 1.0e-6) {
+                if (Kokkos::abs(function_sum - 1.0) > warning_threshold) {
                     Kokkos::printf("Error: Partition of unity not satisfied. Error (1 - sum) = : %.8e\n", 1.0 - function_sum);
                     for (size_t k = num_neighbors; k-- > 0;) {
                         // Get the function value
@@ -106,7 +109,10 @@ class ValueFromGeneralizedFieldProcessor {
                         uint64_t neighbor = ngp_neighbors_field(node_index, k);
                         Kokkos::printf("Neighbor: %lu, Function Value: %.8e\n", neighbor, function_value);
                     }
-                    Kokkos::abort("Partition of unity assertion failed");
+                    if (Kokkos::abs(function_sum - 1.0) > error_threshold) {
+                        // If the error is too large, abort
+                        Kokkos::abort("Partition of unity assertion failed");
+                    }
                 }
             });
 

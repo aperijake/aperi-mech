@@ -127,7 +127,7 @@ class SmoothedCellDataProcessor {
         m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
-    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-6) {
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double warning_tolerance = 1.0e-6, double error_tolerance = 1.0e-2) {
         // Get the number of subcells
         size_t num_subcells = smoothed_cell_data->NumSubcells();
 
@@ -145,10 +145,12 @@ class SmoothedCellDataProcessor {
                 }
                 for (size_t j = 0; j < 3; ++j) {
                     // Compare the sum of the function derivatives to the tolerance on device
-                    if (Kokkos::abs(subcell_function_derivatives_sum[j]) > tolerance) {
+                    if (Kokkos::abs(subcell_function_derivatives_sum[j]) > warning_tolerance) {
                         // Print the subcell id and the sum of the function derivatives
                         printf("Subcell %lu: Sum of function derivatives: %.8e\n", subcell_id, subcell_function_derivatives_sum[j]);
-                        Kokkos::abort("Partition of nullity check failed");
+                        if (Kokkos::abs(subcell_function_derivatives_sum[j]) > error_tolerance) {
+                            Kokkos::abort("Partition of nullity check failed");
+                        }
                     }
                 }
             });

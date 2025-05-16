@@ -205,7 +205,7 @@ class NeoHookeanWithDamageMaterial : public Material {
         }
 
         KOKKOS_INLINE_FUNCTION
-        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const {
+        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const override {
             double D = state_np1->coeffRef(DAMAGE);
             if (D == m_failure_magic_number) {
                 // Set to 1.0 and return JUST_FAILED

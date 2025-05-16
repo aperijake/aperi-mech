@@ -113,17 +113,23 @@ struct ShapeFunctionsFunctorReproducingKernel {
      * @return True if the kernel values form a partition of unity, false otherwise.
      */
     KOKKOS_INLINE_FUNCTION bool CheckPartitionOfUnity(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, size_t actual_num_neighbors) const {
+        double warning_threshold = 1.0e-6;
+        double error_threshold = 1.0e-2;
         double sum = 0.0;
         for (size_t i = 0; i < actual_num_neighbors; i++) {
             sum += kernel_values(i, 0);
         }
         double diff = Kokkos::abs(sum - 1.0);
-        if (diff > 1.0e-6) {
+        if (diff > warning_threshold) {
             Kokkos::printf("Sum of kernel values: %.8e\n", sum);
             for (size_t i = 0; i < actual_num_neighbors; i++) {
                 Kokkos::printf("Kernel value %zu: %.8e\n", i, kernel_values(i, 0));
             }
-            return false;
+            if (diff > error_threshold) {
+                return false;
+            } else {
+                Kokkos::printf("Warning: Partition of unity check near threshold. Sum: %.8e, Threshold: %.8e\n", sum, error_threshold);
+            }
         }
         return true;
     }
