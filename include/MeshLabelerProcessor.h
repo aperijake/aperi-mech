@@ -30,6 +30,7 @@
 #include "AperiStkUtils.h"
 #include "FieldData.h"
 #include "LogUtils.h"
+#include "MathUtils.h"
 #include "MeshData.h"
 
 namespace aperi {
@@ -39,6 +40,8 @@ class MeshLabelerProcessor {
     typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
     typedef stk::mesh::Field<unsigned long> UnsignedLongField;
     typedef stk::mesh::NgpField<unsigned long> NgpUnsignedLongField;
+    typedef stk::mesh::Field<double> DoubleField;
+    typedef stk::mesh::NgpField<double> NgpDoubleField;
 
    public:
     MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells, bool activate_center_node) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells), m_activate_center_node(activate_center_node) {
@@ -68,6 +71,10 @@ class MeshLabelerProcessor {
         // Get the subcell id field
         m_subcell_id_field = StkGetField(FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         m_ngp_subcell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_subcell_id_field);
+
+        // Get the coordinates field
+        m_coordinates_field = StkGetField(FieldQueryData<double>{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
     }
 
     void LabelForThexNodalIntegration() {
@@ -170,8 +177,23 @@ class MeshLabelerProcessor {
         }
     }
 
+    double GetHexVolume(const stk::mesh::Entity *nodes) {
+        // Assume element is a hex with 8 nodes
+        constexpr int num_nodes = 8;
+        Eigen::Matrix<double, num_nodes, 3> coords;
+
+        // Fill the Eigen matrix with node coordinates
+        for (int i = 0; i < num_nodes; ++i) {
+            const double *node_coords = stk::mesh::field_data(*m_coordinates_field, nodes[i]);
+            coords.row(i) = Eigen::Vector3d(node_coords[0], node_coords[1], node_coords[2]);
+        }
+
+        // Compute and return the volume
+        return aperi::ComputeHexahedronVolume(coords);
+    }
+
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
-    void SetActiveFieldForNodalIntegrationHost() {
+    void SetActiveFieldForNodalIntegrationHost(bool prune_zero_volume_elements = true) {
         // Set the active field to 0 for all nodes
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
@@ -188,6 +210,15 @@ class MeshLabelerProcessor {
                     throw std::runtime_error("Nodal integration will only work correctly when being built from hexahedral elements. Use 'thex' to divide a tetrahedral mesh into hexahedral elements.");
                 }
                 const stk::mesh::Entity *nodes = bucket->begin_nodes(i_elem);
+
+                if (prune_zero_volume_elements && GetHexVolume(nodes) < 1.e-8) {
+                    // Get the element
+                    stk::mesh::Entity element = (*bucket)[i_elem];
+                    // Set the m_subcell_id_field and m_cell_id_field to INVALID_ID
+                    stk::mesh::field_data(*m_subcell_id_field, element)[0] = INVALID_ID;
+                    stk::mesh::field_data(*m_cell_id_field, element)[0] = INVALID_ID;
+                    continue;
+                }
 
                 // Get the minimum id
                 uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
@@ -239,6 +270,12 @@ class MeshLabelerProcessor {
                     }
                 }
                 if (num_active_nodes != 1) {
+                    // Get the element
+                    stk::mesh::Entity element = (*bucket)[i_elem];
+                    // Can be 0 if the element is not in the active part
+                    if (stk::mesh::field_data(*m_subcell_id_field, element)[0] == INVALID_ID) {
+                        continue;
+                    }
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
@@ -302,6 +339,10 @@ class MeshLabelerProcessor {
                         if (!m_selector(m_bulk_data->bucket(elems[i]))) {
                             continue;
                         }
+                        // Only consider elements that are not already labeled as INVALID_ID
+                        if (stk::mesh::field_data(*m_subcell_id_field, elems[i])[0] == INVALID_ID) {
+                            continue;
+                        }
                         elems_to_change.push_back(elems[i]);
                         break;
                     }
@@ -313,6 +354,10 @@ class MeshLabelerProcessor {
                     stk::mesh::Entity element = (*bucket)[i_elem];
                     // Only consider elements in the same set of parts
                     if (!m_selector(m_bulk_data->bucket(element))) {
+                        continue;
+                    }
+                    // Only consider elements that are not already labeled as INVALID_ID
+                    if (stk::mesh::field_data(*m_subcell_id_field, element)[0] == INVALID_ID) {
                         continue;
                     }
                     elems_to_change.push_back(element);
@@ -340,6 +385,11 @@ class MeshLabelerProcessor {
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
+
+                // Only consider elements that aren't already labeled as INVALID_ID
+                if (stk::mesh::field_data(*m_subcell_id_field, element)[0] == INVALID_ID) {
+                    continue;
+                }
 
                 // Get the cell id
                 uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
@@ -428,6 +478,9 @@ class MeshLabelerProcessor {
                 // Loop over the connected elements and get the minimum id
                 minimum_id[0] = UINT64_MAX;
                 for (size_t i = 0; i < num_elems; ++i) {
+                    if (stk::mesh::field_data(*m_subcell_id_field, elems[i])[0] == INVALID_ID) {
+                        continue;
+                    }
                     bool is_in_selector = m_selector(m_bulk_data->bucket(elems[i]));  // Only consider elements in the same set of parts
                     unsigned long elem_id = m_bulk_data->identifier(elems[i]);
                     if (elem_id < minimum_id[0] && is_in_selector) {
@@ -594,9 +647,11 @@ class MeshLabelerProcessor {
     UnsignedLongField *m_active_field;             // The active field
     UnsignedField *m_cell_id_field;                // The cell id field
     UnsignedField *m_subcell_id_field;             // The subcell id field
+    DoubleField *m_coordinates_field;              // The coordinates field
     NgpUnsignedLongField *m_ngp_active_field;      // The ngp active field
     NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
     NgpUnsignedField *m_ngp_subcell_id_field;      // The ngp subcell id field
+    NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
 };
 
 }  // namespace aperi

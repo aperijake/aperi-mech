@@ -51,12 +51,192 @@ TEST(MathUtilsTest, Dot) {
     EXPECT_DOUBLE_EQ(result2, expected2);
 }
 
-// Test the volume of a tetrahedron
+// Test the tetrahedron volume computation
 TEST(MathUtilsTest, TetVolume) {
-    std::array<std::array<double, 3>, 4> tet = {{{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
-    double result = aperi::TetVolume(tet);
-    double expected = 1.0 / 6.0;
-    EXPECT_DOUBLE_EQ(result, expected);
+    // Test Case 1: Regular tetrahedron (unit)
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        tet.row(1) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        tet.row(2) = Eigen::Vector3d(0.0, 1.0, 0.0);
+        tet.row(3) = Eigen::Vector3d(0.0, 0.0, 1.0);
+
+        double volume = aperi::TetVolume(tet);
+        double expected = 1.0 / 6.0;  // Volume of this unit tetrahedron is 1/6
+        EXPECT_NEAR(volume, expected, 1.0e-12);
+    }
+
+    // Test Case 2: Scaled tetrahedron (uniform scale by 2)
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        tet.row(1) = Eigen::Vector3d(2.0, 0.0, 0.0);
+        tet.row(2) = Eigen::Vector3d(0.0, 2.0, 0.0);
+        tet.row(3) = Eigen::Vector3d(0.0, 0.0, 2.0);
+
+        double volume = aperi::TetVolume(tet);
+        double expected = 8.0 / 6.0;  // Scale by 2 in each dimension: 2³/6 = 8/6
+        EXPECT_NEAR(volume, expected, 1.0e-12);
+    }
+
+    // Test Case 3: Translated tetrahedron (shouldn't change volume)
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(1.0, 1.0, 1.0);
+        tet.row(1) = Eigen::Vector3d(2.0, 1.0, 1.0);
+        tet.row(2) = Eigen::Vector3d(1.0, 2.0, 1.0);
+        tet.row(3) = Eigen::Vector3d(1.0, 1.0, 2.0);
+
+        double volume = aperi::TetVolume(tet);
+        double expected = 1.0 / 6.0;  // Same as unit tet, just translated
+        EXPECT_NEAR(volume, expected, 1.0e-12);
+    }
+
+    // Test Case 4: Irregular tetrahedron
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        tet.row(1) = Eigen::Vector3d(3.0, 0.0, 0.0);
+        tet.row(2) = Eigen::Vector3d(0.0, 2.0, 0.0);
+        tet.row(3) = Eigen::Vector3d(0.0, 0.0, 4.0);
+
+        double volume = aperi::TetVolume(tet);
+        double expected = 3.0 * 2.0 * 4.0 / 6.0;  // Volume = (base area × height)/3 = (3×2×4)/6
+        EXPECT_NEAR(volume, expected, 1.0e-12);
+    }
+
+    // Test Case 5: Zero-volume (degenerate) tetrahedron
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        tet.row(1) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        tet.row(2) = Eigen::Vector3d(2.0, 0.0, 0.0);
+        tet.row(3) = Eigen::Vector3d(3.0, 0.0, 0.0);  // All points on a line
+
+        double volume = aperi::TetVolume(tet);
+        EXPECT_NEAR(volume, 0.0, 1.0e-12);
+    }
+
+    // Test Case 6: Negative orientation (should still give positive volume)
+    {
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        tet.row(1) = Eigen::Vector3d(0.0, 1.0, 0.0);  // Swapped vertices 1 and 2
+        tet.row(2) = Eigen::Vector3d(1.0, 0.0, 0.0);  // which negates the volume
+        tet.row(3) = Eigen::Vector3d(0.0, 0.0, 1.0);
+
+        double volume = aperi::TetVolume(tet);
+        double expected = 1.0 / 6.0;  // Using abs() should give same volume
+        EXPECT_NEAR(volume, expected, 1.0e-12);
+    }
+}
+
+// Test the hexahedron volume computation
+TEST(MathUtilsTest, ComputeHexahedronVolume) {
+    // Test Case 1: Unit cube [0,1]^3
+    {
+        Eigen::Matrix<double, 8, 3> cube;
+        cube.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        cube.row(1) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        cube.row(2) = Eigen::Vector3d(1.0, 1.0, 0.0);
+        cube.row(3) = Eigen::Vector3d(0.0, 1.0, 0.0);
+        cube.row(4) = Eigen::Vector3d(0.0, 0.0, 1.0);
+        cube.row(5) = Eigen::Vector3d(1.0, 0.0, 1.0);
+        cube.row(6) = Eigen::Vector3d(1.0, 1.0, 1.0);
+        cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.0);
+
+        double volume = aperi::ComputeHexahedronVolume(cube);
+        EXPECT_NEAR(volume, 1.0, 1.0e-12);
+    }
+
+    // Test Case 2: Scaled cube - scale by 2 in each direction
+    {
+        Eigen::Matrix<double, 8, 3> scaled_cube;
+        scaled_cube.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        scaled_cube.row(1) = Eigen::Vector3d(2.0, 0.0, 0.0);
+        scaled_cube.row(2) = Eigen::Vector3d(2.0, 2.0, 0.0);
+        scaled_cube.row(3) = Eigen::Vector3d(0.0, 2.0, 0.0);
+        scaled_cube.row(4) = Eigen::Vector3d(0.0, 0.0, 2.0);
+        scaled_cube.row(5) = Eigen::Vector3d(2.0, 0.0, 2.0);
+        scaled_cube.row(6) = Eigen::Vector3d(2.0, 2.0, 2.0);
+        scaled_cube.row(7) = Eigen::Vector3d(0.0, 2.0, 2.0);
+
+        double volume = aperi::ComputeHexahedronVolume(scaled_cube);
+        EXPECT_NEAR(volume, 8.0, 1.0e-12);  // 2³ = 8
+    }
+
+    // Test Case 3: Rectangular prism
+    {
+        Eigen::Matrix<double, 8, 3> prism;
+        prism.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        prism.row(1) = Eigen::Vector3d(2.0, 0.0, 0.0);
+        prism.row(2) = Eigen::Vector3d(2.0, 3.0, 0.0);
+        prism.row(3) = Eigen::Vector3d(0.0, 3.0, 0.0);
+        prism.row(4) = Eigen::Vector3d(0.0, 0.0, 4.0);
+        prism.row(5) = Eigen::Vector3d(2.0, 0.0, 4.0);
+        prism.row(6) = Eigen::Vector3d(2.0, 3.0, 4.0);
+        prism.row(7) = Eigen::Vector3d(0.0, 3.0, 4.0);
+
+        double volume = aperi::ComputeHexahedronVolume(prism);
+        EXPECT_NEAR(volume, 24.0, 1.0e-12);  // 2 × 3 × 4 = 24
+    }
+
+    // Test Case 4: Non-planar faces - "twisted" cube
+    {
+        Eigen::Matrix<double, 8, 3> twisted_cube;
+        twisted_cube.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        twisted_cube.row(1) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        twisted_cube.row(2) = Eigen::Vector3d(1.0, 1.0, 0.0);
+        twisted_cube.row(3) = Eigen::Vector3d(0.0, 1.0, 0.0);
+        twisted_cube.row(4) = Eigen::Vector3d(0.0, 0.0, 1.0);
+        twisted_cube.row(5) = Eigen::Vector3d(1.0, 0.0, 1.0);
+        twisted_cube.row(6) = Eigen::Vector3d(1.0, 1.0, 1.0);
+        // Modify one vertex to create non-planar face
+        twisted_cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.5);
+
+        double volume = aperi::ComputeHexahedronVolume(twisted_cube);
+        // Volume should be larger than 1.0 since we're extending one vertex outward
+        EXPECT_GT(volume, 1.0);
+
+        // Create a reference cube for comparison
+        Eigen::Matrix<double, 8, 3> reference_cube = twisted_cube;
+        reference_cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.0);
+
+        double reference_volume = aperi::ComputeHexahedronVolume(reference_cube);
+        EXPECT_GT(volume, reference_volume);
+    }
+
+    // Test Case 5: Translated cube - should maintain volume
+    {
+        Eigen::Matrix<double, 8, 3> translated_cube;
+        translated_cube.row(0) = Eigen::Vector3d(1.0, 2.0, 3.0);
+        translated_cube.row(1) = Eigen::Vector3d(2.0, 2.0, 3.0);
+        translated_cube.row(2) = Eigen::Vector3d(2.0, 3.0, 3.0);
+        translated_cube.row(3) = Eigen::Vector3d(1.0, 3.0, 3.0);
+        translated_cube.row(4) = Eigen::Vector3d(1.0, 2.0, 4.0);
+        translated_cube.row(5) = Eigen::Vector3d(2.0, 2.0, 4.0);
+        translated_cube.row(6) = Eigen::Vector3d(2.0, 3.0, 4.0);
+        translated_cube.row(7) = Eigen::Vector3d(1.0, 3.0, 4.0);
+
+        double volume = aperi::ComputeHexahedronVolume(translated_cube);
+        EXPECT_NEAR(volume, 1.0, 1.0e-12);
+    }
+
+    // Test Case 6: Zero-volume hexahedron (all vertices on one plane)
+    {
+        Eigen::Matrix<double, 8, 3> flat_hex;
+        flat_hex.row(0) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        flat_hex.row(1) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        flat_hex.row(2) = Eigen::Vector3d(1.0, 1.0, 0.0);
+        flat_hex.row(3) = Eigen::Vector3d(0.0, 1.0, 0.0);
+        flat_hex.row(4) = Eigen::Vector3d(0.0, 0.0, 0.0);
+        flat_hex.row(5) = Eigen::Vector3d(1.0, 0.0, 0.0);
+        flat_hex.row(6) = Eigen::Vector3d(1.0, 1.0, 0.0);
+        flat_hex.row(7) = Eigen::Vector3d(0.0, 1.0, 0.0);
+
+        double volume = aperi::ComputeHexahedronVolume(flat_hex);
+        EXPECT_NEAR(volume, 0.0, 1.0e-12);
+    }
 }
 
 // Test the magnitude of a vector

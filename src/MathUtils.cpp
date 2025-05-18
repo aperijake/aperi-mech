@@ -44,13 +44,4 @@ double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2) {
     return result;
 }
 
-// Compute the volume of a tetrahedron
-double TetVolume(const std::array<std::array<double, 3>, 4> &tet) {
-    std::array<double, 3> v1 = Subtract(tet[1], tet[0]);
-    std::array<double, 3> v2 = Subtract(tet[2], tet[0]);
-    std::array<double, 3> v3 = Subtract(tet[3], tet[0]);
-
-    return std::abs(Dot(v1, Cross(v2, v3))) / 6.0;
-}
-
 }  // namespace aperi

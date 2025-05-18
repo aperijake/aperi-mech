@@ -12,6 +12,7 @@ static constexpr size_t MAX_NODE_NUM_NEIGHBORS = 40;
 static constexpr size_t MAX_ELEMENT_NUM_NODES = HEX8_NUM_NODES;
 static constexpr size_t MAX_ELEMENT_NUM_FACES = HEX8_NUM_FACES;
 static constexpr size_t MAX_FACE_NUM_NODES = 4;
+static constexpr uint64_t INVALID_ID = std::numeric_limits<uint64_t>::max();
 
 enum class ElementTopology { None,
                              Tetrahedron4,

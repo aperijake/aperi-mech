@@ -230,7 +230,7 @@ class SmoothedCellDataProcessor {
         size_t num_cells = GetNumElements(cell_selector);
 
         // Get the number of elements
-        size_t num_elements = GetNumElements();
+        size_t num_elements = GetNumValidElements();
 
         // Estimate the total number of nodes in the cells
         size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
@@ -279,6 +279,11 @@ class SmoothedCellDataProcessor {
                 // Get the subcell_id
                 uint64_t subcell_id = m_subcell_id(elem_index, 0);
 
+                // If the subcell id is not valid, skip it
+                if (subcell_id == INVALID_ID) {
+                    return;
+                }
+
                 // Add the number of elements to the smoothed cell data
                 add_subcell_num_elements_functor(subcell_id, 1);
             });
@@ -310,6 +315,11 @@ class SmoothedCellDataProcessor {
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
                 uint64_t subcell_id = m_subcell_id(elem_index, 0);
+
+                // If the subcell id is not valid, skip it
+                if (subcell_id == INVALID_ID) {
+                    return;
+                }
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
@@ -350,6 +360,11 @@ class SmoothedCellDataProcessor {
                 // Get the cell id for the element
                 uint64_t cell_id = m_cell_id(element_index(), 0);
 
+                // If the cell id is not valid, skip it
+                if (cell_id == INVALID_ID) {
+                    return;
+                }
+
                 // Add the number of subcells to the cell
                 add_cell_num_subcells_functor(cell_id, 1);
             });
@@ -387,6 +402,11 @@ class SmoothedCellDataProcessor {
 
                 // Get the cell id for the element
                 uint64_t cell_id = m_cell_id(element_index(), 0);
+
+                // If the cell id is not valid, skip it
+                if (cell_id == INVALID_ID) {
+                    return;
+                }
 
                 // Add the subcell to the cell
                 add_cell_subcells_functor(cell_id, subcell_id);
@@ -863,13 +883,47 @@ class SmoothedCellDataProcessor {
         return m_smoothed_cell_data;
     }
 
-    double GetNumElements(const stk::mesh::Selector &selector) const {
+    size_t GetNumElements(const stk::mesh::Selector &selector) const {
         return stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
     // Overloaded version that uses m_selector
-    double GetNumElements() const {
+    size_t GetNumElements() const {
         return GetNumElements(m_selector);
+    }
+
+    size_t GetNumValidElements() const {
+        return GetNumElements(m_selector) - NumInvalidSubcellIds();
+    }
+
+    // Count the number of elements with an invalid subcell id
+    size_t NumInvalidSubcellIds() const {
+        // Get the subcell id field
+        aperi::Field<uint64_t> subcell_id_field = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+
+        Kokkos::View<size_t *> num_invalid_subcell_ids("num_invalid_subcell_ids", 1);
+        // Initialize the number of invalid subcell ids to 0
+        Kokkos::deep_copy(num_invalid_subcell_ids, 0);
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the subcell_id
+                uint64_t subcell_id = subcell_id_field(elem_index, 0);
+
+                // If the subcell id is not valid, count it
+                if (subcell_id == INVALID_ID) {
+                    // Increment the number of invalid subcell ids
+                    Kokkos::atomic_increment(&num_invalid_subcell_ids(0));
+                }
+            });
+        // Copy the number of invalid subcell ids to the host
+        Kokkos::View<size_t *>::HostMirror num_invalid_subcell_ids_host = Kokkos::create_mirror_view(num_invalid_subcell_ids);
+        Kokkos::deep_copy(num_invalid_subcell_ids_host, num_invalid_subcell_ids);
+        // Parallel reduction to get the total number of invalid subcell ids
+        size_t total_num_invalid_subcell_ids = 0;
+        MPI_Allreduce(&num_invalid_subcell_ids_host(0), &total_num_invalid_subcell_ids, 1, MPI_UNSIGNED_LONG, MPI_SUM, m_bulk_data->parallel());
+        return total_num_invalid_subcell_ids;
     }
 
     // Get the TimerManager
