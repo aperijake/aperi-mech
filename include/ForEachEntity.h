@@ -15,6 +15,23 @@ namespace aperi {
 
 // Loop over each entity and apply the function
 template <stk::topology::rank_t Rank, typename Func>
+void ForEachEntity(const Func &func, const aperi::MeshData &mesh_data, stk::NgpVector<unsigned> bucketIds) {
+    // Get the ngp mesh
+    stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*mesh_data.GetBulkData());
+
+    // Loop over all the entities
+    stk::mesh::for_each_entity_run(
+        ngp_mesh, Rank, bucketIds,
+        KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
+            // Create an aperi::Index
+            aperi::Index index = aperi::Index(entity);
+
+            // Call the function
+            func(index);
+        }, stk::ngp::ExecSpace());
+}
+
+template <stk::topology::rank_t Rank, typename Func>
 void ForEachEntity(const Func &func, const aperi::MeshData &mesh_data, const aperi::Selector &selector) {
     // Get the stk selector
     stk::mesh::Selector stk_selector = selector();
@@ -32,6 +49,12 @@ void ForEachEntity(const Func &func, const aperi::MeshData &mesh_data, const ape
             // Call the function
             func(index);
         });
+}
+
+// Helper function for nodes
+template <typename Func>
+void ForEachNode(const Func &func, const aperi::MeshData &mesh_data, stk::NgpVector<unsigned> bucketIds) {
+    ForEachEntity<stk::topology::NODE_RANK>(func, mesh_data, bucketIds);
 }
 
 // Helper function for nodes

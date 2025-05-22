@@ -52,9 +52,6 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
         // If using f_bar, only use it if there are more subcells than cells
         bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
 
-        // Get the stride
-        const size_t stride = m_has_state ? m_state_np1_field.GetStride() : 0;
-
         // Default stride for a 3x3 matrix
         const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
 
@@ -177,6 +174,9 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Get the number of state variables
                 const size_t num_state_variables = m_has_state ? m_stress_functor.NumberOfStateVariables() : 0;
+
+                // Get the stride
+                const size_t stride = m_has_state ? m_state_np1_field.GetStride(elem_index) : 0;
 
                 // Get the state maps
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);

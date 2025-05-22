@@ -24,9 +24,11 @@
 namespace aperi {
 
 void ExplicitSolver::UpdateFieldStates() {
+    Kokkos::fence();
     auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateFieldStates);
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
+    Kokkos::fence();
 }
 
 void Solver::UpdateFieldsFromGeneralizedFields() {
@@ -97,8 +99,10 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
 }
 
 void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) {
+    Kokkos::fence();
     auto timer = m_timer_manager->CreateScopedTimer(timer_type);
     ComputeForce(time, time_increment);
+    Kokkos::fence();
 }
 
 void ExplicitSolver::CommunicateForce() {
@@ -222,9 +226,11 @@ double ExplicitSolver::Solve() {
     CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
+    Kokkos::fence();
     {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
         explicit_time_integrator->ComputeAcceleration();
+        Kokkos::fence();
     }
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
@@ -265,9 +271,11 @@ double ExplicitSolver::Solve() {
         explicit_time_integrator->SetTimeIncrement(time_increment);
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
+        Kokkos::fence();
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             explicit_time_integrator->ComputeFirstPartialUpdate();
+        Kokkos::fence();
         }
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
@@ -279,9 +287,11 @@ double ExplicitSolver::Solve() {
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
+        Kokkos::fence();
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             explicit_time_integrator->UpdateDisplacements();
+        Kokkos::fence();
         }
 
         // Compute the force, f^{n+1}
@@ -291,9 +301,11 @@ double ExplicitSolver::Solve() {
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
+        Kokkos::fence();
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             explicit_time_integrator->ComputeAcceleration();
+        Kokkos::fence();
         }
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
@@ -305,9 +317,11 @@ double ExplicitSolver::Solve() {
         }
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
+        Kokkos::fence();
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             explicit_time_integrator->ComputeSecondPartialUpdate();
+        Kokkos::fence();
         }
 
         // Compute the energy balance
