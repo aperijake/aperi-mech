@@ -20,6 +20,7 @@ struct PortableVector {
      * @brief Constructs a PortableVector with the given capacity.
      * @param capacity The initial capacity of the vector.
      */
+    KOKKOS_FUNCTION
     PortableVector(size_t capacity) : m_data("data", capacity), m_size_device("size_device", 1), m_capacity_host(capacity) {
         m_size_host = Kokkos::create_mirror_view(m_size_device);
         m_size_host(0) = 0;
@@ -29,6 +30,7 @@ struct PortableVector {
     /**
      * @brief Destructor for the PortableVector.
      */
+    KOKKOS_FUNCTION
     ~PortableVector() {
         // No need to manually free memory, Kokkos handles it
     }
@@ -37,6 +39,7 @@ struct PortableVector {
      * @brief Copy constructor for the PortableVector.
      * @param other The PortableVector to copy from.
      */
+    KOKKOS_FUNCTION
     PortableVector(const PortableVector& other) : m_data("data_copy", other.m_capacity_host),
                                                   m_size_device("size_device_copy", 1),
                                                   m_capacity_host(other.m_capacity_host) {
@@ -54,6 +57,7 @@ struct PortableVector {
      * @brief Move constructor for the PortableVector.
      * @param other The PortableVector to move from.
      */
+    KOKKOS_FUNCTION
     PortableVector(PortableVector&& other) noexcept : m_data(std::move(other.m_data)),
                                                       m_size_device(std::move(other.m_size_device)),
                                                       m_capacity_host(other.m_capacity_host),

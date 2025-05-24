@@ -114,8 +114,8 @@ class Material {
                 KOKKOS_ASSERT(state_n->data() != nullptr);
                 KOKKOS_ASSERT(state_np1 != nullptr);
                 KOKKOS_ASSERT(state_np1->data() != nullptr);
-                KOKKOS_ASSERT(state_n->size() == NumberOfStateVariables());
-                KOKKOS_ASSERT(state_np1->size() == NumberOfStateVariables());
+                KOKKOS_ASSERT(state_n->size() == static_cast<Eigen::Index>(NumberOfStateVariables()));
+                KOKKOS_ASSERT(state_np1->size() == static_cast<Eigen::Index>(NumberOfStateVariables()));
             }
 
             KOKKOS_ASSERT(timestep > 0.0);

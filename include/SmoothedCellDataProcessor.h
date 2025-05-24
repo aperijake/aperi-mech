@@ -892,14 +892,17 @@ class SmoothedCellDataProcessor {
         return GetNumElements(m_selector);
     }
 
-    size_t GetNumValidElements() const {
+    size_t GetNumValidElements() {
         return GetNumElements(m_selector) - NumInvalidSubcellIds();
     }
 
     // Count the number of elements with an invalid subcell id
-    size_t NumInvalidSubcellIds() const {
+    size_t NumInvalidSubcellIds() {
+        // Get the updated ngp mesh
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
         // Get the subcell id field
-        aperi::Field<uint64_t> subcell_id_field = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         Kokkos::View<size_t *> num_invalid_subcell_ids("num_invalid_subcell_ids", 1);
         // Initialize the number of invalid subcell ids to 0
@@ -909,12 +912,12 @@ class SmoothedCellDataProcessor {
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
-                uint64_t subcell_id = subcell_id_field(elem_index, 0);
+                uint64_t subcell_id = m_subcell_id(elem_index, 0);
 
                 // If the subcell id is not valid, count it
                 if (subcell_id == INVALID_ID) {
                     // Increment the number of invalid subcell ids
-                    Kokkos::atomic_increment(&num_invalid_subcell_ids(0));
+                    Kokkos::atomic_inc(&num_invalid_subcell_ids(0));
                 }
             });
         // Copy the number of invalid subcell ids to the host

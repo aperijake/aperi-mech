@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 namespace aperi {
 
 static constexpr size_t TET4_NUM_NODES = 4;

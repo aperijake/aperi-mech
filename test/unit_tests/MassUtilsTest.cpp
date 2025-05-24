@@ -65,8 +65,13 @@ class MassMatrixTest : public CaptureOutputTest {
         if (!override_mesh_string.empty()) {
             // Read the mesh from file
             m_io_mesh = std::make_shared<aperi::IoMesh>(m_comm, io_mesh_parameters);
-            m_io_mesh->ReadMesh(override_mesh_string, {"block_1"});
-            m_io_mesh->AddFields(field_data);
+            // Get the vector of part names
+            std::vector<std::string> part_names;
+            for (auto &part : m_part_parameters) {
+                part_names.push_back(part.mesh_labeler_parameters.set);
+            }
+            m_io_mesh->ReadMesh(override_mesh_string, part_names);
+            m_io_mesh->AddFields(field_data, part_names);
             m_io_mesh->CompleteInitialization();
         } else {
             io_mesh_parameters.mesh_type = "generated";
