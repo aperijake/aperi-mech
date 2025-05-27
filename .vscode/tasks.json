@@ -144,6 +144,30 @@
       }
     },
     {
+      "label": "make_release_protego_gpu",
+      "type": "shell",
+      "command": "${SHELL:-sh}",
+      "args": [
+        "-c",
+        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "BUILD_TYPE": "Release",
+          "PROTEGO_FLAG": "-p",
+          "GPU_FLAG": "--gpu",
+          "BUILD_PATH": "protego-mech/build/Release_gpu",
+          "MAKE_JOBS": ""
+        }
+      }
+    },
+    {
       "label": "make_full_debug_gpu",
       "type": "shell",
       "command": "${SHELL:-sh}",
@@ -211,6 +235,30 @@
           "PROTEGO_FLAG": "",
           "GPU_FLAG": "--gpu",
           "BUILD_PATH": "build/RelWithDebInfo_gpu",
+          "MAKE_JOBS": ""
+        }
+      }
+    },
+    {
+      "label": "make_relwithdebinfo_protego_gpu",
+      "type": "shell",
+      "command": "${SHELL:-sh}",
+      "args": [
+        "-c",
+        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "options": {
+        "env": {
+          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
+          "BUILD_TYPE": "RelWithDebInfo",
+          "PROTEGO_FLAG": "-p",
+          "GPU_FLAG": "--gpu",
+          "BUILD_PATH": "protego-mech/build/RelWithDebInfo_gpu",
           "MAKE_JOBS": ""
         }
       }
