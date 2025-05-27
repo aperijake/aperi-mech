@@ -10,7 +10,6 @@
 class GenerateNodalDomainTestFixture : public MeshLabelerTestFixture {
    protected:
     void SetUp() override {
-        m_capture_output = false;
         // Run MeshLabelerTestFixture::SetUp first
         MeshLabelerTestFixture::SetUp();
     }

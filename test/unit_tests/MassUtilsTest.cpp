@@ -23,7 +23,6 @@ class MassMatrixTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
         // Run CaptureOutputTest::SetUp first
-        m_capture_output = false;
         CaptureOutputTest::SetUp();
         m_comm = MPI_COMM_WORLD;
 

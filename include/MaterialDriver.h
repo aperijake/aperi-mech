@@ -114,7 +114,7 @@ Kokkos::View<Eigen::Matrix<double, 3, 3>*> RunStressCalc(aperi::Material::Stress
             // Return the first Piola-Kirchhoff stress
             stress(i) = pk1_stress_np1;
         } else {
-            aperi::CerrP0() << "Invalid stress output type\n";
+            Kokkos::printf("Invalid stress output type\n");
             return;
         } });
     return stress;
@@ -136,10 +136,13 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
     size_t num_state_variables = 0;
     Kokkos::View<double*> initial_state;
 
+    // Error stream for logging
+    aperi::CerrP0 error_stream;
+
     try {
         // Get the material node from the input file
         if (!input_node["material"]) {
-            aperi::CerrP0() << "Material node not found in the input file\n";
+            error_stream << "Material node not found in the input file\n";
             return {};
         }
         material_node = input_node["material"];
@@ -151,7 +154,7 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
 
         // Get the displacement gradients node from the input file
         if (!input_node["displacement_gradients"]) {
-            aperi::CerrP0() << "Displacement gradients node not found in the input file\n";
+            error_stream << "Displacement gradients node not found in the input file\n";
             return {};
         }
         displacement_gradients_node = input_node["displacement_gradients"];
@@ -190,15 +193,15 @@ std::vector<Eigen::Matrix3d> RunMaterialDriver(YAML::Node input_node) {
             } else if (stress_output_type_str == "CAUCHY") {
                 stress_output_type = aperi::StressOutputType::CAUCHY;
             } else {
-                aperi::CerrP0() << "Invalid stress output type: " << stress_output_type_str << "\n";
-                aperi::CerrP0() << "Valid options are: FIRST_PIOLA_KIRCHHOFF, SECOND_PIOLA_KIRCHHOFF, CAUCHY\n";
+                error_stream << "Invalid stress output type: " << stress_output_type_str << "\n";
+                error_stream << "Valid options are: FIRST_PIOLA_KIRCHHOFF, SECOND_PIOLA_KIRCHHOFF, CAUCHY\n";
                 return {};
             }
         }
 
         // Further processing...
     } catch (const YAML::Exception& e) {
-        aperi::CerrP0() << "Error parsing YAML file: " << e.what() << "\n";
+        error_stream << "Error parsing YAML file: " << e.what() << "\n";
     }
 
     // Create a Kokkos views of the displacement gradients

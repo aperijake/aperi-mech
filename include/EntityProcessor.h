@@ -239,7 +239,7 @@ class EntityProcessor {
                 const size_t num_components = fields[0].get_num_components_per_entity(entity);
                 // assert each other field has same number of components
                 for (size_t i = 1; i < N; i++) {
-                    assert(fields[i].get_num_components_per_entity(entity) == num_components);
+                    KOKKOS_ASSERT(fields[i].get_num_components_per_entity(entity) == num_components);
                 }
                 for (size_t j = 0; j < num_components; j++) {
                     func(&fields[Is](entity, j)...);

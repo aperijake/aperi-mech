@@ -57,7 +57,7 @@ struct SmoothedQuadratureTet4 {
         }
         volume /= 3.0;  // 3x volume
         b_matrix /= volume;
-        assert(CheckPartitionOfNullity(b_matrix));
+        KOKKOS_ASSERT(CheckPartitionOfNullity(b_matrix));
 
         return Kokkos::make_pair(b_matrix, volume);
     }
@@ -136,7 +136,7 @@ struct SmoothedQuadratureHex8 {
 
         volume /= 3.0;  // 3x volume
         b_matrix /= volume;
-        assert(CheckPartitionOfNullity(b_matrix));
+        KOKKOS_ASSERT(CheckPartitionOfNullity(b_matrix));
 
         return Kokkos::make_pair(b_matrix, volume);
     }

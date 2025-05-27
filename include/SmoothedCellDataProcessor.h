@@ -712,8 +712,8 @@ class SmoothedCellDataProcessor {
                 }
             });
         m_element_volume.MarkModifiedOnDevice();
-        assert(CheckPartitionOfNullity(m_smoothed_cell_data));
-        assert(CheckCellVolumes(m_smoothed_cell_data));
+        KOKKOS_ASSERT(CheckPartitionOfNullity(m_smoothed_cell_data));
+        KOKKOS_ASSERT(CheckCellVolumes(m_smoothed_cell_data));
     }
 
     void PopulateElementOutputs() {

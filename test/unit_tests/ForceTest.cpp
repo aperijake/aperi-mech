@@ -5,6 +5,7 @@
 
 #include "Constants.h"
 #include "PatchTestFixture.h"
+#include "UnitTestUtils.h"
 
 class ForceTest : public PatchTest {
    protected:
@@ -200,7 +201,7 @@ TEST_F(ForceTest, ExplicitShearForceSmoothedTet4Semi) {
 // Reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceReproducingKernel) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true, 1, false);
 }
@@ -208,7 +209,7 @@ TEST_F(ForceTest, ExplicitShearForceReproducingKernel) {
 // Updated Lagrangian with reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceUpdatedReproducingKernel) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true, 1, false);
 }
@@ -216,7 +217,7 @@ TEST_F(ForceTest, ExplicitShearForceUpdatedReproducingKernel) {
 // Semi Lagrangian with reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceSemiReproducingKernel) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING, true, 1, false);
 }
@@ -224,7 +225,7 @@ TEST_F(ForceTest, ExplicitShearForceSemiReproducingKernel) {
 // One pass reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceReproducingKernelOnePass) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true, 1, false);
 }
@@ -232,7 +233,7 @@ TEST_F(ForceTest, ExplicitShearForceReproducingKernelOnePass) {
 // Updated Lagrangian with one pass reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceUpdatedReproducingKernelOnePass) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true, 1, false);
 }
@@ -240,39 +241,51 @@ TEST_F(ForceTest, ExplicitShearForceUpdatedReproducingKernelOnePass) {
 // Semi Lagrangian with one pass reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceSemiReproducingKernelOnePass) {
     if (SkipTest()) {
-        GTEST_SKIP();
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::ELEMENT_STRAIN_SMOOTHING_FORCE_ONE_PASS, true, 1, false);
 }
 
 // Nodal reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceReproducingKernelNodal) {
-    if (SkipTest() || m_num_procs != 1) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
+    }
+    if (m_num_procs != 1) {
+        GTEST_SKIP_("Too small mesh for parallel runs, skipping.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, 1, false, "test_inputs/thex_1x1x1_brick.exo");
 }
 
 // Semi Lagrangian with nodal reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceSemiReproducingKernelNodal) {
-    if (SkipTest() || m_num_procs != 1) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
+    }
+    if (m_num_procs != 1) {
+        GTEST_SKIP_("Too small mesh for parallel runs, skipping.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Semi, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, 1, false, "test_inputs/thex_1x1x1_brick.exo");
 }
 
 // Updated Lagrangian with nodal reproducing kernel tests
 TEST_F(ForceTest, ExplicitShearForceUpdatedReproducingKernelNodal) {
-    if (SkipTest() || m_num_procs != 1) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
+    }
+    if (m_num_procs != 1) {
+        GTEST_SKIP_("Too small mesh for parallel runs, skipping.");
     }
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Updated, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, 1, false, "test_inputs/thex_1x1x1_brick.exo");
 }
 
 // Reproducing kernel tests with subcells
 TEST_F(ForceTest, ExplicitShearForceReproducingKernelNodalSubcells) {
-    if (SkipTest() || m_num_procs != 1) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
+    }
+    if (m_num_procs != 1) {
+        GTEST_SKIP_("Too small mesh for parallel runs, skipping.");
     }
     // 0 subcells means every element is a subcell
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, 0, false, "test_inputs/thex_1x1x1_brick.exo");
@@ -280,8 +293,11 @@ TEST_F(ForceTest, ExplicitShearForceReproducingKernelNodalSubcells) {
 
 // Reproducing kernel tests with subcells and F-bar
 TEST_F(ForceTest, ExplicitShearForceReproducingKernelNodalSubcellsFBar) {
-    if (SkipTest() || m_num_procs != 1) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
+    }
+    if (m_num_procs != 1) {
+        GTEST_SKIP_("Too small mesh for parallel runs, skipping.");
     }
     // 0 subcells means every element is a subcell
     RunAllShearScenarios(0.1, aperi::LagrangianFormulationType::Total, PatchTestIntegrationScheme::NODAL_STRAIN_SMOOTHING, true, 0, true, "test_inputs/thex_1x1x1_brick.exo");

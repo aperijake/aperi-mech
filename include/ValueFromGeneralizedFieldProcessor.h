@@ -125,7 +125,7 @@ class ValueFromGeneralizedFieldProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
 
         // destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
-        assert(check_partition_of_unity());
+        KOKKOS_ASSERT(check_partition_of_unity());
 
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields
@@ -187,7 +187,8 @@ class ValueFromGeneralizedFieldProcessor {
     // Loop over all evaluation points and scatter the values to their neighbors (active nodes) using the function values as weights.
     void scatter_local_values(const stk::mesh::Selector &selector) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        assert(check_partition_of_unity());
+
+        KOKKOS_ASSERT(check_partition_of_unity());  // Only perform check in Debug builds
 
         auto ngp_mesh = m_ngp_mesh;
         // Get the ngp fields

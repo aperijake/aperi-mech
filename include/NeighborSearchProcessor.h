@@ -294,6 +294,12 @@ class NeighborSearchProcessor {
     void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector) {
         // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
         // If the in/out check can flip one way or the other if a neighbor is right on the edge.
+        if (selector.is_null()) {
+            throw std::runtime_error("Selector is null. Cannot compute kernel radius.");
+        }
+        if (scale_factor < 0.0) {
+            throw std::runtime_error("Kernel radius scale factor must be non-negative.");
+        }
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Compute Kernel Radius");
         if (scale_factor == 1.0) {
             scale_factor += 1.0e-6;
@@ -529,7 +535,7 @@ class NeighborSearchProcessor {
         UnpackSearchResultsIntoField(host_search_results);
 
         // Check the validity of the neighbors field
-        assert(CheckAllNeighborsAreWithinKernelRadius());
+        KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius());
         // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
         // assert(CheckNeighborsAreActiveNodesHost());
 
@@ -548,7 +554,7 @@ class NeighborSearchProcessor {
         }
         stk::mesh::Selector active_selector = StkGetSelector(active_sets, meta_data);
         // Warn if the active selector is empty.
-        if (active_selector.is_empty(stk::topology::ELEMENT_RANK)) {
+        if (active_selector.is_empty(stk::topology::NODE_RANK)) {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
         }
 

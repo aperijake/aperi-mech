@@ -23,12 +23,14 @@ class CaptureOutputTest : public ::testing::Test {
         // Redirect cerr to a stringstream buffer
         m_cerr_streambuf = std::cerr.rdbuf();
         std::cerr.rdbuf(m_cerr_stream.rdbuf());
+        m_output_captured = true;
     }
 
     void StopCapturingOutput() {
         // Redirect cout and cerr to their old selves
         std::cout.rdbuf(m_cout_streambuf);
         std::cerr.rdbuf(m_cerr_streambuf);
+        m_output_captured = false;
     }
 
     void PrintCapturedOutput() {
@@ -46,7 +48,7 @@ class CaptureOutputTest : public ::testing::Test {
     }
 
     void TearDown() override {
-        if (!m_capture_output) {
+        if (!m_output_captured) {
             return;
         }
         // Redirect cout and cerr to their old selves
@@ -65,4 +67,7 @@ class CaptureOutputTest : public ::testing::Test {
     std::stringstream m_cerr_stream;
     std::streambuf *m_cerr_streambuf;
     bool m_capture_output = true;
+
+   private:
+    bool m_output_captured = false;
 };

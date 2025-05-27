@@ -94,7 +94,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
 
     // Total mass after the mass from this element block is added
     double mass_sum_global = mass_from_elements.GetSumHost() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
-    assert(CheckMassSumsAreEqual(mass_sum_global, mass.GetSumHost() / 3.0));
+    KOKKOS_ASSERT(CheckMassSumsAreEqual(mass_sum_global, mass.GetSumHost() / 3.0));
 
     return mass_sum_global;
 }
