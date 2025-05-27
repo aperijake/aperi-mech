@@ -32,10 +32,11 @@ class PortableVectorTestHelper {
 
     template <typename T>
     static void AccessValues(const PortableVector<T>& vec, Kokkos::View<T*> result, int count) {
+        auto data = vec.m_data;  // Get the device-accessible Kokkos::View
         Kokkos::parallel_for(
             1, KOKKOS_LAMBDA(const int&) {
                 for (int i = 0; i < count; i++) {
-                    result(i) = vec(i);
+                    result(i) = data(i);
                 }
             });
         Kokkos::fence();
