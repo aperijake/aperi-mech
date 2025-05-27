@@ -7,6 +7,7 @@ CHECK_CODE_COVERAGE=OFF
 USE_GPU=OFF
 USE_PROTEGO_MECH=OFF
 USE_SANITIZER=OFF
+GPU_OPT_LEVEL=3
 
 # Get the current directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -40,6 +41,12 @@ while [[ $# -gt 0 ]]; do
 		USE_SANITIZER=ON
 		BUILD_TYPE="Debug"
 		echo "Requested sanitizer. Build type set to Debug"
+		shift
+		;;
+	--gpu-opt)
+		GPU_OPT_LEVEL="$2"
+		echo "Setting GPU optimization level to O$2"
+		shift
 		shift
 		;;
 	*)
@@ -105,6 +112,8 @@ cmake_command+=" -D CHECK_CODE_COVERAGE:BOOL=${CHECK_CODE_COVERAGE}"
 if [[ ${USE_GPU} == "ON" ]]; then
 	# Add the cuda path to the cmake command
 	CUDA_PATH=$(spack location -i cuda)
+	# Pass the GPU optimization level to CMake
+	cmake_command+=" -D GPU_OPTIMIZE_LEVEL=${GPU_OPT_LEVEL}"
 	# Add the cuda compiler to the cmake command
 	cmake_command+=" -D CMAKE_CUDA_COMPILER:FILEPATH=${CUDA_PATH}/bin/nvcc"
 	# Add the cuda flags to the cmake command. There has got to be a better way to do this. Needed?
