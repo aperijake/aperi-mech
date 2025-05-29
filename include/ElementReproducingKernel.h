@@ -60,14 +60,15 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
         LabelParts();
+        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
         CreateFunctionValueStorageProcessor();
     }
 
     void FinishPreprocessing() override {
         // Run neighbor search on all parts before doing this
         m_function_value_storage_processor->FinishPreprocessing();
+        m_compute_force->FinishPreprocessing();
         ComputeAndStoreFunctionValues(false /*check_failed_subcells*/);  // Dont want to check for failed subcells on the first pass
-        m_compute_force->FinishPreprocessing(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
         BuildSmoothedCellData();
         ComputeFunctionDerivatives();
     }

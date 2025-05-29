@@ -20,7 +20,10 @@ struct PortableVector {
      * @brief Constructs a PortableVector with the given capacity.
      * @param capacity The initial capacity of the vector.
      */
-    PortableVector(size_t capacity) : m_data("data", capacity), m_size_device("size_device", 1), m_capacity_host(capacity) {
+    PortableVector(size_t capacity)
+        : m_data(Kokkos::View<T*>(Kokkos::ViewAllocateWithoutInitializing("data"), capacity)),
+          m_size_device("size_device", 1),
+          m_capacity_host(capacity) {
         m_size_host = Kokkos::create_mirror_view(m_size_device);
         m_size_host(0) = 0;
         Kokkos::deep_copy(m_size_device, m_size_host);
@@ -72,6 +75,7 @@ struct PortableVector {
      * @note This function resets the size of the vector to 0.
      */
     void Clear() {
+        // PrintContents();  // Print contents before clearing
         m_size_host(0) = 0;
         Kokkos::deep_copy(m_size_device, m_size_host);
     }
@@ -86,6 +90,7 @@ struct PortableVector {
         void operator()(const T& value) const {
             size_t idx = Kokkos::atomic_fetch_add(&m_size_device(0), 1);
             if (idx >= m_data.extent(0)) {
+                Kokkos::printf("PortableVector capacity exceeded: %d >= %d\n", idx, m_data.extent(0));
                 Kokkos::abort("PortableVector capacity exceeded");
             } else {
                 m_data(idx) = value;
@@ -164,6 +169,16 @@ struct PortableVector {
         typename Kokkos::View<T*>::HostMirror data_host = Kokkos::create_mirror_view(m_data);
         Kokkos::deep_copy(data_host, m_data);
         return data_host;
+    }
+
+    // Add this function to PortableVector
+    void PrintContents() {
+        auto data_host = GetDataHost();
+        size_t size = SizeHost();
+        printf("Vector contents (%lu elements):\n", (unsigned long)size);
+        for (size_t i = 0; i < size; i++) {
+            printf("  [%lu]: %lu\n", (unsigned long)i, (unsigned long)data_host(i));
+        }
     }
 };
 

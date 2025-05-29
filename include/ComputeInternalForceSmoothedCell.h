@@ -16,14 +16,19 @@
 namespace aperi {
 
 /**
+ * @brief Functor for material separation that does nothing.
+ * This is used when no material separation is needed.
+ */
+struct MaterialSeparationFunctorNoOp {
+    KOKKOS_INLINE_FUNCTION void operator()(const size_t & /*subcell_id*/) const {
+        // No operation for material separation
+    }
+};
+
+/**
  * @brief Functor for computing the internal force of an element using strain smoothing.
  */
 class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
-   protected:
-    using SeparationHandlerType = void (*)(void *context, const size_t &);
-    void *d_separation_context = nullptr;
-    SeparationHandlerType d_separation_handler;
-
    public:
     /**
      * @brief Constructs a ComputeInternalForceSmoothedCellBase object.
@@ -40,8 +45,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
                                          const LagrangianFormulationType &lagrangian_formulation_type,
                                          bool use_f_bar)
         : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {
-        // Initialize the separation handler
-        d_separation_handler = &ComputeInternalForceSmoothedCellBase::BaseHandleMaterialSeparationImpl;
+        m_material_separation_functor_no_op = std::make_shared<MaterialSeparationFunctorNoOp>();
     }
 
     /**
@@ -56,19 +60,17 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
     }
 
     /**
-     * @brief Finishes preprocessing after instantiation and other required operations from elsewhere have been completed.
+     * @brief Preprocessing steps that have mesh modification.
      */
-    virtual void FinishPreprocessing(const SmoothedCellDataSizes &smoothed_cell_data_sizes) {
-        // Finish preprocessing logic here
+    virtual void PreprocessingWithMeshModification(const SmoothedCellDataSizes &smoothed_cell_data_sizes) {
+        // Preprocessing logic here
     }
 
     /**
-     * @brief Handles material separation for the given subcell.
-     * @param subcell_id The ID of the subcell.
+     * @brief Finishes preprocessing after instantiation and other required operations from elsewhere have been completed.
      */
-    KOKKOS_FUNCTION
-    static void BaseHandleMaterialSeparationImpl(void *context, const size_t &subcell_id) {
-        // Handle material separation logic here
+    virtual void FinishPreprocessing() {
+        // Finish preprocessing logic here
     }
 
     virtual size_t NumFailedSubcells() const {
@@ -83,7 +85,8 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
      * @brief Computes the internal force for each cell.
      * @param scd The smoothed cell data.
      */
-    void ForEachCellComputeForce(const SmoothedCellData &scd) {
+    template <typename MaterialSepartionFunctor>
+    void ForEachCellComputeForce_Impl(const SmoothedCellData &scd, MaterialSepartionFunctor &material_separation_functor) {
         // Reset for the next increment
         ResetForIncrement();
 
@@ -235,8 +238,8 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
 
                 // Handle material separation
                 if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
-                    // Handle material separation
-                    d_separation_handler(d_separation_context, subcell_id);
+                    // Do nothing in base class, but in derived classes we handle material separation
+                    material_separation_functor(subcell_id);
                 }
             });
 
@@ -375,6 +378,19 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
                 }
             });
     }
+
+    /**
+     * @brief Computes the internal force for each cell.
+     * @param scd The smoothed cell data.
+     */
+    virtual void ForEachCellComputeForce(const SmoothedCellData &scd) {
+        // Use the no-op material separation functor by default
+        KOKKOS_ASSERT(m_material_separation_functor_no_op != nullptr);
+        ForEachCellComputeForce_Impl(scd, *m_material_separation_functor_no_op);
+    }
+
+   protected:
+    std::shared_ptr<aperi::MaterialSeparationFunctorNoOp> m_material_separation_functor_no_op;
 };
 
 /**
