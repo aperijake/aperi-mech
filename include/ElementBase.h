@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Constants.h"
+#include "FieldData.h"
 #include "Material.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
@@ -58,6 +59,15 @@ class ElementBase {
 
     virtual ~ElementBase() = default;
 
+    /**
+     * @brief Checks if an event happened that requires a shape function update.
+     *
+     * @return True if an update is needed, false otherwise.
+     */
+    virtual bool CheckIfUpdateIsNeeded() const {
+        return false;
+    }
+
     virtual void UpdateShapeFunctions() {}
 
     /**
@@ -102,6 +112,10 @@ class ElementBase {
 
     std::vector<std::string> GetPartNames() const {
         return m_part_names;
+    }
+
+    virtual std::vector<aperi::FieldData> GetFieldData() const {
+        return m_material->GetFieldData();
     }
 
     virtual ReproducingKernelInfo GetReproducingKernelInfo() const {

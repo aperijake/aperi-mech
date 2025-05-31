@@ -294,6 +294,12 @@ class NeighborSearchProcessor {
     void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector) {
         // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
         // If the in/out check can flip one way or the other if a neighbor is right on the edge.
+        if (selector.is_null()) {
+            throw std::runtime_error("Selector is null. Cannot compute kernel radius.");
+        }
+        if (scale_factor < 0.0) {
+            throw std::runtime_error("Kernel radius scale factor must be non-negative.");
+        }
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Compute Kernel Radius");
         if (scale_factor == 1.0) {
             scale_factor += 1.0e-6;
@@ -400,6 +406,8 @@ class NeighborSearchProcessor {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
         const int my_rank = m_bulk_data->parallel_rank();
 
+        size_t too_many_neighbors_count = 0;
+
         for (size_t i = 0; i < host_search_results.size(); ++i) {
             auto result = host_search_results(i);
             if (result.domainIdentProc.proc() == my_rank) {
@@ -437,7 +445,7 @@ class NeighborSearchProcessor {
                 // Shift the function values and neighbors to make room for the new neighbor
                 size_t reverse_start_index = (size_t)num_neighbors;
                 if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
-                    printf("Node %lu has too many neighbors. The furthest neighbor will be removed.\n", static_cast<long unsigned int>(m_bulk_data->identifier(node)));
+                    ++too_many_neighbors_count;
                     --reverse_start_index;
                 } else {
                     num_neighbors += 1;
@@ -453,6 +461,14 @@ class NeighborSearchProcessor {
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
             }
         }
+
+        // Report the number of extra neighbors
+        size_t global_too_many_neighbors_count = 0;
+        MPI_Allreduce(&too_many_neighbors_count, &global_too_many_neighbors_count, 1, MPI_UNSIGNED_LONG, MPI_SUM, m_bulk_data->parallel());
+        if (global_too_many_neighbors_count > 0) {
+            aperi::CoutP0() << "Warning: Found " << global_too_many_neighbors_count << " total extra neighbors. Truncated any neighbor lists that were longer than " << MAX_NODE_NUM_NEIGHBORS << " neighbors. Removed furthest neighbors." << std::endl;
+        }
+
         // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
         m_node_neighbors_field->modify_on_host();
         m_node_num_neighbors_field->modify_on_host();
@@ -519,7 +535,7 @@ class NeighborSearchProcessor {
         UnpackSearchResultsIntoField(host_search_results);
 
         // Check the validity of the neighbors field
-        assert(CheckAllNeighborsAreWithinKernelRadius());
+        KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius());
         // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
         // assert(CheckNeighborsAreActiveNodesHost());
 
@@ -538,7 +554,7 @@ class NeighborSearchProcessor {
         }
         stk::mesh::Selector active_selector = StkGetSelector(active_sets, meta_data);
         // Warn if the active selector is empty.
-        if (active_selector.is_empty(stk::topology::ELEMENT_RANK)) {
+        if (active_selector.is_empty(stk::topology::NODE_RANK)) {
             aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
         }
 

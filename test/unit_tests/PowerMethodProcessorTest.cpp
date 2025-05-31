@@ -58,23 +58,11 @@ class PowerMethodProcessorTest : public SolverTest {
 
 // Test that the PowerMethodProcessor can be run
 TEST_F(PowerMethodProcessorTest, PowerMethodProcessor) {
-    bool skip = false;
     if (m_num_procs > 4) {
-        skip = true;
+        GTEST_SKIP_("This test is only valid for 4 or fewer processes.");
     }
-    // Skip if running on GPU and in Release mode
-    // TODO(jake): Get rid of this when we can. It is only here because of some strange compiling issues that lead to a segfault.
-    // As with ShapeFunctionsFunctorReproducingKernel, a segfault on the GPU in Release mode, but works fine in Debug mode or on the CPU.
-    // Spent a lot of time trying to figure out why, but couldn't find the issue.
-#ifdef NDEBUG
-    bool using_gpu = Kokkos::DefaultExecutionSpace::concurrency() > 1;
-    if (using_gpu) {
-        skip = true;
-    }
-#endif
-    // Skip this test if we have more than 4 processes
-    if (skip) {
-        GTEST_SKIP();
+    if (SkipTest()) {
+        GTEST_SKIP_("Skipping due to issues with GPU and Release build.");
     }
 
     CreateInputFile();

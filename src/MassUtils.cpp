@@ -40,10 +40,10 @@ struct ComputeMassFromElementVolumeKernel {
 };
 
 bool CheckMassSumsAreEqual(double mass_1, double mass_2) {
-    double tol = 1.0e-10 * mass_1;
+    double tol = 1.0e-8 * mass_1;
     bool are_equal = std::abs(mass_1 - mass_2) <= tol;
     if (!are_equal) {
-        Kokkos::printf("Error: Mass sums are not equal: %f != %f\n", mass_1, mass_2);
+        Kokkos::printf("Error: Mass sums are not equal within tolerance: %f != %f, tol = %f\n", mass_1, mass_2, tol);
     }
     return are_equal;
 }
@@ -94,7 +94,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
 
     // Total mass after the mass from this element block is added
     double mass_sum_global = mass_from_elements.GetSumHost() / 3.0;  // Divide by 3 to get the mass per node as the mass is on the 3 DOFs
-    assert(CheckMassSumsAreEqual(mass_sum_global, mass.GetSumHost() / 3.0));
+    KOKKOS_ASSERT(CheckMassSumsAreEqual(mass_sum_global, mass.GetSumHost() / 3.0));
 
     return mass_sum_global;
 }

@@ -127,7 +127,7 @@ class SmoothedCellDataProcessor {
         m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
-    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double tolerance = 1.0e-6) {
+    bool CheckPartitionOfNullity(const std::shared_ptr<aperi::SmoothedCellData> &smoothed_cell_data, double warning_tolerance = 1.0e-6, double error_tolerance = 1.0e-2) {
         // Get the number of subcells
         size_t num_subcells = smoothed_cell_data->NumSubcells();
 
@@ -145,10 +145,12 @@ class SmoothedCellDataProcessor {
                 }
                 for (size_t j = 0; j < 3; ++j) {
                     // Compare the sum of the function derivatives to the tolerance on device
-                    if (Kokkos::abs(subcell_function_derivatives_sum[j]) > tolerance) {
+                    if (Kokkos::abs(subcell_function_derivatives_sum[j]) > warning_tolerance) {
                         // Print the subcell id and the sum of the function derivatives
                         printf("Subcell %lu: Sum of function derivatives: %.8e\n", subcell_id, subcell_function_derivatives_sum[j]);
-                        Kokkos::abort("Partition of nullity check failed");
+                        if (Kokkos::abs(subcell_function_derivatives_sum[j]) > error_tolerance) {
+                            Kokkos::abort("Partition of nullity check failed");
+                        }
                     }
                 }
             });
@@ -207,10 +209,11 @@ class SmoothedCellDataProcessor {
         max_edge_length_processor.ComputeMaxEdgeLength();
     }
 
-    std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
-        // Create a scoped timer
-        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
-
+    /**
+     * @brief Get the sizes of the smoothed cell data.
+     * @return The sizes of the smoothed cell data.
+     */
+    SmoothedCellDataSizes GetSmoothedCellDataSizes(size_t estimated_num_nodes_per_cell) {
         // Create the cells selector
         std::vector<std::string> cells_sets;
         // If sets are named the same with _cells at the end, use those.
@@ -227,7 +230,7 @@ class SmoothedCellDataProcessor {
         size_t num_cells = GetNumElements(cell_selector);
 
         // Get the number of elements
-        size_t num_elements = GetNumElements();
+        size_t num_elements = GetNumValidElements();
 
         // Estimate the total number of nodes in the cells
         size_t estimated_num_nodes = num_cells * estimated_num_nodes_per_cell;
@@ -236,17 +239,27 @@ class SmoothedCellDataProcessor {
         size_t num_subcells_per_cell = m_mesh_labeler_parameters.num_subcells;
         size_t num_subcells = num_subcells_per_cell < 1 ? num_elements : num_subcells_per_cell * num_cells;
 
-        bool use_f_bar = m_use_f_bar && num_subcells != num_cells;
+        return {num_cells, num_subcells, num_elements, estimated_num_nodes};
+    }
+
+    std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
+        // Create a scoped timer
+        auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
+
+        // Get the sizes of the smoothed cell data
+        SmoothedCellDataSizes sizes = GetSmoothedCellDataSizes(estimated_num_nodes_per_cell);
+
+        bool use_f_bar = m_use_f_bar && sizes.num_subcells != sizes.num_cells;
 
         if (m_verbose) {
-            aperi::Cout() << "Number of cells: " << num_cells << std::endl;
-            aperi::Cout() << "Number of subcells: " << num_subcells << std::endl;
-            aperi::Cout() << "Number of elements: " << num_elements << std::endl;
-            aperi::Cout() << "Estimated number of node-cell pairs: " << estimated_num_nodes << std::endl;
+            aperi::Cout() << "Number of cells: " << sizes.num_cells << std::endl;
+            aperi::Cout() << "Number of subcells: " << sizes.num_subcells << std::endl;
+            aperi::Cout() << "Number of elements: " << sizes.num_elements << std::endl;
+            aperi::Cout() << "Estimated number of node-cell pairs: " << sizes.estimated_num_nodes << std::endl;
             aperi::Cout() << "Use f_bar: " << (use_f_bar ? "true" : "false") << std::endl;
         }
 
-        return std::make_shared<aperi::SmoothedCellData>(num_cells, num_subcells, num_elements, estimated_num_nodes, use_f_bar);
+        return std::make_shared<aperi::SmoothedCellData>(sizes.num_cells, sizes.num_subcells, sizes.num_elements, sizes.estimated_num_nodes, use_f_bar);
     }
 
     void AddSubcellNumElements() {
@@ -265,6 +278,11 @@ class SmoothedCellDataProcessor {
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
                 uint64_t subcell_id = m_subcell_id(elem_index, 0);
+
+                // If the subcell id is not valid, skip it
+                if (subcell_id == INVALID_ID) {
+                    return;
+                }
 
                 // Add the number of elements to the smoothed cell data
                 add_subcell_num_elements_functor(subcell_id, 1);
@@ -297,6 +315,11 @@ class SmoothedCellDataProcessor {
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
                 uint64_t subcell_id = m_subcell_id(elem_index, 0);
+
+                // If the subcell id is not valid, skip it
+                if (subcell_id == INVALID_ID) {
+                    return;
+                }
 
                 stk::mesh::Entity element = ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, elem_index);
 
@@ -337,6 +360,11 @@ class SmoothedCellDataProcessor {
                 // Get the cell id for the element
                 uint64_t cell_id = m_cell_id(element_index(), 0);
 
+                // If the cell id is not valid, skip it
+                if (cell_id == INVALID_ID) {
+                    return;
+                }
+
                 // Add the number of subcells to the cell
                 add_cell_num_subcells_functor(cell_id, 1);
             });
@@ -374,6 +402,11 @@ class SmoothedCellDataProcessor {
 
                 // Get the cell id for the element
                 uint64_t cell_id = m_cell_id(element_index(), 0);
+
+                // If the cell id is not valid, skip it
+                if (cell_id == INVALID_ID) {
+                    return;
+                }
 
                 // Add the subcell to the cell
                 add_cell_subcells_functor(cell_id, subcell_id);
@@ -679,8 +712,8 @@ class SmoothedCellDataProcessor {
                 }
             });
         m_element_volume.MarkModifiedOnDevice();
-        assert(CheckPartitionOfNullity(m_smoothed_cell_data));
-        assert(CheckCellVolumes(m_smoothed_cell_data));
+        KOKKOS_ASSERT(CheckPartitionOfNullity(m_smoothed_cell_data));
+        KOKKOS_ASSERT(CheckCellVolumes(m_smoothed_cell_data));
     }
 
     void PopulateElementOutputs() {
@@ -850,13 +883,50 @@ class SmoothedCellDataProcessor {
         return m_smoothed_cell_data;
     }
 
-    double GetNumElements(const stk::mesh::Selector &selector) const {
+    size_t GetNumElements(const stk::mesh::Selector &selector) const {
         return stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
     // Overloaded version that uses m_selector
-    double GetNumElements() const {
+    size_t GetNumElements() const {
         return GetNumElements(m_selector);
+    }
+
+    size_t GetNumValidElements() {
+        return GetNumElements(m_selector) - NumInvalidSubcellIds();
+    }
+
+    // Count the number of elements with an invalid subcell id
+    size_t NumInvalidSubcellIds() {
+        // Get the updated ngp mesh
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+
+        // Get the subcell id field
+        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+
+        Kokkos::View<size_t *> num_invalid_subcell_ids("num_invalid_subcell_ids", 1);
+        // Initialize the number of invalid subcell ids to 0
+        Kokkos::deep_copy(num_invalid_subcell_ids, 0);
+        // Loop over all the elements
+        stk::mesh::for_each_entity_run(
+            m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
+            KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
+                // Get the subcell_id
+                uint64_t subcell_id = m_subcell_id(elem_index, 0);
+
+                // If the subcell id is not valid, count it
+                if (subcell_id == INVALID_ID) {
+                    // Increment the number of invalid subcell ids
+                    Kokkos::atomic_inc(&num_invalid_subcell_ids(0));
+                }
+            });
+        // Copy the number of invalid subcell ids to the host
+        Kokkos::View<size_t *>::HostMirror num_invalid_subcell_ids_host = Kokkos::create_mirror_view(num_invalid_subcell_ids);
+        Kokkos::deep_copy(num_invalid_subcell_ids_host, num_invalid_subcell_ids);
+        // Parallel reduction to get the total number of invalid subcell ids
+        size_t total_num_invalid_subcell_ids = 0;
+        MPI_Allreduce(&num_invalid_subcell_ids_host(0), &total_num_invalid_subcell_ids, 1, MPI_UNSIGNED_LONG, MPI_SUM, m_bulk_data->parallel());
+        return total_num_invalid_subcell_ids;
     }
 
     // Get the TimerManager

@@ -15,13 +15,23 @@ namespace aperi {
  * @brief Enum representing the type of material.
  */
 enum MaterialType {
-    ELASTIC,         /**< Elastic material type */
-    LINEAR_ELASTIC,  /**< Linear elastic material type */
-    NEO_HOOKEAN,     /**< Neo-Hookean material type */
-    PLASTIC,         /**< Plastic material type */
-    DRUCKER_PRAGER,  /**< Drucker-Prager material type */
-    POWER_LAW_CREEP, /**< Power Law creep material type */
-    NONE             /**< No material type */
+    ELASTIC,                 /**< Elastic material type */
+    LINEAR_ELASTIC,          /**< Linear elastic material type */
+    NEO_HOOKEAN,             /**< Neo-Hookean material type */
+    NEO_HOOKEAN_WITH_DAMAGE, /**< Neo-Hookean material type with damage */
+    PLASTIC,                 /**< Plastic material type */
+    DRUCKER_PRAGER,          /**< Drucker-Prager material type */
+    POWER_LAW_CREEP,         /**< Power Law creep material type */
+    NONE                     /**< No material type */
+};
+
+/**
+ * @brief Enum representing the state of material separation.
+ */
+enum class MaterialSeparationState {
+    INTACT,
+    FAILED,
+    JUST_FAILED
 };
 
 /**
@@ -78,6 +88,11 @@ class Material {
                                Eigen::Map<Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>& pk1_stress_np1) const = 0;
 
         KOKKOS_INLINE_FUNCTION
+        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const {
+            return MaterialSeparationState::INTACT;
+        }
+
+        KOKKOS_INLINE_FUNCTION
         bool CheckInput(
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* displacement_gradient_np1,
             const Eigen::Map<const Eigen::Matrix<double, 3, 3>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>* velocity_gradient_np1,
@@ -99,8 +114,8 @@ class Material {
                 KOKKOS_ASSERT(state_n->data() != nullptr);
                 KOKKOS_ASSERT(state_np1 != nullptr);
                 KOKKOS_ASSERT(state_np1->data() != nullptr);
-                KOKKOS_ASSERT(state_n->size() == NumberOfStateVariables());
-                KOKKOS_ASSERT(state_np1->size() == NumberOfStateVariables());
+                KOKKOS_ASSERT(state_n->size() == static_cast<Eigen::Index>(NumberOfStateVariables()));
+                KOKKOS_ASSERT(state_np1->size() == static_cast<Eigen::Index>(NumberOfStateVariables()));
             }
 
             KOKKOS_ASSERT(timestep > 0.0);
@@ -170,6 +185,10 @@ class Material {
     }
 
     virtual bool NeedsOldStress() const {
+        return false;
+    }
+
+    virtual bool HasDamage() const {
         return false;
     }
 

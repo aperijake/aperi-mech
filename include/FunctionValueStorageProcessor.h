@@ -100,6 +100,10 @@ class FunctionValueStorageProcessor {
         m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
     }
 
+    void FinishPreprocessing() {
+        // This is a no-op for now
+    }
+
     // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
     template <size_t NumNodes, typename FunctionFunctor, typename Bases>
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {

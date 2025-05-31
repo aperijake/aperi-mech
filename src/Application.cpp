@@ -68,6 +68,18 @@ bool HasStrainSmoothing(const std::vector<YAML::Node>& parts) {
     return false;
 }
 
+// TODO(jake): This is a temporary function to check for the presence of the neo-hookean_with_damage material. Make this more general.
+bool NeedsFaces(const std::vector<YAML::Node>& parts) {
+#ifdef USE_PROTEGO_MECH
+    for (const auto& part : parts) {
+        if (part["material"]["neo_hookean_with_damage"].IsDefined()) {
+            return true;
+        }
+    }
+#endif
+    return false;
+}
+
 // Find a file in a list of directories, including the current working directory. TODO(jake): Move this to a utility function
 std::string FindFileInDirectories(const std::string& file, const std::vector<std::string>& directories) {
     // Get the current working directory
@@ -283,6 +295,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<std::string> mesh_search_directories = io_input_file->GetMeshSearchDirectories(procedure_id);
 
     // Create the IO mesh object and read the mesh
+    add_faces = add_faces || NeedsFaces(parts);
     std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, add_faces, m_comm, timer_manager);
 
     // Create the field results file

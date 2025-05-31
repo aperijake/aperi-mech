@@ -10,6 +10,7 @@
 #include "Materials/Elastic.h"
 #include "Materials/LinearElastic.h"
 #include "Materials/NeoHooke.h"
+#include "Materials/NeoHookeWithDamage.h"
 #include "Materials/Plastic.h"
 #include "Materials/PowerLawCreep.h"
 
@@ -70,6 +71,29 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         material_properties->properties.emplace("lambda", youngs_modulus * poissons_ratio / ((1.0 + poissons_ratio) * (1.0 - 2.0 * poissons_ratio)));
 
         return std::make_shared<NeoHookeanMaterial>(material_properties);
+
+    } else if (material_node["neo_hookean_with_damage"].IsDefined()) {
+        YAML::Node neo_hookean_node = material_node["neo_hookean_with_damage"];
+        material_properties->material_type = MaterialType::NEO_HOOKEAN_WITH_DAMAGE;
+        material_properties->density = neo_hookean_node["density"].as<double>();
+        double poissons_ratio = neo_hookean_node["poissons_ratio"].as<double>();
+        double youngs_modulus = neo_hookean_node["youngs_modulus"].as<double>();
+
+        material_properties->properties.emplace("poissons_ratio", poissons_ratio);
+        material_properties->properties.emplace("youngs_modulus", youngs_modulus);
+        // 2 mu = E / (1 + nu)
+        material_properties->properties.emplace("two_mu", youngs_modulus / (1.0 + poissons_ratio));
+        // lambda = E * nu / ((1 + nu) * (1 - 2 * nu))
+        material_properties->properties.emplace("lambda", youngs_modulus * poissons_ratio / ((1.0 + poissons_ratio) * (1.0 - 2.0 * poissons_ratio)));
+
+        double I1_critical = neo_hookean_node["I1_critical"].as<double>();
+        double I1_failure = neo_hookean_node["I1_failure"].as<double>();
+        double alpha = neo_hookean_node["alpha"].as<double>();
+        material_properties->properties.emplace("I1_critical", I1_critical);
+        material_properties->properties.emplace("I1_failure", I1_failure);
+        material_properties->properties.emplace("alpha", alpha);
+
+        return std::make_shared<NeoHookeanWithDamageMaterial>(material_properties);
 
     } else if (material_node["plastic"].IsDefined()) {
         YAML::Node plastic_node = material_node["plastic"];

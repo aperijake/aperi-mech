@@ -3,18 +3,32 @@
 
 #include <Kokkos_Core.hpp>
 
+class MPIKokkosEnvironment : public ::testing::Environment {
+   public:
+    void SetUp() override {
+        int argc = 0;
+        char** argv = nullptr;
+        MPI_Init(&argc, &argv);
+        Kokkos::initialize(argc, argv);
+    }
+    void TearDown() override {
+        Kokkos::finalize();
+        MPI_Finalize();
+    }
+};
+
+class StreamResetter : public ::testing::EmptyTestEventListener {
+   public:
+    void OnTestEnd(const ::testing::TestInfo&) override {
+        // Reset cout and cerr between tests
+        std::cout.clear();
+        std::cerr.clear();
+    }
+};
+
 int main(int argc, char** argv) {
-    Kokkos::initialize(argc, argv);
-    MPI_Init(&argc, &argv);
-
-    // Initialize Google Test
     ::testing::InitGoogleTest(&argc, argv);
-
-    // Run all the tests
-    int return_code = RUN_ALL_TESTS();
-
-    MPI_Finalize();
-    Kokkos::finalize();
-
-    return return_code;
+    ::testing::UnitTest::GetInstance()->listeners().Append(new StreamResetter);
+    ::testing::AddGlobalTestEnvironment(new MPIKokkosEnvironment);
+    return RUN_ALL_TESTS();
 }

@@ -60,17 +60,28 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
         LabelParts();
+        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
         CreateFunctionValueStorageProcessor();
     }
 
     void FinishPreprocessing() override {
         // Run neighbor search on all parts before doing this
+        m_function_value_storage_processor->FinishPreprocessing();
+        m_compute_force->FinishPreprocessing();
+        ComputeAndStoreFunctionValues(false /*check_failed_subcells*/);  // Dont want to check for failed subcells on the first pass
         BuildSmoothedCellData();
-        UpdateShapeFunctions();
+        ComputeFunctionDerivatives();
     }
 
     ReproducingKernelInfo GetReproducingKernelInfo() const override {
         return ReproducingKernelInfo{m_part_names, {m_kernel_radius_scale_factor}};
+    }
+
+    bool CheckIfUpdateIsNeeded() const override {
+        if (m_compute_force == nullptr) {
+            return false;
+        }
+        return m_compute_force->NumFailedSubcells() > 0;
     }
 
     /**
@@ -97,19 +108,21 @@ class ElementReproducingKernel : public ElementBase {
      */
     virtual void ComputeFunctionDerivatives() = 0;
 
+    size_t GetEstimatedTotalNumberOfNeighbors() const {
+        // Estimate the number of neighbors on each cell
+        // - If one pass method approximates the number of neighbors as MAX_NODE_NUM_NEIGHBORS * 3
+        // - If two pass method uses the exact number of nodes in each element
+        return m_use_one_pass_method ? MAX_NODE_NUM_NEIGHBORS * 3 : NumCellNodes;
+    }
+
     /**
      * @brief Builds the smoothed cell data.
      *
      * This function builds the smoothed cell data for the element.
      */
     void BuildSmoothedCellData() {
-        // Estimate the number of neighbors on each cell
-        // - If one pass method approximates the number of neighbors as MAX_NODE_NUM_NEIGHBORS * 3
-        // - If two pass method uses the exact number of nodes in each element
-        size_t num_neighbors = m_use_one_pass_method ? MAX_NODE_NUM_NEIGHBORS * 3 : NumCellNodes;
-
         // Build the smoothed cell data
-        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(num_neighbors, m_use_one_pass_method);
+        m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(GetEstimatedTotalNumberOfNeighbors(), m_use_one_pass_method);
 
         // Add the strain smoothing timer manager to the timer manager
         m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
@@ -172,13 +185,21 @@ class ElementReproducingKernel : public ElementBase {
         aperi::ShapeFunctionsFunctorReproducingKernel<MaxNumNeighbors> compute_node_functions_functor;
     };
 
-    void ComputeAndStoreFunctionValues() {
+    void ComputeAndStoreFunctionValues(const bool check_failed_subcells = true) {
         // Create an instance of the functor
         FunctionFunctorWrapper<MAX_NODE_NUM_NEIGHBORS, aperi::BasesLinear> compute_node_functions_functor;
 
         // Create the bases
         aperi::BasesLinear bases;
 
+        // If using protego-mech and there are failed subcells then update the neighbors
+#ifdef USE_PROTEGO_MECH
+        if (check_failed_subcells) {
+            if (m_compute_force->NumFailedSubcells() > 0) {
+                m_function_value_storage_processor->UpdateNeighbors(m_compute_force->GetMaterialSeparatorData());
+            }
+        }
+#endif
         // Compute and store the function values
         m_function_value_storage_processor->compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
 

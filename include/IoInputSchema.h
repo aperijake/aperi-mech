@@ -360,6 +360,18 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema m_schema("m", "float", "the thermal constant");
     YAML::Node m_node = m_schema.GetInputSchema();
 
+    // I1 critical node
+    aperi::InputSchema I1_critical_schema("I1_critical", "float", "the I1 value at which damage starts");
+    YAML::Node I1_critical_node = I1_critical_schema.GetInputSchema();
+
+    // I1 failure node
+    aperi::InputSchema I1_failure_schema("I1_failure", "float", "the I1 value at which damage is complete");
+    YAML::Node I1_failure_node = I1_failure_schema.GetInputSchema();
+
+    // alpha node
+    aperi::InputSchema alpha_schema("alpha", "float", "the alpha (exponent) parameter");
+    YAML::Node alpha_node = alpha_schema.GetInputSchema();
+
     // Constant temperature node
     aperi::InputSchema constant_temperature_schema("constant_temperature", "float", "use a constant temperature of the given value");
     YAML::Node constant_temperature_node = constant_temperature_schema.GetInputSchema();
@@ -384,6 +396,16 @@ YAML::Node GetInputSchema() {
     neo_hookean_schema.AddAllOf(youngs_modulus_node);
     neo_hookean_schema.AddAllOf(poissons_ratio_node);
     YAML::Node neo_hookean_node = neo_hookean_schema.GetInputSchema();
+
+    // Neo-Hookean with damage material properties node
+    aperi::InputSchema neo_hookean_with_damage_schema("neo_hookean_with_damage", "map", "the neo-Hookean material properties with damage");
+    neo_hookean_with_damage_schema.AddAllOf(density_node);
+    neo_hookean_with_damage_schema.AddAllOf(youngs_modulus_node);
+    neo_hookean_with_damage_schema.AddAllOf(poissons_ratio_node);
+    neo_hookean_with_damage_schema.AddAllOf(I1_critical_node);
+    neo_hookean_with_damage_schema.AddAllOf(I1_failure_node);
+    neo_hookean_with_damage_schema.AddAllOf(alpha_node);
+    YAML::Node neo_hookean_with_damage_node = neo_hookean_with_damage_schema.GetInputSchema();
 
     // Plastic material properties node
     aperi::InputSchema plastic_schema("plastic", "map", "the plastic material properties");
@@ -418,6 +440,7 @@ YAML::Node GetInputSchema() {
     material_schema.AddOneOf(linear_elastic_node);
     material_schema.AddOneOf(elastic_node);
     material_schema.AddOneOf(neo_hookean_node);
+    material_schema.AddOneOf(neo_hookean_with_damage_node);
     material_schema.AddOneOf(plastic_node);
     material_schema.AddOneOf(drucker_prager_node);
     material_schema.AddOneOf(power_law_creep_node);

@@ -16,7 +16,7 @@ target_link_libraries(aperimech
     Kokkos::kokkos
     Compadre::compadre
 )
-target_include_directories(aperimech PRIVATE
+target_include_directories(aperimech PUBLIC
     "${CMAKE_SOURCE_DIR}/include/"
     ${Trilinos_TPL_INCLUDE_DIRS}
     ${Trilinos_INCLUDE_DIRS}
@@ -40,7 +40,7 @@ target_link_libraries(aperi-mech
     aperimech
     ${MPI_LIBRARIES}
 )
-target_include_directories(aperi-mech PRIVATE
+target_include_directories(aperi-mech PUBLIC
     "${CMAKE_SOURCE_DIR}/include/"
     "${CMAKE_BINARY_DIR}/generated/"
     ${MPI_INCLUDE_PATH}

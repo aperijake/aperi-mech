@@ -2,24 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Release",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Release/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
-      "preLaunchTask": "make"
-    },
-    {
-      "name": "Release GPU",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Release_gpu/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
-      "preLaunchTask": "make_gpu"
-    },
-    {
       "name": "Release Test",
       "type": "lldb",
       "request": "launch",
@@ -27,24 +9,6 @@
       "args": [],
       "cwd": "${workspaceFolder}/build/Release",
       "preLaunchTask": "make"
-    },
-    {
-      "name": "Release Test GPU",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Release_gpu/unit_tests",
-      "args": [],
-      "cwd": "${workspaceFolder}/build/Release_gpu",
-      "preLaunchTask": "make_gpu"
-    },
-    {
-      "name": "ReleaseWithDebugInfo",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/RelWithDebInfo/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
-      "preLaunchTask": "make_relwithdebinfo"
     },
     {
       "name": "ReleaseWithDebugInfo Test",
@@ -56,42 +20,6 @@
       "preLaunchTask": "make_relwithdebinfo"
     },
     {
-      "name": "ReleaseWithDebugInfo Test GPU",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/RelWithDebInfo_gpu/unit_tests",
-      "args": [],
-      "cwd": "${workspaceFolder}/build/RelWithDebInfo_gpu",
-      "preLaunchTask": "make_relwithdebinfo_gpu"
-    },
-    {
-      "name": "Debug",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Debug/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
-      "preLaunchTask": "make_debug"
-    },
-    {
-      "name": "Debug GPU",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Debug/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
-      "preLaunchTask": "make_debug_gpu"
-    },
-    {
-      "name": "Debug GPU (full)",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/Debug/aperi-mech",
-      "args": ["input.yaml"],
-      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
-      "preLaunchTask": "make_full_debug_gpu"
-    },
-    {
       "name": "Debug Test",
       "type": "lldb",
       "request": "launch",
@@ -101,16 +29,6 @@
       "preLaunchTask": "make_debug"
     },
     {
-      "name": "Debug Protego",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/protego-mech/build/Debug/aperi-mech",
-      "args": ["input.yaml"],
-      //"cwd": "${workspaceFolder}/protego-mech/test/regression_tests/column_collapse/crk_nodal_w_building_2d",
-      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/single_tet/crk_nodal",
-      "preLaunchTask": "make_debug_protego"
-    },
-    {
       "name": "Debug Test Protego",
       "type": "lldb",
       "request": "launch",
@@ -118,6 +36,42 @@
       "args": [],
       "cwd": "${workspaceFolder}/protego-mech/build/Debug",
       "preLaunchTask": "make_debug_protego"
+    },
+    {
+      "name": "Release Test GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Release_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/build/Release_gpu",
+      "preLaunchTask": "make_gpu"
+    },
+    {
+      "name": "Release Test GPU Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/Release_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/protego-mech/build/Release_gpu",
+      "preLaunchTask": "make_release_protego_gpu"
+    },
+    {
+      "name": "ReleaseWithDebugInfo Test GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/RelWithDebInfo_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/build/RelWithDebInfo_gpu",
+      "preLaunchTask": "make_relwithdebinfo_gpu"
+    },
+    {
+      "name": "ReleaseWithDebugInfo Test GPU Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/RelWithDebInfo_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/protego-mech/build/RelWithDebInfo_gpu",
+      "preLaunchTask": "make_relwithdebinfo_protego_gpu"
     },
     {
       "name": "Debug Test GPU",
@@ -138,6 +92,70 @@
       "preLaunchTask": "make_debug_protego_gpu"
     },
     {
+      "name": "Debug Test GPU (full)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug_gpu/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/build/Debug_gpu",
+      "preLaunchTask": "make_full_debug_gpu"
+    },
+    {
+      "name": "Release",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Release/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make"
+    },
+    {
+      "name": "ReleaseWithDebugInfo",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/RelWithDebInfo/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/../aperi-mech_test/small_taylor_bar",
+      "preLaunchTask": "make_relwithdebinfo"
+    },
+    {
+      "name": "Debug",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_debug"
+    },
+    {
+      "name": "Debug Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      //"cwd": "${workspaceFolder}/protego-mech/test/regression_tests/column_collapse/crk_nodal_w_building_2d",
+      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/single_tet/crk_nodal",
+      "preLaunchTask": "make_debug_protego"
+    },
+    {
+      "name": "Release GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Release_gpu/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_gpu"
+    },
+    {
+      "name": "Debug GPU",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
+      "preLaunchTask": "make_debug_gpu"
+    },
+    {
       "name": "Debug GPU Protego",
       "type": "lldb",
       "request": "launch",
@@ -147,12 +165,12 @@
       "preLaunchTask": "make_debug_protego_gpu"
     },
     {
-      "name": "Debug Test GPU (full)",
+      "name": "Debug GPU (full)",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/build/Debug_gpu/unit_tests",
-      "args": [],
-      "cwd": "${workspaceFolder}/build/Debug_gpu",
+      "program": "${workspaceFolder}/build/Debug/aperi-mech",
+      "args": ["input.yaml"],
+      "cwd": "${workspaceFolder}/test/regression_tests/taylor_bar/rkpm",
       "preLaunchTask": "make_full_debug_gpu"
     },
     {

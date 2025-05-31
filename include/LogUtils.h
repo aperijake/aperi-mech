@@ -9,14 +9,14 @@ namespace aperi {
 
 class OutputP0 {
    public:
-    OutputP0(std::ostream& stream = std::cout) : m_rank(-1), m_ostringstream(stream) {
+    OutputP0(std::ostream& stream = std::cout) : m_rank(-1), m_stream(&stream) {
         MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
     }
 
     template <typename T>
     OutputP0& operator<<(const T& val) {
-        if (m_rank == 0) {
-            m_ostringstream << val;
+        if (m_rank == 0 && m_stream && m_stream->good()) {
+            (*m_stream) << val;
         }
         return *this;
     }
@@ -24,8 +24,8 @@ class OutputP0 {
     // Overload for std::endl
     OutputP0& operator<<(std::ostream& (*manipulator)(std::ostream&)) {
         if (manipulator == static_cast<std::ostream& (*)(std::ostream&)>(std::endl)) {
-            if (m_rank == 0) {
-                m_ostringstream << std::endl;
+            if (m_rank == 0 && m_stream && m_stream->good()) {
+                (*m_stream) << std::endl;
             }
         }
         return *this;
@@ -33,7 +33,7 @@ class OutputP0 {
 
    private:
     int m_rank;
-    std::ostream& m_ostringstream;
+    std::ostream* m_stream;
 };
 
 class CoutP0 : public OutputP0 {

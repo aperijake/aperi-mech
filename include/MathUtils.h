@@ -23,9 +23,6 @@ std::array<double, 3> Add(const std::array<double, 3> &v1, const std::array<doub
 // Dot product of two vectors
 double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 
-// Compute the volume of a tetrahedron
-double TetVolume(const std::array<std::array<double, 3>, 4> &tet);
-
 // Compute the volume of a tetrahedron using Eigen
 KOKKOS_INLINE_FUNCTION
 double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
@@ -34,6 +31,36 @@ double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
     Eigen::Vector3d v3 = tet.row(3) - tet.row(0);
 
     return Kokkos::ArithTraits<double>::abs(v1.dot(v2.cross(v3))) / 6.0;
+}
+
+// Compute the volume of a hexahedron using the scalar triple product
+KOKKOS_INLINE_FUNCTION
+double ComputeHexahedronVolume(const Eigen::Matrix<double, 8, 3> &coordinates) {
+    // Decompose the hexahedron into 6 tetrahedra
+    // These indices define tetrahedra that together cover the hexahedron
+    Kokkos::Array<Kokkos::Array<int, 4>, 6> tetrahedra;
+    tetrahedra[0] = {0, 1, 3, 7};
+    tetrahedra[1] = {1, 2, 3, 7};
+    tetrahedra[2] = {1, 5, 7, 6};
+    tetrahedra[3] = {1, 6, 2, 7};
+    tetrahedra[4] = {0, 7, 4, 5};
+    tetrahedra[5] = {0, 5, 1, 7};
+
+    double volume = 0.0;
+
+    // Compute the volume of each tetrahedron using TetVolume
+    for (int i = 0; i < 6; i++) {
+        // Create a 4x3 matrix for the tetrahedron
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> tet;
+        tet.row(0) = coordinates.row(tetrahedra[i][0]);
+        tet.row(1) = coordinates.row(tetrahedra[i][1]);
+        tet.row(2) = coordinates.row(tetrahedra[i][2]);
+        tet.row(3) = coordinates.row(tetrahedra[i][3]);
+
+        volume += TetVolume(tet);
+    }
+
+    return volume;
 }
 
 // Get the magnitude of a vector
@@ -284,6 +311,12 @@ KOKKOS_FUNCTION VectorElementIntersectionData VectorElementIntersection(const Ei
     VectorElementIntersectionData result;
     const Eigen::Vector3d dir = B - A;
     const double length = dir.norm();
+
+    // Handle zero-length segment
+    if (length < 1e-14) {
+        result.intersects = false;
+        return result;
+    }
 
     // Use absolute epsilon for geometric comparisons
     const double eps = 1e-12 * length;

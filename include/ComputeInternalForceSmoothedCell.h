@@ -16,33 +16,79 @@
 namespace aperi {
 
 /**
+ * @brief Functor for material separation that does nothing.
+ * This is used when no material separation is needed.
+ */
+struct MaterialSeparationFunctorNoOp {
+    KOKKOS_INLINE_FUNCTION void operator()(const size_t & /*subcell_id*/) const {
+        // No operation for material separation
+    }
+};
+
+/**
  * @brief Functor for computing the internal force of an element using strain smoothing.
  */
-class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
+class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<aperi::Material::StressFunctor> {
    public:
     /**
-     * @brief Constructs a ComputeInternalForceSmoothedCell object.
+     * @brief Constructs a ComputeInternalForceSmoothedCellBase object.
      * @param mesh_data A shared pointer to the MeshData object.
      * @param displacements_field_name The name of the displacements field.
      * @param force_field_name The name of the force field.
      * @param material The material object.
      * @param lagrangian_formulation_type The Lagrangian formulation type.
      */
-    ComputeInternalForceSmoothedCell(std::shared_ptr<aperi::MeshData> mesh_data,
-                                     std::string displacements_field_name,
-                                     const std::string &force_field_name,
-                                     const Material &material,
-                                     const LagrangianFormulationType &lagrangian_formulation_type,
-                                     bool use_f_bar)
-        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {}
+    ComputeInternalForceSmoothedCellBase(std::shared_ptr<aperi::MeshData> mesh_data,
+                                         std::string displacements_field_name,
+                                         const std::string &force_field_name,
+                                         const Material &material,
+                                         const LagrangianFormulationType &lagrangian_formulation_type,
+                                         bool use_f_bar)
+        : ComputeInternalForceBase(mesh_data, displacements_field_name, force_field_name, material, lagrangian_formulation_type, use_f_bar) {
+        m_material_separation_functor_no_op = std::make_shared<MaterialSeparationFunctorNoOp>();
+    }
+
+    /**
+     * @brief Destructor for ComputeInternalForceSmoothedCellBase.
+     */
+    virtual ~ComputeInternalForceSmoothedCellBase() = default;
+
+    /**
+     * @brief Resets anything needed for the next increment.
+     */
+    virtual void ResetForIncrement() {
+    }
+
+    /**
+     * @brief Preprocessing steps that have mesh modification.
+     */
+    virtual void PreprocessingWithMeshModification(const SmoothedCellDataSizes &smoothed_cell_data_sizes) {
+        // Preprocessing logic here
+    }
+
+    /**
+     * @brief Finishes preprocessing after instantiation and other required operations from elsewhere have been completed.
+     */
+    virtual void FinishPreprocessing() {
+        // Finish preprocessing logic here
+    }
+
+    virtual size_t NumFailedSubcells() const {
+        return 0;
+    }
+
+    virtual std::shared_ptr<void> GetMaterialSeparatorData() const {
+        return nullptr;
+    }
 
     /**
      * @brief Computes the internal force for each cell.
      * @param scd The smoothed cell data.
      */
-    void ForEachCellComputeForce(const SmoothedCellData &scd) {
-        // Get the NGP mesh
-        stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_mesh_data->GetBulkData());
+    template <typename MaterialSepartionFunctor>
+    void ForEachCellComputeForce_Impl(const SmoothedCellData &scd, MaterialSepartionFunctor &material_separation_functor) {
+        // Reset for the next increment
+        ResetForIncrement();
 
         // Get the number of cells and subcells
         const size_t num_cells = scd.NumCells();
@@ -189,6 +235,12 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
 
                 // Compute the stress, pk1_bar value if using F-bar
                 m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), &pk1_stress_n_map, pk1_stress_map);
+
+                // Handle material separation
+                if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
+                    // Do nothing in base class, but in derived classes we handle material separation
+                    material_separation_functor(subcell_id);
+                }
             });
 
         // If using f_bar, unbar the stress
@@ -326,6 +378,44 @@ class ComputeInternalForceSmoothedCell : public ComputeInternalForceBase<aperi::
                 }
             });
     }
+
+    /**
+     * @brief Computes the internal force for each cell.
+     * @param scd The smoothed cell data.
+     */
+    virtual void ForEachCellComputeForce(const SmoothedCellData &scd) {
+        // Use the no-op material separation functor by default
+        KOKKOS_ASSERT(m_material_separation_functor_no_op != nullptr);
+        ForEachCellComputeForce_Impl(scd, *m_material_separation_functor_no_op);
+    }
+
+   protected:
+    std::shared_ptr<aperi::MaterialSeparationFunctorNoOp> m_material_separation_functor_no_op;
 };
+
+/**
+ * @brief Standard implementation of internal force computation
+ */
+class AperiComputeInternalForceSmoothedCell : public ComputeInternalForceSmoothedCellBase {
+   public:
+    // Inherit constructor
+    using ComputeInternalForceSmoothedCellBase::ComputeInternalForceSmoothedCellBase;
+
+    virtual ~AperiComputeInternalForceSmoothedCell() = default;
+};
+
+}  // namespace aperi
+
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoComputeInternalForceSmoothedCell.h"
+#endif
+
+namespace aperi {
+
+#ifdef USE_PROTEGO_MECH
+typedef protego::ProtegoComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+#else
+typedef AperiComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+#endif
 
 }  // namespace aperi
