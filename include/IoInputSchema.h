@@ -485,6 +485,10 @@ YAML::Node GetInputSchema() {
     element_smoothing_cell_schema.AddAllOf(subdomains_node);
     YAML::Node element_smoothing_cell_node = element_smoothing_cell_schema.GetInputSchema();
 
+    // Deactivate subcells smaller than node
+    aperi::InputSchema deactivate_subcells_smaller_than_schema("deactivate_subcells_smaller_than", "float", "deactivate subcells smaller than this size");
+    YAML::Node deactivate_subcells_smaller_than_node = deactivate_subcells_smaller_than_schema.GetInputSchema();
+
     // Strain smoothing node
     aperi::InputSchema strain_smoothing_schema("strain_smoothing", "map", "strain smoothing");
     strain_smoothing_schema.AddOneOf(nodal_smoothing_cell_node);
@@ -493,6 +497,7 @@ YAML::Node GetInputSchema() {
     strain_smoothing_schema.AddOptional(force_two_pass_method_node);
     strain_smoothing_schema.AddOptional(use_f_bar_node);
     strain_smoothing_schema.AddOptional(activate_center_node_node);
+    strain_smoothing_schema.AddOptional(deactivate_subcells_smaller_than_node);
     YAML::Node strain_smoothing_node = strain_smoothing_schema.GetInputSchema();
 
     // Integration scheme node

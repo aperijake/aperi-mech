@@ -77,9 +77,9 @@ class MeshLabelerProcessor {
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
     }
 
-    void LabelForThexNodalIntegration() {
+    void LabelForThexNodalIntegration(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field for nodal integration
-        SetActiveFieldForNodalIntegrationHost();
+        SetActiveFieldForNodalIntegrationHost(deactivate_small_subcells, deactivate_subcells_smaller_than);
 
         // Parallel sum the active field
         ParallelSumActiveField();
@@ -193,7 +193,7 @@ class MeshLabelerProcessor {
     }
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
-    void SetActiveFieldForNodalIntegrationHost(bool prune_zero_volume_elements = true) {
+    void SetActiveFieldForNodalIntegrationHost(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field to 0 for all nodes
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
@@ -211,7 +211,7 @@ class MeshLabelerProcessor {
                 }
                 const stk::mesh::Entity *nodes = bucket->begin_nodes(i_elem);
 
-                if (prune_zero_volume_elements && GetHexVolume(nodes) < 1.e-8) {
+                if (deactivate_small_subcells && GetHexVolume(nodes) < deactivate_subcells_smaller_than) {
                     // Get the element
                     stk::mesh::Entity element = (*bucket)[i_elem];
                     // Set the m_subcell_id_field and m_cell_id_field to INVALID_ID

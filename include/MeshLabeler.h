@@ -19,7 +19,7 @@ class MeshLabeler {
     void LabelPart(const MeshLabelerParameters& mesh_labeler_parameters) {
         MeshLabelerProcessor mesh_labeler_processor(m_mesh_data, mesh_labeler_parameters.set, mesh_labeler_parameters.num_subcells, mesh_labeler_parameters.activate_center_node);
         if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
-            mesh_labeler_processor.LabelForThexNodalIntegration();
+            mesh_labeler_processor.LabelForThexNodalIntegration(mesh_labeler_parameters.deactivate_small_subcells, mesh_labeler_parameters.deactivate_subcells_smaller_than);
         } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
             mesh_labeler_processor.LabelForElementIntegration();
         } else {
