@@ -112,18 +112,20 @@ struct ShapeFunctionsFunctorReproducingKernel {
      * @param actual_num_neighbors The actual number of neighbors.
      * @return True if the kernel values form a partition of unity, false otherwise.
      */
-    KOKKOS_INLINE_FUNCTION bool CheckPartitionOfUnity(const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, size_t actual_num_neighbors) const {
+    KOKKOS_INLINE_FUNCTION bool CheckPartitionOfUnity(const Eigen::Matrix<double, MaxNumNeighbors, 1>& reproducing_kernel_values, size_t actual_num_neighbors, const Eigen::Matrix<double, MaxNumNeighbors, 1>& kernel_values, const Eigen::Matrix<double, MaxNumNeighbors, 3>& shifted_neighbor_coordinates) const {
         double warning_threshold = 1.0e-6;
         double error_threshold = 1.0e-2;
         double sum = 0.0;
         for (size_t i = 0; i < actual_num_neighbors; i++) {
-            sum += kernel_values(i, 0);
+            sum += reproducing_kernel_values(i, 0);
         }
         double diff = Kokkos::abs(sum - 1.0);
         if (diff > warning_threshold) {
-            Kokkos::printf("Sum of kernel values: %.8e\n", sum);
+            Kokkos::printf("Sum of %u kernel values: %.8e, expected 1.0\n", (unsigned int)actual_num_neighbors, sum);
             for (size_t i = 0; i < actual_num_neighbors; i++) {
-                Kokkos::printf("Kernel value %zu: %.8e\n", i, kernel_values(i, 0));
+                Kokkos::printf("Neighbor %lu: reproducing kernel value, %.8e, kernel value: %.8e, shifted coordinates: (%.8e, %.8e, %.8e)\n",
+                               (unsigned long)i, reproducing_kernel_values(i, 0), kernel_values(i, 0),
+                               shifted_neighbor_coordinates(i, 0), shifted_neighbor_coordinates(i, 1), shifted_neighbor_coordinates(i, 2));
             }
             if (diff > error_threshold) {
                 return false;
@@ -208,7 +210,7 @@ struct ShapeFunctionsFunctorReproducingKernel {
         }
 
         // Check partition of unity
-        KOKKOS_ASSERT(CheckPartitionOfUnity(function_values, actual_num_neighbors));
+        KOKKOS_ASSERT(CheckPartitionOfUnity(function_values, actual_num_neighbors, kernel_values, shifted_neighbor_coordinates));
 
         return function_values;
     }
