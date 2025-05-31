@@ -36,13 +36,19 @@ struct MeshLabelerParameters {
             if (part["formulation"]["integration_scheme"]["strain_smoothing"]["activate_center_node"]) {
                 activate_center_node = part["formulation"]["integration_scheme"]["strain_smoothing"]["activate_center_node"].as<bool>();
             }
+            if (part["formulation"]["integration_scheme"]["strain_smoothing"]["deactivate_subcells_smaller_than"]) {
+                deactivate_small_subcells = true;
+                deactivate_subcells_smaller_than = part["formulation"]["integration_scheme"]["strain_smoothing"]["deactivate_subcells_smaller_than"].as<double>();
+            }
         }
     }
 
-    SmoothingCellType smoothing_cell_type;  // The type of smoothing cell
-    size_t num_subcells;                    // The number of subcells
-    std::string set;                        // The set to process
-    bool activate_center_node;              // Whether to activate the center node
+    SmoothingCellType smoothing_cell_type;          // The type of smoothing cell
+    size_t num_subcells;                            // The number of subcells
+    std::string set;                                // The set to process
+    bool activate_center_node;                      // Whether to activate the center node
+    bool deactivate_small_subcells = false;         // Whether to deactivate subcells smaller than a certain size
+    double deactivate_subcells_smaller_than = 0.0;  // The size below which subcells are deactivated
 };
 
 }  // namespace aperi
