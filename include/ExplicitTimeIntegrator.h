@@ -379,7 +379,10 @@ class ExplicitTimeIntegrator {
           m_half_time_increment_device("HalfTimeIncrementDevice"),
           m_compute_acceleration_functor(fields.mass_field, fields.force_coefficients_field, fields.acceleration_coefficients_np1_field),
           m_compute_first_partial_update_functor(fields.velocity_coefficients_n_field, fields.acceleration_coefficients_n_field, fields.velocity_coefficients_np1_field, m_half_time_increment_device),
-          m_compute_second_partial_update_functor(fields.velocity_coefficients_np1_field, fields.acceleration_coefficients_np1_field, m_half_time_increment_device) {
+          m_compute_second_partial_update_functor(fields.velocity_coefficients_np1_field, fields.acceleration_coefficients_np1_field, m_half_time_increment_device),
+          m_bucketIds(),
+          m_syncCount(0)
+    {
     }
 
     // Destructor
@@ -395,8 +398,13 @@ class ExplicitTimeIntegrator {
     // Compute the acceleration
     void ComputeAcceleration() {
         // Loop over each entity and compute the acceleration
-        m_compute_acceleration_functor.UpdateFields();
-        ForEachNode(m_compute_acceleration_functor, *mp_mesh_data, m_active_selector);
+        if (m_syncCount < mp_mesh_data->GetBulkData()->synchronized_count()) {
+          m_compute_acceleration_functor.UpdateFields();
+          stk::mesh::NgpMesh ngpMesh = stk::mesh::get_updated_ngp_mesh(*mp_mesh_data->GetBulkData())    ;
+          m_bucketIds = ngpMesh.get_bucket_ids(stk::topology::NODE_RANK, m_active_selector());
+          m_syncCount = mp_mesh_data->GetBulkData()->synchronized_count();
+        }
+        ForEachNode(m_compute_acceleration_functor, *mp_mesh_data, m_bucketIds);
         m_compute_acceleration_functor.MarkModifiedOnDevice();
     }
 
@@ -432,6 +440,8 @@ class ExplicitTimeIntegrator {
     ComputeAccelerationFunctor m_compute_acceleration_functor;                  // Acceleration functor
     ComputeFirstPartialUpdateFunctor m_compute_first_partial_update_functor;    // First partial update functor
     ComputeSecondPartialUpdateFunctor m_compute_second_partial_update_functor;  // Second partial update functor
+    stk::NgpVector<unsigned> m_bucketIds;
+    size_t m_syncCount;
 };
 
 class ExplicitTimeIntegratorTotal : public ExplicitTimeIntegrator {

@@ -65,8 +65,8 @@ class Field {
      * @brief Get the stride of the field data.
      * @return The stride of the field data.
      */
-    KOKKOS_FUNCTION unsigned GetStride() const {
-        return m_ngp_field.get_component_stride();
+    KOKKOS_FUNCTION unsigned GetStride(const aperi::Index &index) const {
+        return m_ngp_field.get_component_stride(index());
     }
 
     /**
@@ -126,7 +126,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
     }
@@ -140,7 +140,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
     }
@@ -154,7 +154,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetConstEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
     }
@@ -167,7 +167,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }
@@ -180,7 +180,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }
@@ -193,7 +193,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
-        const unsigned component_stride = m_ngp_field.get_component_stride();
+        const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
     }

@@ -296,7 +296,7 @@ struct DataOperation {
         double *p_data_ptr = field.data(index);
         KOKKOS_ASSERT(p_data_ptr != nullptr);
 
-        unsigned stride = field.GetStride();
+        unsigned stride = field.GetStride(index);
 
         size_t ptr_index = 0;
         for (size_t i = 0; i < Rows; i++) {
