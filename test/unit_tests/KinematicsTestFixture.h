@@ -252,8 +252,9 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
     Eigen::Matrix<double, Eigen::Dynamic, 9> ComputeGreenLagrangeStrain(const Eigen::Matrix<double, Eigen::Dynamic, 9> &displacement_gradient_np1) {
         Eigen::Matrix<double, Eigen::Dynamic, 9> green_lagrange(displacement_gradient_np1.rows(), 9);
         for (size_t i = 0, e = displacement_gradient_np1.rows(); i < e; ++i) {
-            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
-            const Eigen::Matrix3d right_cauchy_green_mat = deformationt_gradient_mat.transpose() * deformationt_gradient_mat;
+            const Eigen::Matrix<double, 1, 9> &displacement_gradient_row = displacement_gradient_np1.row(i);
+            const Eigen::Matrix3d deformation_gradient_mat = displacement_gradient_row.reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
+            const Eigen::Matrix3d right_cauchy_green_mat = deformation_gradient_mat.transpose() * deformation_gradient_mat;
             const Eigen::Matrix3d green_lagrange_mat = 0.5 * (right_cauchy_green_mat - Eigen::Matrix3d::Identity());
             green_lagrange.row(i) = green_lagrange_mat.reshaped<Eigen::RowMajor>(1, 9);
         }
@@ -346,15 +347,16 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         bool has_failure = false;
         // Check that the displacement gradient is equal to the deformation gradient - identity
         for (size_t i = 0, e = displacement_gradient_np1.rows(); i < e; ++i) {
-            const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
-            const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient * previous_deformation_gradient;
+            const Eigen::Matrix<double, 1, 9> deformation_gradient_row = displacement_gradient_np1.row(i);
+            const Eigen::Matrix3d deformation_gradient_mat = deformation_gradient_row.reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
+            const Eigen::Matrix3d difference = deformation_gradient_mat - deformation_gradient * previous_deformation_gradient;
             double norm_difference = difference.norm();
             if (norm_difference > 1.0e-12) {
                 has_failure = true;
                 oss << "Displacement gradient is not equal to the deformation gradient - identity for element " << i << " of " << displacement_gradient_np1.rows() - 1 << std::endl
                     << "Norm difference for element " << i << " is: " << norm_difference << std::endl
                     << "Expected deformation gradient = " << (deformation_gradient * previous_deformation_gradient).reshaped<Eigen::RowMajor>(1, 9) << std::endl
-                    << "Output deformation gradient =   " << deformationt_gradient_mat.reshaped<Eigen::RowMajor>(1, 9) << std::endl
+                    << "Output deformation gradient =   " << deformation_gradient_mat.reshaped<Eigen::RowMajor>(1, 9) << std::endl
                     << "Increment deformation gradient = " << deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl
                     << "Previous deformation gradient =  " << previous_deformation_gradient.reshaped<Eigen::RowMajor>(1, 9) << std::endl;
             }
