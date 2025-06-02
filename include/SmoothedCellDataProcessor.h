@@ -742,7 +742,6 @@ class SmoothedCellDataProcessor {
             // Get the state field
             state = aperi::Field<double>(m_mesh_data, state_query);
         }
-        const size_t stride = state_field_exist_on_part ? state.GetStride() : 0;
 
         // Get the number of subcells
         size_t num_subcells = m_smoothed_cell_data->NumSubcells();
@@ -756,6 +755,8 @@ class SmoothedCellDataProcessor {
                 // Get the pk1_stress and displacement_gradient of the first element as Eigen maps
                 const auto first_element_pk1_stress = pk1.GetConstEigenVectorMap<num_tensor_components>(first_element);
                 const auto first_element_displacement_gradient = displacement_gradient.GetConstEigenVectorMap<num_tensor_components>(first_element);
+
+                const size_t stride = state_field_exist_on_part ? state.GetStride(first_element) : 0;
 
                 // Get the state field map if it exists
                 Eigen::InnerStride<Eigen::Dynamic> state_stride(stride);
