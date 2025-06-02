@@ -332,6 +332,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         }
 
         Eigen::Matrix3d deformation_gradient = GetRandomParallelConsistentMatrix<double, 3, 3>() * 0.1 + Eigen::Matrix3d::Identity();
+        aperi::Cout() << "Deformation gradient: " << deformation_gradient << std::endl;
         aperi::FieldQueryData<double> mesh_coordinates_field_query_data{"current_coordinates_np1", aperi::FieldQueryState::None};
         aperi::FieldQueryData<double> displacement_inc_field_query_data{"displacement_coefficients_inc", aperi::FieldQueryState::None};
         SetLinearDeformationIncrement(*m_mesh_data, m_active_part_names, mesh_coordinates_field_query_data, displacement_inc_field_query_data, deformation_gradient);
@@ -340,13 +341,21 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         CheckDisplacementIsNonZero();
 
         Eigen::Matrix<double, Eigen::Dynamic, 9> displacement_gradient_np1 = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, double, 9>(*m_mesh_data, {"block_1"}, "displacement_gradient", aperi::FieldQueryState::NP1);
+        aperi::Cout() << "Flattened displacement gradient:\n " << displacement_gradient_np1.row(0) << std::endl;
         EXPECT_GT(displacement_gradient_np1.norm(), 1.0e-12) << "Displacement gradient is zero";
+        const Eigen::Matrix3d disp_gradient_mat = displacement_gradient_np1.row(0).reshaped<Eigen::RowMajor>(3, 3);
+        aperi::Cout() << "Displacement gradient matrix:\n " << disp_gradient_mat << std::endl;
+        const Eigen::Matrix<double, 1, 9> disp_gradient_row = displacement_gradient_np1.row(0);
+        const Eigen::Matrix3d disp_gradient_row_reshaped = disp_gradient_row.reshaped<Eigen::RowMajor>(3, 3);
+        aperi::Cout() << "Displacement gradient row reshaped:\n " << disp_gradient_row_reshaped << std::endl;
 
         std::ostringstream oss;
         bool has_failure = false;
         // Check that the displacement gradient is equal to the deformation gradient - identity
         for (size_t i = 0, e = displacement_gradient_np1.rows(); i < e; ++i) {
             const Eigen::Matrix3d deformationt_gradient_mat = displacement_gradient_np1.row(i).reshaped<Eigen::RowMajor>(3, 3) + Eigen::Matrix3d::Identity();
+            aperi::Cout() << "Matrix deformation gradient for element " << i << ": " << deformationt_gradient_mat << std::endl;
+
             const Eigen::Matrix3d difference = deformationt_gradient_mat - deformation_gradient * previous_deformation_gradient;
             double norm_difference = difference.norm();
             if (norm_difference > 1.0e-12) {

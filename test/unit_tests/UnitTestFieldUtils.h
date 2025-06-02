@@ -444,6 +444,7 @@ inline void SetLinearDeformationIncrement(const aperi::MeshData& mesh_data,
         // Store displacement. Add the new displacement to the old displacement and store it in the NP1 field
         for (size_t i = 0; i < 3; i++) {
             field_data[1][i_entity_start[1] + i] = displacement(i);
+            aperi::CoutP0() << "Entity " << i_entity_start[1] << ", dof " << i << ": " << field_data[1][i_entity_start[1] + i] << std::endl;
         }
     });
 

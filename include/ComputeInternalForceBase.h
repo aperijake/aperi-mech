@@ -146,6 +146,9 @@ class ComputeInternalForceBase {
      * @todo This should be moved to a separate functor.
      */
     KOKKOS_INLINE_FUNCTION void ComputeDisplacementGradient(const aperi::Index &elem_index, const Eigen::Matrix<double, 3, 3> &input_displacement_gradient) const {
+        aperi::CoutP0() << "ComputeDisplacementGradient called for element index: (" << elem_index.bucket_id() << ", " << elem_index.bucket_ord() << ")\n";
+        aperi::CoutP0() << "  Input displacement gradient:\n"
+                        << input_displacement_gradient << "\n";
         if (m_lagrangian_formulation_type == LagrangianFormulationType::Updated || m_lagrangian_formulation_type == LagrangianFormulationType::Semi) {
             // Updated Lagrangian formulation. Displacement is the increment. B matrix is in the current configuration.
             // Calculate the displacement gradient from the increment and previous displacement gradient.
@@ -161,6 +164,8 @@ class ComputeInternalForceBase {
             // Total formulation. Displacement is the total displacement. B matrix is in the reference configuration. Input displacement gradient is the total displacement gradient.
             m_displacement_gradient_np1_field.Assign(elem_index, input_displacement_gradient);
         }
+        aperi::CoutP0() << "  Resulting displacement gradient:\n"
+                        << m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(elem_index) << "\n";
     }
 
     /**
