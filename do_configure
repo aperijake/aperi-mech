@@ -122,15 +122,6 @@ if [[ ${USE_GPU} == "ON" ]]; then
 	cmake_command+="${arch_string}\""
 fi
 
-# Add the C++ compiler to the cmake command. There has got to be a better way to do this.
-kokkos_compiler=$(spack find --show-full-compiler kokkos | grep kokkos | tail -n 1 | cut -d'%' -f2) || true
-kokkos_cxx_path=$(spack compiler info "${kokkos_compiler}" | grep 'cxx' | awk '{print $3}' | grep -v '^$') || true
-cmake_command+=" -D CMAKE_CXX_COMPILER:FILEPATH=${kokkos_cxx_path}"
-
-# Add the C compiler to the cmake command. Also, there has got to be a better way to do this.
-kokkos_c_path=$(spack compiler info "${kokkos_compiler}" | grep 'cc' | awk '{print $3}' | grep -v '^$') || true
-cmake_command+=" -D CMAKE_C_COMPILER:FILEPATH=${kokkos_c_path}"
-
 # Add the C++ flags to the cmake command
 cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"
 # cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -Wextra -Werror -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"

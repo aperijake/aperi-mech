@@ -8,12 +8,13 @@ version: "3.8"
 
 services:
   aperi-mech-gpu-development:
-    image: aperi-mech-cuda
+    image: aperi-mech:cuda-t4
     shm_size: 2gb # Shared memory size
-    network_mode: host
-    build:
-      context: .
-      dockerfile: Dockerfile_AperiMech_Ubuntu2404_Nvidia
+    network_mode:
+      host
+      # build:
+      #   context: .
+      #   dockerfile: Dockerfile_AperiMech_Ubuntu2404_Nvidia
     volumes:
       - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech
       - /home/azureuser/eigen:/home/aperi-mech_docker/eigen

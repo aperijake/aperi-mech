@@ -105,7 +105,7 @@ class FieldTestFixture : public ::testing::Test {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 KOKKOS_ASSERT(ngp_field.get_num_components_per_entity(entity) == NumRows * NumColumns);
                 T *values = &ngp_field(entity, 0);
-                const unsigned component_stride = ngp_field.get_component_stride();
+                const unsigned component_stride = ngp_field.get_component_stride(entity);
 
                 size_t component = 0;
                 // Loop over the rows and columns, row major
@@ -142,7 +142,7 @@ class FieldTestFixture : public ::testing::Test {
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
                 KOKKOS_ASSERT(ngp_field.get_num_components_per_entity(entity) == NumRows * NumColumns);
                 double *values = &ngp_field(entity, 0);
-                const unsigned component_stride = ngp_field.get_component_stride();
+                const unsigned component_stride = ngp_field.get_component_stride(entity);
 
                 // Create an Eigen::Map to the values
                 Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, NumColumns * component_stride);

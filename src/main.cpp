@@ -1,3 +1,4 @@
+#include <Trilinos_version.h>
 #include <mpi.h>
 
 #include <Kokkos_Core.hpp>
@@ -5,6 +6,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <stk_util/Version.hpp>
 #include <string>
 
 #include "Application.h"
@@ -39,6 +41,8 @@ void PrintHeader() {
     PrintVersion();
     aperi::CoutP0() << "  Git Branch: " << GIT_BRANCH << std::endl;
     aperi::CoutP0() << "  Git Tag: " << GIT_TAG << std::endl;
+    aperi::CoutP0() << "  Trilinos Version: " << TRILINOS_VERSION_STRING << std::endl;
+    aperi::CoutP0() << "  STK Version: " << stk::version_string() << std::endl;
     aperi::CoutP0() << "  Build Date: " << BUILD_DATE << std::endl;
     aperi::CoutP0() << "  Build Time: " << BUILD_TIME << std::endl;
     if (std::string(PROTEGO_MECH) == "ON") {
