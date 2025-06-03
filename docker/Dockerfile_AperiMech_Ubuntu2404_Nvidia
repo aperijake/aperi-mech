@@ -167,13 +167,13 @@ RUN python3 -m venv ${HOME}/venv
 
 # Use the virtual environment for pip installations
 RUN ${HOME}/venv/bin/pip install --no-input --no-cache-dir \
-    pytest==8.3.2 \
+    pytest==8.4.0 \
     testbook==0.4.2 \
     jupyter==1.0.0 \
     jupyterlab==4.2.4 \
     numpy==2.0.1 \
-    scipy==1.14.0 \
-    matplotlib==3.9.1 \
+    scipy==1.15.3 \
+    matplotlib==3.10.3 \
     ipykernel==6.29.5 \
     meshio==5.3.5 \
     netCDF4==1.7.1.post1 \
@@ -190,6 +190,9 @@ ENV PATH="${HOME}/venv/bin:${HOME}/.local/bin:$PATH"
 # Clone Spack repo
 RUN git clone --depth=2 https://github.com/spack/spack.git ${HOME}/spack
 
+RUN sed -i 's/kokkos@=4.6.00/kokkos@=4.6.01/' ${HOME}/spack/var/spack/repos/spack_repo/builtin/packages/trilinos/package.py && \
+    sed -i 's/kokkos-kernels@=4.6.00/kokkos-kernels@=4.6.01/' ${HOME}/spack/var/spack/repos/spack_repo/builtin/packages/trilinos/package.py
+
 # Set up Spack environment
 ENV SPACK_ROOT=${HOME}/spack
 ENV PATH="$SPACK_ROOT/bin:$PATH"
@@ -202,10 +205,11 @@ RUN spack compiler find && \
 
 # Manually add CUDA to Spack packages.yaml
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+    CUDA_VER=$(nvcc --version | grep "release" | sed 's/.*release //' | awk '{print $1}' | cut -d',' -f1) && \
     mkdir -p ~/.spack && \
     echo "  cuda:" >> ~/.spack/packages.yaml && \
     echo "    externals:" >> ~/.spack/packages.yaml && \
-    echo "    - spec: cuda@12.6.3" >> ~/.spack/packages.yaml && \
+    echo "    - spec: cuda@${CUDA_VER}" >> ~/.spack/packages.yaml && \
     echo "      prefix: /usr/local/cuda" >> ~/.spack/packages.yaml && \
     echo "    buildable: false" >> ~/.spack/packages.yaml
 
@@ -215,12 +219,12 @@ RUN spack env create aperi-mech
 # Add packages to the Spack environment, aperi-mech
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels +cuda ~shared cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add kokkos +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add trilinos@master ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos-kernels@4.6.01 +cuda ~shared cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add kokkos@4.6.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
+    spack -e aperi-mech add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
-    spack -e aperi-mech add eigen@master
+    spack -e aperi-mech add eigen
 
 # Explicitly concretize (saves the full dependency plan)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
@@ -244,17 +248,17 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech install trilinos
 
-# Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
-RUN spack env create seacas
-
-# Add packages to the Spack environment, seacas
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e seacas add openmpi && \
-    spack -e seacas add seacas ~mpi ~tests ~x11
-
-# Install Packages, seacas, with parallel builds
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e seacas install --fresh
+# # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
+# RUN spack env create seacas
+#
+# # Add packages to the Spack environment, seacas
+# RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+#     spack -e seacas add openmpi && \
+#     spack -e seacas add seacas ~mpi ~tests ~x11
+#
+# # Install Packages, seacas, with parallel builds
+# RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+#     spack -e seacas install --fresh
 
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc

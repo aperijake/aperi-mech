@@ -167,7 +167,7 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17 && \
     spack -e aperi-mech add googletest@1.14.0 && \
     spack -e aperi-mech add yaml-cpp@0.7.0 && \
-    spack -e aperi-mech add eigen@master
+    spack -e aperi-mech add eigen
 
 # Explicitly concretize (saves the full dependency plan)
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
