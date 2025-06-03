@@ -31,9 +31,11 @@ displacement_gradients:
         - [0.0, 0.0, 1.0]
 */
 
-class MaterialDriverTest : public ::testing::Test {
+class MaterialDriverTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
         int num_procs;
         MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
@@ -81,6 +83,11 @@ class MaterialDriverTest : public ::testing::Test {
 
         // Finally, add the displacement_gradients_node to the main input node
         m_input_node["displacement_gradients"] = displacement_gradients_node;
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     YAML::Node m_input_node;

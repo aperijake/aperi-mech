@@ -2,6 +2,7 @@
 
 #include <thread>  // For std::this_thread::sleep_for
 
+#include "CaptureOutputTestFixture.h"
 #include "Timer.h"
 
 namespace aperi {
@@ -18,7 +19,18 @@ enum class NestedTestTimerType {
     NONE  // This should always be the last element
 };
 
-class TimerTest : public ::testing::Test {
+class TimerTest : public CaptureOutputTest {
+   protected:
+    void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
+    }
+
    public:
     TimerTest() : m_timer_manager("", {}) {
         std::map<TestTimerType, std::string> timer_names = {{TestTimerType::TIMER1, "Timer1"}, {TestTimerType::TIMER2, "Timer2"}};

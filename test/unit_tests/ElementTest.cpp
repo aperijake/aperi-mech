@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "CaptureOutputTestFixture.h"
 #include "Constants.h"
 #include "Element.h"
 #include "EntityProcessor.h"
@@ -18,9 +19,11 @@
 #include "SmoothedCellData.h"
 #include "UnitTestUtils.h"
 
-class CreateElementStrainSmoothedTest : public ::testing::Test {
+class CreateElementStrainSmoothedTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
         m_io_mesh_parameters = std::make_shared<aperi::IoMeshParameters>();
         m_io_mesh_parameters->compose_output = true;
         m_io_mesh_parameters->mesh_type = "generated";
@@ -31,6 +34,11 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         m_expected_volume = m_num_elems_z;
 
         m_mesh_string = "1x1x" + std::to_string(m_num_elems_z) + "|tets";
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     // Run the strain smoothed formulation

@@ -298,5 +298,5 @@ TEST_F(CompadreTest, GMLSTutorialExample) {
         EXPECT_NEAR(actual_value, gmls_value, failure_tolerance);
     }
 
-    std::cout << "Max error: " << max_error << std::endl;
+    EXPECT_LT(max_error, failure_tolerance);
 }
