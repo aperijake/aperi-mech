@@ -10,10 +10,11 @@ services:
   aperi-mech-development:
     image: aperi-mech:latest
     shm_size: 2gb # Shared memory size
-    network_mode: host
-    build:
-      context: .
-      dockerfile: Dockerfile_AperiMech_Ubuntu2204
+    network_mode:
+      host
+      # build:
+      #   context: .
+      #   dockerfile: Dockerfile_AperiMech_Ubuntu2204
     volumes:
       - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech
       - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1

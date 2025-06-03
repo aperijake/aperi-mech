@@ -248,18 +248,6 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
 RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     spack -e aperi-mech install trilinos
 
-# # Create a new Spack environment, for seacas. Want seacas without mpi, which causes conflicts with trilinos
-# RUN spack env create seacas
-#
-# # Add packages to the Spack environment, seacas
-# RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-#     spack -e seacas add openmpi && \
-#     spack -e seacas add seacas ~mpi ~tests ~x11
-#
-# # Install Packages, seacas, with parallel builds
-# RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-#     spack -e seacas install --fresh
-
 # Add the spack source command to the bashrc
 RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
 
