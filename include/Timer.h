@@ -18,8 +18,15 @@ namespace aperi {
 
 class ScopedTimer {
    public:
-    ScopedTimer(double& result, bool accurate_timer) : m_result(result), m_start(std::chrono::high_resolution_clock::now()), m_accurate_timer(accurate_timer) {}
+    ScopedTimer(double& result, bool accurate_timer) : m_result(result), m_start(std::chrono::high_resolution_clock::now()), m_accurate_timer(accurate_timer) {
+        if (m_accurate_timer) {
+            Kokkos::fence();  // Ensure all Kokkos operations are complete before measuring time
+        }
+    }
     ScopedTimer(double& result, const std::string& message, bool accurate_timer) : m_result(result), m_print_message(true), m_start(std::chrono::high_resolution_clock::now()), m_accurate_timer(accurate_timer) {
+        if (m_accurate_timer) {
+            Kokkos::fence();  // Ensure all Kokkos operations are complete before measuring time
+        }
         aperi::CoutP0() << "----------------------------------------" << std::endl;
         aperi::CoutP0() << "  " << message << std::endl;
     }
