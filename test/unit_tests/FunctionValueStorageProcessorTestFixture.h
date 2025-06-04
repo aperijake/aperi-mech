@@ -30,7 +30,8 @@ class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorT
 
         // Create the function value storage processor
         const std::vector<std::string> sets = {};
-        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, sets, aperi::LagrangianFormulationType::Total);
+        bool enable_accurate_timers = false;
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, sets, aperi::LagrangianFormulationType::Total, enable_accurate_timers);
     }
 
     void ResetFunctionValueStorageProcessor() {

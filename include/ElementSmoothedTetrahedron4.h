@@ -42,15 +42,21 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
         const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool use_f_bar)
+        bool use_f_bar,
+        bool enable_accurate_timers)
         : ElementBase(TET4_NUM_NODES,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters),
+                      mesh_labeler_parameters,
+                      enable_accurate_timers),
           m_use_f_bar(use_f_bar) {
+        // F bar not supported for this element type right now
+        if (m_use_f_bar) {
+            std::runtime_error("F bar is not supported for ElementSmoothedTetrahedron4.");
+        }
         // Initialize element processing
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -91,14 +97,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
     void FindNeighbors() {
         // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names);
+        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names, m_timer_manager->AreAccurateTimersEnabled());
         bool set_first_function_value_to_one = true;
         search_processor.add_nodes_ring_0_nodes(set_first_function_value_to_one);
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
 
     void CreateSmoothedCellDataProcessor() {
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar, m_timer_manager->AreAccurateTimersEnabled());
     }
 
     void LabelParts() {

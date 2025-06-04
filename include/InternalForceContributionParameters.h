@@ -206,12 +206,24 @@ inline std::shared_ptr<IntegrationSchemeParameters> CreateIntegrationScheme(cons
     }
 }
 
+struct DiagnosticParameters {
+    // Default constructor
+    DiagnosticParameters() = default;
+
+    // Constructor
+    DiagnosticParameters(const bool enable_accurate_timers_in) : enable_accurate_timers(enable_accurate_timers_in) {}
+
+    virtual ~DiagnosticParameters() = default;
+
+    bool enable_accurate_timers = false;  // Enable accurate timers
+};
+
 struct InternalForceContributionParameters {
     // Default constructor
     InternalForceContributionParameters() = default;
 
     // Constructor using YAML node
-    InternalForceContributionParameters(const YAML::Node& part, const std::shared_ptr<IoInputFile>& io_input_file, std::shared_ptr<aperi::MeshData> input_mesh_data) {
+    InternalForceContributionParameters(const YAML::Node& part, const std::shared_ptr<IoInputFile>& io_input_file, std::shared_ptr<aperi::MeshData> input_mesh_data, bool enable_accurate_timers = false) {
         YAML::Node material_node = io_input_file->GetMaterialFromPart(part);
         material = CreateMaterial(material_node);
         mesh_data = input_mesh_data;
@@ -229,6 +241,7 @@ struct InternalForceContributionParameters {
         if (part["formulation"]) {
             mesh_labeler_parameters = MeshLabelerParameters(part);
         }
+        diagnostic_parameters = DiagnosticParameters(enable_accurate_timers);
     }
 
     virtual ~InternalForceContributionParameters() = default;
@@ -240,6 +253,7 @@ struct InternalForceContributionParameters {
     std::shared_ptr<IntegrationSchemeParameters> integration_scheme_parameters = nullptr;
     LagrangianFormulationType lagrangian_formulation_type = LagrangianFormulationType::Total;
     MeshLabelerParameters mesh_labeler_parameters;
+    DiagnosticParameters diagnostic_parameters;
 };
 
 }  // namespace aperi

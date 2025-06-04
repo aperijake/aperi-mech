@@ -11,19 +11,30 @@
 #include <string>
 #include <vector>
 
+#include "Kokkos_Core.hpp"
 #include "LogUtils.h"
 
 namespace aperi {
 
 class ScopedTimer {
    public:
-    ScopedTimer(double& result) : m_result(result), m_start(std::chrono::high_resolution_clock::now()) {}
-    ScopedTimer(double& result, const std::string& message) : m_result(result), m_print_message(true), m_start(std::chrono::high_resolution_clock::now()) {
+    ScopedTimer(double& result, bool accurate_timer) : m_result(result), m_start(std::chrono::high_resolution_clock::now()), m_accurate_timer(accurate_timer) {
+        if (m_accurate_timer) {
+            Kokkos::fence();  // Ensure all Kokkos operations are complete before measuring time
+        }
+    }
+    ScopedTimer(double& result, const std::string& message, bool accurate_timer) : m_result(result), m_print_message(true), m_start(std::chrono::high_resolution_clock::now()), m_accurate_timer(accurate_timer) {
+        if (m_accurate_timer) {
+            Kokkos::fence();  // Ensure all Kokkos operations are complete before measuring time
+        }
         aperi::CoutP0() << "----------------------------------------" << std::endl;
         aperi::CoutP0() << "  " << message << std::endl;
     }
 
     ~ScopedTimer() {
+        if (m_accurate_timer) {
+            Kokkos::fence();  // Ensure all Kokkos operations are complete before measuring time
+        }
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - m_start;
         m_result += duration.count();
@@ -37,6 +48,7 @@ class ScopedTimer {
     double& m_result;
     bool m_print_message = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+    bool m_accurate_timer;
 };
 
 class TimerManagerBase {
@@ -53,17 +65,17 @@ class TimerManagerBase {
 template <typename TimerType>
 class TimerManager : public TimerManagerBase {
    public:
-    TimerManager(const std::string& group_name, const std::map<TimerType, std::string>& timer_names)
-        : m_timer_group_name(group_name), m_timer_names(timer_names) {
+    TimerManager(const std::string& group_name, const std::map<TimerType, std::string>& timer_names, bool enable_accurate_timers)
+        : m_timer_group_name(group_name), m_timer_names(timer_names), m_enable_accurate_timers(enable_accurate_timers) {
         m_timers.resize(static_cast<size_t>(TimerType::NONE), 0.0);
     }
 
     ScopedTimer CreateScopedTimer(TimerType type) {
-        return ScopedTimer(m_timers[static_cast<size_t>(type)]);
+        return ScopedTimer(m_timers[static_cast<size_t>(type)], m_enable_accurate_timers);
     }
 
     ScopedTimer CreateScopedTimerWithInlineLogging(TimerType type, const std::string& message) {
-        return ScopedTimer(m_timers[static_cast<size_t>(type)], message);
+        return ScopedTimer(m_timers[static_cast<size_t>(type)], message, m_enable_accurate_timers);
     }
 
     double GetTotalTime(TimerType type) const {
@@ -197,6 +209,10 @@ class TimerManager : public TimerManagerBase {
         return m_timer_group_name;
     }
 
+    bool AreAccurateTimersEnabled() const {
+        return m_enable_accurate_timers;
+    }
+
    private:
     void PrintLine(const size_t width) const {
         for (size_t i = 0; i < width; ++i) {
@@ -209,6 +225,7 @@ class TimerManager : public TimerManagerBase {
     std::string m_timer_group_name;                             // The name of the group of timers
     std::map<TimerType, std::string> m_timer_names;             // The names of the timers
     std::vector<std::shared_ptr<TimerManagerBase>> m_children;  // Child TimerManagers
+    bool m_enable_accurate_timers;                              // Flag to enable accurate timers
 };
 
 }  // namespace aperi

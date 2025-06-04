@@ -74,12 +74,13 @@ class SmoothedCellDataProcessor {
         const std::vector<std::string> &sets,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
         const aperi::MeshLabelerParameters &mesh_labeler_parameters,
-        bool use_f_bar = false) : m_mesh_data(mesh_data),
-                                  m_sets(sets),
-                                  m_lagrangian_formulation_type(lagrangian_formulation_type),
-                                  m_mesh_labeler_parameters(mesh_labeler_parameters),
-                                  m_use_f_bar(use_f_bar),
-                                  m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map) {
+        bool use_f_bar,
+        bool enable_accurate_timers) : m_mesh_data(mesh_data),
+                                       m_sets(sets),
+                                       m_lagrangian_formulation_type(lagrangian_formulation_type),
+                                       m_mesh_labeler_parameters(mesh_labeler_parameters),
+                                       m_use_f_bar(use_f_bar),
+                                       m_timer_manager("Strain Smoothing Processor", strain_smoothing_timer_map, enable_accurate_timers) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
@@ -96,7 +97,7 @@ class SmoothedCellDataProcessor {
         m_owned_selector = m_selector & meta_data->locally_owned_part();
 
         // Create the smoothed cell timer manager
-        m_smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map);
+        m_smoothed_cell_timer_manager = std::make_shared<aperi::TimerManager<SmoothedCellDataTimerType>>("Smoothed Cell Data", smoothed_cell_data_timer_map, enable_accurate_timers);
 
         // Add the smoothed cell timer manager to the timer manager
         m_timer_manager.AddChild(m_smoothed_cell_timer_manager);

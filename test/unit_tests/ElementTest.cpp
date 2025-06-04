@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "CaptureOutputTestFixture.h"
 #include "Constants.h"
 #include "Element.h"
 #include "EntityProcessor.h"
@@ -18,9 +19,11 @@
 #include "SmoothedCellData.h"
 #include "UnitTestUtils.h"
 
-class CreateElementStrainSmoothedTest : public ::testing::Test {
+class CreateElementStrainSmoothedTest : public CaptureOutputTest {
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
         m_io_mesh_parameters = std::make_shared<aperi::IoMeshParameters>();
         m_io_mesh_parameters->compose_output = true;
         m_io_mesh_parameters->mesh_type = "generated";
@@ -31,6 +34,11 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         m_expected_volume = m_num_elems_z;
 
         m_mesh_string = "1x1x" + std::to_string(m_num_elems_z) + "|tets";
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     // Run the strain smoothed formulation
@@ -82,10 +90,11 @@ class CreateElementStrainSmoothedTest : public ::testing::Test {
         auto material = std::make_shared<aperi::Material>(material_properties);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material, false /* enable_accurate_timers */);
         // Do the neighbor search
         aperi::ReproducingKernelInfo reproducing_kernel_infos = m_element->GetReproducingKernelInfo();
-        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos);
+        bool enable_accurate_timers = false;  // Not needed for this test
+        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos, enable_accurate_timers);
         m_element->FinishPreprocessing();
 
         std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;

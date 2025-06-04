@@ -14,6 +14,7 @@
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/Types.hpp>
 
+#include "CaptureOutputTestFixture.h"
 #include "Constants.h"
 #include "FieldData.h"
 #include "MaxEdgeLengthProcessor.h"
@@ -21,13 +22,20 @@
 #include "MeshLabeler.h"
 #include "NeighborSearchProcessor.h"
 
-class NeighborSearchProcessorTestFixture : public ::testing::Test {
+class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     using DoubleField = stk::mesh::Field<double>;
     using UnsignedField = stk::mesh::Field<uint64_t>;
     using UnsignedLongField = stk::mesh::Field<unsigned long>;
 
    protected:
     void SetUp() override {
+        // Run CaptureOutputTest::SetUp first
+        CaptureOutputTest::SetUp();
+    }
+
+    void TearDown() override {
+        // Run CaptureOutputTest::TearDown last
+        CaptureOutputTest::TearDown();
     }
 
     void CreateMeshAndPopulateFields(size_t num_elements_x, size_t num_elements_y, size_t num_elements_z, std::string extra_mesh_spec = "|tets") {
@@ -99,7 +107,8 @@ class NeighborSearchProcessorTestFixture : public ::testing::Test {
     void CreateSearchProcessor() {
         // Create the NeighborSearchProcessor
         std::vector<std::string> sets = {"block_1"};
-        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, sets);
+        bool enable_accurate_timers = false;
+        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, sets, enable_accurate_timers);
     }
 
     void CreateMaxEdgeLengthProcessor() {

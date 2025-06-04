@@ -24,13 +24,13 @@ class IoMesh;
 class InternalForceContribution;
 class ExternalForceContribution;
 
-inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelInfo& reproducing_kernel_info) {
+inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelInfo& reproducing_kernel_info, bool enable_accurate_timers) {
     if (reproducing_kernel_info.part_names.empty()) {
         return;
     }
 
     // Loop over all elements and store the neighbors
-    aperi::NeighborSearchProcessor search_processor(mesh_data, reproducing_kernel_info.part_names);
+    aperi::NeighborSearchProcessor search_processor(mesh_data, reproducing_kernel_info.part_names, enable_accurate_timers);
     search_processor.add_nodes_neighbors_within_variable_ball(reproducing_kernel_info.part_names, reproducing_kernel_info.kernel_radius_scale_factors, false /*add debug fields*/);
 
     search_processor.SyncFieldsToHost();  // Just needed for output
@@ -68,7 +68,7 @@ inline void SetFieldDataForLagrangianFormulation(std::shared_ptr<MeshData> mesh_
  * @param boundary_conditions The vector of boundary conditions.
  * @return void
  */
-inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type) {
+inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type, bool enable_accurate_timers) {
     // Get the mesh data
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
@@ -90,7 +90,7 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
             reproducing_kernel_info.kernel_radius_scale_factors.insert(reproducing_kernel_info.kernel_radius_scale_factors.end(), this_reproducing_kernel_info.kernel_radius_scale_factors.begin(), this_reproducing_kernel_info.kernel_radius_scale_factors.end());
         }
     }
-    FindNeighbors(mesh_data, reproducing_kernel_info);
+    FindNeighbors(mesh_data, reproducing_kernel_info, enable_accurate_timers);
     for (const auto& force_contribution : force_contributions) {
         force_contribution->FinishPreprocessing();
     }

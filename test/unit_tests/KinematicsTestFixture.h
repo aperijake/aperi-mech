@@ -137,7 +137,8 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         mesh_labeler_parameters.activate_center_node = activate_center_node;
 
         // Create the strain smoothing processor
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar);
+        bool enable_accurate_timers = false;
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar, enable_accurate_timers);
 
         // Build the smoothed cell data
         m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<aperi::HEX8_NUM_NODES>(num_neighbors, use_one_pass_method);
