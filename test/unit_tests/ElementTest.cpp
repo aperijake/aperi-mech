@@ -90,10 +90,11 @@ class CreateElementStrainSmoothedTest : public CaptureOutputTest {
         auto material = std::make_shared<aperi::Material>(material_properties);
 
         // Create the element. This will do the neighbor search, compute the shape functions, and do strain smoothing.
-        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material);
+        m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material, false /* enable_accurate_timers */);
         // Do the neighbor search
         aperi::ReproducingKernelInfo reproducing_kernel_infos = m_element->GetReproducingKernelInfo();
-        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos);
+        bool enable_accurate_timers = false;  // Not needed for this test
+        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos, enable_accurate_timers);
         m_element->FinishPreprocessing();
 
         std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;

@@ -46,7 +46,8 @@ class ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters& mesh_labeler_parameters)
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters,
+        bool enable_accurate_timers)
         : m_num_nodes(num_nodes),
           m_material(material),
           m_displacement_field_name(displacement_field_name),
@@ -54,7 +55,7 @@ class ElementBase {
           m_mesh_data(mesh_data),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_mesh_labeler_parameters(mesh_labeler_parameters) {
-        m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map);
+        m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map, enable_accurate_timers);
     }
 
     virtual ~ElementBase() = default;

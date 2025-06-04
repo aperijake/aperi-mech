@@ -40,14 +40,16 @@ class ElementTetrahedron4 : public ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters &mesh_labeler_parameters)
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters,
+        bool enable_accurate_timers)
         : ElementBase(TET4_NUM_NODES,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters) {
+                      mesh_labeler_parameters,
+                      enable_accurate_timers) {
         CreateFunctors();
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -90,7 +92,7 @@ class ElementTetrahedron4 : public ElementBase {
     }
 
     void CreateSmoothedCellDataProcessor() {
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters);
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, false /* use_f_bar */, m_timer_manager->AreAccurateTimersEnabled());
     }
 
     void LabelParts() {

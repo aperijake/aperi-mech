@@ -32,19 +32,20 @@ class TimerTest : public CaptureOutputTest {
     }
 
    public:
-    TimerTest() : m_timer_manager("", {}) {
+    TimerTest() : m_timer_manager("", {}, false) {
         std::map<TestTimerType, std::string> timer_names = {{TestTimerType::TIMER1, "Timer1"}, {TestTimerType::TIMER2, "Timer2"}};
-        m_timer_manager = TimerManager<TestTimerType>("group", timer_names);
+        m_timer_manager = TimerManager<TestTimerType>("group", timer_names, m_enable_accurate_timers);
     }
 
    protected:
     TimerManager<TestTimerType> m_timer_manager;
+    bool m_enable_accurate_timers = false;  // Flag to enable accurate timers
 };
 
 TEST_F(TimerTest, ScopedTimerMeasuresTimeCorrectly) {
     double measured_time = 0.0;
     {
-        ScopedTimer timer(measured_time);
+        ScopedTimer timer(measured_time, m_enable_accurate_timers);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     EXPECT_GE(measured_time, 0.1);  // Expect at least 100 milliseconds
@@ -78,7 +79,7 @@ TEST_F(TimerTest, NestedTimerManagerAccumulatesTimeCorrectly) {
 
     // Create a nested timer
     std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names, m_enable_accurate_timers);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
@@ -127,7 +128,7 @@ TEST_F(TimerTest, NestedTimerManagerPrintsTimers) {
     }
     // Create a nested timer
     std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names, m_enable_accurate_timers);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);
@@ -217,7 +218,7 @@ TEST_F(TimerTest, NestedTimerManagerWriteCSV) {
     }
     // Create a nested timer
     std::map<NestedTestTimerType, std::string> nested_timer_names = {{NestedTestTimerType::CHILD_TIMER1, "ChildTimer1"}, {NestedTestTimerType::CHILD_TIMER2, "ChildTimer2"}};
-    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names);
+    auto child_timer_manager = std::make_shared<aperi::TimerManager<NestedTestTimerType>>("child_group", nested_timer_names, m_enable_accurate_timers);
     m_timer_manager.AddChild(child_timer_manager);
     {
         auto timer = child_timer_manager->CreateScopedTimer(NestedTestTimerType::CHILD_TIMER1);

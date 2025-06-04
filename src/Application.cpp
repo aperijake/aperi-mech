@@ -168,7 +168,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
         // Create InternalForceContributionParameters
         std::string part_name = part["set"].as<std::string>();
         aperi::CoutP0() << "      " << part_name << std::endl;
-        InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData());
+        InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData(), timer_manager->AreAccurateTimersEnabled());
         internal_force_contribution_parameters.lagrangian_formulation_type = lagrangian_formulation_type;
         internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         std::vector<aperi::FieldData> part_field_data = internal_force_contribution_parameters.material->GetFieldData();
@@ -270,14 +270,15 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::Preprocessing, "Pre-processing");
 
     // Run pre-processing
-    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
+    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type, timer_manager->AreAccurateTimersEnabled());
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << "\n\n############################################" << std::endl;
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
-    auto timer_manager = std::make_shared<aperi::TimerManager<ApplicationTimerType>>("Application Setup", application_timer_map);
+    bool enable_accurate_timers = m_dump_performance_data;
+    auto timer_manager = std::make_shared<aperi::TimerManager<ApplicationTimerType>>("Application Setup", application_timer_map, enable_accurate_timers);
 
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
@@ -376,7 +377,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler, enable_accurate_timers);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;

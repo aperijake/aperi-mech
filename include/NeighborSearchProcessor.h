@@ -80,7 +80,7 @@ class NeighborSearchProcessor {
         {NeighborSearchProcessorTimerType::NONE, "NONE"}};
 
    public:
-    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names_map) {
+    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, bool enable_accurate_timers) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names_map, enable_accurate_timers) {
         // Throw an exception if the mesh data is null.
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
