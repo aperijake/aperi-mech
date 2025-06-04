@@ -27,15 +27,11 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
 class MaxEdgeLengthProcessor {
-    using DoubleField = stk::mesh::Field<double>;
-    using NgpDoubleField = stk::mesh::NgpField<double>;
-    using UnsignedField = stk::mesh::Field<unsigned long>;
-    using NgpUnsignedField = stk::mesh::NgpField<unsigned long>;
-
    public:
     MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
         // Throw an exception if the mesh data is null.
@@ -125,18 +121,18 @@ class MaxEdgeLengthProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::vector<std::string> m_sets;               // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_active_selector;         // The active selector
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-    DoubleField *m_coordinates_field;              // The coordinates field
-    UnsignedField *m_node_active_field;            // The active field
-    DoubleField *m_max_edge_length_field;          // The kernel radius field
-    NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
-    NgpUnsignedField *m_ngp_node_active_field;     // The ngp active field
-    NgpDoubleField *m_ngp_max_edge_length_field;   // The ngp kernel radius field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;   // The mesh data object.
+    std::vector<std::string> m_sets;                // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
+    stk::mesh::Selector m_selector;                 // The selector
+    stk::mesh::Selector m_active_selector;          // The active selector
+    stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
+    DoubleField *m_coordinates_field;               // The coordinates field
+    UnsignedLongField *m_node_active_field;         // The active field
+    DoubleField *m_max_edge_length_field;           // The kernel radius field
+    NgpDoubleField *m_ngp_coordinates_field;        // The ngp coordinates field
+    NgpUnsignedLongField *m_ngp_node_active_field;  // The ngp active field
+    NgpDoubleField *m_ngp_max_edge_length_field;    // The ngp kernel radius field
 };
 
 }  // namespace aperi

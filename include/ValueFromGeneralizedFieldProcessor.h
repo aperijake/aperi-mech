@@ -24,16 +24,12 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
 template <size_t NumFields>
 class ValueFromGeneralizedFieldProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
    public:
     ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData<double>, NumFields> source_field_query_data, const std::array<FieldQueryData<double>, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.

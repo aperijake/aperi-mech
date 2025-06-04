@@ -26,6 +26,7 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
+#include "Types.h"
 
 namespace aperi {
 enum class FunctionValueStorageProcessorTimerType {
@@ -49,11 +50,6 @@ namespace aperi {
 #ifndef USE_PROTEGO_MECH
 
 class FunctionValueStorageProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
    public:
     FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool enable_accurate_timers) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map, enable_accurate_timers) {
         // Throw an exception if the mesh data is null.

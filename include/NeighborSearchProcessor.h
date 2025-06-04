@@ -34,16 +34,11 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
+#include "Types.h"
 
 namespace aperi {
 
 class NeighborSearchProcessor {
-    using DoubleField = stk::mesh::Field<double>;
-    using NgpDoubleField = stk::mesh::NgpField<double>;
-    using UnsignedField = stk::mesh::Field<uint64_t>;
-    using NgpUnsignedField = stk::mesh::NgpField<uint64_t>;
-    using UnsignedLongField = stk::mesh::Field<unsigned long>;
-    using NgpUnsignedLongField = stk::mesh::NgpField<unsigned long>;
     using ExecSpace = stk::ngp::ExecSpace;
     using NodeIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
     using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<double>, NodeIdentProc>;

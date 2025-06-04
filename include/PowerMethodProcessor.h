@@ -36,6 +36,7 @@
 #include "LogUtils.h"
 #include "MeshData.h"
 #include "Solver.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -85,11 +86,6 @@ struct PowerMethodStats {
 
 // Power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step
 class PowerMethodProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
     // Define and enum for the field index
     enum FieldIndex { DISPLACEMENT = 0,
                       DISPLACEMENT_IN,

@@ -21,12 +21,9 @@
 #include "MeshData.h"
 #include "MeshLabeler.h"
 #include "NeighborSearchProcessor.h"
+#include "Types.h"
 
 class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
-    using DoubleField = stk::mesh::Field<double>;
-    using UnsignedField = stk::mesh::Field<uint64_t>;
-    using UnsignedLongField = stk::mesh::Field<unsigned long>;
-
    protected:
     void SetUp() override {
         // Run CaptureOutputTest::SetUp first
@@ -162,14 +159,14 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     std::shared_ptr<stk::mesh::BulkData> m_bulk_data;
     std::shared_ptr<stk::io::StkMeshIoBroker> m_mesh_reader;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    UnsignedField *m_node_num_neighbors_field;
-    UnsignedField *m_node_neighbors_field;
-    UnsignedLongField *m_node_active_field;
-    UnsignedField *m_cell_id_field;
-    UnsignedField *m_subcell_id_field;
-    DoubleField *m_node_neighbors_function_values_field;
-    DoubleField *m_kernel_radius_field;
-    DoubleField *m_max_edge_length_field;
+    aperi::UnsignedField *m_node_num_neighbors_field;
+    aperi::UnsignedField *m_node_neighbors_field;
+    aperi::UnsignedLongField *m_node_active_field;
+    aperi::UnsignedField *m_cell_id_field;
+    aperi::UnsignedField *m_subcell_id_field;
+    aperi::DoubleField *m_node_neighbors_function_values_field;
+    aperi::DoubleField *m_kernel_radius_field;
+    aperi::DoubleField *m_max_edge_length_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
     std::shared_ptr<aperi::MaxEdgeLengthProcessor> m_max_edge_length_processor;

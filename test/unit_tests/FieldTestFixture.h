@@ -19,8 +19,7 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "MeshData.h"
-
-using DoubleField = stk::mesh::Field<double>;
+#include "Types.h"
 
 class FieldTestFixture : public ::testing::Test {
    protected:
@@ -42,19 +41,19 @@ class FieldTestFixture : public ::testing::Test {
 
         // Create the fields
         // Declare a nodal field, stated field
-        DoubleField *p_nodal_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field", 2);
+        aperi::DoubleField *p_nodal_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field", 2);
         stk::mesh::put_field_on_entire_mesh(*p_nodal_field, 3);
         stk::io::set_field_output_type(*p_nodal_field, stk::io::FieldOutputType::VECTOR_3D);
         stk::io::set_field_role(*p_nodal_field, Ioss::Field::TRANSIENT);
 
         // Declare another nodal field, not stated field
-        DoubleField *p_nodal_field_2 = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field_2", 1);
+        aperi::DoubleField *p_nodal_field_2 = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "nodal_field_2", 1);
         stk::mesh::put_field_on_entire_mesh(*p_nodal_field_2, 3);
         stk::io::set_field_output_type(*p_nodal_field_2, stk::io::FieldOutputType::VECTOR_3D);
         stk::io::set_field_role(*p_nodal_field_2, Ioss::Field::TRANSIENT);
 
         // Declare a element field, not stated field
-        DoubleField *p_element_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "element_field", 1);
+        aperi::DoubleField *p_element_field = &p_meta_data->declare_field<double>(stk::topology::ELEMENT_RANK, "element_field", 1);
         stk::mesh::put_field_on_entire_mesh(*p_element_field, 9);
         stk::io::set_field_output_type(*p_element_field, stk::io::FieldOutputType::FULL_TENSOR_36);
         stk::io::set_field_role(*p_element_field, Ioss::Field::TRANSIENT);

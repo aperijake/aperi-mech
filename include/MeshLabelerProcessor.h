@@ -32,17 +32,11 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
 class MeshLabelerProcessor {
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-    typedef stk::mesh::Field<unsigned long> UnsignedLongField;
-    typedef stk::mesh::NgpField<unsigned long> NgpUnsignedLongField;
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-
    public:
     MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells, bool activate_center_node) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells), m_activate_center_node(activate_center_node) {
         assert(mesh_data != nullptr);
