@@ -86,23 +86,23 @@ FastMeshIndicesViewType GetLocalIndices(const stk::mesh::BulkData& mesh, stk::me
 DomainViewType CreateElemSpheres(const stk::mesh::BulkData& mesh, double radius) {
     const stk::mesh::MetaData& meta = mesh.mesh_meta_data();
     const unsigned num_local_elems = stk::mesh::count_entities(mesh, stk::topology::ELEM_RANK, meta.locally_owned_part());
-    DomainViewType elemSpheres("elemSpheres", num_local_elems);
+    DomainViewType elem_spheres("elem_spheres", num_local_elems);
 
     const stk::mesh::FieldBase* p_coord_field = meta.coordinate_field();
-    const stk::mesh::NgpField<double>& ngpCoords = stk::mesh::get_updated_ngp_field<double>(*p_coord_field);
-    const stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(mesh);
+    const stk::mesh::NgpField<double>& ngp_coords = stk::mesh::get_updated_ngp_field<double>(*p_coord_field);
+    const stk::mesh::NgpMesh& ngp_mesh = stk::mesh::get_updated_ngp_mesh(mesh);
 
-    FastMeshIndicesViewType elemIndices = GetLocalIndices(mesh, stk::topology::ELEM_RANK);
+    FastMeshIndicesViewType elem_indices = GetLocalIndices(mesh, stk::topology::ELEM_RANK);
     const int myRank = mesh.parallel_rank();
 
     Kokkos::parallel_for(
         stk::ngp::DeviceRangePolicy(0, num_local_elems),
         KOKKOS_LAMBDA(const unsigned& i) {
-            stk::mesh::ConnectedNodes nodes = ngpMesh.get_nodes(stk::topology::ELEM_RANK, elemIndices(i));
+            stk::mesh::ConnectedNodes nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_indices(i));
             stk::search::Point<double> center(0, 0, 0);
             for (unsigned i = 0; i < nodes.size(); ++i) {
-                stk::mesh::FastMeshIndex node_index = ngpMesh.fast_mesh_index(nodes[i]);
-                stk::mesh::EntityFieldData<double> coords = ngpCoords(node_index);
+                stk::mesh::FastMeshIndex node_index = ngp_mesh.fast_mesh_index(nodes[i]);
+                stk::mesh::EntityFieldData<double> coords = ngp_coords(node_index);
                 center[0] += coords[0];
                 center[1] += coords[1];
                 center[2] += coords[2];
@@ -112,34 +112,34 @@ DomainViewType CreateElemSpheres(const stk::mesh::BulkData& mesh, double radius)
             center[1] /= nodes.size();
             center[2] /= nodes.size();
 
-            stk::mesh::Entity elem_entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, elemIndices(i));
-            elemSpheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), ElemIdentProc(elem_entity.local_offset(), myRank)};
+            stk::mesh::Entity elem_entity = ngp_mesh.get_entity(stk::topology::ELEM_RANK, elem_indices(i));
+            elem_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), ElemIdentProc(elem_entity.local_offset(), myRank)};
         });
 
-    return elemSpheres;
+    return elem_spheres;
 }
 
 RangeViewType CreateNodePoints(const stk::mesh::BulkData& mesh) {
     const stk::mesh::MetaData& meta = mesh.mesh_meta_data();
     const unsigned num_local_nodes = stk::mesh::count_entities(mesh, stk::topology::NODE_RANK, meta.locally_owned_part());
-    RangeViewType nodePoints("nodePoints", num_local_nodes);
+    RangeViewType node_points("node_points", num_local_nodes);
 
     const stk::mesh::FieldBase* p_coord_field = meta.coordinate_field();
-    const stk::mesh::NgpField<double>& ngpCoords = stk::mesh::get_updated_ngp_field<double>(*p_coord_field);
-    const stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(mesh);
+    const stk::mesh::NgpField<double>& ngp_coords = stk::mesh::get_updated_ngp_field<double>(*p_coord_field);
+    const stk::mesh::NgpMesh& ngp_mesh = stk::mesh::get_updated_ngp_mesh(mesh);
 
-    FastMeshIndicesViewType nodeIndices = GetLocalIndices(mesh, stk::topology::NODE_RANK);
+    FastMeshIndicesViewType node_indices = GetLocalIndices(mesh, stk::topology::NODE_RANK);
     const int myRank = mesh.parallel_rank();
 
     Kokkos::parallel_for(
         stk::ngp::DeviceRangePolicy(0, num_local_nodes),
         KOKKOS_LAMBDA(const unsigned& i) {
-            stk::mesh::EntityFieldData<double> coords = ngpCoords(nodeIndices(i));
-            stk::mesh::Entity node = ngpMesh.get_entity(stk::topology::NODE_RANK, nodeIndices(i));
-            nodePoints(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngpMesh.identifier(node), myRank)};
+            stk::mesh::EntityFieldData<double> coords = ngp_coords(node_indices(i));
+            stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
+            node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), myRank)};
         });
 
-    return nodePoints;
+    return node_points;
 }
 
 template <class ExecSpace>

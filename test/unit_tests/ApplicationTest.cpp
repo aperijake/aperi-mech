@@ -22,7 +22,7 @@ void RunValidInputFile(const std::string &filename, const std::string &results_f
     aperi::IoMesh io_mesh_read(comm, io_mesh_read_parameters);
     size_t expected_num_nodes = 4U * static_cast<size_t>(num_procs + 1);
     size_t expected_num_faces = 16U * static_cast<size_t>(num_procs) + 2U;  // tet4 faces
-    size_t expected_num_elements = static_cast<size_t>(num_procs * 6);      // tet4 elements
+    auto expected_num_elements = static_cast<size_t>(num_procs * 6);        // tet4 elements
     std::vector<size_t> expected = {expected_num_nodes, 0U, expected_num_faces, expected_num_elements};
     io_mesh_read.ReadMesh(results_filename, {"block_1"});
     io_mesh_read.CompleteInitialization();

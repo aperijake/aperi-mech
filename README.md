@@ -3,6 +3,7 @@
 [![CI/CD Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/ci-cd-pipeline.yaml)
 [![Performance Pipeline](https://github.com/aperijake/aperi-mech/actions/workflows/performance-pipeline.yaml/badge.svg)](https://github.com/aperijake/aperi-mech/actions/workflows/performance-pipeline.yaml)
 [![Code Coverage](https://codecov.io/github/aperijake/aperi-mech/graph/badge.svg?token=FPVQZ9WRHF)](https://codecov.io/github/aperijake/aperi-mech)
+
 <!--Trunk fails due to having the private protego-make submodule so turn off until there is a solution-->
 <!--[![Trunk Check](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml/badge.svg)](https://github.com/aperijake/.trunk/actions/workflows/trunk-check.yaml)-->
 

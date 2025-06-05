@@ -39,7 +39,7 @@ TimeIntegrationNodalUpdates |     4.480290e-03 |           2.17339%
    CommunicateDisplacements |     2.749249e-03 |           1.33366%
            CommunicateForce |     1.006246e-02 |           4.88131%
 ---------------------------------------------------------------------
-   Finished Solver. Time: 300 ms 
+   Finished Solver. Time: 300 ms
 Application Finalized
 ############################################
 aperi-mech finished successfully!

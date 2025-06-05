@@ -16,7 +16,7 @@
 
 namespace aperi {
 
-void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector, stk::mesh::BulkData &bulk_data) {
+void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector, stk::mesh::BulkData & /*bulk_data*/) {
     // Get the NGP fields
     auto ngp_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(neighbors_field);
     auto ngp_num_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(num_neighbors_field);

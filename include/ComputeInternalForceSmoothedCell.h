@@ -415,7 +415,7 @@ namespace aperi {
 #ifdef USE_PROTEGO_MECH
 using ComputeInternalForceSmoothedCell = protego::ProtegoComputeInternalForceSmoothedCell;
 #else
-using ComputeInternalForceSmoothedCellBase = AperiComputeInternalForceSmoothedCell;
+using ComputeInternalForceSmoothedCell = AperiComputeInternalForceSmoothedCell;
 #endif
 
 }  // namespace aperi

@@ -47,7 +47,7 @@ void InternalForceContribution::FinishPreprocessing() {
     m_element->FinishPreprocessing();
 }
 
-void InternalForceContribution::ComputeValuesFromGeneralizedFields() {
+void InternalForceContribution::ComputeValuesFromGeneralizedFields() const {
     if (UsesGeneralizedFields()) {
         // Make sure all source fields are up to date on the device
         m_output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();

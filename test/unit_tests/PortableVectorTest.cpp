@@ -121,31 +121,31 @@ TEST(PortableVectorTest, MoveConstructor) {
 
 // Test push_back on a larger vector
 TEST(PortableVectorTest, PushBackLarge) {
-    const int numElements = 100;
-    PortableVector<int> vec(numElements);
+    const int num_elements = 100;
+    PortableVector<int> vec(num_elements);
 
     // Use the helper class to push back values
-    std::vector<int> values(numElements);
-    for (int i = 0; i < numElements; ++i) {
+    std::vector<int> values(num_elements);
+    for (int i = 0; i < num_elements; ++i) {
         values[i] = i;
     }
     PortableVectorTestHelper::PushBackValues(vec, values);
 
-    // Size should be numElements
-    EXPECT_EQ(vec.SizeHost(), numElements);
+    // Size should be num_elements
+    EXPECT_EQ(vec.SizeHost(), num_elements);
 
     // Get host mirror and verify values
     auto data_host = vec.GetDataHost();
-    std::vector<bool> found(numElements, false);
+    std::vector<bool> found(num_elements, false);
 
-    for (int i = 0; i < numElements; ++i) {
+    for (int i = 0; i < num_elements; ++i) {
         EXPECT_GE(data_host(i), 0);
-        EXPECT_LT(data_host(i), numElements);
+        EXPECT_LT(data_host(i), num_elements);
         found[data_host(i)] = true;
     }
 
     // Every value should be found
-    for (int i = 0; i < numElements; ++i) {
+    for (int i = 0; i < num_elements; ++i) {
         EXPECT_TRUE(found[i]) << "Value " << i << " not found";
     }
 }

@@ -133,7 +133,7 @@ class InternalForceContribution : public ForceContribution {
 
     void FinishPreprocessing();
 
-    void ComputeValuesFromGeneralizedFields();
+    void ComputeValuesFromGeneralizedFields() const;
 
     /**
      * @brief Get element TimerManager.

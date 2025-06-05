@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cmath>
-#include "Kokkos_Core.hpp"
 #include <Eigen/Dense>
+#include <cmath>
+
+#include "Kokkos_Core.hpp"
 
 namespace aperi {
 namespace tensor {
@@ -55,5 +56,5 @@ KOKKOS_INLINE_FUNCTION void get_lode_components(const T& a, double& z, double& s
     return;
 }
 
-}
-}
+}  // namespace tensor
+}  // namespace aperi

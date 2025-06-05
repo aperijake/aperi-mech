@@ -28,25 +28,25 @@ std::vector<size_t> GetNumElementForNodalMesh(size_t num_nodes_x, size_t num_nod
 
 void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, bool activate_center_node) {
     // Get the mesh data
-    stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
-    stk::mesh::MetaData *meta_data = &bulk_data->mesh_meta_data();
+    stk::mesh::BulkData *p_bulk_data = mesh_data->GetBulkData();
+    stk::mesh::MetaData *p_meta_data = &p_bulk_data->mesh_meta_data();
     // Get the selector
-    stk::mesh::Selector selector = aperi::StkGetSelector({}, meta_data);
+    stk::mesh::Selector selector = aperi::StkGetSelector({}, p_meta_data);
     // Get the owned selector
-    stk::mesh::Selector full_owned_selector = bulk_data->mesh_meta_data().locally_owned_part();
+    stk::mesh::Selector full_owned_selector = p_bulk_data->mesh_meta_data().locally_owned_part();
     stk::mesh::Selector owned_selector = selector & full_owned_selector;
 
     // Get the active field
-    stk::mesh::Field<aperi::UnsignedLong> *active_field = aperi::StkGetField(aperi::FieldQueryData<aperi::UnsignedLong>{"active_temp", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
+    stk::mesh::Field<aperi::UnsignedLong> *p_active_field = aperi::StkGetField(aperi::FieldQueryData<aperi::UnsignedLong>{"active_temp", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, p_meta_data);
 
     // Get the coordinates field
-    stk::mesh::Field<double> *coordinates_field = aperi::StkGetField(aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
+    stk::mesh::Field<double> *p_coordinates_field = aperi::StkGetField(aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, p_meta_data);
 
     // Set the active field for nodal integration
     for (stk::mesh::Bucket *bucket : owned_selector.get_buckets(stk::topology::NODE_RANK)) {
         for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
-            aperi::UnsignedLong *active_field_data = stk::mesh::field_data(*active_field, (*bucket)[i_node]);
-            double *coordinates_data = stk::mesh::field_data(*coordinates_field, (*bucket)[i_node]);
+            aperi::UnsignedLong *active_field_data = stk::mesh::field_data(*p_active_field, (*bucket)[i_node]);
+            double *coordinates_data = stk::mesh::field_data(*p_coordinates_field, (*bucket)[i_node]);
             // If all coordinates are evenly divisible by 2.0, set the active field to 1
             if (std::fmod(coordinates_data[0], 2.0) == 0.0 && std::fmod(coordinates_data[1], 2.0) == 0.0 && std::fmod(coordinates_data[2], 2.0) == 0.0) {
                 active_field_data[0] = 1;
@@ -58,7 +58,7 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
             }
         }
     }
-    stk::mesh::communicate_field_data(*bulk_data, {active_field});
+    stk::mesh::communicate_field_data(*p_bulk_data, {p_active_field});
 }
 
 void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node) {

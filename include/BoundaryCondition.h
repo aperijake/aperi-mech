@@ -35,10 +35,10 @@ class BoundaryCondition {
     void Preprocess(){};
 
     // Apply the velocity boundary condition to the field
-    void ApplyVelocity(double time);
+    void ApplyVelocity(double time) const;
 
     // Apply the acceleration boundary condition to the field
-    void ApplyAcceleration(double time);
+    void ApplyAcceleration(double time) const;
 
     // Set the flag to mark the field as on an essential boundary
     void SetEssentialBoundaryFlag();

@@ -11,7 +11,7 @@
 namespace aperi {
 
 // Apply the velocity boundary condition (displacement is converted to velocity earlier)
-void BoundaryCondition::ApplyVelocity(double time) {
+void BoundaryCondition::ApplyVelocity(double time) const {
     // Check if the time is within the active time range
     if (time < m_active_time_start || time > m_active_time_end) {
         return;
@@ -29,7 +29,7 @@ void BoundaryCondition::ApplyVelocity(double time) {
 }
 
 // Apply the acceleration boundary condition
-void BoundaryCondition::ApplyAcceleration(double time) {
+void BoundaryCondition::ApplyAcceleration(double time) const {
     // Check if the time is within the active time range
     if (time < m_active_time_start || time > m_active_time_end) {
         return;

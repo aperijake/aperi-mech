@@ -7,9 +7,9 @@ class MPIKokkosEnvironment : public ::testing::Environment {
    public:
     void SetUp() override {
         int argc = 0;
-        char** argv = nullptr;
-        MPI_Init(&argc, &argv);
-        Kokkos::initialize(argc, argv);
+        char** p_argv = nullptr;
+        MPI_Init(&argc, &p_argv);
+        Kokkos::initialize(argc, p_argv);
     }
     void TearDown() override {
         Kokkos::finalize();

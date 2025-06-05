@@ -123,7 +123,7 @@ struct TestFieldOperationsFunctor {
     TestFieldOperationsFunctor(aperi::Field<double> &field, const Eigen::Matrix<double, Rows, Columns> &data, Operation op)
         : m_field(field), m_data(data), m_op(op), m_result_device("result_device", 1), m_result(Kokkos::create_mirror_view(m_result_device)) {}
 
-    KOKKOS_INLINE_FUNCTION void operator()(const int i) const {
+    KOKKOS_INLINE_FUNCTION void operator()(const int /*i*/) const {
         aperi::Index index(stk::mesh::FastMeshIndex{0, 0});
         m_op(m_field, index, m_data);
         m_result_device() = m_field.GetEigenMatrix<Rows, Columns>(index);
