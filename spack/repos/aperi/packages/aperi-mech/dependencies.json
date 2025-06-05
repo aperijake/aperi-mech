@@ -1,0 +1,46 @@
+{
+  "dependencies": [
+    {
+      "name": "mpi",
+      "spec": "mpi"
+    },
+    {
+      "name": "c++ lang",
+      "spec": "cxx",
+      "type": "build"
+    },
+    {
+      "name": "lcov",
+      "spec": "lcov",
+      "when": "+cov"
+    },
+    {
+      "name": "compadre",
+      "spec": "compadre@master commit=0e3c7025fd2bd38c75c9975d12514a0d0c78a19b ~tests"
+    },
+    {
+      "name": "googletest",
+      "spec": "googletest@1.14.0"
+    },
+    {
+      "name": "yaml-cpp",
+      "spec": "yaml-cpp@0.7.0"
+    },
+    {
+      "name": "eigen",
+      "spec": "eigen@master commit=21e89b930c6af56dbdaeea2a91d8b9d6fd2c208a"
+    },
+    {
+      "name": "kokkos",
+      "spec": "kokkos@4.6.01 ~shared cxxstd=17"
+    },
+    {
+      "name": "kokkos-kernels",
+      "spec": "kokkos-kernels@4.6.01 ~shared"
+    },
+    {
+      "name": "trilinos",
+      "spec": "trilinos@master commit=e7e7e2b34ce295bf5e5f6ada193e5b88482b7fa9 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
+    }
+  ]
+}
