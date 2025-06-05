@@ -35,7 +35,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double SizeMaps(size_t size) {
+    double SizeMaps() {
         auto start = std::chrono::high_resolution_clock::now();
         m_map_host_mirror.clear();
         auto end = std::chrono::high_resolution_clock::now();
@@ -43,7 +43,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double SizeMapsDevice(size_t size) {
+    double SizeMapsDevice() {
         auto start = std::chrono::high_resolution_clock::now();
         m_map.clear();
         auto end = std::chrono::high_resolution_clock::now();
@@ -51,7 +51,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double SizeSets(size_t size) {
+    double SizeSets() {
         auto start = std::chrono::high_resolution_clock::now();
         m_set_host_mirror.clear();
         auto end = std::chrono::high_resolution_clock::now();
@@ -59,7 +59,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double SizeSetsDevice(size_t size) {
+    double SizeSetsDevice() {
         auto start = std::chrono::high_resolution_clock::now();
         m_set.clear();
         auto end = std::chrono::high_resolution_clock::now();
@@ -100,7 +100,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedMapOnHost() const {
+    double PopulateKokkosUnorderedMapOnHost() {
         auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_map_host_mirror.insert(m_random_indices_host_mirror(i), i);
@@ -110,7 +110,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedMapOnDevice() const {
+    double PopulateKokkosUnorderedMapOnDevice() {
         auto start = std::chrono::high_resolution_clock::now();
         auto map = m_map;
         auto random_indices = m_random_indices;
@@ -121,7 +121,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedSetOnHost() const {
+    double PopulateKokkosUnorderedSetOnHost() {
         auto start = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_set_host_mirror.insert(m_random_indices_host_mirror(i));
@@ -131,7 +131,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return duration.count();
     }
 
-    double PopulateKokkosUnorderedSetOnDevice() const {
+    double PopulateKokkosUnorderedSetOnDevice() {
         auto start = std::chrono::high_resolution_clock::now();
         auto set = m_set;
         auto random_indices = m_random_indices;
@@ -181,7 +181,7 @@ class UnorderedMapFixture : public ::testing::Test {
         double populate_time = 0;
         m_map = Kokkos::UnorderedMap<uint64_t, uint64_t>(num_unique_indices);
         for (size_t i = 0; i < n; ++i) {
-            size_time += SizeMapsDevice(num_unique_indices);
+            size_time += SizeMapsDevice();
             populate_time += PopulateKokkosUnorderedMapOnDevice();
         }
         return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
@@ -192,7 +192,7 @@ class UnorderedMapFixture : public ::testing::Test {
         double populate_time = 0;
         m_set = Kokkos::UnorderedMap<uint64_t, void>(num_unique_indices);
         for (size_t i = 0; i < n; ++i) {
-            size_time += SizeSetsDevice(num_unique_indices);
+            size_time += SizeSetsDevice();
             populate_time += PopulateKokkosUnorderedSetOnDevice();
         }
         return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
@@ -205,7 +205,7 @@ class UnorderedMapFixture : public ::testing::Test {
         m_map_host_mirror = Kokkos::create_mirror(m_map);
         Kokkos::deep_copy(m_map_host_mirror, m_map);
         for (size_t i = 0; i < n; ++i) {
-            size_time += SizeMaps(num_unique_indices);
+            size_time += SizeMaps();
             populate_time += PopulateKokkosUnorderedMapOnHost();
         }
         return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds
@@ -218,7 +218,7 @@ class UnorderedMapFixture : public ::testing::Test {
         m_set_host_mirror = Kokkos::create_mirror(m_set);
         Kokkos::deep_copy(m_set_host_mirror, m_set);
         for (size_t i = 0; i < n; ++i) {
-            size_time += SizeSets(num_unique_indices);
+            size_time += SizeSets();
             populate_time += PopulateKokkosUnorderedSetOnHost();
         }
         return {size_time / 1000.0, populate_time / 1000.0};  // Convert to microseconds

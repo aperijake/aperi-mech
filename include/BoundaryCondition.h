@@ -6,6 +6,7 @@
 
 #include "EntityProcessor.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace YAML {
 class Node;
@@ -21,8 +22,8 @@ class BoundaryCondition {
         m_node_processor_velocity = std::make_shared<aperi::NodeProcessor<1>>(velocity_field_query_data_vec, mesh_data, sets);
         m_node_processor_acceleration = std::make_shared<aperi::NodeProcessor<1>>(acceleration_field_query_data_vec, mesh_data, sets);
 
-        const std::array<FieldQueryData<uint64_t>, 1> boundary_field_query_data_vec = {FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None}};
-        m_node_processor_boundary = std::make_shared<aperi::NodeProcessor<1, uint64_t>>(boundary_field_query_data_vec, mesh_data, sets);
+        const std::array<FieldQueryData<Unsigned>, 1> boundary_field_query_data_vec = {FieldQueryData<Unsigned>{"essential_boundary", FieldQueryState::None}};
+        m_node_processor_boundary = std::make_shared<aperi::NodeProcessor<1, Unsigned>>(boundary_field_query_data_vec, mesh_data, sets);
 
         // Set the flag to mark the field as on an essential boundary
         SetEssentialBoundaryFlag();
@@ -34,10 +35,10 @@ class BoundaryCondition {
     void Preprocess(){};
 
     // Apply the velocity boundary condition to the field
-    void ApplyVelocity(double time);
+    void ApplyVelocity(double time) const;
 
     // Apply the acceleration boundary condition to the field
-    void ApplyAcceleration(double time);
+    void ApplyAcceleration(double time) const;
 
     // Set the flag to mark the field as on an essential boundary
     void SetEssentialBoundaryFlag();
@@ -54,7 +55,7 @@ class BoundaryCondition {
     std::vector<std::string> m_sets;
     std::shared_ptr<aperi::NodeProcessor<1>> m_node_processor_velocity;
     std::shared_ptr<aperi::NodeProcessor<1>> m_node_processor_acceleration;
-    std::shared_ptr<aperi::NodeProcessor<1, uint64_t>> m_node_processor_boundary;
+    std::shared_ptr<aperi::NodeProcessor<1, Unsigned>> m_node_processor_boundary;
 };
 
 std::shared_ptr<BoundaryCondition> CreateBoundaryCondition(const YAML::Node& boundary_condition, const std::shared_ptr<aperi::MeshData>& mesh_data);

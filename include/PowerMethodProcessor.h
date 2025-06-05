@@ -36,6 +36,7 @@
 #include "LogUtils.h"
 #include "MeshData.h"
 #include "Solver.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -85,11 +86,6 @@ struct PowerMethodStats {
 
 // Power method to estimate the largest eigenvalue of the system (M^{-1}K) for the time step
 class PowerMethodProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
     // Define and enum for the field index
     enum FieldIndex { DISPLACEMENT = 0,
                       DISPLACEMENT_IN,
@@ -150,8 +146,8 @@ class PowerMethodProcessor {
         m_ngp_max_edge_length_field = &stk::mesh::get_updated_ngp_field<double>(*m_max_edge_length_field);
 
         // Get the essential_boundary field, indicator for if the dof is in the essential boundary set
-        m_essential_boundary_field = StkGetField(FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_essential_boundary_field);
+        m_essential_boundary_field = StkGetField(FieldQueryData<Unsigned>{"essential_boundary", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_essential_boundary_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_essential_boundary_field);
 
         // Check if the state field exists
         m_has_state = StkFieldExists(FieldQueryData<double>{"state", FieldQueryState::N, FieldDataTopologyRank::ELEMENT}, meta_data);
@@ -167,12 +163,12 @@ class PowerMethodProcessor {
     }
 
     void CheckEssentialBoundaries() {
-        std::array<FieldQueryData<uint64_t>, 1> field_query_data_vec = {FieldQueryData<uint64_t>{"essential_boundary", FieldQueryState::None}};
+        std::array<FieldQueryData<Unsigned>, 1> field_query_data_vec = {FieldQueryData<Unsigned>{"essential_boundary", FieldQueryState::None}};
         std::vector<std::string> sets = {};
-        ActiveNodeProcessor<1, uint64_t> m_essential_boundary_node_processor(field_query_data_vec, m_mesh_data, sets);
+        ActiveNodeProcessor<1, Unsigned> m_essential_boundary_node_processor(field_query_data_vec, m_mesh_data, sets);
 
         // Get the min and max values of the essential boundary field
-        std::pair<uint64_t, uint64_t> essential_boundary_min_max = m_essential_boundary_node_processor.MinMaxField(0);
+        std::pair<Unsigned, Unsigned> essential_boundary_min_max = m_essential_boundary_node_processor.MinMaxField(0);
 
         // If min != 0, then all nodes are in the essential boundary set
         if (essential_boundary_min_max.first != 0) {
@@ -499,20 +495,20 @@ class PowerMethodProcessor {
     stk::mesh::Selector m_active_selector;            // The active selector
     stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
 
-    DoubleField *m_displacement_in_field;       // The scratch displacement field, stores the displacement at n+1
-    DoubleField *m_displacement_field;          // The displacement coefficients field, the input displacement field, u_n+1
-    DoubleField *m_mass_field;                  // The mass field
-    DoubleField *m_force_field;                 // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
-    DoubleField *m_force_in_field;              // The force field, input for force, f(u)
-    DoubleField *m_max_edge_length_field;       // The max edge length field
+    RealField *m_displacement_in_field;         // The scratch displacement field, stores the displacement at n+1
+    RealField *m_displacement_field;            // The displacement coefficients field, the input displacement field, u_n+1
+    RealField *m_mass_field;                    // The mass field
+    RealField *m_force_field;                   // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
+    RealField *m_force_in_field;                // The force field, input for force, f(u)
+    RealField *m_max_edge_length_field;         // The max edge length field
     UnsignedField *m_essential_boundary_field;  // The essential boundary field, flag for if the dof is in the essential boundary set
 
-    NgpDoubleField *m_ngp_displacement_in_field;       // The ngp scratch displacement field
-    NgpDoubleField *m_ngp_displacement_field;          // The ngp displacement coefficients field
-    NgpDoubleField *m_ngp_mass_field;                  // The ngp mass field
-    NgpDoubleField *m_ngp_force_field;                 // The ngp force field
-    NgpDoubleField *m_ngp_force_in_field;              // The ngp force field
-    NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
+    NgpRealField *m_ngp_displacement_in_field;         // The ngp scratch displacement field
+    NgpRealField *m_ngp_displacement_field;            // The ngp displacement coefficients field
+    NgpRealField *m_ngp_mass_field;                    // The ngp mass field
+    NgpRealField *m_ngp_force_field;                   // The ngp force field
+    NgpRealField *m_ngp_force_in_field;                // The ngp force field
+    NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
     std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;             // The node processor

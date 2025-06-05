@@ -8,6 +8,7 @@
 #include "MaxEdgeLengthProcessor.h"
 #include "NeighborSearchProcessor.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
+#include "Types.h"
 
 // Check partition of unity
 void CheckPartitionOfUnity(const Eigen::Matrix<double, Eigen::Dynamic, 1>& shape_functions, double tolerance) {
@@ -87,8 +88,8 @@ void CheckQuarticCompleteness(const Eigen::Matrix<double, Eigen::Dynamic, 1>& sh
 std::vector<aperi::FieldData> GetReproducingKernelShapeFunctionFields() {
     std::vector<aperi::FieldData> shape_function_fields;
 
-    shape_function_fields.push_back(aperi::FieldData("num_neighbors", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));
-    shape_function_fields.push_back(aperi::FieldData("neighbors", aperi::FieldDataRank::CUSTOM, aperi::FieldDataTopologyRank::NODE, 1, aperi::MAX_NODE_NUM_NEIGHBORS, std::vector<uint64_t>{}, false));
+    shape_function_fields.push_back(aperi::FieldData("num_neighbors", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<aperi::Unsigned>{}));
+    shape_function_fields.push_back(aperi::FieldData("neighbors", aperi::FieldDataRank::CUSTOM, aperi::FieldDataTopologyRank::NODE, 1, aperi::MAX_NODE_NUM_NEIGHBORS, std::vector<aperi::Unsigned>{}, false));
     shape_function_fields.push_back(aperi::FieldData("function_values", aperi::FieldDataRank::CUSTOM, aperi::FieldDataTopologyRank::NODE, 1, aperi::MAX_NODE_NUM_NEIGHBORS, std::vector<double>{}));
     shape_function_fields.push_back(aperi::FieldData("kernel_radius", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
     shape_function_fields.push_back(aperi::FieldData("max_edge_length", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, std::vector<double>{}));

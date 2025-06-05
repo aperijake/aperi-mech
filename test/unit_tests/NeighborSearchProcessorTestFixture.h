@@ -21,12 +21,9 @@
 #include "MeshData.h"
 #include "MeshLabeler.h"
 #include "NeighborSearchProcessor.h"
+#include "Types.h"
 
 class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
-    using DoubleField = stk::mesh::Field<double>;
-    using UnsignedField = stk::mesh::Field<uint64_t>;
-    using UnsignedLongField = stk::mesh::Field<unsigned long>;
-
    protected:
     void SetUp() override {
         // Run CaptureOutputTest::SetUp first
@@ -52,15 +49,19 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_mesh_reader->add_all_mesh_fields_as_input_fields();
 
         // Create the fields, start with nodes
-        m_node_num_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "num_neighbors", 1);
+        m_node_num_neighbors_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_num_neighbors_field, 1);
 
-        m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
+        m_node_neighbors_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
-        m_node_active_field = &p_meta_data->declare_field<unsigned long>(stk::topology::NODE_RANK, "active", 1);
-        unsigned long initial_values = 1;
+        m_node_active_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "active", 1);
+        aperi::Unsigned initial_values = 1;
         stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_field, 1, &initial_values);
+
+        m_node_active_temp_field = &p_meta_data->declare_field<aperi::UnsignedLong>(stk::topology::NODE_RANK, "active_temp", 1);
+        aperi::UnsignedLong initial_temp_value = 1;
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_temp_field, 1, &initial_temp_value);
 
         m_node_neighbors_function_values_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "function_values", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_function_values_field, aperi::MAX_NODE_NUM_NEIGHBORS);
@@ -71,10 +72,10 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_max_edge_length_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "max_edge_length", 1);
         stk::mesh::put_field_on_entire_mesh(*m_max_edge_length_field, 1);
 
-        m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
+        m_cell_id_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::ELEMENT_RANK, "cell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
 
-        m_subcell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
+        m_subcell_id_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_subcell_id_field, 1);
     }
 
@@ -147,6 +148,7 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_node_num_neighbors_field = nullptr;
         m_node_neighbors_field = nullptr;
         m_node_active_field = nullptr;
+        m_node_active_temp_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
         m_max_edge_length_field = nullptr;
@@ -162,14 +164,15 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     std::shared_ptr<stk::mesh::BulkData> m_bulk_data;
     std::shared_ptr<stk::io::StkMeshIoBroker> m_mesh_reader;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
-    UnsignedField *m_node_num_neighbors_field;
-    UnsignedField *m_node_neighbors_field;
-    UnsignedLongField *m_node_active_field;
-    UnsignedField *m_cell_id_field;
-    UnsignedField *m_subcell_id_field;
-    DoubleField *m_node_neighbors_function_values_field;
-    DoubleField *m_kernel_radius_field;
-    DoubleField *m_max_edge_length_field;
+    aperi::UnsignedField *m_node_num_neighbors_field;
+    aperi::UnsignedField *m_node_neighbors_field;
+    aperi::UnsignedField *m_node_active_field;
+    aperi::UnsignedLongField *m_node_active_temp_field;
+    aperi::UnsignedField *m_cell_id_field;
+    aperi::UnsignedField *m_subcell_id_field;
+    aperi::RealField *m_node_neighbors_function_values_field;
+    aperi::RealField *m_kernel_radius_field;
+    aperi::RealField *m_max_edge_length_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
     std::shared_ptr<aperi::MaxEdgeLengthProcessor> m_max_edge_length_processor;

@@ -8,6 +8,7 @@
 #include "FieldData.h"
 #include "FunctionValueStorageProcessorTestFixture.h"
 #include "MeshData.h"
+#include "Types.h"
 #include "UnitTestUtils.h"
 
 // These tests ensure:
@@ -34,7 +35,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, OneNeighbor) {
 
     m_function_value_storage_processor->SyncFieldsToHost();
 
-    std::array<uint64_t, 1> expected_num_neighbors_data = {1};
+    std::array<aperi::Unsigned, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     std::array<double, aperi::MAX_NODE_NUM_NEIGHBORS> expected_function_values_data;
@@ -67,7 +68,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
     const Eigen::Matrix<double, Eigen::Dynamic, 3> coordinates = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None);
 
     // Get the number of neighbors
-    const Eigen::Matrix<uint64_t, Eigen::Dynamic, 1> num_neighbors = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "num_neighbors", aperi::FieldQueryState::None);
+    const Eigen::Matrix<aperi::Unsigned, Eigen::Dynamic, 1> num_neighbors = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "num_neighbors", aperi::FieldQueryState::None);
 
     // Check the number of neighbors
     EXPECT_GT(num_neighbors.size(), 0);
@@ -120,7 +121,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     const Eigen::Matrix<double, Eigen::Dynamic, 3> coordinates = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, {"block_1"}, m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None);
 
     // Get the number of neighbors
-    const Eigen::Matrix<uint64_t, Eigen::Dynamic, 1> num_neighbors = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, uint64_t, 1>(*m_mesh_data, {"block_1"}, "num_neighbors", aperi::FieldQueryState::None);
+    const Eigen::Matrix<aperi::Unsigned, Eigen::Dynamic, 1> num_neighbors = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "num_neighbors", aperi::FieldQueryState::None);
 
     // Check the number of neighbors
     EXPECT_GT(num_neighbors.size(), 0);

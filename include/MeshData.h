@@ -19,6 +19,7 @@
 #include "FieldData.h"
 #include "Index.h"
 #include "LogUtils.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -26,7 +27,7 @@ class NgpMeshData {
    public:
     NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh) {}
 
-    KOKKOS_INLINE_FUNCTION aperi::Index LocalOffsetToIndex(uint64_t local_offset) const {
+    KOKKOS_INLINE_FUNCTION aperi::Index LocalOffsetToIndex(Unsigned local_offset) const {
         stk::mesh::Entity entity(local_offset);
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }

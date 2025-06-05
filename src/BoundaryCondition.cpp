@@ -6,11 +6,12 @@
 #include "IoInputFile.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
 // Apply the velocity boundary condition (displacement is converted to velocity earlier)
-void BoundaryCondition::ApplyVelocity(double time) {
+void BoundaryCondition::ApplyVelocity(double time) const {
     // Check if the time is within the active time range
     if (time < m_active_time_start || time > m_active_time_end) {
         return;
@@ -28,7 +29,7 @@ void BoundaryCondition::ApplyVelocity(double time) {
 }
 
 // Apply the acceleration boundary condition
-void BoundaryCondition::ApplyAcceleration(double time) {
+void BoundaryCondition::ApplyAcceleration(double time) const {
     // Check if the time is within the active time range
     if (time < m_active_time_start || time > m_active_time_end) {
         return;
@@ -48,7 +49,7 @@ void BoundaryCondition::ApplyAcceleration(double time) {
 // Set the flag to mark the field as on an essential boundary
 void BoundaryCondition::SetEssentialBoundaryFlag() {
     // Loop over the nodes
-    uint64_t essential_boundary_flag = 1;
+    Unsigned essential_boundary_flag = 1;
     for (auto&& component_value : m_components_and_values) {
         auto fill_field_functor = FillFieldFunctor(essential_boundary_flag);
         m_node_processor_boundary->for_component_i(fill_field_functor, component_value.first, 0);

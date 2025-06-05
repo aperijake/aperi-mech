@@ -24,16 +24,12 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
 template <size_t NumFields>
 class ValueFromGeneralizedFieldProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
    public:
     ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData<double>, NumFields> source_field_query_data, const std::array<FieldQueryData<double>, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) {
         // Throw an exception if the mesh data is null.
@@ -53,12 +49,12 @@ class ValueFromGeneralizedFieldProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
 
         // Get the function values field
         m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -106,7 +102,7 @@ class ValueFromGeneralizedFieldProcessor {
                     for (size_t k = num_neighbors; k-- > 0;) {
                         // Get the function value
                         double function_value = ngp_function_values_field(node_index, k);
-                        uint64_t neighbor = ngp_neighbors_field(node_index, k);
+                        Unsigned neighbor = ngp_neighbors_field(node_index, k);
                         Kokkos::printf("Neighbor: %lu, Function Value: %.8e\n", neighbor, function_value);
                     }
                     if (Kokkos::abs(function_sum - 1.0) > error_threshold) {
@@ -132,8 +128,8 @@ class ValueFromGeneralizedFieldProcessor {
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
         for (size_t i = 0; i < NumFields; i++) {
             ngp_source_fields[i] = *m_ngp_source_fields[i];
             ngp_destination_fields[i] = *m_ngp_destination_fields[i];
@@ -195,8 +191,8 @@ class ValueFromGeneralizedFieldProcessor {
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
         for (size_t i = 0; i < NumFields; i++) {
             ngp_source_fields[i] = *m_ngp_source_fields[i];
             ngp_destination_fields[i] = *m_ngp_destination_fields[i];
@@ -355,22 +351,22 @@ class ValueFromGeneralizedFieldProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                         // The mesh data object.
-    std::vector<std::string> m_sets;                                      // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                     // The bulk data object.
-    stk::mesh::Selector m_selector;                                       // The selector
-    stk::mesh::Selector m_owned_selector;                                 // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                                        // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;                                 // The number of neighbors field
-    UnsignedField *m_neighbors_field;                                     // The neighbors field
-    DoubleField *m_function_values_field;                                 // The function values field
-    NgpUnsignedField *m_ngp_num_neighbors_field;                          // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;                              // The ngp neighbors field
-    NgpDoubleField *m_ngp_function_values_field;                          // The ngp function values field
-    std::vector<DoubleField *> m_source_fields;                           // The fields to process
-    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
-    std::vector<DoubleField *> m_destination_fields;                      // The fields to process
-    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                       // The mesh data object.
+    std::vector<std::string> m_sets;                                    // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                   // The bulk data object.
+    stk::mesh::Selector m_selector;                                     // The selector
+    stk::mesh::Selector m_owned_selector;                               // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                      // The ngp mesh object.
+    UnsignedField *m_num_neighbors_field;                               // The number of neighbors field
+    UnsignedField *m_neighbors_field;                                   // The neighbors field
+    RealField *m_function_values_field;                                 // The function values field
+    NgpUnsignedField *m_ngp_num_neighbors_field;                        // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;                            // The ngp neighbors field
+    NgpRealField *m_ngp_function_values_field;                          // The ngp function values field
+    std::vector<RealField *> m_source_fields;                           // The fields to process
+    Kokkos::Array<NgpRealField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
+    std::vector<RealField *> m_destination_fields;                      // The fields to process
+    Kokkos::Array<NgpRealField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
 };
 
 }  // namespace aperi

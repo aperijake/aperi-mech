@@ -20,7 +20,7 @@ TEST_F(IoMeshTestFixture, ReadWrite) {
     aperi::IoMesh io_mesh_read(m_comm, io_mesh_read_parameters);
     size_t expected_num_nodes = 4U * static_cast<size_t>(m_num_procs + 1);
     size_t expected_num_faces = 5U * static_cast<size_t>(m_num_procs) + 1U;
-    size_t expected_num_elements = static_cast<size_t>(m_num_procs);
+    auto expected_num_elements = static_cast<size_t>(m_num_procs);
     std::vector<size_t> expected = {expected_num_nodes, 0U, expected_num_faces, expected_num_elements};
     io_mesh_read.ReadMesh(m_mesh_filename, {"block_1"});
     io_mesh_read.CompleteInitialization();

@@ -26,6 +26,7 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
+#include "Types.h"
 
 namespace aperi {
 enum class FunctionValueStorageProcessorTimerType {
@@ -49,11 +50,6 @@ namespace aperi {
 #ifndef USE_PROTEGO_MECH
 
 class FunctionValueStorageProcessor {
-    typedef stk::mesh::Field<double> DoubleField;
-    typedef stk::mesh::NgpField<double> NgpDoubleField;
-    typedef stk::mesh::Field<uint64_t> UnsignedField;
-    typedef stk::mesh::NgpField<uint64_t> NgpUnsignedField;
-
    public:
     FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool enable_accurate_timers) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map, enable_accurate_timers) {
         // Throw an exception if the mesh data is null.
@@ -74,12 +70,12 @@ class FunctionValueStorageProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
 
         // Get the coordinates field
         std::string coordinate_field_name = mesh_data->GetCoordinatesFieldName();
@@ -184,14 +180,14 @@ class FunctionValueStorageProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
     UnsignedField *m_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_neighbors_field;             // The neighbors field
-    DoubleField *m_coordinates_field;             // The coordinates field
-    DoubleField *m_function_values_field;         // The function values field
-    DoubleField *m_kernel_radius_field;           // The kernel radius field
+    RealField *m_coordinates_field;               // The coordinates field
+    RealField *m_function_values_field;           // The function values field
+    RealField *m_kernel_radius_field;             // The kernel radius field
     NgpUnsignedField *m_ngp_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_neighbors_field;      // The ngp neighbors field
-    NgpDoubleField *m_ngp_coordinates_field;      // The ngp coordinates field
-    NgpDoubleField *m_ngp_function_values_field;  // The ngp function values field
-    NgpDoubleField *m_ngp_kernel_radius_field;    // The ngp kernel radius field
+    NgpRealField *m_ngp_coordinates_field;        // The ngp coordinates field
+    NgpRealField *m_ngp_function_values_field;    // The ngp function values field
+    NgpRealField *m_ngp_kernel_radius_field;      // The ngp kernel radius field
 };
 
 #else  // USE_PROTEGO_MECH

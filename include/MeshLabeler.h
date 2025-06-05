@@ -7,6 +7,7 @@
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 #include "MeshLabelerProcessor.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -31,12 +32,19 @@ class MeshLabeler {
         std::vector<FieldData> field_data;
 
         // Node data
-        std::vector<unsigned long> initial_active_values(1, 1);
+        std::vector<Unsigned> initial_active_values(1, 1);
         field_data.push_back(FieldData("active", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, initial_active_values));  // Active nodes
 
+        /* TODO(jake): Remove this field when we can.
+           Temporary active field for nodal integration.
+           Reason: The parallel_min and parallel_max operations won't work on uint64_t fields, and unsigned long won't output correctly on all platforms.
+        */
+        std::vector<UnsignedLong> initial_active_temp_values(1, 1);
+        field_data.push_back(FieldData("active_temp", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, initial_active_temp_values, false));
+
         // Cell data, cell_id and subcell_id
-        field_data.push_back(FieldData("cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));     // The cell id
-        field_data.push_back(FieldData("subcell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));  // The subcell id
+        field_data.push_back(FieldData("cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<Unsigned>{}));     // The cell id
+        field_data.push_back(FieldData("subcell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<Unsigned>{}));  // The subcell id
 
         return field_data;
     }

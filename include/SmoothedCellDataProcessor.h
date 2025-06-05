@@ -30,6 +30,7 @@
 #include "MeshLabelerParameters.h"
 #include "SmoothedCellData.h"
 #include "Timer.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -115,14 +116,14 @@ class SmoothedCellDataProcessor {
         m_element_volume = aperi::Field(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the smoothed cell id field
-        m_cell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        m_cell_id = aperi::Field(m_mesh_data, FieldQueryData<Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the subcell id field
-        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<Unsigned>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         // Get the neighbors and num_neighbors fields
-        m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
-        m_num_neighbors = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_neighbors = aperi::Field(m_mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_num_neighbors = aperi::Field(m_mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
 
         // Get the function values field
         m_function_values = aperi::Field(m_mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
@@ -278,7 +279,7 @@ class SmoothedCellDataProcessor {
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
-                uint64_t subcell_id = m_subcell_id(elem_index, 0);
+                Unsigned subcell_id = m_subcell_id(elem_index, 0);
 
                 // If the subcell id is not valid, skip it
                 if (subcell_id == INVALID_ID) {
@@ -315,7 +316,7 @@ class SmoothedCellDataProcessor {
             ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
-                uint64_t subcell_id = m_subcell_id(elem_index, 0);
+                Unsigned subcell_id = m_subcell_id(elem_index, 0);
 
                 // If the subcell id is not valid, skip it
                 if (subcell_id == INVALID_ID) {
@@ -359,7 +360,7 @@ class SmoothedCellDataProcessor {
                 auto element_index = element_indices(start(subcell_id));
 
                 // Get the cell id for the element
-                uint64_t cell_id = m_cell_id(element_index(), 0);
+                Unsigned cell_id = m_cell_id(element_index(), 0);
 
                 // If the cell id is not valid, skip it
                 if (cell_id == INVALID_ID) {
@@ -402,7 +403,7 @@ class SmoothedCellDataProcessor {
                 auto element_index = element_indices(start(subcell_id));
 
                 // Get the cell id for the element
-                uint64_t cell_id = m_cell_id(element_index(), 0);
+                Unsigned cell_id = m_cell_id(element_index(), 0);
 
                 // If the cell id is not valid, skip it
                 if (cell_id == INVALID_ID) {
@@ -422,7 +423,7 @@ class SmoothedCellDataProcessor {
     }
 
     KOKKOS_INLINE_FUNCTION
-    aperi::Index LocalOffsetToIndex(uint64_t local_offset) const {
+    aperi::Index LocalOffsetToIndex(Unsigned local_offset) const {
         stk::mesh::Entity entity(local_offset);
         return EntityToIndex(entity);
     }
@@ -480,7 +481,7 @@ class SmoothedCellDataProcessor {
             Kokkos::parallel_reduce(
                 "set_indices_and_map", num_subcells, KOKKOS_CLASS_LAMBDA(const size_t subcell_id, size_t &local_fail) {
                     // Initialize the local index counter
-                    uint64_t local_index_counter = 0;
+                    Unsigned local_index_counter = 0;
 
                     // Loop over all elements in the subcell to create the short list of nodes or node neighbors
                     for (size_t j = 0, je = length(subcell_id); j < je; ++j) {
@@ -498,9 +499,9 @@ class SmoothedCellDataProcessor {
                         for (size_t k = 0, ke = num_nodes; k < ke; ++k) {
                             if (one_pass_method) {
                                 // Get the node neighbors
-                                uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
+                                Unsigned num_neighbors = m_num_neighbors(element_nodes[k], 0);
                                 for (size_t l = 0; l < num_neighbors; ++l) {
-                                    uint64_t neighbor = m_neighbors(element_nodes[k], l);
+                                    Unsigned neighbor = m_neighbors(element_nodes[k], l);
                                     aperi::Index neighbor_node_index = LocalOffsetToIndex(neighbor);
                                     auto results = node_to_view_index_map.insert({subcell_id, neighbor_node_index.bucket_id(), neighbor_node_index.bucket_ord()}, local_index_counter);
                                     if (results.success()) {
@@ -571,7 +572,7 @@ class SmoothedCellDataProcessor {
                     auto key = node_to_view_index_map.key_at(i);
                     auto value = node_to_view_index_map.value_at(i);
                     auto node_start_index = node_starts(key.cell_id);
-                    uint64_t new_value = node_start_index + value;
+                    Unsigned new_value = node_start_index + value;
                     node_indicies(new_value) = aperi::Index(key.bucket_id, key.bucket_ord);
                     node_to_view_index_map.value_at(i) = new_value;
                 }
@@ -662,13 +663,13 @@ class SmoothedCellDataProcessor {
                         // One pass method: store the function derivatives for the neighbors of the nodes in the cell
                         if (one_pass_method) {
                             // Get the number of neighbors
-                            uint64_t num_neighbors = m_num_neighbors(element_nodes[k], 0);
+                            Unsigned num_neighbors = m_num_neighbors(element_nodes[k], 0);
                             KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
                             // Loop over the nodes neighbors
                             for (size_t l = 0; l < num_neighbors; ++l) {
                                 // Get the neighbor
-                                uint64_t neighbor = m_neighbors(element_nodes[k], l);
+                                Unsigned neighbor = m_neighbors(element_nodes[k], l);
 
                                 // Get the function value
                                 double function_value = m_function_values(element_nodes[k], l);
@@ -904,7 +905,7 @@ class SmoothedCellDataProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
 
         // Get the subcell id field
-        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+        m_subcell_id = aperi::Field(m_mesh_data, FieldQueryData<Unsigned>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
 
         Kokkos::View<size_t *> num_invalid_subcell_ids("num_invalid_subcell_ids", 1);
         // Initialize the number of invalid subcell ids to 0
@@ -914,7 +915,7 @@ class SmoothedCellDataProcessor {
             m_ngp_mesh, stk::topology::ELEMENT_RANK, m_owned_selector,
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &elem_index) {
                 // Get the subcell_id
-                uint64_t subcell_id = m_subcell_id(elem_index, 0);
+                Unsigned subcell_id = m_subcell_id(elem_index, 0);
 
                 // If the subcell id is not valid, count it
                 if (subcell_id == INVALID_ID) {
@@ -949,11 +950,11 @@ class SmoothedCellDataProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;           // The ngp mesh object.
     aperi::Field<double> m_coordinates;      // The coordinates field
     aperi::Field<double> m_element_volume;   // The element volume field
-    aperi::Field<uint64_t> m_neighbors;      // The neighbors field
-    aperi::Field<uint64_t> m_num_neighbors;  // The number of neighbors field
+    aperi::Field<Unsigned> m_neighbors;      // The neighbors field
+    aperi::Field<Unsigned> m_num_neighbors;  // The number of neighbors field
     aperi::Field<double> m_function_values;  // The function values field
-    aperi::Field<uint64_t> m_cell_id;        // The smoothed cell id field
-    aperi::Field<uint64_t> m_subcell_id;     // The subcell id field
+    aperi::Field<Unsigned> m_cell_id;        // The smoothed cell id field
+    aperi::Field<Unsigned> m_subcell_id;     // The subcell id field
 
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;                                  // The smoothed cell data object
     std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> m_smoothed_cell_timer_manager;  // The timer manager for the smoothed cell data

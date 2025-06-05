@@ -413,9 +413,9 @@ class AperiComputeInternalForceSmoothedCell : public ComputeInternalForceSmoothe
 namespace aperi {
 
 #ifdef USE_PROTEGO_MECH
-typedef protego::ProtegoComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+using ComputeInternalForceSmoothedCell = protego::ProtegoComputeInternalForceSmoothedCell;
 #else
-typedef AperiComputeInternalForceSmoothedCell ComputeInternalForceSmoothedCell;
+using ComputeInternalForceSmoothedCell = AperiComputeInternalForceSmoothedCell;
 #endif
 
 }  // namespace aperi

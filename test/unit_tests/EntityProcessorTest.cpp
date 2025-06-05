@@ -13,9 +13,8 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "MeshData.h"
+#include "Types.h"
 #include "UnitTestUtils.h"
-
-using DoubleField = stk::mesh::Field<double>;
 
 struct UpdateVelocity {
     double time_increment;
@@ -47,12 +46,12 @@ class NodeProcessingTestFixture : public ::testing::Test {
         mesh_reader.add_all_mesh_fields_as_input_fields();
 
         // Create the fields
-        DoubleField *p_velocity_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "velocity", 2);
+        aperi::RealField *p_velocity_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "velocity", 2);
         stk::mesh::put_field_on_entire_mesh(*p_velocity_field, 3);
         stk::io::set_field_output_type(*p_velocity_field, stk::io::FieldOutputType::VECTOR_3D);
         stk::io::set_field_role(*p_velocity_field, Ioss::Field::TRANSIENT);
 
-        DoubleField *p_acceleration_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "acceleration", 2);
+        aperi::RealField *p_acceleration_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "acceleration", 2);
         stk::mesh::put_field_on_entire_mesh(*p_acceleration_field, 3);
         stk::io::set_field_output_type(*p_acceleration_field, stk::io::FieldOutputType::VECTOR_3D);
         stk::io::set_field_role(*p_acceleration_field, Ioss::Field::TRANSIENT);
@@ -104,7 +103,7 @@ class NodeProcessingTestFixture : public ::testing::Test {
     size_t m_num_elements_y = 10;
     size_t m_num_elements_z = 10;
     std::shared_ptr<stk::mesh::BulkData> m_bulk_data;
-    DoubleField *m_velocity_field_np1;
+    aperi::RealField *m_velocity_field_np1;
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor_stk_ngp;
 };
