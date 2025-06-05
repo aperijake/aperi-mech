@@ -37,7 +37,7 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
     stk::mesh::Selector owned_selector = selector & full_owned_selector;
 
     // Get the active field
-    stk::mesh::Field<unsigned long> *active_field = aperi::StkGetField(aperi::FieldQueryData<unsigned long>{"active", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
+    stk::mesh::Field<aperi::UnsignedLong> *active_field = aperi::StkGetField(aperi::FieldQueryData<aperi::UnsignedLong>{"active_temp", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
 
     // Get the coordinates field
     stk::mesh::Field<double> *coordinates_field = aperi::StkGetField(aperi::FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
@@ -45,7 +45,7 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
     // Set the active field for nodal integration
     for (stk::mesh::Bucket *bucket : owned_selector.get_buckets(stk::topology::NODE_RANK)) {
         for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
-            unsigned long *active_field_data = stk::mesh::field_data(*active_field, (*bucket)[i_node]);
+            aperi::UnsignedLong *active_field_data = stk::mesh::field_data(*active_field, (*bucket)[i_node]);
             double *coordinates_data = stk::mesh::field_data(*coordinates_field, (*bucket)[i_node]);
             // If all coordinates are evenly divisible by 2.0, set the active field to 1
             if (std::fmod(coordinates_data[0], 2.0) == 0.0 && std::fmod(coordinates_data[1], 2.0) == 0.0 && std::fmod(coordinates_data[2], 2.0) == 0.0) {
@@ -58,6 +58,7 @@ void SetActiveFieldOnNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data
             }
         }
     }
+    stk::mesh::communicate_field_data(*bulk_data, {active_field});
 }
 
 void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node) {
@@ -68,9 +69,6 @@ void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, 
 
     // Create the mesh labeler parameters
     aperi::MeshLabelerProcessor mesh_labeler_processor(mesh_data, set, num_subcells, activate_center_node);
-
-    // Communicate the field data
-    mesh_labeler_processor.CommunicateAllFieldData();
 
     // After setting the active field, check that the nodal integration mesh is correct
     mesh_labeler_processor.CheckNodalIntegrationOnRefinedMeshHost();
@@ -88,6 +86,9 @@ void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, 
     if (activate_center_node) {
         mesh_labeler_processor.CreateActivePartFromActiveFieldHost(2);
     }
+
+    // Copy the temporary active field to the active field
+    mesh_labeler_processor.CopyTemporaryActiveFieldToActiveField();
 }
 
 void LabelGeneratedElementMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node) {

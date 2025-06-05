@@ -50,7 +50,7 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     ReadThexMesh();
 
     // Check the active node field
-    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, unsigned long, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    auto active_nodes = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
 
     size_t num_rows = active_nodes.rows();
     size_t num_rows_global = 0;

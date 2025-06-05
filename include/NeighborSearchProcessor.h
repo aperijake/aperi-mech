@@ -119,8 +119,8 @@ class NeighborSearchProcessor {
         m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_neighbors_field);
 
         // Get the node active field
-        m_node_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_node_active_field);
+        m_node_active_field = StkGetField(FieldQueryData<Unsigned>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_active_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -255,7 +255,7 @@ class NeighborSearchProcessor {
                     Unsigned neighbor_index = node_neighbors[i_neighbor_start + i];
                     stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
                     // Active value of the neighbor
-                    unsigned long neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
+                    Unsigned neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
                     if (neighbor_active == 0) {
                         all_neighbors_active = false;
                         if (print_failures) {
@@ -678,14 +678,14 @@ class NeighborSearchProcessor {
     RealField *m_coordinates_field;                    // The coordinates field
     UnsignedField *m_node_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_node_neighbors_field;             // The neighbors field
-    UnsignedLongField *m_node_active_field;            // The active field
+    UnsignedField *m_node_active_field;                // The active field
     RealField *m_kernel_radius_field;                  // The kernel radius field
     RealField *m_max_edge_length_field;                // The max edge length field
     RealField *m_node_function_values_field;           // The function values field
     NgpRealField *m_ngp_coordinates_field;             // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
-    NgpUnsignedLongField *m_ngp_node_active_field;     // The ngp active field
+    NgpUnsignedField *m_ngp_node_active_field;         // The ngp active field
     NgpRealField *m_ngp_kernel_radius_field;           // The ngp kernel radius field
     NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field

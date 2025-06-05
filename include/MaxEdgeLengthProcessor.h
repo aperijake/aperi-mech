@@ -61,8 +61,8 @@ class MaxEdgeLengthProcessor {
         }
 
         // Get the node active field
-        m_node_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_node_active_field);
+        m_node_active_field = StkGetField(FieldQueryData<Unsigned>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_active_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -121,18 +121,18 @@ class MaxEdgeLengthProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;   // The mesh data object.
-    std::vector<std::string> m_sets;                // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
-    stk::mesh::Selector m_selector;                 // The selector
-    stk::mesh::Selector m_active_selector;          // The active selector
-    stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
-    RealField *m_coordinates_field;                 // The coordinates field
-    UnsignedLongField *m_node_active_field;         // The active field
-    RealField *m_max_edge_length_field;             // The kernel radius field
-    NgpRealField *m_ngp_coordinates_field;          // The ngp coordinates field
-    NgpUnsignedLongField *m_ngp_node_active_field;  // The ngp active field
-    NgpRealField *m_ngp_max_edge_length_field;      // The ngp kernel radius field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    std::vector<std::string> m_sets;               // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
+    stk::mesh::Selector m_selector;                // The selector
+    stk::mesh::Selector m_active_selector;         // The active selector
+    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
+    RealField *m_coordinates_field;                // The coordinates field
+    UnsignedField *m_node_active_field;            // The active field
+    RealField *m_max_edge_length_field;            // The kernel radius field
+    NgpRealField *m_ngp_coordinates_field;         // The ngp coordinates field
+    NgpUnsignedField *m_ngp_node_active_field;     // The ngp active field
+    NgpRealField *m_ngp_max_edge_length_field;     // The ngp kernel radius field
 };
 
 }  // namespace aperi

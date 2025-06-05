@@ -218,10 +218,10 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Set the active field to 0 or 1
     int seed = 42;
-    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, unsigned long>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
     // Check that the active field has 1s and 0s
-    auto active_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, unsigned long, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
+    auto active_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "active", aperi::FieldQueryState::None);
     size_t num_zeros = 0;
     size_t num_ones = 0;
     for (int i = 0; i < active_values.rows(); i++) {
@@ -272,7 +272,7 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Mess up the active field
     seed = 21;
-    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, unsigned long>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
+    RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
     // Check neighbor active status and expect an issue, CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
     if (num_procs == 1) {

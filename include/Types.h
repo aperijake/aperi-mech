@@ -8,13 +8,14 @@ namespace aperi {
 
 using Real = double;
 using Unsigned = uint64_t;
+using UnsignedLong = unsigned long;
 
 using UnsignedField = stk::mesh::Field<Unsigned>;
 using NgpUnsignedField = stk::mesh::NgpField<Unsigned>;
 using RealField = stk::mesh::Field<Real>;
 using NgpRealField = stk::mesh::NgpField<Real>;
 
-using UnsignedLongField = stk::mesh::Field<unsigned long>;
-using NgpUnsignedLongField = stk::mesh::NgpField<unsigned long>;
+using UnsignedLongField = stk::mesh::Field<UnsignedLong>;
+using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
 }  // namespace aperi

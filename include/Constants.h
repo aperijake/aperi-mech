@@ -18,6 +18,7 @@ static constexpr size_t MAX_ELEMENT_NUM_FACES = HEX8_NUM_FACES;
 static constexpr size_t MAX_FACE_NUM_NODES = 4;
 static constexpr Unsigned INVALID_ID = std::numeric_limits<Unsigned>::max();
 static constexpr Unsigned UNSIGNED_MAX = std::numeric_limits<Unsigned>::max();
+static constexpr UnsignedLong UNSIGNED_LONG_MAX = std::numeric_limits<UnsignedLong>::max();
 
 enum class ElementTopology { None,
                              Tetrahedron4,

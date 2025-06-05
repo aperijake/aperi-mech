@@ -55,8 +55,12 @@ class MeshLabelerProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the active field
-        m_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_active_field);
+        m_active_field = StkGetField(FieldQueryData<Unsigned>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_active_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_active_field);
+
+        // Get the temporary active field
+        m_active_temp_field = StkGetField(FieldQueryData<UnsignedLong>{"active_temp", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_active_temp_field = &stk::mesh::get_updated_ngp_field<UnsignedLong>(*m_active_temp_field);
 
         // Get the cell id field
         m_cell_id_field = StkGetField(FieldQueryData<Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
@@ -76,7 +80,7 @@ class MeshLabelerProcessor {
         SetActiveFieldForNodalIntegrationHost(deactivate_small_subcells, deactivate_subcells_smaller_than);
 
         // Parallel sum the active field
-        ParallelSumActiveField();
+        ParallelMaxActiveField();
 
         // After setting the active field, check that the nodal integration mesh is correct
         CheckNodalIntegrationOnRefinedMeshHost();
@@ -95,6 +99,9 @@ class MeshLabelerProcessor {
             CreateActivePartFromActiveFieldHost(2);
         }
 
+        // Copy the temporary active field to the active field
+        CopyTemporaryActiveFieldToActiveField();
+
         // All operations are done on the host, so sync the fields to the device
         SyncFieldsToDevice();
     }
@@ -109,6 +116,9 @@ class MeshLabelerProcessor {
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
+
+        // Copy the temporary active field to the active field
+        CopyTemporaryActiveFieldToActiveField();
 
         // Sync the fields to the device
         SyncFieldsToDevice();
@@ -125,12 +135,15 @@ class MeshLabelerProcessor {
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
 
+        // Copy the temporary active field to the active field
+        CopyTemporaryActiveFieldToActiveField();
+
         // Sync the fields to the device
         SyncFieldsToDevice();
     }
 
-    void ParallelSumActiveField() {
-        stk::mesh::parallel_max(*m_bulk_data, {m_active_field});
+    void ParallelMaxActiveField() {
+        stk::mesh::parallel_max(*m_bulk_data, {m_active_temp_field});
     }
 
     void SyncFieldsToHost() {
@@ -145,8 +158,17 @@ class MeshLabelerProcessor {
         m_ngp_subcell_id_field->sync_to_device();
     }
 
-    void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_active_field, m_cell_id_field});
+    void CopyTemporaryActiveFieldToActiveField() {
+        // Copy the temporary active field to the active field
+        for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
+            for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
+                UnsignedLong *active_temp_field_data = stk::mesh::field_data(*m_active_temp_field, (*bucket)[i_node]);
+                Unsigned *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
+
+                // Copy the value from the temporary active field to the active field
+                active_field_data[0] = static_cast<Unsigned>(active_temp_field_data[0]);
+            }
+        }
     }
 
     size_t GetCenterNodeIndex(const size_t &minimum_index) {
@@ -191,7 +213,7 @@ class MeshLabelerProcessor {
         // Set the active field to 0 for all nodes
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
-                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, (*bucket)[i_node]);
                 active_field_data[0] = 0;
             }
         }
@@ -226,12 +248,12 @@ class MeshLabelerProcessor {
                 }
 
                 // Set the active value to 1 for the minimum id
-                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[minimum_index]);
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[minimum_index]);
                 active_field_data[0] = 1;
 
                 // If the center node is to be activated, set the active value to 1 for the center node
                 if (m_activate_center_node) {
-                    active_field_data = stk::mesh::field_data(*m_active_field, nodes[GetCenterNodeIndex(minimum_index)]);
+                    active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[GetCenterNodeIndex(minimum_index)]);
                     active_field_data[0] = 2;
                 }
             }
@@ -256,7 +278,7 @@ class MeshLabelerProcessor {
                 uint16_t num_active_nodes = 0;
                 uint16_t num_center_nodes = 0;
                 for (size_t i = 0; i < num_nodes; ++i) {
-                    unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                    UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[i]);
                     if (active_field_data[0] == 1) {
                         num_active_nodes++;
                     } else if (active_field_data[0] == 2) {
@@ -273,7 +295,7 @@ class MeshLabelerProcessor {
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one active node per element. Found " + std::to_string(num_active_nodes) + " active nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                        UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[i]);
                         message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
                     }
                     throw std::runtime_error(message);
@@ -281,7 +303,7 @@ class MeshLabelerProcessor {
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one center node per element. Found " + std::to_string(num_center_nodes) + " center nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
-                        unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
+                        UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[i]);
                         message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
                     }
                     throw std::runtime_error(message);
@@ -291,13 +313,13 @@ class MeshLabelerProcessor {
         return true;
     }
 
-    void CreateActivePartFromActiveFieldHost(unsigned long active_value = 1) {
+    void CreateActivePartFromActiveFieldHost(UnsignedLong active_value = 1) {
         // Host operation and mesh modification
         stk::mesh::EntityVector nodes_to_change;
 
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
-                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, (*bucket)[i_node]);
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, (*bucket)[i_node]);
                 if (active_field_data[0] == active_value) {
                     nodes_to_change.push_back((*bucket)[i_node]);
                 }
@@ -364,7 +386,7 @@ class MeshLabelerProcessor {
         ChangePartsHost(m_set + "_cells", stk::topology::ELEMENT_RANK, elems_to_change, *m_bulk_data);
     }
 
-    void PutAllCellElementsOnTheSameProcessorHost(const std::unordered_map<unsigned long, int> &cell_id_to_processor_map) {
+    void PutAllCellElementsOnTheSameProcessorHost(const std::unordered_map<Unsigned, int> &cell_id_to_processor_map) {
         int this_processor = m_bulk_data->parallel_rank();
 
         // Create the active selector
@@ -388,8 +410,8 @@ class MeshLabelerProcessor {
                 // Get the cell id
                 Unsigned *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
 
-                // Get the processor, cast to unsigned long
-                int processor = cell_id_to_processor_map.at(static_cast<unsigned long>(cell_id[0]));
+                // Get the processor, cast to Unsigned
+                int processor = cell_id_to_processor_map.at(static_cast<Unsigned>(cell_id[0]));
 
                 // If the processor is not the current processor, move the element
                 if (processor != this_processor) {
@@ -402,7 +424,7 @@ class MeshLabelerProcessor {
         m_bulk_data->change_entity_owner(element_processor_pairs);
     }
 
-    std::unordered_map<unsigned long, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<unsigned long, int>> &local_cell_id_to_processor) {
+    std::unordered_map<Unsigned, int> MakeGlobalCellIdToProcMap(const std::vector<std::pair<Unsigned, int>> &local_cell_id_to_processor) {
         // Communicate the cell id to processor vector
         int local_size = local_cell_id_to_processor.size();
 
@@ -413,7 +435,7 @@ class MeshLabelerProcessor {
         // Convert sizes to byte sizes
         std::vector<int> byte_sizes(sizes.size());
         std::transform(sizes.begin(), sizes.end(), byte_sizes.begin(), [](int size) {
-            return size * sizeof(std::pair<unsigned long, int>);
+            return size * sizeof(std::pair<Unsigned, int>);
         });
 
         // Calculate the displacements in bytes
@@ -424,12 +446,12 @@ class MeshLabelerProcessor {
         int total_byte_size = std::accumulate(byte_sizes.begin(), byte_sizes.end(), 0);
 
         // Gather the cell id to processor map
-        std::vector<std::pair<unsigned long, int>> global_cell_id_to_processor(total_byte_size / sizeof(std::pair<unsigned long, int>));
-        MPI_Allgatherv(local_cell_id_to_processor.data(), local_size * sizeof(std::pair<unsigned long, int>), MPI_BYTE,
+        std::vector<std::pair<Unsigned, int>> global_cell_id_to_processor(total_byte_size / sizeof(std::pair<Unsigned, int>));
+        MPI_Allgatherv(local_cell_id_to_processor.data(), local_size * sizeof(std::pair<Unsigned, int>), MPI_BYTE,
                        global_cell_id_to_processor.data(), byte_sizes.data(), displacements.data(), MPI_BYTE, MPI_COMM_WORLD);
 
         // Put into a map
-        std::unordered_map<unsigned long, int> cell_id_to_processor_map(global_cell_id_to_processor.begin(), global_cell_id_to_processor.end());
+        std::unordered_map<Unsigned, int> cell_id_to_processor_map(global_cell_id_to_processor.begin(), global_cell_id_to_processor.end());
 
         return cell_id_to_processor_map;
     }
@@ -463,7 +485,7 @@ class MeshLabelerProcessor {
                 stk::mesh::Entity node = (*bucket)[i_node];
 
                 // Get the active value
-                unsigned long *minimum_id = stk::mesh::field_data(*m_active_field, node);
+                UnsignedLong *minimum_id = stk::mesh::field_data(*m_active_temp_field, node);
 
                 // Get the connected elements
                 stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
@@ -476,7 +498,7 @@ class MeshLabelerProcessor {
                         continue;
                     }
                     bool is_in_selector = m_selector(m_bulk_data->bucket(elems[i]));  // Only consider elements in the same set of parts
-                    unsigned long elem_id = m_bulk_data->identifier(elems[i]);
+                    Unsigned elem_id = m_bulk_data->identifier(elems[i]);
                     if (elem_id < minimum_id[0] && is_in_selector) {
                         minimum_id[0] = elem_id;
                     }
@@ -485,10 +507,10 @@ class MeshLabelerProcessor {
         }
 
         // Parallel min reduction of the cell id to processor map
-        stk::mesh::parallel_min(*m_bulk_data, {m_active_field});
+        stk::mesh::parallel_min(*m_bulk_data, {m_active_temp_field});
 
         // Create an cell_id to processor vector
-        std::vector<std::pair<unsigned long, int>> local_cell_id_to_processor;
+        std::vector<std::pair<Unsigned, int>> local_cell_id_to_processor;
         int proc = m_bulk_data->parallel_rank();
 
         // Loop over the active nodes on host, get the connected elements, and set the cell id to the value that was stored in the node active field
@@ -497,7 +519,7 @@ class MeshLabelerProcessor {
                 stk::mesh::Entity node = (*bucket)[i_node];
 
                 // Get the active value
-                unsigned long *minimum_id = stk::mesh::field_data(*m_active_field, node);
+                UnsignedLong *minimum_id = stk::mesh::field_data(*m_active_temp_field, node);
                 assert(minimum_id[0] != UNSIGNED_MAX);
 
                 // If this node is owned by the current processor, add the cell id to the local cell id to processor map
@@ -522,7 +544,7 @@ class MeshLabelerProcessor {
         }
 
         // Communicate the cell id to processor map
-        std::unordered_map<unsigned long, int> cell_id_to_processor_map = MakeGlobalCellIdToProcMap(local_cell_id_to_processor);
+        std::unordered_map<Unsigned, int> cell_id_to_processor_map = MakeGlobalCellIdToProcMap(local_cell_id_to_processor);
 
         // Put all the cell elements on the same processor
         PutAllCellElementsOnTheSameProcessorHost(cell_id_to_processor_map);
@@ -533,7 +555,7 @@ class MeshLabelerProcessor {
                 stk::mesh::Entity node = (*bucket)[i_node];
 
                 // Get the active value
-                unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, node);
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, node);
                 active_field_data[0] = 1;
             }
         }
@@ -630,22 +652,24 @@ class MeshLabelerProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::string m_set;                             // The set to process.
-    size_t m_num_subcells;                         // The number of subcells.
-    bool m_activate_center_node;                   // Whether to activate the center node
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_owned_selector;          // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-    UnsignedLongField *m_active_field;             // The active field
-    UnsignedField *m_cell_id_field;                // The cell id field
-    UnsignedField *m_subcell_id_field;             // The subcell id field
-    RealField *m_coordinates_field;                // The coordinates field
-    NgpUnsignedLongField *m_ngp_active_field;      // The ngp active field
-    NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
-    NgpUnsignedField *m_ngp_subcell_id_field;      // The ngp subcell id field
-    NgpRealField *m_ngp_coordinates_field;         // The ngp coordinates field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;   // The mesh data object.
+    std::string m_set;                              // The set to process.
+    size_t m_num_subcells;                          // The number of subcells.
+    bool m_activate_center_node;                    // Whether to activate the center node
+    stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
+    stk::mesh::Selector m_selector;                 // The selector
+    stk::mesh::Selector m_owned_selector;           // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
+    UnsignedField *m_active_field;                  // The active field
+    UnsignedLongField *m_active_temp_field;         // The active temporary field
+    UnsignedField *m_cell_id_field;                 // The cell id field
+    UnsignedField *m_subcell_id_field;              // The subcell id field
+    RealField *m_coordinates_field;                 // The coordinates field
+    NgpUnsignedField *m_ngp_active_field;           // The ngp active field
+    NgpUnsignedLongField *m_ngp_active_temp_field;  // The ngp active temporary field
+    NgpUnsignedField *m_ngp_cell_id_field;          // The ngp cell id field
+    NgpUnsignedField *m_ngp_subcell_id_field;       // The ngp subcell id field
+    NgpRealField *m_ngp_coordinates_field;          // The ngp coordinates field
 };
 
 }  // namespace aperi
