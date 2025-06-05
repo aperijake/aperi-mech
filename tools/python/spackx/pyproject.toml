@@ -1,0 +1,41 @@
+[project]
+name = "spackx"
+version = "0.0.1"
+description = "Spack extensions or aperi"
+
+requires-python = ">=3.11"
+
+# clingo needed for spack.  Spack can bootstrap clingo, but it has been error
+# prone in my (tjfulle) experience.
+dependencies = ["clingo"]
+
+[project.optional-dependencies]
+dev = ["ruff", "mypy", "pytest"]
+
+[project.entry-points."spack.config"]
+spackx = "spackx:setup_extension"
+
+[build-system]
+requires = ["setuptools", "setuptools-scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = "../../.."
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.format.ruff]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+ignore = ["E741", "F841", "E731"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
