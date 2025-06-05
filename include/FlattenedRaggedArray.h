@@ -3,6 +3,8 @@
 #include <Kokkos_Core.hpp>
 #include <cstdint>
 
+#include "Types.h"
+
 namespace aperi {
 
 struct FlattenedRaggedArray {
@@ -40,7 +42,7 @@ struct FlattenedRaggedArray {
             const auto &length_ref = this->length;
             const auto &start_ref = this->start;
             Kokkos::parallel_scan(
-                "FinishPopulatingOnDevice", length_ref.size(), KOKKOS_LAMBDA(const int i, uint64_t &update, const bool final) {
+                "FinishPopulatingOnDevice", length_ref.size(), KOKKOS_LAMBDA(const int i, Unsigned &update, const bool final) {
                     update += length_ref(i);
                     if (final) {
                         start_ref(i) = update - length_ref(i);
@@ -74,47 +76,47 @@ struct FlattenedRaggedArray {
     }
 
     // Get the size of the ragged array
-    uint64_t RaggedArraySize() const {
+    Unsigned RaggedArraySize() const {
         return ragged_array_size;
     }
 
     // Get device view of start.
-    const Kokkos::View<uint64_t *> &GetStartView() const {
+    const Kokkos::View<Unsigned *> &GetStartView() const {
         return start;
     }
 
     // Get device view of length.
-    const Kokkos::View<uint64_t *> &GetLengthView() const {
+    const Kokkos::View<Unsigned *> &GetLengthView() const {
         return length;
     }
 
     // Get host view of start.
-    Kokkos::View<uint64_t *>::HostMirror GetStartViewHost() const {
+    Kokkos::View<Unsigned *>::HostMirror GetStartViewHost() const {
         return start_host;
     }
 
     // Get host view of length.
-    Kokkos::View<uint64_t *>::HostMirror GetLengthViewHost() const {
+    Kokkos::View<Unsigned *>::HostMirror GetLengthViewHost() const {
         return length_host;
     }
 
     // Functor to add an item to a view for a ragged array
     template <typename ItemType>
     struct AddItemsFunctor {
-        Kokkos::View<uint64_t *> start_view;
-        Kokkos::View<uint64_t *> length_view;
+        Kokkos::View<Unsigned *> start_view;
+        Kokkos::View<Unsigned *> length_view;
         Kokkos::View<ItemType *> item_view;
         ItemType expected;
 
-        AddItemsFunctor(Kokkos::View<uint64_t *> start_view_in, Kokkos::View<uint64_t *> length_view_in, Kokkos::View<ItemType *> item_view_in, ItemType expected_in)
+        AddItemsFunctor(Kokkos::View<Unsigned *> start_view_in, Kokkos::View<Unsigned *> length_view_in, Kokkos::View<ItemType *> item_view_in, ItemType expected_in)
             : start_view(start_view_in), length_view(length_view_in), item_view(item_view_in), expected(expected_in) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const size_t &item_id, const ItemType &item) const {
             // Get the start and length for the item
-            uint64_t start = start_view(item_id);
-            uint64_t length = length_view(item_id);
-            uint64_t end = start + length;
+            Unsigned start = start_view(item_id);
+            Unsigned length = length_view(item_id);
+            Unsigned end = start + length;
 
             // Find the first slot that is the maximum uint value
             bool found = false;
@@ -133,9 +135,9 @@ struct FlattenedRaggedArray {
 
     // Functor to add to the number of items
     struct AddNumItemsFunctor {
-        Kokkos::View<uint64_t *> length;
+        Kokkos::View<Unsigned *> length;
 
-        explicit AddNumItemsFunctor(Kokkos::View<uint64_t *> length_in) : length(length_in) {}
+        explicit AddNumItemsFunctor(Kokkos::View<Unsigned *> length_in) : length(length_in) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const size_t &item_index, const size_t &num_items) const {
@@ -156,11 +158,11 @@ struct FlattenedRaggedArray {
     }
 
     size_t num_items;                                  // Number of items with value in the ragged array
-    uint64_t ragged_array_size{0};                     // Total number of elements in the ragged array
-    Kokkos::View<uint64_t *> start;                    // Start indices for each item in the ragged array
-    Kokkos::View<uint64_t *> length;                   // Length of each item in the ragged array
-    Kokkos::View<uint64_t *>::HostMirror start_host;   // Host view of start
-    Kokkos::View<uint64_t *>::HostMirror length_host;  // Host view of length
+    Unsigned ragged_array_size{0};                     // Total number of elements in the ragged array
+    Kokkos::View<Unsigned *> start;                    // Start indices for each item in the ragged array
+    Kokkos::View<Unsigned *> length;                   // Length of each item in the ragged array
+    Kokkos::View<Unsigned *>::HostMirror start_host;   // Host view of start
+    Kokkos::View<Unsigned *>::HostMirror length_host;  // Host view of length
 };
 
 }  // namespace aperi

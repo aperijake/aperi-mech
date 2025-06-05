@@ -16,6 +16,7 @@
 #include "Preprocessor.h"
 #include "QuadratureSmoothed.h"
 #include "SmoothedCellDataProcessor.h"
+#include "Types.h"
 #include "UnitTestNodalMeshUtils.h"
 #include "ValueFromGeneralizedFieldProcessor.h"
 
@@ -204,7 +205,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
             UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);
         } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Incremental) {
-            aperi::Field<uint64_t> num_neighbors_field(m_mesh_data, aperi::FieldQueryData<uint64_t>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+            aperi::Field<aperi::Unsigned> num_neighbors_field(m_mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
             aperi::Selector selector = aperi::Selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
             aperi::AddValue(num_neighbors_field, -3, selector);  // Decrement the number of neighbors
             UpdateShapeFunctions(lagrangian_formulation_type, check_for_new_shape_functions, true /*use one pass method*/);

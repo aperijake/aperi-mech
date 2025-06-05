@@ -70,12 +70,12 @@ class FunctionValueStorageProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
 
         // Get the coordinates field
         std::string coordinate_field_name = mesh_data->GetCoordinatesFieldName();

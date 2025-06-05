@@ -111,12 +111,12 @@ class NeighborSearchProcessor {
         m_owned_and_active_selector = m_owned_selector & m_active_selector;
 
         // Get the node number of neighbors field
-        m_node_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_num_neighbors_field);
+        m_node_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_num_neighbors_field);
 
         // Get the node neighbors field
-        m_node_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_node_neighbors_field);
+        m_node_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_node_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_neighbors_field);
 
         // Get the node active field
         m_node_active_field = StkGetField(FieldQueryData<unsigned long>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -164,7 +164,7 @@ class NeighborSearchProcessor {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                Unsigned num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
@@ -192,7 +192,7 @@ class NeighborSearchProcessor {
                 // Get the node's coordinates
                 double kernel_radius = ngp_kernel_radius_field(node_index, 0);
                 stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
-                uint64_t num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+                Unsigned num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
                 for (size_t i = 0; i < num_neighbors; ++i) {
@@ -235,14 +235,14 @@ class NeighborSearchProcessor {
         // Loop over all the buckets
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
             // Get the field data for the bucket
-            uint64_t *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
-            uint64_t *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
+            Unsigned *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
+            Unsigned *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
             const size_t len_neighbors = stk::mesh::field_scalars_per_entity(*m_node_neighbors_field, *bucket);
             assert(1 == stk::mesh::field_scalars_per_entity(*m_node_num_neighbors_field, *bucket));
             // Loop over each entity in the bucket
             for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
                 size_t i_neighbor_start = i_entity * len_neighbors;
-                uint64_t num_neighbors = node_num_neighbors[i_entity];
+                Unsigned num_neighbors = node_num_neighbors[i_entity];
                 assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 if (num_neighbors == 0) {
                     all_nodes_have_neighbors = false;
@@ -252,7 +252,7 @@ class NeighborSearchProcessor {
                 }
                 for (size_t i = 0; i < num_neighbors; i++) {
                     // TODO(jake): This only works in serial. The neighbor index is not the global id and the field_data call is not working.
-                    uint64_t neighbor_index = node_neighbors[i_neighbor_start + i];
+                    Unsigned neighbor_index = node_neighbors[i_neighbor_start + i];
                     stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
                     // Active value of the neighbor
                     unsigned long neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
@@ -411,8 +411,8 @@ class NeighborSearchProcessor {
                 assert(NodeIsActive(neighbor));
                 const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
                 const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
-                uint64_t *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-                uint64_t &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+                Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
+                Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
                 assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
 
@@ -584,7 +584,7 @@ class NeighborSearchProcessor {
             "calculate_stats",
             num_entities,
             KOKKOS_LAMBDA(int i, double &max_num_neighbors, double &min_num_neighbors, double &total_num_neighbors) {
-                stk::mesh::EntityFieldData<uint64_t> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
+                stk::mesh::EntityFieldData<Unsigned> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
                 double num_neighbors = num_neighbors_field[0];
                 max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
                 min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);

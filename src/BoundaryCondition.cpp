@@ -6,6 +6,7 @@
 #include "IoInputFile.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -48,7 +49,7 @@ void BoundaryCondition::ApplyAcceleration(double time) {
 // Set the flag to mark the field as on an essential boundary
 void BoundaryCondition::SetEssentialBoundaryFlag() {
     // Loop over the nodes
-    uint64_t essential_boundary_flag = 1;
+    Unsigned essential_boundary_flag = 1;
     for (auto&& component_value : m_components_and_values) {
         auto fill_field_functor = FillFieldFunctor(essential_boundary_flag);
         m_node_processor_boundary->for_component_i(fill_field_functor, component_value.first, 0);

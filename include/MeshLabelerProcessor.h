@@ -59,12 +59,12 @@ class MeshLabelerProcessor {
         m_ngp_active_field = &stk::mesh::get_updated_ngp_field<unsigned long>(*m_active_field);
 
         // Get the cell id field
-        m_cell_id_field = StkGetField(FieldQueryData<uint64_t>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_cell_id_field);
+        m_cell_id_field = StkGetField(FieldQueryData<Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_cell_id_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_cell_id_field);
 
         // Get the subcell id field
-        m_subcell_id_field = StkGetField(FieldQueryData<uint64_t>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
-        m_ngp_subcell_id_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_subcell_id_field);
+        m_subcell_id_field = StkGetField(FieldQueryData<Unsigned>{"subcell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        m_ngp_subcell_id_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_subcell_id_field);
 
         // Get the coordinates field
         m_coordinates_field = StkGetField(FieldQueryData<double>{m_mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -215,10 +215,10 @@ class MeshLabelerProcessor {
                 }
 
                 // Get the minimum id
-                uint64_t minimum_id = m_bulk_data->identifier(nodes[0]);
+                Unsigned minimum_id = m_bulk_data->identifier(nodes[0]);
                 size_t minimum_index = 0;
                 for (size_t i = 1; i < num_nodes; ++i) {
-                    uint64_t id = m_bulk_data->identifier(nodes[i]);
+                    Unsigned id = m_bulk_data->identifier(nodes[i]);
                     if (id < minimum_id) {
                         minimum_id = id;
                         minimum_index = i;
@@ -250,11 +250,11 @@ class MeshLabelerProcessor {
 
                 // Get the element nodes
                 stk::mesh::Entity const *nodes = m_bulk_data->begin_nodes(element);
-                uint64_t num_nodes = m_bulk_data->num_nodes(element);
+                unsigned num_nodes = m_bulk_data->num_nodes(element);
 
                 // Throw an exception if an element has something other than 1 active node
-                uint64_t num_active_nodes = 0;
-                uint64_t num_center_nodes = 0;
+                uint16_t num_active_nodes = 0;
+                uint16_t num_center_nodes = 0;
                 for (size_t i = 0; i < num_nodes; ++i) {
                     unsigned long *active_field_data = stk::mesh::field_data(*m_active_field, nodes[i]);
                     if (active_field_data[0] == 1) {
@@ -327,7 +327,7 @@ class MeshLabelerProcessor {
 
                     // Get the connected elements
                     stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
-                    uint64_t num_elems = elems.size();
+                    size_t num_elems = elems.size();
                     for (size_t i = 0; i < num_elems; ++i) {
                         // Only consider elements in the same set of parts
                         if (!m_selector(m_bulk_data->bucket(elems[i]))) {
@@ -386,7 +386,7 @@ class MeshLabelerProcessor {
                 }
 
                 // Get the cell id
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
+                Unsigned *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
 
                 // Get the processor, cast to unsigned long
                 int processor = cell_id_to_processor_map.at(static_cast<unsigned long>(cell_id[0]));
@@ -467,10 +467,10 @@ class MeshLabelerProcessor {
 
                 // Get the connected elements
                 stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
-                uint64_t num_elems = elems.size();
+                size_t num_elems = elems.size();
 
                 // Loop over the connected elements and get the minimum id
-                minimum_id[0] = UINT64_MAX;
+                minimum_id[0] = UNSIGNED_MAX;
                 for (size_t i = 0; i < num_elems; ++i) {
                     if (stk::mesh::field_data(*m_subcell_id_field, elems[i])[0] == INVALID_ID) {
                         continue;
@@ -498,7 +498,7 @@ class MeshLabelerProcessor {
 
                 // Get the active value
                 unsigned long *minimum_id = stk::mesh::field_data(*m_active_field, node);
-                assert(minimum_id[0] != UINT64_MAX);
+                assert(minimum_id[0] != UNSIGNED_MAX);
 
                 // If this node is owned by the current processor, add the cell id to the local cell id to processor map
                 if (m_owned_selector(m_bulk_data->bucket(node))) {
@@ -507,7 +507,7 @@ class MeshLabelerProcessor {
 
                 // Get the connected elements
                 stk::mesh::ConnectedEntities elems = m_bulk_data->get_connected_entities(node, stk::topology::ELEMENT_RANK);
-                uint64_t num_elems = elems.size();
+                size_t num_elems = elems.size();
 
                 // Loop over the connected elements and set the cell id to the minimum id
                 for (size_t i = 0; i < num_elems; ++i) {
@@ -515,7 +515,7 @@ class MeshLabelerProcessor {
                     if (!m_selector(m_bulk_data->bucket(elems[i]))) {
                         continue;
                     }
-                    uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
+                    Unsigned *cell_id = stk::mesh::field_data(*m_cell_id_field, elems[i]);
                     cell_id[0] = minimum_id[0];
                 }
             }
@@ -539,8 +539,8 @@ class MeshLabelerProcessor {
         }
 
         // Loop over the owned active nodes, set the smoothed cell id and cell id for the attached elements
-        uint64_t cell_id_index = 0;
-        uint64_t subcell_id_index = 0;
+        Unsigned cell_id_index = 0;
+        Unsigned subcell_id_index = 0;
         for (stk::mesh::Bucket *bucket : owned_active_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
                 stk::mesh::Entity node = (*bucket)[i_node];
@@ -555,7 +555,7 @@ class MeshLabelerProcessor {
                     filtered_elems.push_back(elems[i]);
                 }
                 for (size_t i = 0; i < filtered_elems.size(); ++i) {
-                    uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, filtered_elems[i]);
+                    Unsigned *cell_id = stk::mesh::field_data(*m_cell_id_field, filtered_elems[i]);
                     cell_id[0] = cell_id_index;
                 }
                 cell_id_index++;
@@ -577,19 +577,19 @@ class MeshLabelerProcessor {
         m_ngp_subcell_id_field->modify_on_host();
     }
 
-    void LabelSubcellIds(const int &num_subcells, const stk::mesh::EntityVector &elems, uint64_t &subcell_id_index) {
+    void LabelSubcellIds(const int &num_subcells, const stk::mesh::EntityVector &elems, Unsigned &subcell_id_index) {
         // Label the subcell ids
         // num_subcells < 1 = Each element is a subcell
         // num_subcells >= 1 = Each element is split into num_subcells subcells
         if (num_subcells < 1) {
             for (size_t i = 0; i < elems.size(); ++i) {
-                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
+                Unsigned *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
                 subcell_id[0] = subcell_id_index++;
             }
         } else if (num_subcells == 1) {
             // Each element is split into num_subcells subcells
             for (size_t i = 0; i < elems.size(); ++i) {
-                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
+                Unsigned *subcell_id = stk::mesh::field_data(*m_subcell_id_field, elems[i]);
                 subcell_id[0] = subcell_id_index;
             }
             subcell_id_index++;
@@ -607,15 +607,15 @@ class MeshLabelerProcessor {
         }
 
         // Loop over the elements and set the cell id to the element id
-        uint64_t cell_id_index = 0;
-        uint64_t subcell_id_index = 0;
+        Unsigned cell_id_index = 0;
+        Unsigned subcell_id_index = 0;
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
-                uint64_t *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
+                Unsigned *cell_id = stk::mesh::field_data(*m_cell_id_field, element);
                 cell_id[0] = cell_id_index++;
                 // TODO(jake): This labels each element as a subcell for now. Add more logic later.
-                uint64_t *subcell_id = stk::mesh::field_data(*m_subcell_id_field, element);
+                Unsigned *subcell_id = stk::mesh::field_data(*m_subcell_id_field, element);
                 subcell_id[0] = subcell_id_index++;
             }
         }

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Constants.h"
+#include "Types.h"
 
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoFieldData.h"
@@ -68,7 +69,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
     field_data.push_back(FieldData("max_edge_length", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));     // The maximum edge length for the node
 
-    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));  // Indicator for essential boundary conditions
+    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}));  // Indicator for essential boundary conditions
 
     // Element data
     field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
@@ -84,11 +85,11 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
         // TODO(jake): Some of these fields are only really needed for RK, but NeighborSearchProcessor needs to be refactored to allow for this
 
         // Node neighbor data.
-        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<uint64_t>{}));  // The number of neighbors for the node
+        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}));  // The number of neighbors for the node
         field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The kernel radius for the node
 
-        uint64_t max_node_num_neighbors = uses_generalized_fields ? MAX_NODE_NUM_NEIGHBORS : FEM_NODE_NUM_NEIGHBORS;
-        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<uint64_t>{}, false));      // The neighbors of the node
+        Unsigned max_node_num_neighbors = uses_generalized_fields ? MAX_NODE_NUM_NEIGHBORS : FEM_NODE_NUM_NEIGHBORS;
+        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<Unsigned>{}, false));      // The neighbors of the node
         field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<double>{}, false));  // The function values of neighbors at the node
 
 #ifdef USE_PROTEGO_MECH

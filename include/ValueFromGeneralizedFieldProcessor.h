@@ -49,12 +49,12 @@ class ValueFromGeneralizedFieldProcessor {
         m_owned_selector = m_selector & full_owned_selector;
 
         // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_num_neighbors_field);
+        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
 
         // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<uint64_t>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<uint64_t>(*m_neighbors_field);
+        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
 
         // Get the function values field
         m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -102,7 +102,7 @@ class ValueFromGeneralizedFieldProcessor {
                     for (size_t k = num_neighbors; k-- > 0;) {
                         // Get the function value
                         double function_value = ngp_function_values_field(node_index, k);
-                        uint64_t neighbor = ngp_neighbors_field(node_index, k);
+                        Unsigned neighbor = ngp_neighbors_field(node_index, k);
                         Kokkos::printf("Neighbor: %lu, Function Value: %.8e\n", neighbor, function_value);
                     }
                     if (Kokkos::abs(function_sum - 1.0) > error_threshold) {

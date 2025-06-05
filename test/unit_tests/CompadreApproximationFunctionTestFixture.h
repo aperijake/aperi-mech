@@ -21,6 +21,7 @@
 #include "FunctionValueStorageProcessorTestFixture.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Types.h"
 #include "UnitTestUtils.h"
 
 template <typename ViewType>
@@ -149,7 +150,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_kernel_radius_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>("kernel radius", num_local_nodes);
         m_kernel_radius_view_host = Kokkos::create_mirror_view(m_kernel_radius_view_device);
 
-        m_num_neighbors_view_device = Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace>("number of neighbor", num_local_nodes);
+        m_num_neighbors_view_device = Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace>("number of neighbor", num_local_nodes);
         m_num_neighbors_view_host = Kokkos::create_mirror_view(m_num_neighbors_view_device);
 
         // ---------------------
@@ -198,8 +199,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // ---------------------
         // Number of Neighbors
-        aperi::FieldQueryData<uint64_t> field_query_data_uint = {m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
-        field_query_data_uint = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        aperi::FieldQueryData<aperi::Unsigned> field_query_data_uint = {"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         TransferFieldToKokkosView(field_query_data_uint, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device);
         Kokkos::deep_copy(m_num_neighbors_view_host, m_num_neighbors_view_device);
         m_total_num_neighbors = SumKokkosView(m_num_neighbors_view_device);
@@ -222,7 +222,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
         // ---------------------
         // Neighbors
-        m_neighbor_lists_device = Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace>("neighbors", m_total_num_neighbors);
+        m_neighbor_lists_device = Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace>("neighbors", m_total_num_neighbors);
         m_neighbor_lists_host = Kokkos::create_mirror_view(m_neighbor_lists_device);
 
         field_query_data_uint = {"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
@@ -420,10 +420,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_coordinates_view_host = Kokkos::View<double **>::HostMirror();
         m_kernel_radius_view_device = Kokkos::View<double *, Kokkos::DefaultExecutionSpace>();
         m_kernel_radius_view_host = Kokkos::View<double *>::HostMirror();
-        m_num_neighbors_view_device = Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace>();
-        m_num_neighbors_view_host = Kokkos::View<uint64_t *>::HostMirror();
-        m_neighbor_lists_device = Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace>();
-        m_neighbor_lists_host = Kokkos::View<uint64_t *>::HostMirror();
+        m_num_neighbors_view_device = Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace>();
+        m_num_neighbors_view_host = Kokkos::View<aperi::Unsigned *>::HostMirror();
+        m_neighbor_lists_device = Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace>();
+        m_neighbor_lists_host = Kokkos::View<aperi::Unsigned *>::HostMirror();
 
         // Call reset for inherited fixture components
         ResetFunctionValueStorageProcessor();
@@ -433,10 +433,10 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
     Kokkos::View<double **>::HostMirror m_coordinates_view_host;
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> m_kernel_radius_view_device;
     Kokkos::View<double *>::HostMirror m_kernel_radius_view_host;
-    Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace> m_num_neighbors_view_device;
-    Kokkos::View<uint64_t *>::HostMirror m_num_neighbors_view_host;
-    Kokkos::View<uint64_t *, Kokkos::DefaultExecutionSpace> m_neighbor_lists_device;
-    Kokkos::View<uint64_t *>::HostMirror m_neighbor_lists_host;
+    Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace> m_num_neighbors_view_device;
+    Kokkos::View<aperi::Unsigned *>::HostMirror m_num_neighbors_view_host;
+    Kokkos::View<aperi::Unsigned *, Kokkos::DefaultExecutionSpace> m_neighbor_lists_device;
+    Kokkos::View<aperi::Unsigned *>::HostMirror m_neighbor_lists_host;
     size_t m_total_num_neighbors = 0;
     double m_kernel_factor = 1.0;
 };

@@ -49,10 +49,10 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_mesh_reader->add_all_mesh_fields_as_input_fields();
 
         // Create the fields, start with nodes
-        m_node_num_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "num_neighbors", 1);
+        m_node_num_neighbors_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "num_neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_num_neighbors_field, 1);
 
-        m_node_neighbors_field = &p_meta_data->declare_field<uint64_t>(stk::topology::NODE_RANK, "neighbors", 1);
+        m_node_neighbors_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "neighbors", 1);
         stk::mesh::put_field_on_entire_mesh(*m_node_neighbors_field, aperi::MAX_NODE_NUM_NEIGHBORS);
 
         m_node_active_field = &p_meta_data->declare_field<unsigned long>(stk::topology::NODE_RANK, "active", 1);
@@ -68,10 +68,10 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_max_edge_length_field = &p_meta_data->declare_field<double>(stk::topology::NODE_RANK, "max_edge_length", 1);
         stk::mesh::put_field_on_entire_mesh(*m_max_edge_length_field, 1);
 
-        m_cell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "cell_id", 1);
+        m_cell_id_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::ELEMENT_RANK, "cell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_cell_id_field, 1);
 
-        m_subcell_id_field = &p_meta_data->declare_field<uint64_t>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
+        m_subcell_id_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_subcell_id_field, 1);
     }
 

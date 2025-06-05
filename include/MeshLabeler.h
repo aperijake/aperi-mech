@@ -7,6 +7,7 @@
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 #include "MeshLabelerProcessor.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -35,8 +36,8 @@ class MeshLabeler {
         field_data.push_back(FieldData("active", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, initial_active_values));  // Active nodes
 
         // Cell data, cell_id and subcell_id
-        field_data.push_back(FieldData("cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));     // The cell id
-        field_data.push_back(FieldData("subcell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<uint64_t>{}));  // The subcell id
+        field_data.push_back(FieldData("cell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<Unsigned>{}));     // The cell id
+        field_data.push_back(FieldData("subcell_id", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<Unsigned>{}));  // The subcell id
 
         return field_data;
     }

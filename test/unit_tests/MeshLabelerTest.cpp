@@ -5,6 +5,7 @@
 #include "MeshData.h"
 #include "MeshLabeler.h"
 #include "MeshLabelerTestFixture.h"
+#include "Types.h"
 #include "UnitTestUtils.h"
 
 // Basic test to check that the mesh labeler can be created
@@ -62,7 +63,7 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     }
 
     // Check the cell id field
-    auto cell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
+    auto cell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "cell_id", aperi::FieldQueryState::None);
 
     num_rows = cell_id.rows();
     num_rows_global = 0;
@@ -75,7 +76,7 @@ TEST_F(MeshLabelerTestFixture, CheckFieldsAreCreated) {
     }
 
     // Check the subcell id field
-    auto subcell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, uint64_t, 1>(*m_mesh_data, {"block_1"}, "subcell_id", aperi::FieldQueryState::None);
+    auto subcell_id = GetEntityFieldValues<aperi::FieldDataTopologyRank::ELEMENT, aperi::Unsigned, 1>(*m_mesh_data, {"block_1"}, "subcell_id", aperi::FieldQueryState::None);
 
     num_rows = subcell_id.rows();
     num_rows_global = 0;

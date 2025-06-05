@@ -13,7 +13,7 @@ namespace aperi {
 template <typename>
 inline constexpr bool always_false_v = false;
 
-using FieldDataType = std::variant<uint64_t, unsigned long, double>;
+using FieldDataType = std::variant<Unsigned, unsigned long, double>;
 
 /**
  * @enum FieldDataRank
@@ -41,7 +41,7 @@ enum class FieldDataTopologyRank { NODE,
 struct FieldData {
     template <typename T>
     static constexpr size_t GetVariantIndex() {
-        if constexpr (std::is_same_v<T, uint64_t>)
+        if constexpr (std::is_same_v<T, Unsigned>)
             return 0;
         else if constexpr (std::is_same_v<T, unsigned long>)
             return 1;

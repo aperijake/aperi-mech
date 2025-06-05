@@ -9,6 +9,7 @@
 #include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
+#include "Types.h"
 #include "UnitTestUtils.h"
 
 TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
@@ -22,7 +23,7 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     bool set_first_function_value = true;
     m_search_processor->add_nodes_ring_0_nodes(set_first_function_value);
     m_search_processor->SyncFieldsToHost();
-    std::array<uint64_t, 1> expected_num_neighbors_data = {1};
+    std::array<aperi::Unsigned, 1> expected_num_neighbors_data = {1};
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     std::array<double, aperi::MAX_NODE_NUM_NEIGHBORS> expected_function_values_data;
@@ -73,7 +74,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     double kernel_radius = 0.5;  // Small ball radius, only 1 neighbor
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->SyncFieldsToHost();
-    std::array<uint64_t, 1> expected_num_neighbors_data = {1};
+    std::array<aperi::Unsigned, 1> expected_num_neighbors_data = {1};
     std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
@@ -101,8 +102,8 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius);
     m_search_processor->SyncFieldsToHost();
     // Num nodes
-    uint64_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    std::array<uint64_t, 1> expected_num_neighbors_data = {num_nodes};
+    aperi::Unsigned num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
+    std::array<aperi::Unsigned, 1> expected_num_neighbors_data = {num_nodes};
     std::array<double, 1> expected_kernel_radius = {kernel_radius};
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
@@ -136,7 +137,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     // 14 faces of the mesh = 6 neighbors
     // 3 interior nodes = 7 neighbors
     // Make a pair with value (num neighbors) and expected count
-    std::vector<std::pair<uint64_t, size_t>> expected_num_neighbors_data = {{4, 8}, {5, 20}, {6, 14}, {7, 3}};
+    std::vector<std::pair<aperi::Unsigned, size_t>> expected_num_neighbors_data = {{4, 8}, {5, 20}, {6, 14}, {7, 3}};
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
@@ -195,7 +196,7 @@ TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
     // 8 corners of the mesh, 2 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
     // 12 edges of the mesh, 6 nodes will have the larger sqrt(3) radius, 6 nodes will have the smaller sqrt(2) radius.
     // Make a pair with value (num neighbors) and expected count
-    std::vector<std::pair<uint64_t, size_t>> expected_num_neighbors_data = {{7, 4}, {8, 4}, {10, 6}, {11, 2}, {12, 4}};
+    std::vector<std::pair<aperi::Unsigned, size_t>> expected_num_neighbors_data = {{7, 4}, {8, 4}, {10, 6}, {11, 2}, {12, 4}};
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 }
 

@@ -7,8 +7,9 @@
 #include <vector>
 
 #include "SmoothedCellData.h"
+#include "Types.h"
 
-void PopulateLength(const Kokkos::View<uint64_t *> &length) {
+void PopulateLength(const Kokkos::View<aperi::Unsigned *> &length) {
     Kokkos::parallel_for(
         "PopulateLength", length.size(), KOKKOS_LAMBDA(const size_t i) {
             length(i) = i + 1;
@@ -28,7 +29,7 @@ TEST(FlattenedRaggedArray, Create) {
     auto start_host = fra.GetStartViewHost();
 
     // Create a host view with the expected start values
-    Kokkos::View<uint64_t *>::HostMirror expected_start = Kokkos::create_mirror_view(fra.start);
+    Kokkos::View<aperi::Unsigned *>::HostMirror expected_start = Kokkos::create_mirror_view(fra.start);
     expected_start(0) = 0;
     expected_start(1) = 1;
     expected_start(2) = 3;
@@ -90,20 +91,20 @@ class SmoothedCellDataFixture : public ::testing::Test {
             {2, 1, 0},
         };
 
-        std::vector<std::array<uint64_t, 3>> element_nodes = {
+        std::vector<std::array<aperi::Unsigned, 3>> element_nodes = {
             {0, 1, 3},
             {1, 4, 3},
             {1, 2, 4},
             {2, 5, 4},
         };
 
-        std::vector<std::vector<uint64_t>> subcell_elements = {
+        std::vector<std::vector<aperi::Unsigned>> subcell_elements = {
             {0},
             {1},
             {2, 3},
         };
 
-        std::vector<std::vector<uint64_t>> cell_subcells = {
+        std::vector<std::vector<aperi::Unsigned>> cell_subcells = {
             {0, 1},
             {2},
         };
@@ -182,10 +183,10 @@ class SmoothedCellDataFixture : public ::testing::Test {
         Kokkos::fence();
         scd.CompleteAddingCellNumSubcellsOnDevice();
 
-        // Check the cell subcells before adding subcells. Should be all UINT64_MAX
+        // Check the cell subcells before adding subcells. Should be all UNSIGNED_MAX
         auto cell_subcells_host_pre = scd.GetCellSubcellsHost();
         for (size_t i = 0; i < m_num_cells; ++i) {
-            EXPECT_EQ(cell_subcells_host_pre(i), UINT64_MAX) << "i: " << i;
+            EXPECT_EQ(cell_subcells_host_pre(i), aperi::UNSIGNED_MAX) << "i: " << i;
         }
 
         // Add the subcells to the cells in a kokkos parallel for loop
@@ -255,13 +256,13 @@ class SmoothedCellDataFixture : public ::testing::Test {
             }
 
             // Create a set of node entities. Using a set to ensure no duplicates.
-            std::set<uint64_t> node_entities;
+            std::set<aperi::Unsigned> node_entities;
 
             // Loop over all the subcell element indices
             for (size_t j = 0, je = subcell_element_indices.size(); j < je; ++j) {
                 auto element_index = subcell_element_indices[j];
-                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
-                for (uint64_t this_element_node : this_element_nodes) {
+                std::array<aperi::Unsigned, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
+                for (aperi::Unsigned this_element_node : this_element_nodes) {
                     node_entities.insert(this_element_node);
                 }
             }
@@ -303,7 +304,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             std::map<size_t, size_t> node_local_offsets_to_index;
             size_t node_index = node_starts(i);
             for (auto &&node : node_entities) {
-                uint64_t node_local_offset = node;  // Just use the node index as the local offset in this test
+                aperi::Unsigned node_local_offset = node;  // Just use the node index as the local offset in this test
                 aperi::Index node_id(0, node_local_offset);
                 node_indicies(node_index) = node_id;
                 node_local_offsets_to_index[node_local_offset] = node_index;
@@ -313,7 +314,7 @@ class SmoothedCellDataFixture : public ::testing::Test {
             // Loop over all the subcell elements
             for (size_t j = 0, je = subcell_element_indices.size(); j < je; ++j) {
                 auto element_index = subcell_element_indices[j];
-                std::array<uint64_t, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
+                std::array<aperi::Unsigned, 3> this_element_nodes = element_nodes[element_index.bucket_ord()];
 
                 std::vector<std::vector<double>> element_function_derivatives_data = element_function_derivatives[element_index.bucket_ord()];
 
