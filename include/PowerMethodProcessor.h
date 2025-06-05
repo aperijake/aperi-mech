@@ -495,20 +495,20 @@ class PowerMethodProcessor {
     stk::mesh::Selector m_active_selector;            // The active selector
     stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
 
-    DoubleField *m_displacement_in_field;       // The scratch displacement field, stores the displacement at n+1
-    DoubleField *m_displacement_field;          // The displacement coefficients field, the input displacement field, u_n+1
-    DoubleField *m_mass_field;                  // The mass field
-    DoubleField *m_force_field;                 // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
-    DoubleField *m_force_in_field;              // The force field, input for force, f(u)
-    DoubleField *m_max_edge_length_field;       // The max edge length field
+    RealField *m_displacement_in_field;         // The scratch displacement field, stores the displacement at n+1
+    RealField *m_displacement_field;            // The displacement coefficients field, the input displacement field, u_n+1
+    RealField *m_mass_field;                    // The mass field
+    RealField *m_force_field;                   // The force field, for calculating the force with a small perturbation, f(u + \epsilon v)
+    RealField *m_force_in_field;                // The force field, input for force, f(u)
+    RealField *m_max_edge_length_field;         // The max edge length field
     UnsignedField *m_essential_boundary_field;  // The essential boundary field, flag for if the dof is in the essential boundary set
 
-    NgpDoubleField *m_ngp_displacement_in_field;       // The ngp scratch displacement field
-    NgpDoubleField *m_ngp_displacement_field;          // The ngp displacement coefficients field
-    NgpDoubleField *m_ngp_mass_field;                  // The ngp mass field
-    NgpDoubleField *m_ngp_force_field;                 // The ngp force field
-    NgpDoubleField *m_ngp_force_in_field;              // The ngp force field
-    NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
+    NgpRealField *m_ngp_displacement_in_field;         // The ngp scratch displacement field
+    NgpRealField *m_ngp_displacement_field;            // The ngp displacement coefficients field
+    NgpRealField *m_ngp_mass_field;                    // The ngp mass field
+    NgpRealField *m_ngp_force_field;                   // The ngp force field
+    NgpRealField *m_ngp_force_in_field;                // The ngp force field
+    NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpUnsignedField *m_ngp_essential_boundary_field;  // The ngp essential boundary field
 
     std::unique_ptr<ActiveNodeProcessor<FieldIndex::NUM_FIELDS, double>> m_node_processor;             // The node processor

@@ -641,11 +641,11 @@ class MeshLabelerProcessor {
     UnsignedLongField *m_active_field;             // The active field
     UnsignedField *m_cell_id_field;                // The cell id field
     UnsignedField *m_subcell_id_field;             // The subcell id field
-    DoubleField *m_coordinates_field;              // The coordinates field
+    RealField *m_coordinates_field;                // The coordinates field
     NgpUnsignedLongField *m_ngp_active_field;      // The ngp active field
     NgpUnsignedField *m_ngp_cell_id_field;         // The ngp cell id field
     NgpUnsignedField *m_ngp_subcell_id_field;      // The ngp subcell id field
-    NgpDoubleField *m_ngp_coordinates_field;       // The ngp coordinates field
+    NgpRealField *m_ngp_coordinates_field;         // The ngp coordinates field
 };
 
 }  // namespace aperi

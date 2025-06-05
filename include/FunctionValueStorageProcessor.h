@@ -180,14 +180,14 @@ class FunctionValueStorageProcessor {
     stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
     UnsignedField *m_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_neighbors_field;             // The neighbors field
-    DoubleField *m_coordinates_field;             // The coordinates field
-    DoubleField *m_function_values_field;         // The function values field
-    DoubleField *m_kernel_radius_field;           // The kernel radius field
+    RealField *m_coordinates_field;               // The coordinates field
+    RealField *m_function_values_field;           // The function values field
+    RealField *m_kernel_radius_field;             // The kernel radius field
     NgpUnsignedField *m_ngp_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_neighbors_field;      // The ngp neighbors field
-    NgpDoubleField *m_ngp_coordinates_field;      // The ngp coordinates field
-    NgpDoubleField *m_ngp_function_values_field;  // The ngp function values field
-    NgpDoubleField *m_ngp_kernel_radius_field;    // The ngp kernel radius field
+    NgpRealField *m_ngp_coordinates_field;        // The ngp coordinates field
+    NgpRealField *m_ngp_function_values_field;    // The ngp function values field
+    NgpRealField *m_ngp_kernel_radius_field;      // The ngp kernel radius field
 };
 
 #else  // USE_PROTEGO_MECH

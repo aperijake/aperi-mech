@@ -144,12 +144,12 @@ class NeighborSearchProcessor {
     }
 
     void PopulateDebugFields() {
-        DoubleField *m_neighbor_coordinates_x_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_x", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-        NgpDoubleField *m_ngp_coordinates_x_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_x_field);
-        DoubleField *m_neighbor_coordinates_y_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_y", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-        NgpDoubleField *m_ngp_coordinates_y_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_y_field);
-        DoubleField *m_neighbor_coordinates_z_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_z", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
-        NgpDoubleField *m_ngp_coordinates_z_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_z_field);
+        RealField *m_neighbor_coordinates_x_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_x", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpRealField *m_ngp_coordinates_x_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_x_field);
+        RealField *m_neighbor_coordinates_y_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_y", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpRealField *m_ngp_coordinates_y_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_y_field);
+        RealField *m_neighbor_coordinates_z_field = StkGetField(FieldQueryData<double>{"neighbor_coordinates_z", FieldQueryState::None, FieldDataTopologyRank::NODE}, &m_bulk_data->mesh_meta_data());
+        NgpRealField *m_ngp_coordinates_z_field = &stk::mesh::get_updated_ngp_field<double>(*m_neighbor_coordinates_z_field);
 
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
@@ -675,20 +675,20 @@ class NeighborSearchProcessor {
     stk::mesh::Selector m_owned_selector;              // The local selector
     stk::mesh::Selector m_owned_and_active_selector;   // The local and active selector
     stk::mesh::NgpMesh m_ngp_mesh;                     // The ngp mesh object.
-    DoubleField *m_coordinates_field;                  // The coordinates field
+    RealField *m_coordinates_field;                    // The coordinates field
     UnsignedField *m_node_num_neighbors_field;         // The number of neighbors field
     UnsignedField *m_node_neighbors_field;             // The neighbors field
     UnsignedLongField *m_node_active_field;            // The active field
-    DoubleField *m_kernel_radius_field;                // The kernel radius field
-    DoubleField *m_max_edge_length_field;              // The max edge length field
-    DoubleField *m_node_function_values_field;         // The function values field
-    NgpDoubleField *m_ngp_coordinates_field;           // The ngp coordinates field
+    RealField *m_kernel_radius_field;                  // The kernel radius field
+    RealField *m_max_edge_length_field;                // The max edge length field
+    RealField *m_node_function_values_field;           // The function values field
+    NgpRealField *m_ngp_coordinates_field;             // The ngp coordinates field
     NgpUnsignedField *m_ngp_node_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_node_neighbors_field;      // The ngp neighbors field
     NgpUnsignedLongField *m_ngp_node_active_field;     // The ngp active field
-    NgpDoubleField *m_ngp_kernel_radius_field;         // The ngp kernel radius field
-    NgpDoubleField *m_ngp_max_edge_length_field;       // The ngp max edge length field
-    NgpDoubleField *m_ngp_node_function_values_field;  // The ngp function values field
+    NgpRealField *m_ngp_kernel_radius_field;           // The ngp kernel radius field
+    NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
+    NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
 };
 
 }  // namespace aperi

@@ -164,9 +164,9 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     aperi::UnsignedLongField *m_node_active_field;
     aperi::UnsignedField *m_cell_id_field;
     aperi::UnsignedField *m_subcell_id_field;
-    aperi::DoubleField *m_node_neighbors_function_values_field;
-    aperi::DoubleField *m_kernel_radius_field;
-    aperi::DoubleField *m_max_edge_length_field;
+    aperi::RealField *m_node_neighbors_function_values_field;
+    aperi::RealField *m_kernel_radius_field;
+    aperi::RealField *m_max_edge_length_field;
     std::vector<aperi::FieldQueryData<double>> m_extra_fields;
     std::shared_ptr<aperi::NeighborSearchProcessor> m_search_processor;
     std::shared_ptr<aperi::MaxEdgeLengthProcessor> m_max_edge_length_processor;

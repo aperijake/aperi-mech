@@ -127,12 +127,12 @@ class MaxEdgeLengthProcessor {
     stk::mesh::Selector m_selector;                 // The selector
     stk::mesh::Selector m_active_selector;          // The active selector
     stk::mesh::NgpMesh m_ngp_mesh;                  // The ngp mesh object.
-    DoubleField *m_coordinates_field;               // The coordinates field
+    RealField *m_coordinates_field;                 // The coordinates field
     UnsignedLongField *m_node_active_field;         // The active field
-    DoubleField *m_max_edge_length_field;           // The kernel radius field
-    NgpDoubleField *m_ngp_coordinates_field;        // The ngp coordinates field
+    RealField *m_max_edge_length_field;             // The kernel radius field
+    NgpRealField *m_ngp_coordinates_field;          // The ngp coordinates field
     NgpUnsignedLongField *m_ngp_node_active_field;  // The ngp active field
-    NgpDoubleField *m_ngp_max_edge_length_field;    // The ngp kernel radius field
+    NgpRealField *m_ngp_max_edge_length_field;      // The ngp kernel radius field
 };
 
 }  // namespace aperi

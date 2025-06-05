@@ -128,8 +128,8 @@ class ValueFromGeneralizedFieldProcessor {
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
         for (size_t i = 0; i < NumFields; i++) {
             ngp_source_fields[i] = *m_ngp_source_fields[i];
             ngp_destination_fields[i] = *m_ngp_destination_fields[i];
@@ -191,8 +191,8 @@ class ValueFromGeneralizedFieldProcessor {
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpDoubleField, NumFields> ngp_destination_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
+        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
         for (size_t i = 0; i < NumFields; i++) {
             ngp_source_fields[i] = *m_ngp_source_fields[i];
             ngp_destination_fields[i] = *m_ngp_destination_fields[i];
@@ -351,22 +351,22 @@ class ValueFromGeneralizedFieldProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                         // The mesh data object.
-    std::vector<std::string> m_sets;                                      // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                     // The bulk data object.
-    stk::mesh::Selector m_selector;                                       // The selector
-    stk::mesh::Selector m_owned_selector;                                 // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                                        // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;                                 // The number of neighbors field
-    UnsignedField *m_neighbors_field;                                     // The neighbors field
-    DoubleField *m_function_values_field;                                 // The function values field
-    NgpUnsignedField *m_ngp_num_neighbors_field;                          // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;                              // The ngp neighbors field
-    NgpDoubleField *m_ngp_function_values_field;                          // The ngp function values field
-    std::vector<DoubleField *> m_source_fields;                           // The fields to process
-    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
-    std::vector<DoubleField *> m_destination_fields;                      // The fields to process
-    Kokkos::Array<NgpDoubleField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                       // The mesh data object.
+    std::vector<std::string> m_sets;                                    // The sets to process.
+    stk::mesh::BulkData *m_bulk_data;                                   // The bulk data object.
+    stk::mesh::Selector m_selector;                                     // The selector
+    stk::mesh::Selector m_owned_selector;                               // The local selector
+    stk::mesh::NgpMesh m_ngp_mesh;                                      // The ngp mesh object.
+    UnsignedField *m_num_neighbors_field;                               // The number of neighbors field
+    UnsignedField *m_neighbors_field;                                   // The neighbors field
+    RealField *m_function_values_field;                                 // The function values field
+    NgpUnsignedField *m_ngp_num_neighbors_field;                        // The ngp number of neighbors field
+    NgpUnsignedField *m_ngp_neighbors_field;                            // The ngp neighbors field
+    NgpRealField *m_ngp_function_values_field;                          // The ngp function values field
+    std::vector<RealField *> m_source_fields;                           // The fields to process
+    Kokkos::Array<NgpRealField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
+    std::vector<RealField *> m_destination_fields;                      // The fields to process
+    Kokkos::Array<NgpRealField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
 };
 
 }  // namespace aperi

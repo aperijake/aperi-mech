@@ -17,7 +17,4 @@ using NgpRealField = stk::mesh::NgpField<Real>;
 using UnsignedLongField = stk::mesh::Field<unsigned long>;
 using NgpUnsignedLongField = stk::mesh::NgpField<unsigned long>;
 
-using DoubleField = stk::mesh::Field<double>;
-using NgpDoubleField = stk::mesh::NgpField<double>;
-
 }  // namespace aperi
