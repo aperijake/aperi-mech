@@ -1,3 +1,6 @@
+import json
+import os
+
 from spack.package import CMakePackage
 from spack.package import CudaPackage
 from spack.package import depends_on
@@ -5,34 +8,35 @@ from spack.package import variant
 from spack.package import version
 
 
+dependencies = json.load(open(os.path.join(os.path.dirname(__file__), "dependencies.json")))
+
+
 class AperiMech(CMakePackage, CudaPackage):
     version("master")
 
     variant("cov", default=False)
     variant("protego", default=False)
-
-    depends_on("mpi")
-    depends_on("lcov", when="+cov")
-    depends_on("compadre ~tests")
-    depends_on(
-        "trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack "
-        "~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
+    variant("cuda", default=False)
+    variant(
+        "cuda_arch",
+        description="CUDA architecture",
+        values=("none",) + CudaPackage.cuda_arch_values,
+        default="none",
+        multi=False,
+        sticky=True,
+        when="+cuda",
     )
-    depends_on("googletest")
-    depends_on("yaml-cpp")
-    depends_on("eigen")
 
-    depends_on("kokkos ~shared cxxstd=17")
-    depends_on("kokkos-kernels ~shared")
-    for cuda_arch in CudaPackage.cuda_arch_values:
-        depends_on(
-            "kokkos~shared+cuda cuda_arch=%s" % cuda_arch,
-            when="^kokkos +cuda cuda_arch=%s" % cuda_arch,
-        )
-        depends_on(
-            "kokkos-kernels~shared+cuda cuda_arch=%s" % cuda_arch,
-            when="^kokkos-kernels +cuda cuda_arch=%s" % cuda_arch,
-        )
+    for dep in dependencies["dependencies"]:
+        if dep["name"] in ("kokkos", "kokkos-kernels"):
+            depends_on(f"{dep['spec']} ~cuda", when="~cuda")
+            dep_spec = f"{dep['spec']} +cuda cuda_arch={{cuda_arch}}"
+            if dep["name"] == "kokkos":
+                dep_spec += " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
+            for cuda_arch in CudaPackage.cuda_arch_values:
+                depends_on(dep_spec.format(cuda_arch=cuda_arch), when=f"+cuda cuda_arch={cuda_arch}")
+        else:
+            depends_on(dep["spec"], when=dep.get("when"), type=dep.get("type", ("build", "link")))
 
     def cmake_args(self):
         args = [
@@ -52,7 +56,7 @@ class AperiMech(CMakePackage, CudaPackage):
         if self.spec.satisfies("+cov"):
             args.append(self.define("CHECK_CODE_COVERAGE", True))
             args.append(self.define("LCOV_BIN_DIR", self.spec["lcov"].prefix.bin))
-        if self.spec.satisfies("^kokkos+cuda"):
+        if self.spec.satisfies("+cuda"):
             args.append(self.define("USE_GPU", True))
             args.append(self.define("CMAKE_CUDA_COMPILER", self.spec["cuda"].prefix.bin.nvcc))
             cuda_arch = self.spec["kokkos"].variants["cuda_arch"].value
