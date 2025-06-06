@@ -1,5 +1,7 @@
 #include "FunctionValueStorageProcessor.h"
 
+#ifndef USE_PROTEGO_MECH
+
 namespace aperi {
 
 FunctionValueStorageProcessor::FunctionValueStorageProcessor(
@@ -46,3 +48,5 @@ void FunctionValueStorageProcessor::SyncFieldsToHost() {
 }
 
 }  // namespace aperi
+
+#endif  // !USE_PROTEGO_MECH
