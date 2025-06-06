@@ -21,6 +21,7 @@
 
 #include "AperiStkUtils.h"
 #include "Constants.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
@@ -108,45 +109,48 @@ class FunctionValueStorageProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
 
-        // Get device fields
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
-        auto ngp_coordinates_field = *m_ngp_coordinates_field;
-        auto ngp_function_values_field = *m_ngp_function_values_field;
-        auto npg_kernel_radius_field = *m_ngp_kernel_radius_field;
+        // Update the fields to ensure they are current
+        m_num_neighbors_field.UpdateField();
+        m_neighbors_field.UpdateField();
+        m_coordinates_field.UpdateField();
+        m_function_values_field.UpdateField();
+        m_kernel_radius_field.UpdateField();
 
+        // Log the number of nodes being processed
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                aperi::Index idx(node_index);
+
                 // Get the number of neighbors for this node
-                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+                size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
                 // Get coordinates of the current node
-                Eigen::Matrix<double, 1, 3> coordinates;
+                Eigen::Matrix<Real, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {
-                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                    coordinates(0, j) = m_coordinates_field(idx, j);
                 }
 
-                Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
-                Eigen::Matrix<double, NumNodes, 1> kernel_values;
+                Eigen::Matrix<Real, NumNodes, 3> shifted_neighbor_coordinates;
+                Eigen::Matrix<Real, NumNodes, 1> kernel_values;
 
                 // Use the kernel radius of the evaluation point by default
-                double kernel_radius = npg_kernel_radius_field(node_index, 0);
+                Real kernel_radius = m_kernel_radius_field(idx, 0);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     // Get neighbor entity and its index
-                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
-                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
+                    stk::mesh::Entity entity(m_neighbors_field(idx, i));
+                    aperi::Index neighbor_index(ngp_mesh.fast_mesh_index(entity));
 
                     // Compute shifted coordinates relative to the current node
                     for (size_t j = 0; j < 3; ++j) {
-                        shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
+                        shifted_neighbor_coordinates(i, j) = coordinates(0, j) - m_coordinates_field(neighbor_index, j);
                     }
 
                     // Optionally use the neighbor's kernel radius
                     if (!use_evaluation_point_kernels) {
-                        kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
+                        kernel_radius = m_kernel_radius_field(neighbor_index, 0);
                     }
 
                     // Compute the kernel value for this neighbor
@@ -154,17 +158,16 @@ class FunctionValueStorageProcessor {
                 }
 
                 // Compute function values using the provided functor
-                Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, num_neighbors);
+                Eigen::Matrix<Real, NumNodes, 1> function_values = function_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, num_neighbors);
 
                 // Store computed function values in the field
                 for (size_t i = 0; i < num_neighbors; ++i) {
-                    ngp_function_values_field(node_index, i) = function_values(i, 0);
+                    m_function_values_field(idx, i) = function_values(i, 0);
                 }
             });
 
         // Mark the function values field as modified on device
-        m_ngp_function_values_field->clear_sync_state();
-        m_ngp_function_values_field->modify_on_device();
+        m_function_values_field.MarkModifiedOnDevice();
     }
 
    private:
@@ -172,14 +175,15 @@ class FunctionValueStorageProcessor {
     std::vector<std::string> m_sets;                                              // The sets to process.
     aperi::TimerManager<FunctionValueStorageProcessorTimerType> m_timer_manager;  // The timer manager.
 
-    stk::mesh::BulkData *m_bulk_data;             // The bulk data object.
-    stk::mesh::Selector m_selector;               // The selector
-    stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
-    NgpUnsignedField *m_ngp_num_neighbors_field;  // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;      // The ngp neighbors field
-    NgpRealField *m_ngp_coordinates_field;        // The ngp coordinates field
-    NgpRealField *m_ngp_function_values_field;    // The ngp function values field
-    NgpRealField *m_ngp_kernel_radius_field;      // The ngp kernel radius field
+    stk::mesh::BulkData *m_bulk_data;  // The bulk data object.
+    stk::mesh::Selector m_selector;    // The selector
+    stk::mesh::NgpMesh m_ngp_mesh;     // The ngp mesh object.
+
+    aperi::Field<Unsigned> m_num_neighbors_field;
+    aperi::Field<Unsigned> m_neighbors_field;
+    aperi::Field<Real> m_coordinates_field;
+    aperi::Field<Real> m_function_values_field;
+    aperi::Field<Real> m_kernel_radius_field;
 };
 
 #else  // USE_PROTEGO_MECH

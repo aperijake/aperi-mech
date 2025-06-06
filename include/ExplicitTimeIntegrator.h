@@ -7,6 +7,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "ForEachEntity.h"
 #include "MeshData.h"
 #include "Selector.h"
 #include "ValueFromGeneralizedFieldProcessor.h"

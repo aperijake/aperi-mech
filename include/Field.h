@@ -13,13 +13,11 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/NgpFieldBLAS.hpp>
-#include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_topology/topology.hpp>
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
-#include "ForEachEntity.h"
 #include "Index.h"
 #include "LogUtils.h"
 #include "MeshData.h"
