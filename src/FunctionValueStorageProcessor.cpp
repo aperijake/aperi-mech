@@ -13,7 +13,8 @@ FunctionValueStorageProcessor::FunctionValueStorageProcessor(
       m_num_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
       m_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
       m_function_values_field(mesh_data, FieldQueryData<Real>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}),
-      m_kernel_radius_field(mesh_data, FieldQueryData<Real>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
+      m_kernel_radius_field(mesh_data, FieldQueryData<Real>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}),
+      m_ngp_mesh_data(mesh_data->GetUpdatedNgpMesh()) {
     // Check for null mesh data pointer
     if (mesh_data == nullptr) {
         throw std::runtime_error("Mesh data is null.");
@@ -22,16 +23,8 @@ FunctionValueStorageProcessor::FunctionValueStorageProcessor(
     // Start instantiation timer
     auto timer = m_timer_manager.CreateScopedTimer(FunctionValueStorageProcessorTimerType::Instantiate);
 
-    // Initialize mesh and selectors
-    m_bulk_data = mesh_data->GetBulkData();
-    m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-    stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-    m_selector = StkGetSelector(sets, meta_data);
-
-    // Warn if selector is empty (no elements selected)
-    if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-        aperi::CoutP0() << "Warning: FunctionValueStorageProcessor selector is empty." << std::endl;
-    }
+    // Initialize the selector based on the provided sets
+    m_selector = aperi::Selector(sets, mesh_data.get());
 
     // For coordinates, select the correct field name
     std::string coordinate_field_name = mesh_data->GetCoordinatesFieldName();
