@@ -49,65 +49,66 @@ namespace aperi {
 
 #ifndef USE_PROTEGO_MECH
 
+/**
+ * @brief Processes and stores function values on mesh nodes.
+ *
+ * This class is responsible for computing and storing function values
+ * associated with mesh nodes, including handling neighbor relationships,
+ * kernel computations, and synchronization of field data.
+ */
 class FunctionValueStorageProcessor {
    public:
-    FunctionValueStorageProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets, const aperi::LagrangianFormulationType &lagrangian_formulation_type, bool enable_accurate_timers) : m_mesh_data(mesh_data), m_sets(sets), m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map, enable_accurate_timers) {
-        // Throw an exception if the mesh data is null.
-        if (mesh_data == nullptr) {
-            throw std::runtime_error("Mesh data is null.");
-        }
-        auto timer = m_timer_manager.CreateScopedTimer(FunctionValueStorageProcessorTimerType::Instantiate);
-        m_bulk_data = mesh_data->GetBulkData();
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        m_selector = StkGetSelector(sets, meta_data);
-        // Warn if the selector is empty.
-        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: FunctionValueStorageProcessor selector is empty." << std::endl;
-        }
+    /**
+     * @brief Constructs the FunctionValueStorageProcessor.
+     * @param mesh_data Shared pointer to mesh data.
+     * @param sets List of mesh sets to process.
+     * @param lagrangian_formulation_type The Lagrangian formulation type.
+     * @param enable_accurate_timers Flag to enable accurate timing.
+     */
+    FunctionValueStorageProcessor(
+        std::shared_ptr<aperi::MeshData> mesh_data,
+        const std::vector<std::string> &sets,
+        const aperi::LagrangianFormulationType &lagrangian_formulation_type,
+        bool enable_accurate_timers);
 
-        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_owned_selector = m_selector & full_owned_selector;
+    /**
+     * @brief Finalizes any preprocessing steps required before computation.
+     */
+    void FinishPreprocessing();
 
-        // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
+    /**
+     * @brief Synchronizes all relevant fields from device to host.
+     */
+    void SyncFieldsToHost();
 
-        // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
-
-        // Get the coordinates field
-        std::string coordinate_field_name = mesh_data->GetCoordinatesFieldName();
-        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated) {
-            coordinate_field_name = "current_coordinates_np1";
-        } else if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
-            coordinate_field_name = "reference_coordinates";
-        }
-        m_coordinates_field = StkGetField(FieldQueryData<double>{coordinate_field_name, FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
-
-        // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
-
-        // Get the kernel radius field
-        m_kernel_radius_field = StkGetField(FieldQueryData<double>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_kernel_radius_field = &stk::mesh::get_updated_ngp_field<double>(*m_kernel_radius_field);
+    /**
+     * @brief Retrieves the TimerManager for this processor.
+     * @return Shared pointer to the TimerManager.
+     */
+    inline std::shared_ptr<aperi::TimerManager<FunctionValueStorageProcessorTimerType>> GetTimerManager() {
+        return std::make_shared<aperi::TimerManager<FunctionValueStorageProcessorTimerType>>(m_timer_manager);
     }
 
-    void FinishPreprocessing() {
-        // This is a no-op for now
-    }
-
-    // use_evaluation_point_kernels is a flag to center the kernel at the evaluation point instead of the neighbor node. This is to match Compadre.
+    /**
+     * @brief Computes and stores function values for each node.
+     *
+     * @tparam NumNodes Maximum number of neighbors per node.
+     * @tparam FunctionFunctor Functor type providing function value computation.
+     * @tparam Bases Type representing basis functions.
+     * @param function_functor Functor to compute function values.
+     * @param bases Basis functions for computation.
+     * @param use_evaluation_point_kernels If true, centers kernel at evaluation point (matches Compadre).
+     */
     template <size_t NumNodes, typename FunctionFunctor, typename Bases>
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
+        // Start timer for function value computation
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
 
+        // Update and get the device mesh
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
+
+        // Get device fields
         auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
         auto ngp_neighbors_field = *m_ngp_neighbors_field;
         auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -117,10 +118,11 @@ class FunctionValueStorageProcessor {
         stk::mesh::for_each_entity_run(
             ngp_mesh, stk::topology::NODE_RANK, m_selector,
             KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the number of neighbors
+                // Get the number of neighbors for this node
                 size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
                 assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
+                // Get coordinates of the current node
                 Eigen::Matrix<double, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {
                     coordinates(0, j) = ngp_coordinates_field(node_index, j);
@@ -129,45 +131,41 @@ class FunctionValueStorageProcessor {
                 Eigen::Matrix<double, NumNodes, 3> shifted_neighbor_coordinates;
                 Eigen::Matrix<double, NumNodes, 1> kernel_values;
 
-                double kernel_radius = npg_kernel_radius_field(node_index, 0);  // for use_evaluation_point_kernels = true, to match Compadre
+                // Use the kernel radius of the evaluation point by default
+                double kernel_radius = npg_kernel_radius_field(node_index, 0);
 
                 for (size_t i = 0; i < num_neighbors; ++i) {
-                    // Create the entity
+                    // Get neighbor entity and its index
                     stk::mesh::Entity entity(ngp_neighbors_field(node_index, i));
                     stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
-                    // Get the neighbor's coordinates
+
+                    // Compute shifted coordinates relative to the current node
                     for (size_t j = 0; j < 3; ++j) {
                         shifted_neighbor_coordinates(i, j) = coordinates(0, j) - ngp_coordinates_field(neighbor_index, j);
                     }
-                    // Get the neighbor's kernel radius
+
+                    // Optionally use the neighbor's kernel radius
                     if (!use_evaluation_point_kernels) {
                         kernel_radius = npg_kernel_radius_field(neighbor_index, 0);
                     }
-                    // Compute the kernel value
+
+                    // Compute the kernel value for this neighbor
                     kernel_values(i, 0) = aperi::ComputeKernel(shifted_neighbor_coordinates.row(i), kernel_radius);
                 }
 
-                // Compute the function values
+                // Compute function values using the provided functor
                 Eigen::Matrix<double, NumNodes, 1> function_values = function_functor.Values(kernel_values, bases, shifted_neighbor_coordinates, num_neighbors);
 
+                // Store computed function values in the field
                 for (size_t i = 0; i < num_neighbors; ++i) {
                     ngp_function_values_field(node_index, i) = function_values(i, 0);
                 }
             });
+
+        // Mark the function values field as modified on device
         m_ngp_function_values_field->clear_sync_state();
         m_ngp_function_values_field->modify_on_device();
     }
-
-    void SyncFieldsToHost() {
-        m_ngp_function_values_field->sync_to_host();
-    }
-
-    void CommunicateAllFieldData() const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_function_values_field});
-    }
-
-    // Get the TimerManager
-    std::shared_ptr<aperi::TimerManager<FunctionValueStorageProcessorTimerType>> GetTimerManager() { return std::make_shared<aperi::TimerManager<FunctionValueStorageProcessorTimerType>>(m_timer_manager); }
 
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                                 // The mesh data object.
@@ -176,13 +174,7 @@ class FunctionValueStorageProcessor {
 
     stk::mesh::BulkData *m_bulk_data;             // The bulk data object.
     stk::mesh::Selector m_selector;               // The selector
-    stk::mesh::Selector m_owned_selector;         // The local selector
     stk::mesh::NgpMesh m_ngp_mesh;                // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;         // The number of neighbors field
-    UnsignedField *m_neighbors_field;             // The neighbors field
-    RealField *m_coordinates_field;               // The coordinates field
-    RealField *m_function_values_field;           // The function values field
-    RealField *m_kernel_radius_field;             // The kernel radius field
     NgpUnsignedField *m_ngp_num_neighbors_field;  // The ngp number of neighbors field
     NgpUnsignedField *m_ngp_neighbors_field;      // The ngp neighbors field
     NgpRealField *m_ngp_coordinates_field;        // The ngp coordinates field
