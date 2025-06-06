@@ -3,136 +3,96 @@
 #include <Eigen/Dense>
 #include <Kokkos_Core.hpp>
 #include <array>
-#include <chrono>
 #include <memory>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/FieldBLAS.hpp>
-#include <stk_mesh/base/FieldParallel.hpp>
-#include <stk_mesh/base/ForEachEntity.hpp>
-#include <stk_mesh/base/GetEntities.hpp>
-#include <stk_mesh/base/GetNgpField.hpp>
-#include <stk_mesh/base/GetNgpMesh.hpp>
-#include <stk_mesh/base/MetaData.hpp>
-#include <stk_mesh/base/NgpField.hpp>
-#include <stk_mesh/base/NgpForEachEntity.hpp>
-#include <stk_mesh/base/NgpMesh.hpp>
-#include <stk_mesh/base/Selector.hpp>
-#include <stk_mesh/base/Types.hpp>
-#include <stk_topology/topology.hpp>
-#include <stk_util/ngp/NgpSpaces.hpp>
+#include <vector>
 
-#include "AperiStkUtils.h"
+#include "ConnectedEntityProcessor.h"
+#include "Field.h"
 #include "FieldData.h"
+#include "ForEachEntity.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Selector.h"
 #include "Types.h"
 
 namespace aperi {
 
 class MaxEdgeLengthProcessor {
    public:
-    MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data), m_sets(sets) {
-        // Throw an exception if the mesh data is null.
-        if (mesh_data == nullptr) {
+    MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {})
+        : m_mesh_data(mesh_data), m_sets(sets), m_connectivity(mesh_data) {
+        if (!m_mesh_data) {
             throw std::runtime_error("Mesh data is null.");
         }
-        m_bulk_data = mesh_data->GetBulkData();
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-
-        // Create the selector for the sets
-        m_selector = StkGetSelector(sets, meta_data);
-        // Warn if the selector is empty.
-        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: MaxEdgeLengthProcessor selector is empty." << std::endl;
-        }
-
-        // Append "_active" to each set name and create a selector for the active entities
+        // Create selectors for the sets and active sets
+        m_selector = aperi::Selector(sets, mesh_data.get());
         std::vector<std::string> active_sets;
         for (const std::string &set : sets) {
             active_sets.push_back(set + "_active");
         }
-        m_active_selector = StkGetSelector(active_sets, meta_data);
-        // Warn if the active selector is empty.
-        if (m_active_selector.is_empty(stk::topology::NODE_RANK)) {
-            aperi::CoutP0() << "Warning: MaxEdgeLengthProcessor active selector is empty." << std::endl;
-        }
+        m_active_selector = aperi::Selector(active_sets, mesh_data.get());
 
-        // Get the node active field
-        m_node_active_field = StkGetField(FieldQueryData<Unsigned>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_node_active_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_node_active_field);
-
-        // Get the coordinates field
-        m_coordinates_field = StkGetField(FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
-
-        // Get the max edge length field
-        m_max_edge_length_field = StkGetField(FieldQueryData<double>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_max_edge_length_field = &stk::mesh::get_updated_ngp_field<double>(*m_max_edge_length_field);
+        // Get fields using aperi::Field
+        m_node_active_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"active", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_coordinates_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{mesh_data->GetCoordinatesFieldName(), FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_max_edge_length_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE});
     }
 
     void ComputeMaxEdgeLength() {
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        auto ngp_mesh = m_ngp_mesh;
+        // Sync fields to device
+        m_node_active_field.UpdateField();
+        m_coordinates_field.UpdateField();
+        m_max_edge_length_field.UpdateField();
 
-        // Get the ngp fields
-        auto ngp_coordinates_field = *m_ngp_coordinates_field;
-        auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
-        auto ngp_active_field = *m_ngp_node_active_field;
+        // Prepare connectivity processor for device
+        auto connectivity = m_connectivity;
 
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+        // Loop over all nodes in the mesh using the active selector
+        aperi::ForEachNode(
+            KOKKOS_CLASS_LAMBDA(const aperi::Index &node_idx) {
                 // Get the node's coordinates
                 Eigen::Matrix<double, 1, 3> coordinates;
                 for (size_t j = 0; j < 3; ++j) {
-                    coordinates(0, j) = ngp_coordinates_field(node_index, j);
+                    coordinates(0, j) = m_coordinates_field(node_idx, j);
                 }
-                // Get the kernel radius
+
                 double max_edge_length = 0.0;
-                stk::mesh::NgpMesh::ConnectedEntities connected_entities = ngp_mesh.get_connected_entities(stk::topology::NODE_RANK, node_index, stk::topology::ELEMENT_RANK);
-                for (size_t i = 0; i < connected_entities.size(); ++i) {
-                    stk::mesh::FastMeshIndex elem_index = ngp_mesh.fast_mesh_index(connected_entities[i]);
-                    stk::mesh::NgpMesh::ConnectedNodes connected_nodes = ngp_mesh.get_nodes(stk::topology::ELEM_RANK, elem_index);
-                    for (size_t j = 0; j < connected_nodes.size(); ++j) {
-                        stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(connected_nodes[j]);
+
+                // Get elements connected to this node
+                auto connected_elements = connectivity.GetNodeElements(node_idx);
+                for (size_t i = 0; i < connected_elements.size(); ++i) {
+                    aperi::Index elem_idx = connectivity.GetEntityIndex(connected_elements[i]);
+                    // Get nodes of the element
+                    auto elem_nodes = connectivity.GetElementNodes(elem_idx);
+                    for (size_t j = 0; j < elem_nodes.size(); ++j) {
+                        aperi::Index neighbor_idx = connectivity.GetEntityIndex(elem_nodes[j]);
                         Eigen::Matrix<double, 1, 3> neighbor_coordinates;
                         for (size_t k = 0; k < 3; ++k) {
-                            neighbor_coordinates(0, k) = ngp_coordinates_field(neighbor_index, k);
+                            neighbor_coordinates(0, k) = m_coordinates_field(neighbor_idx, k);
                         }
-                        // If the neighbor is not active, then expecting this is a refined, nodal integration mesh where the distance to the nearest active node would be double the edge length.
-                        double active_scale_factor = ngp_active_field(neighbor_index, 0) == 0.0 ? 2.0 : 1.0;
+                        double active_scale_factor = m_node_active_field(neighbor_idx, 0) == 0.0 ? 2.0 : 1.0;
                         double length = (coordinates - neighbor_coordinates).norm() * active_scale_factor;
                         max_edge_length = Kokkos::max(max_edge_length, length);
                     }
                 }
-                ngp_max_edge_length_field(node_index, 0) = max_edge_length;
-            });
-        ngp_max_edge_length_field.clear_sync_state();
-        ngp_max_edge_length_field.modify_on_device();
-        ngp_max_edge_length_field.sync_to_host();
+                m_max_edge_length_field(node_idx, 0) = max_edge_length;
+            },
+            *m_mesh_data, m_active_selector);
 
-        // Get the parallel max edge length
-        stk::mesh::parallel_max(*m_bulk_data, {m_max_edge_length_field});
-        ngp_max_edge_length_field.modify_on_host();
-        ngp_max_edge_length_field.sync_to_device();
+        // Perform parallel max (syncs to and from device automatically)
+        m_max_edge_length_field.ParallelMax();
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    std::vector<std::string> m_sets;               // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::Selector m_selector;                // The selector
-    stk::mesh::Selector m_active_selector;         // The active selector
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
-    RealField *m_coordinates_field;                // The coordinates field
-    UnsignedField *m_node_active_field;            // The active field
-    RealField *m_max_edge_length_field;            // The kernel radius field
-    NgpRealField *m_ngp_coordinates_field;         // The ngp coordinates field
-    NgpUnsignedField *m_ngp_node_active_field;     // The ngp active field
-    NgpRealField *m_ngp_max_edge_length_field;     // The ngp kernel radius field
+    std::shared_ptr<aperi::MeshData> m_mesh_data;
+    std::vector<std::string> m_sets;
+    aperi::Selector m_selector;
+    aperi::Selector m_active_selector;
+    aperi::Field<double> m_coordinates_field;
+    aperi::Field<Unsigned> m_node_active_field;
+    aperi::Field<double> m_max_edge_length_field;
+    aperi::ConnectedEntityProcessor m_connectivity;
 };
 
 }  // namespace aperi

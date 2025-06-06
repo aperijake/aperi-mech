@@ -156,9 +156,9 @@ class FunctionValueStorageProcessor {
 
     aperi::Field<Unsigned> m_num_neighbors_field;  // Field for storing the number of neighbors per node.
     aperi::Field<Unsigned> m_neighbors_field;      // Field for storing neighbor indices for each node.
-    aperi::Field<Real> m_coordinates_field;        // Field with coordinates of each node.
-    aperi::Field<Real> m_kernel_radius_field;      // Field with kernel radius for each node.
     aperi::Field<Real> m_function_values_field;    // Field for storing computed function values at each node.
+    aperi::Field<Real> m_kernel_radius_field;      // Field with kernel radius for each node.
+    aperi::Field<Real> m_coordinates_field;        // Field with coordinates of each node.
 };
 
 }  // namespace aperi

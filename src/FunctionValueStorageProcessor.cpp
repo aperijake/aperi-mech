@@ -12,11 +12,11 @@ FunctionValueStorageProcessor::FunctionValueStorageProcessor(
     : m_mesh_data(mesh_data),
       m_sets(sets),
       m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map, enable_accurate_timers),
+      m_ngp_mesh_data(mesh_data->GetUpdatedNgpMesh()),
       m_num_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
       m_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
       m_function_values_field(mesh_data, FieldQueryData<Real>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}),
-      m_kernel_radius_field(mesh_data, FieldQueryData<Real>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}),
-      m_ngp_mesh_data(mesh_data->GetUpdatedNgpMesh()) {
+      m_kernel_radius_field(mesh_data, FieldQueryData<Real>{"kernel_radius", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
     // Check for null mesh data pointer
     if (mesh_data == nullptr) {
         throw std::runtime_error("Mesh data is null.");
