@@ -7,6 +7,7 @@
 #include "FieldData.h"
 #include "FieldTestFixture.h"
 #include "FieldUtils.h"
+#include "ForEachEntity.h"
 #include "MeshData.h"
 
 // Test node field access using raw pointers

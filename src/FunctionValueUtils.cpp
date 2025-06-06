@@ -1,5 +1,6 @@
 #include "FunctionValueUtils.h"
 
+#include <Kokkos_Core.hpp>
 #include <iostream>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -12,11 +13,15 @@
 #include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
 
+#include "Field.h"
+#include "FieldData.h"
+#include "ForEachEntity.h"
+#include "MeshData.h"
 #include "Types.h"
 
 namespace aperi {
 
-void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector, stk::mesh::BulkData & /*bulk_data*/) {
+void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector) {
     // Get the NGP fields
     auto ngp_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(neighbors_field);
     auto ngp_num_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(num_neighbors_field);
@@ -36,7 +41,6 @@ void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors
         for (size_t i = 0; i < bucket->size(); ++i) {
             stk::mesh::Entity node = (*bucket)[i];
             const aperi::Unsigned *num_neighbors = stk::mesh::field_data(num_neighbors_field, node);
-
             const double *coordinates = stk::mesh::field_data(coordinates_field, node);
 
             std::cout << rank << " node at coordinates ("
@@ -55,6 +59,52 @@ void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors
             }
         }
     }
+}
+
+bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, double warning_threshold, double error_threshold) {
+    // Grab the fields from mesh_data
+    aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                      aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    aperi::Field<aperi::Unsigned> neighbors_field(mesh_data,
+                                                  aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    aperi::Field<aperi::Real> function_values_field(mesh_data,
+                                                    aperi::FieldQueryData<aperi::Real>{"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+    // Use a device-compatible flag for error detection
+    Kokkos::View<int> error_flag("partition_of_unity_error_flag");
+    Kokkos::deep_copy(error_flag, 0);
+
+    aperi::ForEachNode(
+        KOKKOS_LAMBDA(const aperi::Index &idx) {
+            size_t num_neighbors = num_neighbors_field(idx, 0);
+            if (num_neighbors == 0) {
+                return;
+            }
+            Real function_sum = 0.0;
+            // Reverse order to match compute_value_from_generalized_field
+            for (size_t k = num_neighbors; k-- > 0;) {
+                function_sum += function_values_field(idx, k);
+            }
+            if (Kokkos::abs(function_sum - 1.0) > warning_threshold) {
+                Kokkos::printf("Error: Partition of unity not satisfied at node. Error (1 - sum) = : %.8e\n", 1.0 - function_sum);
+                for (size_t k = num_neighbors; k-- > 0;) {
+                    Real function_value = function_values_field(idx, k);
+                    aperi::Unsigned neighbor = neighbors_field(idx, k);
+                    Kokkos::printf("Neighbor: %llu, Function Value: %.8e\n", (unsigned long long)neighbor, function_value);
+                }
+                if (Kokkos::abs(function_sum - 1.0) > error_threshold) {
+                    // Set error flag
+                    error_flag() = 1;
+                }
+            }
+        },
+        *mesh_data, selector);
+
+    // Copy error flag back to host
+    int host_error_flag = 0;
+    Kokkos::deep_copy(host_error_flag, error_flag);
+
+    return host_error_flag == 0;
 }
 
 }  // namespace aperi
