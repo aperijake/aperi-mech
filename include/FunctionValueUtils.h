@@ -7,13 +7,17 @@
 
 namespace aperi {
 
+class MeshData;
+struct Selector;
+
 /**
  * @brief Prints the neighbors field for debugging purposes. Done on host
- * @param neighbors_field The neighbors field to print.
- * @param num_neighbors_field The number of neighbors field to print.
- * @param bulk_data The bulk data object.
+ * @param mesh_data A shared pointer to the MeshData object containing the mesh information.
+ * @param selector A selector that defines the subset of entities to process.
  * @note This function is intended for debugging purposes and should not be used in production code.
  */
-void DebugPrintNeighborsField(const stk::mesh::Field<Unsigned> &neighbors_field, const stk::mesh::Field<Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector, stk::mesh::BulkData &bulk_data);
+void DebugPrintNeighborsField(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector);
+
+bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, double warning_threshold = 1.0e-6, double error_threshold = 1.0e-2);
 
 }  // namespace aperi
