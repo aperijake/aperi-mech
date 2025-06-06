@@ -63,7 +63,7 @@ class FunctionValueProcessor {
      * using the function values as weights, and stores the result in the destination fields.
      */
     void ComputeValues() {
-        // Sync all relevant fields to device memory
+        // Update all relevant fields to ensure they are ready for computation
         m_num_neighbors_field.UpdateField();
         m_neighbors_field.UpdateField();
         m_function_values_field.UpdateField();
@@ -74,6 +74,8 @@ class FunctionValueProcessor {
 
         // Ensure function values form a partition of unity
         KOKKOS_ASSERT(CheckPartitionOfUnity(m_mesh_data, m_selector));
+
+        aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
         // Loop over all nodes in the mesh
         aperi::ForEachNode(
@@ -99,8 +101,6 @@ class FunctionValueProcessor {
                     }
                 }
 
-                aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
-
                 // Accumulate weighted sum from neighbors
                 for (size_t k = num_neighbors; k-- > 0;) {
                     aperi::Unsigned neighbor_local_offset = m_neighbors_field(idx, k);
@@ -124,7 +124,7 @@ class FunctionValueProcessor {
      * and accumulates the result in the destination fields of the neighbors.
      */
     void ScatterValues() {
-        // Sync all relevant fields to device memory
+        // Update all relevant fields to ensure they are ready for computation
         m_num_neighbors_field.UpdateField();
         m_neighbors_field.UpdateField();
         m_function_values_field.UpdateField();
