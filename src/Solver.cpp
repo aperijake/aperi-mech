@@ -9,6 +9,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "FunctionValueProcessor.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
@@ -19,7 +20,6 @@
 #include "PowerMethodProcessor.h"
 #include "Scheduler.h"
 #include "TimeStepper.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 

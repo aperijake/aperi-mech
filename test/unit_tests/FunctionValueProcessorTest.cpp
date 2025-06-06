@@ -6,11 +6,11 @@
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "FunctionValueProcessor.h"
 #include "FunctionValueStorageProcessorTestFixture.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
 #include "UnitTestUtils.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 struct FillLinearFieldFunctor {
     explicit FillLinearFieldFunctor(double slope) : m_slope(slope) {}
@@ -18,7 +18,7 @@ struct FillLinearFieldFunctor {
     double m_slope;
 };
 
-class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorageProcessorTestFixture {
+class FunctionValueProcessorTestFixture : public FunctionValueStorageProcessorTestFixture {
    protected:
     void SetUp() override {
         FunctionValueStorageProcessorTestFixture::SetUp();
@@ -27,13 +27,13 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
         m_src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE, 3};
     }
 
-    void BuildValueFromGeneralizedFieldProcessor() {
+    void BuildFunctionValueProcessor() {
         NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, "|tets", m_src_and_dest_field_query_data);
         FunctionValueStorageProcessorTestFixture::BuildFunctionValueStorageProcessor();
-        // Create the ValueFromGeneralizedFieldProcessor
+        // Create the FunctionValueProcessor
         std::array<aperi::FieldQueryData<double>, 1> src_field = {m_src_and_dest_field_query_data[0]};
         std::array<aperi::FieldQueryData<double>, 1> dest_field = {m_src_and_dest_field_query_data[1]};
-        m_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field, dest_field, m_mesh_data);
+        m_value_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<1>>(src_field, dest_field, m_mesh_data);
 
         // Create the field query data, coordinates and the src and dest fields
         std::array<aperi::FieldQueryData<double>, 3> field_query_data_vec;
@@ -58,19 +58,19 @@ class ValueFromGeneralizedFieldProcessorTestFixture : public FunctionValueStorag
     }
 
     std::vector<aperi::FieldQueryData<double>> m_src_and_dest_field_query_data;
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_value_from_generalized_field_processor;
+    std::shared_ptr<aperi::FunctionValueProcessor<1>> m_value_from_generalized_field_processor;
     std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor;
 };
 
-// Test the ValueFromGeneralizedFieldProcessor
-TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldProcessor) {
+// Test the FunctionValueProcessor
+TEST_F(FunctionValueProcessorTestFixture, FunctionValueProcessor) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
-    BuildValueFromGeneralizedFieldProcessor();
+    BuildFunctionValueProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
     m_search_processor->add_nodes_ring_0_nodes();
@@ -85,15 +85,15 @@ TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldP
     CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }
 
-// Test the ValueFromGeneralizedFieldProcessor with more neighbors
-TEST_F(ValueFromGeneralizedFieldProcessorTestFixture, ValueFromGeneralizedFieldProcessorMoreNeighbors) {
+// Test the FunctionValueProcessor with more neighbors
+TEST_F(FunctionValueProcessorTestFixture, FunctionValueProcessorMoreNeighbors) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
-    BuildValueFromGeneralizedFieldProcessor();
+    BuildFunctionValueProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
     m_search_processor->add_nodes_neighbors_within_constant_ball(2.00);

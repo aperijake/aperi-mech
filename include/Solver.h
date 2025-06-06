@@ -8,12 +8,12 @@
 #include "ExplicitTimeIntegrator.h"
 #include "Field.h"
 #include "FieldData.h"
+#include "FunctionValueProcessor.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MeshData.h"
 #include "Selector.h"
 #include "Timer.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -97,7 +97,7 @@ class Solver {
 
                 std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_kinematics;
                 dest_field_query_data_kinematics[0] = {"displacement" + displacement_name_append, FieldQueryState::None};
-                m_kinematics_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
+                m_kinematics_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<1>>(src_field_query_data_kinematics, dest_field_query_data_kinematics, mp_mesh_data);
 
                 // Create a value from generalized field processor for the force field
                 std::array<aperi::FieldQueryData<double>, 1> src_field_query_data_force;
@@ -105,7 +105,7 @@ class Solver {
 
                 std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data_force;
                 dest_field_query_data_force[0] = {"force_coefficients", FieldQueryState::None};
-                m_force_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
+                m_force_field_processor = std::make_shared<aperi::FunctionValueProcessor<1>>(src_field_query_data_force, dest_field_query_data_force, mp_mesh_data);
             }
         }
     }
@@ -170,22 +170,22 @@ class Solver {
     std::shared_ptr<aperi::TimerManager<SolverTimerType>> GetTimerManager() { return m_timer_manager; }
 
    protected:
-    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                                     ///< The input/output mesh object.
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;                ///< The vector of internal force contributions.
-    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;                ///< The vector of external force contributions.
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                                 ///< The vector of boundary conditions.
-    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                           ///< The time stepper object.
-    std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                                 ///< The output scheduler object.
-    std::shared_ptr<aperi::Scheduler<size_t>> m_reference_configuration_update_scheduler;                         ///< The reference configuration update scheduler object.
-    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                                ///< The mesh data object.
-    std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;                                        ///< The timer manager object.
-    int m_num_processors;                                                                                         ///< The number of processors.
-    bool m_uses_generalized_fields;                                                                               ///< Whether the solver uses generalized fields.
-    bool m_uses_one_pass_method;                                                                                  ///< Whether the solver uses the one-pass method.
-    aperi::LagrangianFormulationType m_lagrangian_formulation_type;                                               ///< The Lagrangian formulation type.
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_kinematics_from_generalized_field_processor;  ///< The kinematics from generalized field processor.
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_force_field_processor;                        ///< The force field processor.
-    aperi::Selector m_active_selector;                                                                            ///< The active selector.
+    std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                         ///< The input/output mesh object.
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;    ///< The vector of internal force contributions.
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;    ///< The vector of external force contributions.
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                     ///< The vector of boundary conditions.
+    std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                               ///< The time stepper object.
+    std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                     ///< The output scheduler object.
+    std::shared_ptr<aperi::Scheduler<size_t>> m_reference_configuration_update_scheduler;             ///< The reference configuration update scheduler object.
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;                                                    ///< The mesh data object.
+    std::shared_ptr<aperi::TimerManager<SolverTimerType>> m_timer_manager;                            ///< The timer manager object.
+    int m_num_processors;                                                                             ///< The number of processors.
+    bool m_uses_generalized_fields;                                                                   ///< Whether the solver uses generalized fields.
+    bool m_uses_one_pass_method;                                                                      ///< Whether the solver uses the one-pass method.
+    aperi::LagrangianFormulationType m_lagrangian_formulation_type;                                   ///< The Lagrangian formulation type.
+    std::shared_ptr<aperi::FunctionValueProcessor<1>> m_kinematics_from_generalized_field_processor;  ///< The kinematics from generalized field processor.
+    std::shared_ptr<aperi::FunctionValueProcessor<1>> m_force_field_processor;                        ///< The force field processor.
+    aperi::Selector m_active_selector;                                                                ///< The active selector.
 };
 
 /**

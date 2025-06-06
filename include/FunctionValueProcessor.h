@@ -19,9 +19,9 @@
 namespace aperi {
 
 template <size_t NumFields>
-class ValueFromGeneralizedFieldProcessor {
+class FunctionValueProcessor {
    public:
-    ValueFromGeneralizedFieldProcessor(
+    FunctionValueProcessor(
         const std::array<FieldQueryData<double>, NumFields> &source_field_query_data,
         const std::array<FieldQueryData<double>, NumFields> &destination_field_query_data,
         std::shared_ptr<aperi::MeshData> mesh_data,
