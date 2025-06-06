@@ -4,27 +4,16 @@
 #include <Kokkos_Core.hpp>
 #include <array>
 #include <memory>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/FieldBLAS.hpp>
-#include <stk_mesh/base/ForEachEntity.hpp>
-#include <stk_mesh/base/GetEntities.hpp>
-#include <stk_mesh/base/GetNgpField.hpp>
-#include <stk_mesh/base/GetNgpMesh.hpp>
-#include <stk_mesh/base/MetaData.hpp>
-#include <stk_mesh/base/NgpField.hpp>
-#include <stk_mesh/base/NgpForEachEntity.hpp>
-#include <stk_mesh/base/NgpMesh.hpp>
-#include <stk_mesh/base/Selector.hpp>
-#include <stk_mesh/base/Types.hpp>
-#include <stk_topology/topology.hpp>
+#include <vector>
 
-#include "AperiStkUtils.h"
+#include "Field.h"
 #include "FieldData.h"
+#include "ForEachEntity.h"
 #include "FunctionValueUtils.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "Selector.h"
 #include "Types.h"
 
 namespace aperi {
@@ -32,68 +21,43 @@ namespace aperi {
 template <size_t NumFields>
 class ValueFromGeneralizedFieldProcessor {
    public:
-    ValueFromGeneralizedFieldProcessor(const std::array<FieldQueryData<double>, NumFields> source_field_query_data, const std::array<FieldQueryData<double>, NumFields> destination_field_query_data, std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets = {}) : m_mesh_data(mesh_data) {
-        // Throw an exception if the mesh data is null.
-        if (m_mesh_data == nullptr) {
+    ValueFromGeneralizedFieldProcessor(
+        const std::array<FieldQueryData<double>, NumFields> &source_field_query_data,
+        const std::array<FieldQueryData<double>, NumFields> &destination_field_query_data,
+        std::shared_ptr<aperi::MeshData> mesh_data,
+        const std::vector<std::string> &sets = {})
+        : m_mesh_data(mesh_data) {
+        if (!m_mesh_data) {
             throw std::runtime_error("Mesh data is null.");
         }
-        m_bulk_data = m_mesh_data->GetBulkData();
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-        m_selector = StkGetSelector(sets, meta_data);
-        // Warn if the selector is empty.
-        if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-            aperi::CoutP0() << "Warning: ValueFromGeneralizedFieldProcessor selector is empty." << std::endl;
-        }
-
-        stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-        m_owned_selector = m_selector & full_owned_selector;
-
-        // Get the number of neighbors field
-        m_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_num_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_num_neighbors_field);
-
-        // Get the neighbors field
-        m_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_neighbors_field = &stk::mesh::get_updated_ngp_field<Unsigned>(*m_neighbors_field);
-
-        // Get the function values field
-        m_function_values_field = StkGetField(FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        m_ngp_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_function_values_field);
-
-        // Get the source (generalized) and destination fields
+        m_selector = aperi::Selector(sets, mesh_data.get());
+        // Get fields using aperi::Field
+        m_num_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        m_function_values_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
         for (size_t i = 0; i < NumFields; ++i) {
-            m_source_fields.push_back(StkGetField(source_field_query_data[i], meta_data));
-            m_ngp_source_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_source_fields.back());
-            m_destination_fields.push_back(StkGetField(destination_field_query_data[i], meta_data));
-            m_ngp_destination_fields[i] = &stk::mesh::get_updated_ngp_field<double>(*m_destination_fields.back());
+            m_source_fields[i] = aperi::Field<double>(mesh_data, source_field_query_data[i]);
+            m_destination_fields[i] = aperi::Field<double>(mesh_data, destination_field_query_data[i]);
         }
     }
 
     // Compute the value of the destination fields from the source fields and function values.
-    // This is the construction of the field from the shape functions and their coefficients.
-    void compute_value_from_generalized_field() {
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+    void ComputeValues() {
+        // Sync fields to device
+        m_num_neighbors_field.UpdateField();
+        m_neighbors_field.UpdateField();
+        m_function_values_field.UpdateField();
+        for (size_t i = 0; i < NumFields; ++i) {
+            m_source_fields[i].UpdateField();
+            m_destination_fields[i].UpdateField();
+        }
 
         KOKKOS_ASSERT(CheckPartitionOfUnity(m_mesh_data, m_selector));
 
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
-        auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
-        for (size_t i = 0; i < NumFields; i++) {
-            ngp_source_fields[i] = *m_ngp_source_fields[i];
-            ngp_destination_fields[i] = *m_ngp_destination_fields[i];
-        }
-
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the number of neighbors
-                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+        // Loop over nodes using ForEachNode
+        aperi::ForEachNode(
+            KOKKOS_CLASS_LAMBDA(const aperi::Index &idx) {
+                size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
@@ -101,98 +65,85 @@ class ValueFromGeneralizedFieldProcessor {
                 if (num_neighbors == 0) {
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                            m_destination_fields[i](idx, j) = m_source_fields[i](idx, j);
                         }
                     }
                     return;
-                } else {  // Zero out the destination field and prepare for the sum in the next loop
+                } else {
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            ngp_destination_fields[i](node_index, j) = 0.0;
+                            m_destination_fields[i](idx, j) = 0.0;
                         }
                     }
                 }
 
-                // If there are neighbors, compute the destination field from the function values and source fields.
-                // Do in reverse order. Adding smaller function_value terms first to help with parallel consistency
+                aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
+
+                // Compute destination field from neighbors
                 for (size_t k = num_neighbors; k-- > 0;) {
-                    // Create the entity
-                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
-                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
-
-                    // Get the function value
-                    double function_value = ngp_function_values_field(node_index, k);
-
-                    // Get the source field values
+                    aperi::Unsigned neighbor_local_offset = m_neighbors_field(idx, k);
+                    aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
+                    double function_value = m_function_values_field(idx, k);
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            double source_value = ngp_source_fields[i](neighbor_index, j);
-                            ngp_destination_fields[i](node_index, j) += source_value * function_value;
+                            double source_value = m_source_fields[i](neighbor_idx, j);
+                            m_destination_fields[i](idx, j) += source_value * function_value;
                         }
                     }
                 }
-            });
+            },
+            *m_mesh_data, m_selector);
     }
 
-    // Loop over all evaluation points and scatter the values to their neighbors (active nodes) using the function values as weights.
-    void ScatterOwnedLocalValues() {
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+    // Scatter the values to their neighbors using the function values as weights.
+    void ScatterValues() {
+        // Sync fields to device
+        m_num_neighbors_field.UpdateField();
+        m_neighbors_field.UpdateField();
+        m_function_values_field.UpdateField();
+        for (size_t i = 0; i < NumFields; ++i) {
+            m_source_fields[i].UpdateField();
+            m_destination_fields[i].UpdateField();
+        }
 
         KOKKOS_ASSERT(CheckPartitionOfUnity(m_mesh_data, m_selector));
 
-        auto ngp_mesh = m_ngp_mesh;
-        // Get the ngp fields
-        auto ngp_num_neighbors_field = *m_ngp_num_neighbors_field;
-        auto ngp_neighbors_field = *m_ngp_neighbors_field;
-        auto ngp_function_values_field = *m_ngp_function_values_field;
-        Kokkos::Array<NgpRealField, NumFields> ngp_source_fields;
-        Kokkos::Array<NgpRealField, NumFields> ngp_destination_fields;
-        for (size_t i = 0; i < NumFields; i++) {
-            ngp_source_fields[i] = *m_ngp_source_fields[i];
-            ngp_destination_fields[i] = *m_ngp_destination_fields[i];
-        }
+        aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
-        stk::mesh::for_each_entity_run(
-            ngp_mesh, stk::topology::NODE_RANK, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-                // Get the number of neighbors
-                size_t num_neighbors = ngp_num_neighbors_field(node_index, 0);
+        aperi::ForEachNode(
+            KOKKOS_CLASS_LAMBDA(const aperi::Index &idx) {
+                size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
                 const int num_components = 3;  // Hardcoded 3 (vector field) for now. TODO(jake): Make this more general
 
-                // If there are no neighbors, set the destination field to the source field as there is nothing to scatter
+                // If there are no neighbors, set the destination field to the source field
                 if (num_neighbors == 0) {
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            ngp_destination_fields[i](node_index, j) = ngp_source_fields[i](node_index, j);
+                            m_destination_fields[i](idx, j) = m_source_fields[i](idx, j);
                         }
                     }
                     return;
                 }
 
                 for (size_t k = 0; k < num_neighbors; ++k) {
-                    // Create the entity
-                    stk::mesh::Entity entity(ngp_neighbors_field(node_index, k));
-                    stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(entity);
-
-                    // Get the function value
-                    double function_value = ngp_function_values_field(node_index, k);
-
-                    // Get the source field values
+                    aperi::Unsigned neighbor_local_offset = m_neighbors_field(idx, k);
+                    aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
+                    double function_value = m_function_values_field(idx, k);
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            double source_value = ngp_source_fields[i](node_index, j);
-                            Kokkos::atomic_add(&ngp_destination_fields[i](neighbor_index, j), source_value * function_value);
+                            double source_value = m_source_fields[i](idx, j);
+                            Kokkos::atomic_add(&m_destination_fields[i](neighbor_idx, j), source_value * function_value);
                         }
                     }
                 }
-            });
+            },
+            *m_mesh_data, m_selector);
     }
 
     // Marking modified on device
     void MarkDestinationFieldModifiedOnDevice(size_t field_index) {
-        m_ngp_destination_fields[field_index]->clear_sync_state();
-        m_ngp_destination_fields[field_index]->modify_on_device();
+        m_destination_fields[field_index].MarkModifiedOnDevice();
     }
 
     void MarkAllDestinationFieldsModifiedOnDevice() {
@@ -203,7 +154,7 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Mark modified on host
     void MarkSourceFieldModifiedOnHost(size_t field_index) {
-        m_ngp_source_fields[field_index]->modify_on_host();
+        m_source_fields[field_index].MarkModifiedOnHost();
     }
 
     void MarkAllSourceFieldsModifiedOnHost() {
@@ -214,11 +165,11 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Syncing, device to host
     void SyncDestinationFieldDeviceToHost(size_t field_index) {
-        m_ngp_destination_fields[field_index]->sync_to_host();
+        m_destination_fields[field_index].SyncDeviceToHost();
     }
 
     void SyncSourceFieldDeviceToHost(size_t field_index) {
-        m_ngp_source_fields[field_index]->sync_to_host();
+        m_source_fields[field_index].SyncDeviceToHost();
     }
 
     void SyncAllDestinationFieldsDeviceToHost() {
@@ -235,7 +186,7 @@ class ValueFromGeneralizedFieldProcessor {
 
     // Syncing, host to device
     void SyncSourceFieldHostToDevice(size_t field_index) {
-        m_ngp_source_fields[field_index]->sync_to_device();
+        m_source_fields[field_index].SyncHostToDevice();
     }
 
     void SyncAllSourceFieldsHostToDevice() {
@@ -245,33 +196,25 @@ class ValueFromGeneralizedFieldProcessor {
     }
 
     // Parallel communication
-    void CommunicateSourceFieldData(int field_index) const {
-        stk::mesh::communicate_field_data(*m_bulk_data, {m_source_fields[field_index]});
+    void CommunicateSourceFieldData(int field_index) {
+        // Communicate the source field data, no pre-sync or post-sync from device to host / host to device
+        m_source_fields[field_index].Communicate(false, false);
     }
 
-    void CommunicateAllSourceFieldData() const {
+    void CommunicateAllSourceFieldData() {
         for (size_t i = 0; i < NumFields; i++) {
             CommunicateSourceFieldData(i);
         }
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                       // The mesh data object.
-    std::vector<std::string> m_sets;                                    // The sets to process.
-    stk::mesh::BulkData *m_bulk_data;                                   // The bulk data object.
-    stk::mesh::Selector m_selector;                                     // The selector
-    stk::mesh::Selector m_owned_selector;                               // The local selector
-    stk::mesh::NgpMesh m_ngp_mesh;                                      // The ngp mesh object.
-    UnsignedField *m_num_neighbors_field;                               // The number of neighbors field
-    UnsignedField *m_neighbors_field;                                   // The neighbors field
-    RealField *m_function_values_field;                                 // The function values field
-    NgpUnsignedField *m_ngp_num_neighbors_field;                        // The ngp number of neighbors field
-    NgpUnsignedField *m_ngp_neighbors_field;                            // The ngp neighbors field
-    NgpRealField *m_ngp_function_values_field;                          // The ngp function values field
-    std::vector<RealField *> m_source_fields;                           // The fields to process
-    Kokkos::Array<NgpRealField *, NumFields> m_ngp_source_fields;       // The ngp fields to process
-    std::vector<RealField *> m_destination_fields;                      // The fields to process
-    Kokkos::Array<NgpRealField *, NumFields> m_ngp_destination_fields;  // The ngp fields to process
+    std::shared_ptr<aperi::MeshData> m_mesh_data;
+    aperi::Selector m_selector;
+    aperi::Field<Unsigned> m_num_neighbors_field;
+    aperi::Field<Unsigned> m_neighbors_field;
+    aperi::Field<double> m_function_values_field;
+    std::array<aperi::Field<double>, NumFields> m_source_fields;
+    std::array<aperi::Field<double>, NumFields> m_destination_fields;
 };
 
 }  // namespace aperi

@@ -69,7 +69,7 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
 
     // Compute kinematic field values from the generalized fields
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
-        m_kinematics_from_generalized_field_processor->compute_value_from_generalized_field();
+        m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_node_processor_force_local->FillField(0.0, 0);
         m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
@@ -86,7 +86,7 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
             m_node_processor_force_local->SyncFieldDeviceToHost(0);
             m_node_processor_force_local->ParallelSumFieldData(0);
         }
-        m_force_field_processor->ScatterOwnedLocalValues();
+        m_force_field_processor->ScatterValues();
         // No need to sync back to device as the local force field is not used until the next time step
     }
 

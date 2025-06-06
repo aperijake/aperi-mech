@@ -56,7 +56,7 @@ void InternalForceContribution::ComputeValuesFromGeneralizedFields() const {
         m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
 
         // Compute the values of the destination fields from the source fields
-        m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+        m_output_value_from_generalized_field_processor->ComputeValues();
         m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
     }

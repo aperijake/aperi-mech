@@ -83,7 +83,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
         dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE};
 
         std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
-        value_from_generalized_field_processor->ScatterOwnedLocalValues();
+        value_from_generalized_field_processor->ScatterValues();
         mass.MarkModifiedOnDevice();
         mass.ParallelSum();
     } else {

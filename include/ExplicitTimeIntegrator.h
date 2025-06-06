@@ -218,7 +218,7 @@ struct UpdateDisplacementsUpdatedFunctor {
         // Compute the current coordinates by adding the displacement increment to the reference coordinates
         if (m_uses_generalized_fields) {
             // Compute the physical displacement increment
-            m_displacement_increment_processor->compute_value_from_generalized_field();
+            m_displacement_increment_processor->ComputeValues();
             aperi::AXPBYZField(1.0, m_current_coordinates_n_field, 1.0, m_displacement_increment_field, m_current_coordinates_np1_field);
             m_displacement_increment_field.MarkModifiedOnDevice();
         } else {

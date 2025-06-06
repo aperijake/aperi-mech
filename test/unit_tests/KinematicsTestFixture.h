@@ -173,7 +173,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
 
         // Compute the values of the destination fields from the source fields
-        output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+        output_value_from_generalized_field_processor->ComputeValues();
         output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
     }

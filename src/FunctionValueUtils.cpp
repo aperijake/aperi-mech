@@ -20,19 +20,11 @@
 
 namespace aperi {
 
-void DebugPrintNeighborsField(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector) {
-    // Get the bulk data and meta data
-    stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
-    stk::mesh::MetaData *meta_data = &bulk_data->mesh_meta_data();
-
-    UnsignedField *neighbors_field = StkGetField(aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
-    NgpUnsignedField ngp_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(*neighbors_field);
-
-    UnsignedField *num_neighbors_field = StkGetField(aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
-    NgpUnsignedField ngp_num_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(*num_neighbors_field);
-
-    RealField *coordinates_field = StkGetField(aperi::FieldQueryData<double>{"coordinates", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, meta_data);
-    NgpRealField ngp_coordinates_field = stk::mesh::get_updated_ngp_field<double>(*coordinates_field);
+void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector) {
+    // Get the NGP fields
+    auto ngp_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(neighbors_field);
+    auto ngp_num_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(num_neighbors_field);
+    auto ngp_coordinates_field = stk::mesh::get_updated_ngp_field<double>(coordinates_field);
 
     // Sync the fields to host
     ngp_neighbors_field.sync_to_host();
@@ -44,21 +36,21 @@ void DebugPrintNeighborsField(std::shared_ptr<aperi::MeshData> mesh_data, const 
 
     // Print the neighbors field for debugging purposes
     std::cout << "Rank " << rank << " Neighbors Field Debug Output:" << std::endl;
-    for (stk::mesh::Bucket *bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+    for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::NODE_RANK)) {
         for (size_t i = 0; i < bucket->size(); ++i) {
             stk::mesh::Entity node = (*bucket)[i];
-            const aperi::Unsigned *num_neighbors = stk::mesh::field_data(*num_neighbors_field, node);
+            const aperi::Unsigned *num_neighbors = stk::mesh::field_data(num_neighbors_field, node);
 
-            const double *coordinates = stk::mesh::field_data(*coordinates_field, node);
+            const double *coordinates = stk::mesh::field_data(coordinates_field, node);
 
             std::cout << rank << " node at coordinates ("
                       << coordinates[0] << ", "
                       << coordinates[1] << ", "
                       << coordinates[2] << ") has " << num_neighbors[0] << " neighbors at coordinates:" << std::endl;
             for (size_t j = 0; j < num_neighbors[0]; ++j) {
-                const aperi::Unsigned *neighbors = stk::mesh::field_data(*neighbors_field, node);
+                const aperi::Unsigned *neighbors = stk::mesh::field_data(neighbors_field, node);
                 stk::mesh::Entity neighbor(neighbors[j]);
-                const double *neighbor_coordinates = stk::mesh::field_data(*coordinates_field, neighbor);
+                const double *neighbor_coordinates = stk::mesh::field_data(coordinates_field, neighbor);
                 std::cout << "     "
                           << "("
                           << neighbor_coordinates[0] << ", "
