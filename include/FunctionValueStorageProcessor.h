@@ -17,28 +17,17 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
+#include "TimerTypes.h"
 #include "Types.h"
-
-namespace aperi {
-enum class FunctionValueStorageProcessorTimerType {
-    Instantiate,
-    ComputeFunctionValues,
-    NONE
-};
-
-inline const std::map<FunctionValueStorageProcessorTimerType, std::string> function_value_storage_processor_timer_map = {
-    {FunctionValueStorageProcessorTimerType::Instantiate, "Instantiate"},
-    {FunctionValueStorageProcessorTimerType::ComputeFunctionValues, "ComputeFunctionValues"},
-    {FunctionValueStorageProcessorTimerType::NONE, "NONE"}};
-}  // namespace aperi
 
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoFunctionValueStorageProcessor.h"
-#endif
+namespace aperi {
+using protego::FunctionValueStorageProcessor;
+}
+#else
 
 namespace aperi {
-
-#ifndef USE_PROTEGO_MECH
 
 /**
  * @brief Processes and stores function values on mesh nodes.
@@ -76,8 +65,8 @@ class FunctionValueStorageProcessor {
      * @brief Retrieves the TimerManager for this processor.
      * @return Shared pointer to the TimerManager.
      */
-    inline std::shared_ptr<aperi::TimerManager<FunctionValueStorageProcessorTimerType>> GetTimerManager() {
-        return std::make_shared<aperi::TimerManager<FunctionValueStorageProcessorTimerType>>(m_timer_manager);
+    inline std::shared_ptr<aperi::TimerManager<FunctionValueStorageProcessorTimerType> > GetTimerManager() {
+        return std::make_shared<aperi::TimerManager<FunctionValueStorageProcessorTimerType> >(m_timer_manager);
     }
 
     /**
@@ -172,8 +161,5 @@ class FunctionValueStorageProcessor {
     aperi::Field<Real> m_function_values_field;    // Field for storing computed function values at each node.
 };
 
-#else  // USE_PROTEGO_MECH
-using protego::FunctionValueStorageProcessor;
-#endif
-
 }  // namespace aperi
+#endif
