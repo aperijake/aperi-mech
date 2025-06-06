@@ -1,5 +1,6 @@
 #include "FunctionValueUtils.h"
 
+#include <Kokkos_Core.hpp>
 #include <iostream>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -40,7 +41,6 @@ void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors
         for (size_t i = 0; i < bucket->size(); ++i) {
             stk::mesh::Entity node = (*bucket)[i];
             const aperi::Unsigned *num_neighbors = stk::mesh::field_data(num_neighbors_field, node);
-
             const double *coordinates = stk::mesh::field_data(coordinates_field, node);
 
             std::cout << rank << " node at coordinates ("
@@ -61,7 +61,6 @@ void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors
     }
 }
 
-// destination_fields(i) = /sum_{j=0}^{num_neighbors} source_fields(neighbors(i, j)) * function_values(i, j)
 bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, double warning_threshold, double error_threshold) {
     // Grab the fields from mesh_data
     aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
