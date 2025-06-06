@@ -45,6 +45,7 @@ class FunctionValueProcessor {
             throw std::runtime_error("Mesh data is null.");
         }
         m_selector = aperi::Selector(sets, mesh_data.get());
+        m_owned_selector = aperi::Selector(sets, mesh_data.get(), aperi::SelectorOwnership::OWNED);
         // Initialize fields for neighbor info and function values
         m_num_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
         m_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
@@ -169,7 +170,7 @@ class FunctionValueProcessor {
                     }
                 }
             },
-            *m_mesh_data, m_selector);
+            *m_mesh_data, m_owned_selector);
     }
 
     /**
@@ -295,6 +296,7 @@ class FunctionValueProcessor {
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     aperi::Selector m_selector;
+    aperi::Selector m_owned_selector;
     aperi::Field<Unsigned> m_num_neighbors_field;
     aperi::Field<Unsigned> m_neighbors_field;
     aperi::Field<double> m_function_values_field;
