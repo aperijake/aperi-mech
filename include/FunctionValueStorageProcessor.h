@@ -96,7 +96,7 @@ class FunctionValueStorageProcessor {
 
         // Use aperi::ForEachNode for iteration
         aperi::ForEachNode(
-            KOKKOS_LAMBDA(const aperi::Index &idx) {
+            KOKKOS_CLASS_LAMBDA(const aperi::Index &idx) {
                 // Get the number of neighbors for this node
                 size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
