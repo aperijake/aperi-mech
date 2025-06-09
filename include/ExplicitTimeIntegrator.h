@@ -376,6 +376,7 @@ class ExplicitTimeIntegrator {
                                     aperi::Selector active_selector)
         : mp_mesh_data(mesh_data),
           m_active_selector(active_selector),
+          m_for_each_node_processor(mesh_data, active_selector),
           m_time_increment_device("TimeIncrementDevice"),
           m_half_time_increment_device("HalfTimeIncrementDevice"),
           m_compute_acceleration_functor(fields.mass_field, fields.force_coefficients_field, fields.acceleration_coefficients_np1_field),
@@ -397,7 +398,7 @@ class ExplicitTimeIntegrator {
     void ComputeAcceleration() {
         // Loop over each entity and compute the acceleration
         m_compute_acceleration_functor.UpdateFields();
-        ForEachNode(m_compute_acceleration_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_compute_acceleration_functor);
         m_compute_acceleration_functor.MarkModifiedOnDevice();
     }
 
@@ -405,7 +406,7 @@ class ExplicitTimeIntegrator {
     void ComputeFirstPartialUpdate() {
         // Loop over each entity and compute the first partial update
         m_compute_first_partial_update_functor.UpdateFields();
-        ForEachNode(m_compute_first_partial_update_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_compute_first_partial_update_functor);
         m_compute_first_partial_update_functor.MarkModifiedOnDevice();
     }
 
@@ -419,13 +420,14 @@ class ExplicitTimeIntegrator {
     void ComputeSecondPartialUpdate() {
         // Loop over each entity and compute the second partial update
         m_compute_second_partial_update_functor.UpdateFields();
-        ForEachNode(m_compute_second_partial_update_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_compute_second_partial_update_functor);
         m_compute_second_partial_update_functor.MarkModifiedOnDevice();
     }
 
    protected:
-    std::shared_ptr<aperi::MeshData> mp_mesh_data;  // Mesh data
-    aperi::Selector m_active_selector;              // Active selector
+    std::shared_ptr<aperi::MeshData> mp_mesh_data;            // Mesh data
+    aperi::Selector m_active_selector;                        // Active selector
+    aperi::ForEachNodeWithCaching m_for_each_node_processor;  // Node caching for performance
 
     Kokkos::View<double> m_time_increment_device;       // Device view of the time increment
     Kokkos::View<double> m_half_time_increment_device;  // Device view of the half time increment
@@ -448,7 +450,7 @@ class ExplicitTimeIntegratorTotal : public ExplicitTimeIntegrator {
     void UpdateDisplacements() override {
         // Loop over each entity and update the displacements
         m_update_displacements_functor.UpdateFields();
-        ForEachNode(m_update_displacements_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_update_displacements_functor);
         m_update_displacements_functor.MarkModifiedOnDevice();
     }
 
@@ -473,7 +475,7 @@ class ExplicitTimeIntegratorUpdated : public ExplicitTimeIntegrator {
         aperi::SwapFields(m_current_coordinates_n_field, m_current_coordinates_np1_field);
         // Loop over each entity and update the displacements
         m_update_displacements_functor.UpdateFields();
-        ForEachNode(m_update_displacements_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_update_displacements_functor);
         m_update_displacements_functor.UpdateCurrentCoordinates();
         m_update_displacements_functor.MarkModifiedOnDevice();
     }
@@ -503,7 +505,7 @@ class ExplicitTimeIntegratorSemi : public ExplicitTimeIntegrator {
     void UpdateDisplacements() override {
         // Loop over each entity and update the displacements
         m_update_displacements_functor.UpdateFields();
-        ForEachNode(m_update_displacements_functor, *mp_mesh_data, m_active_selector);
+        m_for_each_node_processor.ForEachNode(m_update_displacements_functor);
         m_update_displacements_functor.MarkModifiedOnDevice();
     }
 
