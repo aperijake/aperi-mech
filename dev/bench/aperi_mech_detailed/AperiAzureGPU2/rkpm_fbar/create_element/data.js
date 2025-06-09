@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749164523162,
+  "lastUpdate": 1749512770613,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -4697,6 +4697,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "Smoothed_Cell_Data_SetFunctionDerivatives_rkpm_fbar_taylor_bar_gpu_np_1",
             "value": 0.920684,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ccc7f41d77cd82b748a054ff00268080da9a6353",
+          "message": "Merge pull request #107 from aperijake/misc_refactoring [skip ci]\n\nMisc refactoring",
+          "timestamp": "2025-06-09T22:46:12Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/ccc7f41d77cd82b748a054ff00268080da9a6353"
+        },
+        "date": 1749512769697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000019147,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000003045,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_ComputeFunctionValues_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 2.34521,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000330279,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_ComputeDerivatives_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_BuildSmoothedCellData_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 61.8582,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_LabelParts_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 13.9792,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_Instantiate_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.498258,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SyncFields_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_AddCellNumElements_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.0267944,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetCellLocalOffsets_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.0992172,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetNodeIndiciesAndMap_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 61.0248,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetFunctionDerivatives_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 19.19,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000013646,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000002054,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_ComputeFunctionValues_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.604001,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000143517,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_ComputeDerivatives_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_BuildSmoothedCellData_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 16.1308,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_LabelParts_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 7.4232,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_Instantiate_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.245066,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SyncFields_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_AddCellNumElements_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.00722092,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetCellLocalOffsets_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.0271813,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetNodeIndiciesAndMap_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 15.7977,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetFunctionDerivatives_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 4.77263,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.135444,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_Instantiate_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000008356,
+            "unit": "seconds"
+          },
+          {
+            "name": "Function_Value_Storage_Processor_ComputeFunctionValues_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.0481097,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_Instantiate_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000387699,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_ComputeDerivatives_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Strain_Smoothing_Processor_BuildSmoothedCellData_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 4.16522,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_LabelParts_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 13.4376,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_Instantiate_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.289636,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SyncFields_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_AddCellNumElements_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00741155,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetCellLocalOffsets_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00572548,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetNodeIndiciesAndMap_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 3.8509,
+            "unit": "seconds"
+          },
+          {
+            "name": "Smoothed_Cell_Data_SetFunctionDerivatives_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.920562,
             "unit": "seconds"
           }
         ]
