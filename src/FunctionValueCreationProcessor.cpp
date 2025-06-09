@@ -1,10 +1,10 @@
-#include "FunctionValueStorageProcessor.h"
+#include "FunctionCreationProcessor.h"
 
 #ifndef USE_PROTEGO_MECH
 
 namespace aperi {
 
-FunctionValueStorageProcessor::FunctionValueStorageProcessor(
+FunctionCreationProcessor::FunctionCreationProcessor(
     std::shared_ptr<aperi::MeshData> mesh_data,
     const std::vector<std::string> &sets,
     const aperi::LagrangianFormulationType &lagrangian_formulation_type,
@@ -23,7 +23,7 @@ FunctionValueStorageProcessor::FunctionValueStorageProcessor(
     }
 
     // Start instantiation timer
-    auto timer = m_timer_manager.CreateScopedTimer(FunctionValueStorageProcessorTimerType::Instantiate);
+    auto timer = m_timer_manager.CreateScopedTimer(FunctionCreationProcessorTimerType::Instantiate);
 
     // Initialize the selector based on the provided sets
     m_selector = aperi::Selector(sets, mesh_data.get());
@@ -38,11 +38,11 @@ FunctionValueStorageProcessor::FunctionValueStorageProcessor(
     m_coordinates_field = aperi::Field<Real>(mesh_data, FieldQueryData<Real>{coordinate_field_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
 }
 
-void FunctionValueStorageProcessor::FinishPreprocessing() {
+void FunctionCreationProcessor::FinishPreprocessing() {
     // No preprocessing required at this time
 }
 
-void FunctionValueStorageProcessor::SyncFieldsToHost() {
+void FunctionCreationProcessor::SyncFieldsToHost() {
     // Synchronize function values field from device to host
     m_function_values_field.SyncDeviceToHost();
 }

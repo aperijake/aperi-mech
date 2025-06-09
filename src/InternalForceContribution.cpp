@@ -6,7 +6,7 @@
 
 #include "Element.h"
 #include "FieldData.h"
-#include "FunctionValueProcessor.h"
+#include "FunctionEvaluationProcessor.h"
 #include "Material.h"
 #include "MeshData.h"
 namespace aperi {
@@ -39,7 +39,7 @@ void InternalForceContribution::Preprocess() {
         dest_field_query_data[0] = {"displacement", FieldQueryState::None};
         dest_field_query_data[1] = {"velocity", FieldQueryState::None};
         dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
-        m_output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<3>>(src_field_query_data, dest_field_query_data, m_internal_force_contribution_parameters.mesh_data, part_names);
+        m_output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<3>>(src_field_query_data, dest_field_query_data, m_internal_force_contribution_parameters.mesh_data, part_names);
     }
 }
 

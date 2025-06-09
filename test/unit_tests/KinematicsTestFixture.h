@@ -10,7 +10,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
-#include "FunctionValueProcessor.h"
+#include "FunctionEvaluationProcessor.h"
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshLabelerTestFixture.h"
@@ -166,7 +166,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         std::array<aperi::FieldQueryData<double>, num_fields> dest_field_query_data;
         dest_field_query_data[0] = {dest_field_name, dest_field_state};
-        auto output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<num_fields>>(src_field_query_data, dest_field_query_data, m_mesh_data, m_part_names);
+        auto output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<num_fields>>(src_field_query_data, dest_field_query_data, m_mesh_data, m_part_names);
         output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
         output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
         output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();

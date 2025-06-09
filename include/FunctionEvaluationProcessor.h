@@ -25,17 +25,17 @@ namespace aperi {
  * @tparam NumFields Number of fields to process simultaneously.
  */
 template <size_t NumFields>
-class FunctionValueProcessor {
+class FunctionEvaluationProcessor {
    public:
     /**
-     * @brief Construct a new FunctionValueProcessor.
+     * @brief Construct a new FunctionEvaluationProcessor.
      *
      * @param source_field_query_data Array of query data for source fields.
      * @param destination_field_query_data Array of query data for destination fields.
      * @param mesh_data Shared pointer to mesh data.
      * @param sets Optional list of mesh sets to operate on.
      */
-    FunctionValueProcessor(
+    FunctionEvaluationProcessor(
         const std::array<FieldQueryData<double>, NumFields> &source_field_query_data,
         const std::array<FieldQueryData<double>, NumFields> &destination_field_query_data,
         std::shared_ptr<aperi::MeshData> mesh_data,

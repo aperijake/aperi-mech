@@ -18,7 +18,7 @@
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
-#include "FunctionValueStorageProcessorTestFixture.h"
+#include "FunctionCreationProcessorTestFixture.h"
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Types.h"
@@ -35,7 +35,7 @@ ViewType SumKokkosView(const Kokkos::View<ViewType *, Kokkos::DefaultExecutionSp
 }
 
 // Compadre fixture
-class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTestFixture {
+class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFixture {
     using ExecSpace = stk::ngp::ExecSpace;
     using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
 
@@ -314,7 +314,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         runtimes.emplace("field_to_view_transfer", field_to_view_runtime.count());
 
         // Compute the function values using the shape functions functor for comparison
-        BuildFunctionValueStorageProcessor();
+        BuildFunctionCreationProcessor();
         aperi::BasesLinear bases;
         bool use_target_center_kernel = true;                            // Like Compadre, but search still uses source center kernel so this is not perfect
         auto rk_start_time = std::chrono::high_resolution_clock::now();  // benchmark
@@ -403,11 +403,11 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
 
    protected:
     void SetUp() override {
-        FunctionValueStorageProcessorTestFixture::SetUp();
+        FunctionCreationProcessorTestFixture::SetUp();
     }
 
     void TearDown() override {
-        FunctionValueStorageProcessorTestFixture::TearDown();
+        FunctionCreationProcessorTestFixture::TearDown();
     }
 
     void ResetCompadreApproximationFunction() {
@@ -426,7 +426,7 @@ class CompadreApproximationFunctionTest : public FunctionValueStorageProcessorTe
         m_neighbor_lists_host = Kokkos::View<aperi::Unsigned *>::HostMirror();
 
         // Call reset for inherited fixture components
-        ResetFunctionValueStorageProcessor();
+        ResetFunctionCreationProcessor();
     }
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace> m_coordinates_view_device;

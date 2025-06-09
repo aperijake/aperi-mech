@@ -11,7 +11,7 @@
 #include "Constants.h"
 #include "ElementBase.h"
 #include "FieldData.h"
-#include "FunctionValueStorageProcessor.h"
+#include "FunctionCreationProcessor.h"
 #include "Kokkos_Core.hpp"
 #include "Material.h"
 #include "MeshData.h"
@@ -63,7 +63,7 @@ class ElementReproducingKernel : public ElementBase {
         CreateSmoothedCellDataProcessor();
         LabelParts();
         m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
-        CreateFunctionValueStorageProcessor();
+        CreateFunctionCreationProcessor();
     }
 
     void FinishPreprocessing() override {
@@ -148,7 +148,7 @@ class ElementReproducingKernel : public ElementBase {
         m_compute_force = std::make_shared<aperi::ComputeInternalForceSmoothedCell>(m_mesh_data, m_displacement_field_name, force_field_name, *this->m_material, m_lagrangian_formulation_type, m_use_f_bar);
     }
 
-    void CreateFunctionValueStorageProcessor() {
+    void CreateFunctionCreationProcessor() {
         if (!m_mesh_data) {
             // Allowing for testing
             aperi::CoutP0() << "No mesh data provided. Cannot create element processor. Skipping." << std::endl;
@@ -156,7 +156,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Create the function value storage processor
-        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_timer_manager->AreAccurateTimersEnabled());
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionCreationProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_timer_manager->AreAccurateTimersEnabled());
     }
 
     void CreateSmoothedCellDataProcessor() {
@@ -242,7 +242,7 @@ class ElementReproducingKernel : public ElementBase {
     double m_kernel_radius_scale_factor;
     std::shared_ptr<aperi::ComputeInternalForceSmoothedCell> m_compute_force;
     std::shared_ptr<aperi::SmoothedCellData> m_smoothed_cell_data;
-    std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
+    std::shared_ptr<aperi::FunctionCreationProcessor> m_function_value_storage_processor;
     std::shared_ptr<aperi::SmoothedCellDataProcessor> m_strain_smoothing_processor;
     bool m_use_one_pass_method;
     bool m_use_f_bar;

@@ -4,7 +4,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
-#include "FunctionValueStorageProcessor.h"
+#include "FunctionCreationProcessor.h"
 #include "MaxEdgeLengthProcessor.h"
 #include "NeighborSearchProcessor.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
@@ -115,6 +115,6 @@ void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshDat
     // Compute the shape functions
     aperi::BasesLinear bases;
     bool enable_accurate_timers = false;
-    aperi::FunctionValueStorageProcessor function_value_storage_processor(mesh_data, part_names, lagrangian_formulation_type, enable_accurate_timers);
+    aperi::FunctionCreationProcessor function_value_storage_processor(mesh_data, part_names, lagrangian_formulation_type, enable_accurate_timers);
     function_value_storage_processor.compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(shape_functions_functor_reproducing_kernel, bases);
 }

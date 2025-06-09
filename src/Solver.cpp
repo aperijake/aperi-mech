@@ -9,7 +9,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
-#include "FunctionValueProcessor.h"
+#include "FunctionEvaluationProcessor.h"
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "LogUtils.h"

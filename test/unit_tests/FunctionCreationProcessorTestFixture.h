@@ -14,32 +14,32 @@
 #include <stk_mesh/base/Types.hpp>
 
 #include "Constants.h"
-#include "FunctionValueStorageProcessor.h"
+#include "FunctionCreationProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 
-class FunctionValueStorageProcessorTestFixture : public NeighborSearchProcessorTestFixture {
+class FunctionCreationProcessorTestFixture : public NeighborSearchProcessorTestFixture {
    protected:
     void SetUp() override {
         NeighborSearchProcessorTestFixture::SetUp();
     }
 
-    void BuildFunctionValueStorageProcessor() {
+    void BuildFunctionCreationProcessor() {
         // Create the ShapeFunctionsFunctorReproducingKernel functor
         m_shape_functions_functor_reproducing_kernel = std::make_shared<aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS>>();
 
         // Create the function value storage processor
         const std::vector<std::string> sets = {};
         bool enable_accurate_timers = false;
-        m_function_value_storage_processor = std::make_shared<aperi::FunctionValueStorageProcessor>(m_mesh_data, sets, aperi::LagrangianFormulationType::Total, enable_accurate_timers);
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionCreationProcessor>(m_mesh_data, sets, aperi::LagrangianFormulationType::Total, enable_accurate_timers);
     }
 
-    void ResetFunctionValueStorageProcessor() {
+    void ResetFunctionCreationProcessor() {
         m_shape_functions_functor_reproducing_kernel.reset();
         m_function_value_storage_processor.reset();
         ResetNeighborSearchProcessor();
     }
 
     std::shared_ptr<aperi::ShapeFunctionsFunctorReproducingKernel<aperi::MAX_NODE_NUM_NEIGHBORS>> m_shape_functions_functor_reproducing_kernel;
-    std::shared_ptr<aperi::FunctionValueStorageProcessor> m_function_value_storage_processor;
+    std::shared_ptr<aperi::FunctionCreationProcessor> m_function_value_storage_processor;
 };

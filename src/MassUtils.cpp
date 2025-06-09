@@ -7,7 +7,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
-#include "FunctionValueProcessor.h"
+#include "FunctionEvaluationProcessor.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
@@ -82,7 +82,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
         std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data;
         dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE};
 
-        std::shared_ptr<aperi::FunctionValueProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
+        std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
         value_from_generalized_field_processor->ScatterValues();
         mass.MarkModifiedOnDevice();
         mass.ParallelSum();

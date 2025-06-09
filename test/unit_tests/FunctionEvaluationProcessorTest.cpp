@@ -6,7 +6,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
-#include "FunctionValueStorageProcessorTestFixture.h"
+#include "FunctionCreationProcessorTestFixture.h"
 #include "MeshData.h"
 #include "Types.h"
 #include "UnitTestUtils.h"
@@ -16,7 +16,7 @@
 // 2. The shape functions are computed correctly (pass partition of unity test).
 // This is mainly an integration test to ensure the function value storage processor works correctly with the shape functions functor.
 // The shape functions functor is tested in more detail in the ShapeFunctionsFunctorsTest.cpp file.
-TEST_F(FunctionValueStorageProcessorTestFixture, OneNeighbor) {
+TEST_F(FunctionCreationProcessorTestFixture, OneNeighbor) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -27,7 +27,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, OneNeighbor) {
     m_search_processor->add_nodes_ring_0_nodes();
     m_search_processor->SyncFieldsToHost();
 
-    BuildFunctionValueStorageProcessor();
+    BuildFunctionCreationProcessor();
 
     aperi::BasesLinear bases;
 
@@ -44,7 +44,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, OneNeighbor) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 }
 
-TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
+TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsStructuredMesh) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -56,7 +56,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
     m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius_scale_factor);
     m_search_processor->SyncFieldsToHost();
 
-    BuildFunctionValueStorageProcessor();
+    BuildFunctionCreationProcessor();
 
     aperi::BasesLinear bases;
 
@@ -94,7 +94,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsStructuredMesh) {
     }
 }
 
-TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsRandomizedMesh) {
+TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -109,7 +109,7 @@ TEST_F(FunctionValueStorageProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
-    BuildFunctionValueStorageProcessor();
+    BuildFunctionCreationProcessor();
 
     aperi::BasesLinear bases;
 

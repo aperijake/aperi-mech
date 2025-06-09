@@ -6,8 +6,8 @@
 
 #include "Constants.h"
 #include "FieldData.h"
-#include "FunctionValueProcessor.h"
-#include "FunctionValueStorageProcessorTestFixture.h"
+#include "FunctionCreationProcessorTestFixture.h"
+#include "FunctionEvaluationProcessor.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
 #include "UnitTestUtils.h"
@@ -18,22 +18,22 @@ struct FillLinearFieldFunctor {
     double m_slope;
 };
 
-class FunctionValueProcessorTestFixture : public FunctionValueStorageProcessorTestFixture {
+class FunctionEvaluationProcessorTestFixture : public FunctionCreationProcessorTestFixture {
    protected:
     void SetUp() override {
-        FunctionValueStorageProcessorTestFixture::SetUp();
+        FunctionCreationProcessorTestFixture::SetUp();
         m_src_and_dest_field_query_data.resize(2);
         m_src_and_dest_field_query_data[0] = {"src_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE, 3};
         m_src_and_dest_field_query_data[1] = {"dest_field", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE, 3};
     }
 
-    void BuildFunctionValueProcessor() {
+    void BuildFunctionEvaluationProcessor() {
         NeighborSearchProcessorTestFixture::CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z, "|tets", m_src_and_dest_field_query_data);
-        FunctionValueStorageProcessorTestFixture::BuildFunctionValueStorageProcessor();
-        // Create the FunctionValueProcessor
+        FunctionCreationProcessorTestFixture::BuildFunctionCreationProcessor();
+        // Create the FunctionEvaluationProcessor
         std::array<aperi::FieldQueryData<double>, 1> src_field = {m_src_and_dest_field_query_data[0]};
         std::array<aperi::FieldQueryData<double>, 1> dest_field = {m_src_and_dest_field_query_data[1]};
-        m_value_from_generalized_field_processor = std::make_shared<aperi::FunctionValueProcessor<1>>(src_field, dest_field, m_mesh_data);
+        m_value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<1>>(src_field, dest_field, m_mesh_data);
 
         // Create the field query data, coordinates and the src and dest fields
         std::array<aperi::FieldQueryData<double>, 3> field_query_data_vec;
@@ -58,23 +58,23 @@ class FunctionValueProcessorTestFixture : public FunctionValueStorageProcessorTe
     }
 
     std::vector<aperi::FieldQueryData<double>> m_src_and_dest_field_query_data;
-    std::shared_ptr<aperi::FunctionValueProcessor<1>> m_value_from_generalized_field_processor;
+    std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_value_from_generalized_field_processor;
     std::shared_ptr<aperi::NodeProcessor<3>> m_node_processor;
 };
 
-// Test the FunctionValueProcessor
-TEST_F(FunctionValueProcessorTestFixture, FunctionValueProcessor) {
+// Test the FunctionEvaluationProcessor
+TEST_F(FunctionEvaluationProcessorTestFixture, FunctionEvaluationProcessor) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
-    BuildFunctionValueProcessor();
+    BuildFunctionEvaluationProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
     m_search_processor->add_nodes_ring_0_nodes();
-    BuildFunctionValueStorageProcessor();
+    BuildFunctionCreationProcessor();
     aperi::BasesLinear bases;
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
@@ -85,19 +85,19 @@ TEST_F(FunctionValueProcessorTestFixture, FunctionValueProcessor) {
     CheckThatFieldsMatch<aperi::FieldDataTopologyRank::NODE, double>(*m_mesh_data, {"block_1"}, m_src_and_dest_field_query_data[0].name, m_src_and_dest_field_query_data[1].name, aperi::FieldQueryState::None);
 }
 
-// Test the FunctionValueProcessor with more neighbors
-TEST_F(FunctionValueProcessorTestFixture, FunctionValueProcessorMoreNeighbors) {
+// Test the FunctionEvaluationProcessor with more neighbors
+TEST_F(FunctionEvaluationProcessorTestFixture, FunctionEvaluationProcessorMoreNeighbors) {
     // Skip if running with more than 4 processes
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     if (num_procs > 4) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
-    BuildFunctionValueProcessor();
+    BuildFunctionEvaluationProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
     m_search_processor->add_nodes_neighbors_within_constant_ball(2.00);
-    BuildFunctionValueStorageProcessor();
+    BuildFunctionCreationProcessor();
     aperi::BasesLinear bases;
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
 
