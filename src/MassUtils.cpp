@@ -72,6 +72,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
     std::string mass_name = "mass";
     aperi::Field mass_from_elements = aperi::Field(mesh_data, FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
     aperi::Field mass = aperi::Field(mesh_data, FieldQueryData<double>{mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
+    mass_from_elements.SyncDeviceToHost();
     mass_from_elements.ParallelSum();
 
     // Pass mass_from_elements through the approximation functions to get mass

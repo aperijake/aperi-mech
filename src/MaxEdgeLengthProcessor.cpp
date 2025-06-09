@@ -77,6 +77,7 @@ void MaxEdgeLengthProcessor::ComputeMaxEdgeLength() {
         *m_mesh_data, m_active_selector);
 
     // Perform parallel max reduction and sync as needed
+    m_max_edge_length_field.MarkModifiedOnDevice();
     m_max_edge_length_field.ParallelMax();
 }
 
