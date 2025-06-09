@@ -176,6 +176,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run utils modules tests
         uses: ./.github/actions/run-utils-modules-tests
@@ -185,6 +186,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run unit tests
         uses: ./.github/actions/run-unit-tests
@@ -257,6 +259,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: false
+          with-protego: false
           code-coverage: true
 
       - name: Upload coverage reports to Codecov

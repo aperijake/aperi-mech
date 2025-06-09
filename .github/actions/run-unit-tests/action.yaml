@@ -21,8 +21,7 @@ inputs:
     required: true
   with-protego:
     description: Enable Protego build
-    required: false
-    default: "false"
+    required: true
 runs:
   using: composite
   steps:
@@ -68,6 +67,7 @@ runs:
             # Debugging
             echo "In container, inputs.build-type: ${{ inputs.build-type }}"
             echo "In container, inputs.gpu: ${{ inputs.gpu }}"
+            echo "In container, inputs.with-protego: ${{ inputs.with-protego }}"
             echo "In container, build_path: $build_path"
 
             cd $build_path
