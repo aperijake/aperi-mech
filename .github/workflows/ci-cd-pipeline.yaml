@@ -125,16 +125,29 @@ jobs:
             rm -rf protego-mech/build
           EOF
 
-  build-release:
-    name: Build Release
+  build-and-test:
+    name: Build and Test (${{ matrix.config.BUILD_TYPE }}, GPU=${{ matrix.config.GPU }}, PROTEGO=${{ matrix.config.PROTEGO }})
     runs-on: ubuntu-latest
     needs: setup
     concurrency:
-      group: build-and-test-vm-ci-cd
+      group: build-and-test-vm-ci-cd-${{ matrix.config.BUILD_TYPE }}-${{ matrix.config.GPU }}-${{ matrix.config.PROTEGO }}
       cancel-in-progress: false
+    strategy:
+      max-parallel: 1
+      matrix:
+        config:
+          - { BUILD_TYPE: Debug, GPU: false, PROTEGO: true }
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true }
+          - { BUILD_TYPE: Debug, GPU: false, PROTEGO: false }
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false }
+          - { BUILD_TYPE: Release, GPU: false, PROTEGO: true }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: true }
+          - { BUILD_TYPE: Release, GPU: false, PROTEGO: false }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false }
     env:
-      BUILD_TYPE: Release
-      GPU: false
+      BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
+      GPU: ${{ matrix.config.GPU }}
+      PROTEGO: ${{ matrix.config.PROTEGO }}
     steps:
       - name: Checkout Code on Runner
         uses: actions/checkout@v4
@@ -145,7 +158,7 @@ jobs:
       - name: Common Runner Config Steps
         uses: ./.github/actions/common-runner-config-steps
 
-      - name: Build Release
+      - name: Build
         uses: ./.github/actions/build-action
         with:
           build-type: ${{ env.BUILD_TYPE }}
@@ -153,159 +166,27 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
 
-      - name: Build Release, Protego
-        uses: ./.github/actions/build-action
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
-          with-protego: true
+          with-protego: ${{ env.PROTEGO }}
 
-  build-debug:
-    name: Build Debug
-    runs-on: ubuntu-latest
-    needs: setup
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Debug
-      GPU: false
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Build Debug
-        uses: ./.github/actions/build-action
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
-
-      - name: Build Debug, Protego
-        uses: ./.github/actions/build-action
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          with-protego: true
-
-  build-release-gpu:
-    name: Build Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, test-release, regression-test-release]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Release
-      GPU: true
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Build Release, GPU
-        uses: ./.github/actions/build-action
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Build Release, Protego, GPU
-        uses: ./.github/actions/build-action
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          with-protego: true
-
-  build-debug-gpu:
-    name: Build Debug, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug, test-debug, regression-test-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Debug
-      GPU: true
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Build Debug, GPU
-        uses: ./.github/actions/build-action
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Build Debug, Protego, GPU
-        uses: ./.github/actions/build-action
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          with-protego: true
-
-  test-release:
-    name: Test Release
-    runs-on: ubuntu-latest
-    needs: [setup, build-release]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Release
-      GPU: false
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run unit tests
         uses: ./.github/actions/run-unit-tests
@@ -316,8 +197,10 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           num-processes: 1
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run unit tests, parallel
+        if: env.GPU == 'false'
         uses: ./.github/actions/run-unit-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
@@ -326,72 +209,7 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           num-processes: 3
-
-      - name: Run unit tests, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-          with-protego: true
-
-      - name: Run unit tests, parallel, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 3
-          with-protego: true
-
-      - name: Run material tests
-        uses: ./.github/actions/run-material-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Run utils modules tests
-        uses: ./.github/actions/run-utils-modules-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-  regression-test-release:
-    name: Regression Test Release
-    runs-on: ubuntu-latest
-    needs: [setup, build-release, test-release]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      GPU: false
-      BUILD: release
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run regression tests, serial
         uses: ./.github/actions/run-regression-tests
@@ -401,9 +219,11 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           parallel: false
-          build: ${{ env.BUILD }}
+          build: ${{ env.BUILD_TYPE }}
+          with-protego: ${{ env.PROTEGO }}
 
       - name: Run regression tests, parallel
+        if: env.GPU == 'false'
         uses: ./.github/actions/run-regression-tests
         with:
           VM_IP: ${{ secrets.VM_IP }}
@@ -411,412 +231,13 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           parallel: true
-          build: ${{ env.BUILD }}
-
-      - name: Run regression tests, serial, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-      - name: Run regression tests, parallel, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: true
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-  regression-test-debug:
-    name: Regression Test Debug
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug, test-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      GPU: false
-      BUILD: debug
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run regression tests, serial
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-
-      - name: Run regression tests, parallel
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: true
-          build: ${{ env.BUILD }}
-
-      - name: Run regression tests, serial, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-      - name: Run regression tests, parallel, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: true
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-  test-debug:
-    name: Test Debug
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Debug
-      GPU: false
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-
-      - name: Run unit tests, parallel
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 3
-
-      - name: Run unit tests, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-          with-protego: true
-
-      - name: Run unit tests, parallel, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 3
-          with-protego: true
-
-      - name: Run material tests
-        uses: ./.github/actions/run-material-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Run utils modules tests
-        uses: ./.github/actions/run-utils-modules-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-  test-release-gpu:
-    name: Test Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-release-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Release
-      GPU: true
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-
-      - name: Run unit tests, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-          with-protego: true
-
-      - name: Run material tests
-        uses: ./.github/actions/run-material-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Run utils modules tests
-        uses: ./.github/actions/run-utils-modules-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-  regression-test-release-gpu:
-    name: Regression Test Release, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-release-gpu, test-release-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      GPU: true
-      BUILD: release
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run regression tests, serial
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-
-      - name: Run regression tests, serial, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-  regression-test-debug-gpu:
-    name: Regression Test Debug, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug-gpu, test-debug-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      GPU: true
-      BUILD: debug
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run regression tests, serial
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-
-      - name: Run regression tests, serial, protego
-        uses: ./.github/actions/run-regression-tests
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD }}
-          with-protego: true
-
-  test-debug-gpu:
-    name: Test Debug, GPU
-    runs-on: ubuntu-latest
-    needs: [setup, build-debug-gpu]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    env:
-      BUILD_TYPE: Debug
-      GPU: true
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
-        with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run unit tests
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-
-      - name: Run unit tests, protego
-        uses: ./.github/actions/run-unit-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-          num-processes: 1
-          with-protego: true
-
-      - name: Run material tests
-        uses: ./.github/actions/run-material-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
-
-      - name: Run utils modules tests
-        uses: ./.github/actions/run-utils-modules-tests
-        with:
-          build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          gpu: ${{ env.GPU }}
+          build: ${{ env.BUILD_TYPE }}
+          with-protego: ${{ env.PROTEGO }}
 
   code-coverage:
     name: Build Debug, Code Coverage
     runs-on: ubuntu-latest
-    needs: [setup, regression-test-debug, regression-test-debug-gpu]
+    needs: [setup, build-and-test]
     concurrency:
       group: build-and-test-vm-ci-cd
       cancel-in-progress: false
@@ -838,6 +259,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: false
+          with-protego: false
           code-coverage: true
 
       - name: Upload coverage reports to Codecov
@@ -853,23 +275,7 @@ jobs:
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
-    needs:
-      [
-        setup,
-        build-release,
-        test-release,
-        build-debug,
-        test-debug,
-        build-release-gpu,
-        test-release-gpu,
-        build-debug-gpu,
-        test-debug-gpu,
-        regression-test-release,
-        regression-test-release-gpu,
-        regression-test-debug,
-        regression-test-debug-gpu,
-        code-coverage,
-      ]
+    needs: [setup, build-and-test, code-coverage]
     steps:
       # For debugging purposes
       - name: Print VM status

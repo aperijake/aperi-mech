@@ -8,8 +8,8 @@ if(USE_PROTEGO_MECH)
     file(GLOB PROTEGO_MECH_TEST_SOURCES "protego-mech/test/unit_tests/*.cpp")
     list(APPEND TEST_SOURCES ${PROTEGO_MECH_TEST_SOURCES})
     # Remove some tests that wont work with protego-mech. TODO(jake): Some of these tests can be fixed to work with protego-mech
-    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/ValueFromGeneralizedFieldProcessorTest.cpp")
-    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/FunctionValueStorageProcessorTest.cpp")
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/FunctionEvaluationProcessorTest.cpp")
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/FunctionCreationProcessorTest.cpp")
     list(REMOVE_ITEM TEST_SOURCES "${CMAKE_SOURCE_DIR}/test/unit_tests/CompadreApproximationFunctionTest.cpp")
 endif()
 

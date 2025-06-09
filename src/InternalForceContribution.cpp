@@ -6,9 +6,9 @@
 
 #include "Element.h"
 #include "FieldData.h"
+#include "FunctionEvaluationProcessor.h"
 #include "Material.h"
 #include "MeshData.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 namespace aperi {
 
 void InternalForceContribution::Preprocess() {
@@ -39,7 +39,7 @@ void InternalForceContribution::Preprocess() {
         dest_field_query_data[0] = {"displacement", FieldQueryState::None};
         dest_field_query_data[1] = {"velocity", FieldQueryState::None};
         dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
-        m_output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<3>>(src_field_query_data, dest_field_query_data, m_internal_force_contribution_parameters.mesh_data, part_names);
+        m_output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<3>>(src_field_query_data, dest_field_query_data, m_internal_force_contribution_parameters.mesh_data, part_names);
     }
 }
 
@@ -56,7 +56,7 @@ void InternalForceContribution::ComputeValuesFromGeneralizedFields() const {
         m_output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
 
         // Compute the values of the destination fields from the source fields
-        m_output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+        m_output_value_from_generalized_field_processor->ComputeValues();
         m_output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
     }

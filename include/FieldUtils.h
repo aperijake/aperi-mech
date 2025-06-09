@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Field.h"
+#include "ForEachEntity.h"
 #include "Selector.h"
 
 namespace aperi {

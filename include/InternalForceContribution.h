@@ -7,11 +7,11 @@
 #include "Element.h"
 #include "FieldData.h"
 #include "ForceContribution.h"
+#include "FunctionEvaluationProcessor.h"
 #include "InternalForceContributionParameters.h"
 #include "IoInputFile.h"
 #include "Material.h"
 #include "MeshData.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -145,9 +145,9 @@ class InternalForceContribution : public ForceContribution {
     }
 
    protected:
-    InternalForceContributionParameters m_internal_force_contribution_parameters;                                   ///< The parameters associated with the force contribution.
-    std::shared_ptr<aperi::ElementBase> m_element;                                                                  ///< The element associated with the force contribution.
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
+    InternalForceContributionParameters m_internal_force_contribution_parameters;                            ///< The parameters associated with the force contribution.
+    std::shared_ptr<aperi::ElementBase> m_element;                                                           ///< The element associated with the force contribution.
+    std::shared_ptr<aperi::FunctionEvaluationProcessor<3>> m_output_value_from_generalized_field_processor;  ///< The value from generalized field processor.
 };
 
 /**

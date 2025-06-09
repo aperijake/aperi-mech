@@ -7,9 +7,10 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "ForEachEntity.h"
+#include "FunctionEvaluationProcessor.h"
 #include "MeshData.h"
 #include "Selector.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -167,7 +168,7 @@ struct UpdateDisplacementsUpdatedFunctor {
 
         std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data;
         dest_field_query_data[0] = {"displacement_inc", FieldQueryState::None};
-        m_displacement_increment_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
+        m_displacement_increment_processor = std::make_shared<aperi::FunctionEvaluationProcessor<1>>(src_field_query_data, dest_field_query_data, mp_mesh_data);
     }
 
     void UpdateFields() {
@@ -217,7 +218,7 @@ struct UpdateDisplacementsUpdatedFunctor {
         // Compute the current coordinates by adding the displacement increment to the reference coordinates
         if (m_uses_generalized_fields) {
             // Compute the physical displacement increment
-            m_displacement_increment_processor->compute_value_from_generalized_field();
+            m_displacement_increment_processor->ComputeValues();
             aperi::AXPBYZField(1.0, m_current_coordinates_n_field, 1.0, m_displacement_increment_field, m_current_coordinates_np1_field);
             m_displacement_increment_field.MarkModifiedOnDevice();
         } else {
@@ -239,7 +240,7 @@ struct UpdateDisplacementsUpdatedFunctor {
 
     mutable aperi::Field<double> m_displacement_increment_field;
 
-    std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> m_displacement_increment_processor;  // Displacement increment processor
+    std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_displacement_increment_processor;  // Displacement increment processor
 };
 
 // Functor for computing the acceleration

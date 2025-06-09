@@ -10,6 +10,7 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "FunctionEvaluationProcessor.h"
 #include "LogUtils.h"
 #include "Material.h"
 #include "MeshLabelerTestFixture.h"
@@ -18,7 +19,6 @@
 #include "SmoothedCellDataProcessor.h"
 #include "Types.h"
 #include "UnitTestNodalMeshUtils.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 class KinematicsTestFixture : public MeshLabelerTestFixture {
    protected:
@@ -159,30 +159,30 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
         SetupReproducingKernel(lagrangian_formulation_type, support_scale, num_subcells, activate_center_node, use_f_bar, true);
     }
 
-    void ComputeValueFromGeneralizedField(std::string source_field_name, aperi::FieldQueryState source_field_state, std::string dest_field_name, aperi::FieldQueryState dest_field_state) {
+    void ComputeFunctionValues(std::string source_field_name, aperi::FieldQueryState source_field_state, std::string dest_field_name, aperi::FieldQueryState dest_field_state) {
         constexpr size_t num_fields = 1;
         std::array<aperi::FieldQueryData<double>, num_fields> src_field_query_data;
         src_field_query_data[0] = {source_field_name, source_field_state};
 
         std::array<aperi::FieldQueryData<double>, num_fields> dest_field_query_data;
         dest_field_query_data[0] = {dest_field_name, dest_field_state};
-        auto output_value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<num_fields>>(src_field_query_data, dest_field_query_data, m_mesh_data, m_part_names);
+        auto output_value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<num_fields>>(src_field_query_data, dest_field_query_data, m_mesh_data, m_part_names);
         output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
         output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
         output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
         output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
 
         // Compute the values of the destination fields from the source fields
-        output_value_from_generalized_field_processor->compute_value_from_generalized_field();
+        output_value_from_generalized_field_processor->ComputeValues();
         output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
     }
 
     void UpdateDisplacementsAndCoordinates() {
         // Compute the physical displacement increment field from the generalized displacement coefficients
-        ComputeValueFromGeneralizedField("displacement_coefficients_inc", aperi::FieldQueryState::None, "displacement_inc", aperi::FieldQueryState::None);
+        ComputeFunctionValues("displacement_coefficients_inc", aperi::FieldQueryState::None, "displacement_inc", aperi::FieldQueryState::None);
         // Compute the displacement coefficients field from the generalized displacement coefficients. The coefficients are already in the NP1 state so displacement will be in the NP1 state.
-        ComputeValueFromGeneralizedField("displacement_coefficients", aperi::FieldQueryState::NP1, "displacement", aperi::FieldQueryState::None);
+        ComputeFunctionValues("displacement_coefficients", aperi::FieldQueryState::NP1, "displacement", aperi::FieldQueryState::None);
         aperi::Field<double> displacement_inc_field(m_mesh_data, aperi::FieldQueryData<double>{"displacement_inc", aperi::FieldQueryState::None});
         aperi::Field<double> current_coordinates_n_field(m_mesh_data, aperi::FieldQueryData<double>{"current_coordinates_n", aperi::FieldQueryState::None});
         aperi::Field<double> current_coordinates_np1_field(m_mesh_data, aperi::FieldQueryData<double>{"current_coordinates_np1", aperi::FieldQueryState::None});

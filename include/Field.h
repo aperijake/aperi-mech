@@ -13,13 +13,11 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/NgpFieldBLAS.hpp>
-#include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_topology/topology.hpp>
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
-#include "ForEachEntity.h"
 #include "Index.h"
 #include "LogUtils.h"
 #include "MeshData.h"
@@ -344,6 +342,10 @@ class Field {
 
     // Parallel communication
     void Communicate(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+        // Skip if it is run in serial mode
+        if (m_mesh_data->GetBulkData()->parallel_size() <= 1) {
+            return;
+        }
         assert(m_field != nullptr);
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
@@ -358,12 +360,34 @@ class Field {
 
     // Parallel sum including ghosted values
     void ParallelSum(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+        // Skip if it is run in serial mode
+        if (m_mesh_data->GetBulkData()->parallel_size() <= 1) {
+            return;
+        }
         assert(m_field != nullptr);
         if (pre_sync_from_device_to_host) {
             m_ngp_field.sync_to_host();
         }
         std::vector<const stk::mesh::FieldBase *> fields = {m_field};
         stk::mesh::parallel_sum_including_ghosts(*m_mesh_data->GetBulkData(), fields);
+        MarkModifiedOnHost();
+        if (post_sync_from_host_to_device) {
+            m_ngp_field.sync_to_device();
+        }
+    }
+
+    // Parallel max including ghosted values
+    void ParallelMax(bool pre_sync_from_device_to_host = true, bool post_sync_from_host_to_device = true) {
+        // Skip if it is run in serial mode
+        if (m_mesh_data->GetBulkData()->parallel_size() <= 1) {
+            return;
+        }
+        assert(m_field != nullptr);
+        if (pre_sync_from_device_to_host) {
+            m_ngp_field.sync_to_host();
+        }
+        std::vector<const stk::mesh::FieldBase *> fields = {m_field};
+        stk::mesh::parallel_max_including_ghosts(*m_mesh_data->GetBulkData(), fields);
         MarkModifiedOnHost();
         if (post_sync_from_host_to_device) {
             m_ngp_field.sync_to_device();

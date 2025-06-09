@@ -7,10 +7,10 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "FunctionEvaluationProcessor.h"
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
-#include "ValueFromGeneralizedFieldProcessor.h"
 
 namespace aperi {
 
@@ -72,6 +72,7 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
     std::string mass_name = "mass";
     aperi::Field mass_from_elements = aperi::Field(mesh_data, FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
     aperi::Field mass = aperi::Field(mesh_data, FieldQueryData<double>{mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
+    mass_from_elements.SyncDeviceToHost();
     mass_from_elements.ParallelSum();
 
     // Pass mass_from_elements through the approximation functions to get mass
@@ -82,8 +83,8 @@ double FinishComputingMassMatrix(const std::shared_ptr<aperi::MeshData> &mesh_da
         std::array<aperi::FieldQueryData<double>, 1> dest_field_query_data;
         dest_field_query_data[0] = {mass_name, FieldQueryState::None, FieldDataTopologyRank::NODE};
 
-        std::shared_ptr<aperi::ValueFromGeneralizedFieldProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::ValueFromGeneralizedFieldProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
-        value_from_generalized_field_processor->ScatterOwnedLocalValues();
+        std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> value_from_generalized_field_processor = std::make_shared<aperi::FunctionEvaluationProcessor<1>>(src_field_query_data, dest_field_query_data, mesh_data);
+        value_from_generalized_field_processor->ScatterValues();
         mass.MarkModifiedOnDevice();
         mass.ParallelSum();
     } else {

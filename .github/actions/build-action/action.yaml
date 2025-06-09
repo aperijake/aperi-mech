@@ -15,12 +15,10 @@ inputs:
     required: true
   with-protego:
     description: Enable Protego build
-    required: false
-    default: "false"
+    required: true
   gpu:
     description: Enable GPU build
     required: true
-    default: "false"
   code-coverage:
     description: Enable code coverage
     required: false
