@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Kokkos_Array.hpp>
 #include <Kokkos_Core.hpp>
-#include <array>
 #include <memory>
 #include <vector>
 
@@ -30,14 +30,16 @@ class FunctionEvaluationProcessor {
     /**
      * @brief Construct a new FunctionEvaluationProcessor.
      *
-     * @param source_field_query_data Array of query data for source fields.
-     * @param destination_field_query_data Array of query data for destination fields.
+     * Accepts std::array for compatibility with user code, and copies to Kokkos::Array internally.
+     *
+     * @param source_field_query_data Kokkos::Array of query data for source fields.
+     * @param destination_field_query_data Kokkos::Array of query data for destination fields.
      * @param mesh_data Shared pointer to mesh data.
      * @param sets Optional list of mesh sets to operate on.
      */
     FunctionEvaluationProcessor(
-        const std::array<FieldQueryData<double>, NumFields> &source_field_query_data,
-        const std::array<FieldQueryData<double>, NumFields> &destination_field_query_data,
+        const std::array<FieldQueryData<Real>, NumFields> &source_field_query_data,
+        const std::array<FieldQueryData<Real>, NumFields> &destination_field_query_data,
         std::shared_ptr<aperi::MeshData> mesh_data,
         const std::vector<std::string> &sets = {})
         : m_mesh_data(mesh_data) {
@@ -49,11 +51,11 @@ class FunctionEvaluationProcessor {
         // Initialize fields for neighbor info and function values
         m_num_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
         m_neighbors_field = aperi::Field<Unsigned>(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE});
-        m_function_values_field = aperi::Field<double>(mesh_data, FieldQueryData<double>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
-        // Initialize source and destination fields
+        m_function_values_field = aperi::Field<Real>(mesh_data, FieldQueryData<Real>{"function_values", FieldQueryState::None, FieldDataTopologyRank::NODE});
+        // Copy std::array to Kokkos::Array
         for (size_t i = 0; i < NumFields; ++i) {
-            m_source_fields[i] = aperi::Field<double>(mesh_data, source_field_query_data[i]);
-            m_destination_fields[i] = aperi::Field<double>(mesh_data, destination_field_query_data[i]);
+            m_source_fields[i] = aperi::Field<Real>(mesh_data, source_field_query_data[i]);
+            m_destination_fields[i] = aperi::Field<Real>(mesh_data, destination_field_query_data[i]);
         }
     }
 
@@ -106,10 +108,10 @@ class FunctionEvaluationProcessor {
                 for (size_t k = num_neighbors; k-- > 0;) {
                     aperi::Unsigned neighbor_local_offset = m_neighbors_field(idx, k);
                     aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
-                    double function_value = m_function_values_field(idx, k);
+                    Real function_value = m_function_values_field(idx, k);
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            double source_value = m_source_fields[i](neighbor_idx, j);
+                            Real source_value = m_source_fields[i](neighbor_idx, j);
                             m_destination_fields[i](idx, j) += source_value * function_value;
                         }
                     }
@@ -160,10 +162,10 @@ class FunctionEvaluationProcessor {
                 for (size_t k = 0; k < num_neighbors; ++k) {
                     aperi::Unsigned neighbor_local_offset = m_neighbors_field(idx, k);
                     aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
-                    double function_value = m_function_values_field(idx, k);
+                    Real function_value = m_function_values_field(idx, k);
                     for (size_t i = 0; i < NumFields; ++i) {
                         for (size_t j = 0; j < num_components; ++j) {
-                            double source_value = m_source_fields[i](idx, j);
+                            Real source_value = m_source_fields[i](idx, j);
                             // Use atomic add to avoid race conditions
                             Kokkos::atomic_add(&m_destination_fields[i](neighbor_idx, j), source_value * function_value);
                         }
@@ -299,9 +301,9 @@ class FunctionEvaluationProcessor {
     aperi::Selector m_owned_selector;
     aperi::Field<Unsigned> m_num_neighbors_field;
     aperi::Field<Unsigned> m_neighbors_field;
-    aperi::Field<double> m_function_values_field;
-    std::array<aperi::Field<double>, NumFields> m_source_fields;
-    std::array<aperi::Field<double>, NumFields> m_destination_fields;
+    aperi::Field<Real> m_function_values_field;
+    Kokkos::Array<aperi::Field<Real>, NumFields> m_source_fields;
+    Kokkos::Array<aperi::Field<Real>, NumFields> m_destination_fields;
 };
 
 }  // namespace aperi
