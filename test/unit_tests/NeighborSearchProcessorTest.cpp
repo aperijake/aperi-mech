@@ -33,7 +33,7 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
     EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
@@ -56,7 +56,7 @@ TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
     expected_neighbors_data.fill(0.0);
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
     EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
@@ -81,7 +81,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
     EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
@@ -110,7 +110,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, num_nodes);
     EXPECT_EQ(node_neighbor_stats.max_num_neighbors, num_nodes);
@@ -142,7 +142,7 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 4);
@@ -168,7 +168,7 @@ TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch) {
     m_search_processor->SyncFieldsToHost();
 
     // Check the neighbor stats
-    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 8);
     EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 27);
@@ -254,7 +254,7 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Have not added neighbors yet
     bool verbose = false;
-    aperi::Selector selector({"block_1"}, m_mesh_data.get());
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     EXPECT_FALSE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
 
     // Add neighbors within a ball
