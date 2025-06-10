@@ -47,36 +47,32 @@ class NeighborSearchProcessor {
                             const std::vector<std::string> &sets,
                             bool enable_accurate_timers);
 
-    std::vector<std::string> GetPartNames() const;
-    void PopulateDebugFields();
+    void add_nodes_ring_0_nodes(bool set_first_function_value_to_one = false);
+    void add_nodes_neighbors_within_variable_ball(const std::vector<std::string> &sets,
+                                                  const std::vector<double> &kernel_radius_scale_factors);
+    void add_nodes_neighbors_within_constant_ball(double ball_radius);
+
+    std::map<std::string, double> GetNumNeighborStats();
+    void PrintNumNeighborsStats();
+
+    void SyncFieldsToHost();
+    void CommunicateAllFieldData() const;
+    size_t GetNumNodes();
+    size_t GetNumOwnedNodes();
+    size_t GetNumOwnedAndSharedNodes();
+    void WriteTimerCSV(const std::string &output_file);
+    std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
+
+   private:
     void SetKernelRadius(double kernel_radius);
     void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector);
     bool NodeIsActive(stk::mesh::Entity node);
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
-    void add_nodes_ring_0_nodes(bool set_first_function_value_to_one = false);
-    void DoBallSearch(bool populate_debug_fields = false);
-    void add_nodes_neighbors_within_variable_ball(const std::vector<std::string> &sets,
-                                                  const std::vector<double> &kernel_radius_scale_factors,
-                                                  bool populate_debug_fields = false);
-    void add_nodes_neighbors_within_constant_ball(double ball_radius, bool populate_debug_fields = false);
-    std::map<std::string, double> GetNumNeighborStats();
-    void PrintNumNeighborsStats();
-    void SyncFieldsToHost();
-    void CommunicateAllFieldData() const;
-    double GetNumElements();
-    double GetNumOwnedElements();
-    double GetNumNodes();
-    double GetNumOwnedNodes();
-    double GetNumOwnedAndSharedNodes();
-    void WriteTimerCSV(const std::string &output_file);
-    std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
-
-    // Device-related methods that must stay in header
+    void DoBallSearch();
     DomainViewType CreateNodePoints();
     RangeViewType CreateNodeSpheres();
 
-   private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
     std::vector<std::string> m_sets;                                        // The sets to process.
     aperi::TimerManager<NeighborSearchProcessorTimerType> m_timer_manager;  // The timer manager.
