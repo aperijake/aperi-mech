@@ -34,7 +34,7 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
-#include "TimerTypes.h"  // Include TimerTypes.h
+#include "TimerTypes.h"
 #include "Types.h"
 
 namespace aperi {
@@ -48,7 +48,7 @@ class NeighborSearchProcessor {
     std::vector<std::string> GetPartNames() const;
     void PopulateDebugFields();
     bool CheckAllNeighborsAreWithinKernelRadius();
-    bool CheckNeighborsAreActiveNodesHost(bool print_failures = true);
+    bool CheckNeighborsAreActiveNodes(bool print_failures = true);
     void SetKernelRadius(double kernel_radius);
     void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector);
     bool NodeIsActive(stk::mesh::Entity node);
@@ -102,9 +102,6 @@ class NeighborSearchProcessor {
     NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
 };
-
-// Must include implementation of device-based methods in header due to Kokkos::parallel_for and KOKKOS_LAMBDA
-// These methods need to be defined inline in the header
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints() {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
@@ -168,6 +165,56 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres() {
         });
 
     return node_spheres;
+}
+
+// Check that all neighbors are active nodes.
+inline bool NeighborSearchProcessor::CheckNeighborsAreActiveNodes(bool print_failures) {
+    m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+    auto ngp_mesh = m_ngp_mesh;
+    auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+    auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
+    auto ngp_node_active_field = *m_ngp_node_active_field;
+
+    // Use Kokkos reductions for the checks
+    Kokkos::View<int, ExecSpace> all_neighbors_active("all_neighbors_active");
+    Kokkos::View<int, ExecSpace> all_nodes_have_neighbors("all_nodes_have_neighbors");
+    Kokkos::deep_copy(all_neighbors_active, 1);
+    Kokkos::deep_copy(all_nodes_have_neighbors, 1);
+
+    stk::mesh::for_each_entity_run(
+        ngp_mesh, stk::topology::NODE_RANK, m_owned_selector,
+        KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+            Unsigned num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
+            if (num_neighbors == 0) {
+                Kokkos::atomic_exchange(&all_nodes_have_neighbors(), 0);
+            }
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
+                stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(neighbor);
+                Unsigned neighbor_active = ngp_node_active_field(neighbor_index, 0);
+                if (neighbor_active == 0) {
+                    Kokkos::atomic_exchange(&all_neighbors_active(), 0);
+                    if (print_failures) {
+                        // Optionally print, but Kokkos::printf is device-wide and may be noisy
+                        Kokkos::printf("FAIL: Node %llu has a neighbor %llu that is not active.\n",
+                                       static_cast<unsigned long long>(ngp_mesh.identifier(ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index))),
+                                       static_cast<unsigned long long>(ngp_mesh.identifier(neighbor)));
+                    }
+                }
+            }
+        });
+
+    int host_all_neighbors_active = 1;
+    int host_all_nodes_have_neighbors = 1;
+    Kokkos::deep_copy(host_all_neighbors_active, all_neighbors_active);
+    Kokkos::deep_copy(host_all_nodes_have_neighbors, all_nodes_have_neighbors);
+
+    int global_all_neighbors_active = host_all_neighbors_active;
+    int global_all_nodes_have_neighbors = host_all_nodes_have_neighbors;
+    MPI_Allreduce(MPI_IN_PLACE, &global_all_neighbors_active, 1, MPI_INT, MPI_MIN, m_bulk_data->parallel());
+    MPI_Allreduce(MPI_IN_PLACE, &global_all_nodes_have_neighbors, 1, MPI_INT, MPI_MIN, m_bulk_data->parallel());
+
+    return global_all_neighbors_active && global_all_nodes_have_neighbors;
 }
 
 }  // namespace aperi

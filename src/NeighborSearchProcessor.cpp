@@ -152,51 +152,6 @@ bool NeighborSearchProcessor::CheckAllNeighborsAreWithinKernelRadius() {
     return true;
 }
 
-bool NeighborSearchProcessor::CheckNeighborsAreActiveNodesHost(bool print_failures) {
-    int num_procs;
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    if (num_procs > 1) {
-        aperi::CoutP0() << "Warning: CheckNeighborsAreActiveNodesHost only works in serial." << std::endl;
-        return true;
-    }
-    bool all_neighbors_active = true;
-    bool all_nodes_have_neighbors = true;
-    // Loop over all the buckets
-    for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::NODE_RANK)) {
-        // Get the field data for the bucket
-        Unsigned *node_num_neighbors = stk::mesh::field_data(*m_node_num_neighbors_field, *bucket);
-        Unsigned *node_neighbors = stk::mesh::field_data(*m_node_neighbors_field, *bucket);
-        const size_t len_neighbors = stk::mesh::field_scalars_per_entity(*m_node_neighbors_field, *bucket);
-        assert(1 == stk::mesh::field_scalars_per_entity(*m_node_num_neighbors_field, *bucket));
-        // Loop over each entity in the bucket
-        for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
-            size_t i_neighbor_start = i_entity * len_neighbors;
-            Unsigned num_neighbors = node_num_neighbors[i_entity];
-            assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-            if (num_neighbors == 0) {
-                all_nodes_have_neighbors = false;
-                if (print_failures) {
-                    aperi::CoutP0() << "FAIL: Node " << m_bulk_data->identifier(bucket->operator[](i_entity)) << " has no neighbors." << std::endl;
-                }
-            }
-            for (size_t i = 0; i < num_neighbors; i++) {
-                // TODO(jake): This only works in serial. The neighbor index is not the global id and the field_data call is not working.
-                Unsigned neighbor_index = node_neighbors[i_neighbor_start + i];
-                stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, neighbor_index);
-                // Active value of the neighbor
-                Unsigned neighbor_active = stk::mesh::field_data(*m_node_active_field, neighbor)[0];
-                if (neighbor_active == 0) {
-                    all_neighbors_active = false;
-                    if (print_failures) {
-                        aperi::CoutP0() << "FAIL: Node " << m_bulk_data->identifier(bucket->operator[](i_entity)) << " has a neighbor " << neighbor_index << " that is not active." << std::endl;
-                    }
-                }
-            }
-        }
-    }
-    return all_neighbors_active && all_nodes_have_neighbors;
-}
-
 void NeighborSearchProcessor::SetKernelRadius(double kernel_radius) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -380,7 +335,7 @@ void NeighborSearchProcessor::DoBallSearch(bool populate_debug_fields) {
     // Check the validity of the neighbors field
     KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius());
     // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
-    // assert(CheckNeighborsAreActiveNodesHost());
+    // assert(CheckNeighborsAreActiveNodes());
 
     if (populate_debug_fields) {
         PopulateDebugFields();

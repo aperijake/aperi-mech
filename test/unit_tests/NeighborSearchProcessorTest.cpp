@@ -251,11 +251,8 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     CreateMaxEdgeLengthProcessor();
 
     // Have not added neighbors yet
-    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
     bool verbose = false;
-    if (num_procs == 1) {
-        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
-    }
+    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodes(verbose));
 
     // Add neighbors within a ball
     std::vector<double> kernel_radius_scale_factors = {2.1};
@@ -265,17 +262,12 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     m_search_processor->SyncFieldsToHost();
 
     // Check that the neighbors are active.
-    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
-    if (num_procs == 1) {
-        EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodesHost());
-    }
+    EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodes());
 
     // Mess up the active field
     seed = 21;
     RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
-    // Check neighbor active status and expect an issue, CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
-    if (num_procs == 1) {
-        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
-    }
+    // Check neighbor active status and expect an issue.
+    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodes(verbose));
 }
