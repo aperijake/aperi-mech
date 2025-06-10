@@ -34,34 +34,12 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Timer.h"
+#include "TimerTypes.h"  // Include TimerTypes.h
 #include "Types.h"
 
 namespace aperi {
 
 class NeighborSearchProcessor {
-    enum class NeighborSearchProcessorTimerType {
-        Instantiate,
-        KokkosDeepCopy,
-        CoarseSearch,
-        UnpackSearchResultsIntoField,
-        GhostNodeNeighbors,
-        CreateNodeSpheres,
-        CreateNodePoints,
-        ComputeKernelRadius,
-        NONE
-    };
-
-    const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_search_processor_timer_names_map = {
-        {NeighborSearchProcessorTimerType::Instantiate, "Instantiate"},
-        {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},
-        {NeighborSearchProcessorTimerType::CoarseSearch, "CoarseSearch"},
-        {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "UnpackSearchResultsIntoField"},
-        {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "GhostNodeNeighbors"},
-        {NeighborSearchProcessorTimerType::CreateNodeSpheres, "CreateNodeSpheres"},
-        {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
-        {NeighborSearchProcessorTimerType::ComputeKernelRadius, "ComputeKernelRadius"},
-        {NeighborSearchProcessorTimerType::NONE, "NONE"}};
-
    public:
     NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data,
                             const std::vector<std::string> &sets,

@@ -152,10 +152,6 @@ bool NeighborSearchProcessor::CheckAllNeighborsAreWithinKernelRadius() {
     return true;
 }
 
-// Continue implementing the remaining methods...
-// For brevity, I'm only showing the pattern for a few methods.
-// You would need to implement all the other methods from the class declaration.
-
 bool NeighborSearchProcessor::CheckNeighborsAreActiveNodesHost(bool print_failures) {
     int num_procs;
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -540,7 +536,7 @@ void NeighborSearchProcessor::WriteTimerCSV(const std::string &output_file) {
     m_timer_manager.WriteCSV(output_file);
 }
 
-std::shared_ptr<aperi::TimerManager<NeighborSearchProcessor::NeighborSearchProcessorTimerType>>
+std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>>
 NeighborSearchProcessor::GetTimerManager() {
     return std::make_shared<aperi::TimerManager<NeighborSearchProcessorTimerType>>(m_timer_manager);
 }
