@@ -52,9 +52,7 @@ class NeighborSearchProcessor {
                                                   const std::vector<double> &kernel_radius_scale_factors);
     void add_nodes_neighbors_within_constant_ball(double ball_radius);
 
-    std::map<std::string, double> GetNumNeighborStats();
     void PrintNumNeighborsStats();
-
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
     size_t GetNumNodes();
@@ -63,15 +61,17 @@ class NeighborSearchProcessor {
     void WriteTimerCSV(const std::string &output_file);
     std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
 
-   private:
     void SetKernelRadius(double kernel_radius);
     void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector);
+
+    DomainViewType CreateNodePoints();
+    RangeViewType CreateNodeSpheres();
+
+   private:
     bool NodeIsActive(stk::mesh::Entity node);
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch();
-    DomainViewType CreateNodePoints();
-    RangeViewType CreateNodeSpheres();
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
     std::vector<std::string> m_sets;                                        // The sets to process.

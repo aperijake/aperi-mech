@@ -124,6 +124,13 @@ void NeighborSearchProcessor::add_nodes_neighbors_within_variable_ball(const std
     DoBallSearch();
 }
 
+void NeighborSearchProcessor::PrintNumNeighborsStats() {
+    // Node
+    aperi::Selector selector(m_owned_selector);
+    NeighborStats node_stats = GetNumNeighborStats(m_mesh_data, selector);
+    node_stats.Print();
+}
+
 void NeighborSearchProcessor::SyncFieldsToHost() {
     m_ngp_node_num_neighbors_field->sync_to_host();
     m_ngp_node_function_values_field->sync_to_host();
@@ -318,63 +325,6 @@ void NeighborSearchProcessor::DoBallSearch() {
     KOKKOS_ASSERT(CheckAllNodesHaveNeighbors(m_mesh_data, m_owned_selector));
     KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius(m_mesh_data, m_owned_selector));
     KOKKOS_ASSERT(CheckNeighborsAreActiveNodes(m_mesh_data, m_owned_selector));
-}
-
-std::map<std::string, double> NeighborSearchProcessor::GetNumNeighborStats() {
-    // Initialize the min and max values
-    double max_num_neighbors = 0;
-    double min_num_neighbors = std::numeric_limits<double>::max();
-    double total_num_neighbors = 0;
-    double num_entities = 0;
-    int reserved_memory = 0;
-    NgpUnsignedField ngp_num_neighbors_field;
-
-    num_entities = GetNumOwnedNodes();
-    ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
-    reserved_memory = MAX_NODE_NUM_NEIGHBORS;
-
-    FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector, m_bulk_data);
-
-    // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
-    Kokkos::parallel_reduce(
-        "calculate_stats",
-        num_entities,
-        KOKKOS_LAMBDA(int i, double &max_num_neighbors, double &min_num_neighbors, double &total_num_neighbors) {
-            stk::mesh::EntityFieldData<Unsigned> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
-            double num_neighbors = num_neighbors_field[0];
-            max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
-            min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);
-            total_num_neighbors += num_neighbors;
-        },
-        Kokkos::Max<double>(max_num_neighbors),
-        Kokkos::Min<double>(min_num_neighbors),
-        Kokkos::Sum<double>(total_num_neighbors));
-
-    // Use MPI_Allreduce to calculate the min, max, and sum across all MPI ranks
-    MPI_Allreduce(MPI_IN_PLACE, &max_num_neighbors, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &min_num_neighbors, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &total_num_neighbors, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &num_entities, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    std::map<std::string, double> stats;
-    stats["max_num_neighbors"] = max_num_neighbors;
-    stats["min_num_neighbors"] = min_num_neighbors;
-    stats["avg_num_neighbors"] = total_num_neighbors / num_entities;
-    stats["num_entities"] = num_entities;
-    stats["reserved_memory_utilization"] = total_num_neighbors / (num_entities * reserved_memory) * 100.0;
-    return stats;
-}
-
-void NeighborSearchProcessor::PrintNumNeighborsStats() {
-    // Node
-    std::map<std::string, double> node_stats = GetNumNeighborStats();
-
-    aperi::CoutP0() << "   - Neighbor Stats: " << std::endl;
-    aperi::CoutP0() << "     - Total Num Nodes: " << node_stats["num_entities"] << std::endl;
-    aperi::CoutP0() << "     - Max Num Neighbors: " << node_stats["max_num_neighbors"] << std::endl;
-    aperi::CoutP0() << "     - Min Num Neighbors: " << node_stats["min_num_neighbors"] << std::endl;
-    aperi::CoutP0() << "     - Avg Num Neighbors: " << node_stats["avg_num_neighbors"] << std::endl;
-    aperi::CoutP0() << "     - Reserved Memory Utilization: " << node_stats["reserved_memory_utilization"] << "%" << std::endl;
 }
 
 bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <string>
+
+#include "LogUtils.h"
+
 namespace aperi {
 
 class MeshData;
@@ -67,5 +71,38 @@ bool CheckNeighborsAreActiveNodes(std::shared_ptr<aperi::MeshData> mesh_data, co
  * @return true if all neighbors are within kernel radius, false otherwise.
  */
 bool CheckAllNeighborsAreWithinKernelRadius(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures = true);
+
+/**
+ * @brief Struct holding statistics about node neighbors in a mesh.
+ */
+struct NeighborStats {
+    double max_num_neighbors;
+    double min_num_neighbors;
+    double avg_num_neighbors;
+    double num_entities;
+    double reserved_memory_utilization;
+
+    void Print() const {
+        aperi::CoutP0() << "   - Neighbor Stats: " << std::endl;
+        aperi::CoutP0() << "     - Total Num Nodes: " << num_entities << std::endl;
+        aperi::CoutP0() << "     - Max Num Neighbors: " << max_num_neighbors << std::endl;
+        aperi::CoutP0() << "     - Min Num Neighbors: " << min_num_neighbors << std::endl;
+        aperi::CoutP0() << "     - Avg Num Neighbors: " << avg_num_neighbors << std::endl;
+        aperi::CoutP0() << "     - Reserved Memory Utilization: " << reserved_memory_utilization << "%" << std::endl;
+    }
+};
+
+/**
+ * @brief Get statistics about the number of neighbors for nodes in the mesh.
+ *
+ * This function computes statistics about the number of neighbors for nodes selected
+ * by the selector, including the minimum, maximum, and average number of neighbors,
+ * as well as memory utilization.
+ *
+ * @param mesh_data The mesh data object.
+ * @param selector The selector for the nodes to check.
+ * @return NeighborStats Structure containing neighbor statistics.
+ */
+NeighborStats GetNumNeighborStats(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector);
 
 }  // namespace aperi

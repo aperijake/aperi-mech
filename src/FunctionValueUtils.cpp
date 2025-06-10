@@ -1,5 +1,7 @@
 #include "FunctionValueUtils.h"
 
+#include <mpi.h>
+
 #include <Kokkos_Core.hpp>
 #include <iostream>
 #include <stk_mesh/base/BulkData.hpp>
@@ -13,6 +15,7 @@
 #include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
 
+#include "Constants.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "ForEachEntity.h"
@@ -238,6 +241,57 @@ bool CheckAllNeighborsAreWithinKernelRadius(std::shared_ptr<aperi::MeshData> mes
     MPI_Allreduce(MPI_IN_PLACE, &global_all_neighbors_within_kernel, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     return global_all_neighbors_within_kernel;
+}
+
+NeighborStats GetNumNeighborStats(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector) {
+    Kokkos::fence();
+
+    double max_num_neighbors = 0;
+    double min_num_neighbors = std::numeric_limits<double>::max();
+    double total_num_neighbors = 0;
+    double num_entities = 0;
+    int reserved_memory = 0;
+
+    // Get the field and reserved memory size
+    const aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                            aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    reserved_memory = aperi::MAX_NODE_NUM_NEIGHBORS;
+
+    // Count the number of entities
+    num_entities = stk::mesh::count_selected_entities(selector(), mesh_data->GetBulkData()->buckets(stk::topology::NODE_RANK));
+
+    // Get local entity indices for parallel access
+    auto entity_indices = aperi::GetLocalEntityIndices(stk::topology::NODE_RANK, selector(), mesh_data->GetBulkData());
+
+    // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
+    Kokkos::parallel_reduce(
+        num_entities,
+        KOKKOS_LAMBDA(const int i, double &max_val, double &min_val, double &sum_val) {
+            aperi::Index idx = entity_indices(i);
+            double num_neighbors = num_neighbors_field(idx, 0);
+            if (num_neighbors > max_val) max_val = num_neighbors;
+            if (num_neighbors < min_val) min_val = num_neighbors;
+            sum_val += num_neighbors;
+        },
+        Kokkos::Max<double>(max_num_neighbors),
+        Kokkos::Min<double>(min_num_neighbors),
+        Kokkos::Sum<double>(total_num_neighbors));
+
+    // Use MPI_Allreduce to calculate the min, max, and sum across all MPI ranks
+    MPI_Allreduce(MPI_IN_PLACE, &max_num_neighbors, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &min_num_neighbors, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &total_num_neighbors, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &num_entities, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    NeighborStats stats;
+    stats.max_num_neighbors = max_num_neighbors;
+    stats.min_num_neighbors = min_num_neighbors;
+    stats.avg_num_neighbors = (num_entities > 0) ? (total_num_neighbors / num_entities) : 0.0;
+    stats.num_entities = num_entities;
+    stats.reserved_memory_utilization = (num_entities > 0 && reserved_memory > 0)
+                                            ? (total_num_neighbors / (num_entities * reserved_memory)) * 100.0
+                                            : 0.0;
+    return stats;
 }
 
 }  // namespace aperi
