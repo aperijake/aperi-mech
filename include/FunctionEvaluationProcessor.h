@@ -42,7 +42,9 @@ class FunctionEvaluationProcessor {
         const std::array<FieldQueryData<Real>, NumFields> &destination_field_query_data,
         std::shared_ptr<aperi::MeshData> mesh_data,
         const std::vector<std::string> &sets = {})
-        : m_mesh_data(mesh_data) {
+        : m_mesh_data(mesh_data),
+          m_node_iterator(mesh_data, aperi::Selector(sets, mesh_data.get())),
+          m_owned_node_iterator(mesh_data, aperi::Selector(sets, mesh_data.get(), aperi::SelectorOwnership::OWNED)) {
         if (!m_mesh_data) {
             throw std::runtime_error("Mesh data is null.");
         }
@@ -80,8 +82,8 @@ class FunctionEvaluationProcessor {
 
         aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
-        // Loop over all nodes in the mesh
-        aperi::ForEachNode(
+        // Loop over all nodes in the mesh using cached bucketIds
+        m_node_iterator.ForEachNode(
             KOKKOS_CLASS_LAMBDA(const aperi::Index &idx) {
                 size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
@@ -116,8 +118,7 @@ class FunctionEvaluationProcessor {
                         }
                     }
                 }
-            },
-            *m_mesh_data, m_selector);
+            });
     }
 
     /**
@@ -141,8 +142,8 @@ class FunctionEvaluationProcessor {
 
         aperi::NgpMeshData ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
-        // Loop over all nodes in the mesh
-        aperi::ForEachNode(
+        // Loop over all owned nodes in the mesh using cached bucketIds
+        m_owned_node_iterator.ForEachNode(
             KOKKOS_CLASS_LAMBDA(const aperi::Index &idx) {
                 size_t num_neighbors = m_num_neighbors_field(idx, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
@@ -171,8 +172,7 @@ class FunctionEvaluationProcessor {
                         }
                     }
                 }
-            },
-            *m_mesh_data, m_owned_selector);
+            });
     }
 
     /**
@@ -299,6 +299,8 @@ class FunctionEvaluationProcessor {
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     aperi::Selector m_selector;
     aperi::Selector m_owned_selector;
+    aperi::ForEachNodeWithCaching m_node_iterator;        ///< Cached bucket IDs for all nodes
+    aperi::ForEachNodeWithCaching m_owned_node_iterator;  ///< Cached bucket IDs for owned nodes
     aperi::Field<Unsigned> m_num_neighbors_field;
     aperi::Field<Unsigned> m_neighbors_field;
     aperi::Field<Real> m_function_values_field;
