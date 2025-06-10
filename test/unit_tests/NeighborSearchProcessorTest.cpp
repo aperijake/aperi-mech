@@ -6,6 +6,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "FunctionValueUtils.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
@@ -32,13 +33,13 @@ TEST_F(NeighborSearchProcessorTestFixture, Ring0SearchNode) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "function_values", expected_function_values_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.avg_num_neighbors, 1);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+    EXPECT_EQ(node_neighbor_stats.num_entities, expected_num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
@@ -55,13 +56,13 @@ TEST_F(NeighborSearchProcessorTestFixture, FillElementFromNodeRing0Search) {
     expected_neighbors_data.fill(0.0);
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.avg_num_neighbors, 1);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+    EXPECT_EQ(node_neighbor_stats.num_entities, expected_num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
@@ -80,13 +81,13 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchSmall) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 1);
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], 1);
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 1);
+    EXPECT_EQ(node_neighbor_stats.avg_num_neighbors, 1);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+    EXPECT_EQ(node_neighbor_stats.num_entities, expected_num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
@@ -109,12 +110,12 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchLarge) {
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "kernel_radius", expected_kernel_radius, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], num_nodes);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], num_nodes);
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], num_nodes);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], num_nodes);
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, num_nodes);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, num_nodes);
+    EXPECT_EQ(node_neighbor_stats.avg_num_neighbors, num_nodes);
+    EXPECT_EQ(node_neighbor_stats.num_entities, num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
@@ -141,14 +142,14 @@ TEST_F(NeighborSearchProcessorTestFixture, BallSearchMid) {
     CheckEntityFieldValueCount<aperi::FieldDataTopologyRank::NODE>(*m_mesh_data, {"block_1"}, "num_neighbors", expected_num_neighbors_data, aperi::FieldQueryState::None);
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 4);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 7);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 4);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 7);
     double expected_avg_num_neighbors = (8.0 * 4.0 + 20.0 * 5.0 + 14.0 * 6.0 + 3.0 * 7.0) / expected_num_nodes;
-    EXPECT_EQ(node_neighbor_stats["avg_num_neighbors"], expected_avg_num_neighbors);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+    EXPECT_NEAR(node_neighbor_stats.avg_num_neighbors, expected_avg_num_neighbors, 0.001);
+    EXPECT_EQ(node_neighbor_stats.num_entities, expected_num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch) {
@@ -167,13 +168,14 @@ TEST_F(NeighborSearchProcessorTestFixture, VariableBallSearch) {
     m_search_processor->SyncFieldsToHost();
 
     // Check the neighbor stats
-    // - Node
-    std::map<std::string, double> node_neighbor_stats = m_search_processor->GetNumNeighborStats();
-    EXPECT_EQ(node_neighbor_stats["min_num_neighbors"], 8);
-    EXPECT_EQ(node_neighbor_stats["max_num_neighbors"], 27);
-    EXPECT_NEAR(node_neighbor_stats["avg_num_neighbors"], 18.713, 0.001);
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::NeighborStats node_neighbor_stats = aperi::GetNumNeighborStats(m_mesh_data, selector);
+    EXPECT_EQ(node_neighbor_stats.min_num_neighbors, 8);
+    EXPECT_EQ(node_neighbor_stats.max_num_neighbors, 27);
+    double expected_avg_num_neighbors = 18.713;
+    EXPECT_NEAR(node_neighbor_stats.avg_num_neighbors, expected_avg_num_neighbors, 0.001);
     size_t expected_num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    EXPECT_EQ(node_neighbor_stats["num_entities"], expected_num_nodes);
+    EXPECT_EQ(node_neighbor_stats.num_entities, expected_num_nodes);
 }
 
 TEST_F(NeighborSearchProcessorTestFixture, KernelRadius) {
@@ -251,11 +253,9 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     CreateMaxEdgeLengthProcessor();
 
     // Have not added neighbors yet
-    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
     bool verbose = false;
-    if (num_procs == 1) {
-        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
-    }
+    aperi::Selector selector = aperi::Selector({"block_1"}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    EXPECT_FALSE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
 
     // Add neighbors within a ball
     std::vector<double> kernel_radius_scale_factors = {2.1};
@@ -264,18 +264,15 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
-    // Check that the neighbors are active.
-    // CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
-    if (num_procs == 1) {
-        EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodesHost());
-    }
+    // Check that all nodes have neighbors and that the neighbors are active.
+    EXPECT_TRUE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
+    EXPECT_TRUE(aperi::CheckNeighborsAreActiveNodes(m_mesh_data, selector, verbose));
 
     // Mess up the active field
     seed = 21;
     RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
-    // Check neighbor active status and expect an issue, CheckNeighborsAreActiveNodesHost only works in serial. TODO(jake): Fix this.
-    if (num_procs == 1) {
-        EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodesHost(verbose));
-    }
+    // Check neighbor active status and expect an issue.
+    EXPECT_TRUE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
+    EXPECT_FALSE(aperi::CheckNeighborsAreActiveNodes(m_mesh_data, selector, verbose));
 }

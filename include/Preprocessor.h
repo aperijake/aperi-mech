@@ -31,7 +31,7 @@ inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const Reproducing
 
     // Loop over all elements and store the neighbors
     aperi::NeighborSearchProcessor search_processor(mesh_data, reproducing_kernel_info.part_names, enable_accurate_timers);
-    search_processor.add_nodes_neighbors_within_variable_ball(reproducing_kernel_info.part_names, reproducing_kernel_info.kernel_radius_scale_factors, false /*add debug fields*/);
+    search_processor.add_nodes_neighbors_within_variable_ball(reproducing_kernel_info.part_names, reproducing_kernel_info.kernel_radius_scale_factors);
 
     search_processor.SyncFieldsToHost();  // Just needed for output
     search_processor.PrintNumNeighborsStats();

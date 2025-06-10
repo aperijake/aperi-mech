@@ -305,6 +305,7 @@ void RandomSetValuesFromList(const aperi::MeshData& mesh_data, const std::vector
     entity_processor.CommunicateAllFieldData();
 
     // Sync the fields to the device
+    entity_processor.MarkAllFieldsModifiedOnHost();
     entity_processor.SyncAllFieldsHostToDevice();
 }
 

@@ -189,7 +189,7 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
     auto timer = timer_manager->CreateScopedTimerWithInlineLogging(ApplicationTimerType::AddFieldsToMesh, "Adding Fields to Mesh");
 
     // Get general field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients, false /* add_debug_fields */);
+    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
 
     // Add time stepper field data
     std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();

@@ -370,7 +370,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         // Check the alphas
         double tolerance = 1.0e-6;
         EXPECT_EQ(alphas_host.extent(0), m_total_num_neighbors);
-        double num_local_nodes = m_search_processor->GetNumNodes();
+        size_t num_local_nodes = m_search_processor->GetNumNodes();
         size_t k = 0;
         size_t num_with_value = 0;
         size_t num_with_zero = 0;
