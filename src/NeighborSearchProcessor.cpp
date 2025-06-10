@@ -109,49 +109,6 @@ void NeighborSearchProcessor::PopulateDebugFields() {
         });
 }
 
-bool NeighborSearchProcessor::CheckAllNeighborsAreWithinKernelRadius() {
-    m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-    auto ngp_mesh = m_ngp_mesh;
-    // Get the ngp fields
-    auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
-    auto ngp_coordinates_field = *m_ngp_coordinates_field;
-    auto ngp_node_num_neighbors_field = *m_ngp_node_num_neighbors_field;
-    auto ngp_node_neighbors_field = *m_ngp_node_neighbors_field;
-
-    stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
-        KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-            // Get the node's coordinates
-            double kernel_radius = ngp_kernel_radius_field(node_index, 0);
-            stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
-            Unsigned num_neighbors = ngp_node_num_neighbors_field(node_index, 0);
-            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-            stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
-            for (size_t i = 0; i < num_neighbors; ++i) {
-                stk::mesh::Entity neighbor(ngp_node_neighbors_field(node_index, i));
-                stk::mesh::FastMeshIndex neighbor_index = ngp_mesh.fast_mesh_index(neighbor);
-                stk::mesh::EntityFieldData<double> neighbor_coords = ngp_coordinates_field(neighbor_index);
-                double neighbor_kernel_radius = ngp_kernel_radius_field(neighbor_index, 0);
-                double distance = 0.0;
-                for (size_t j = 0; j < 3; ++j) {
-                    distance += (coords[j] - neighbor_coords[j]) * (coords[j] - neighbor_coords[j]);
-                }
-                distance = sqrt(distance);
-                if (distance > neighbor_kernel_radius) {
-                    Kokkos::printf("--------------------\n");
-                    Kokkos::printf("Node coordinates: %f %f %f\n", coords[0], coords[1], coords[2]);
-                    Kokkos::printf("Neighbor coordinates: %f %f %f\n", neighbor_coords[0], neighbor_coords[1], neighbor_coords[2]);
-                    Kokkos::printf("Distance: %f\n", distance);
-                    Kokkos::printf("Kernel radius: %f\n", kernel_radius);
-                    Kokkos::printf("Neighbor Kernel radius (relevant for traditional RK): %f\n", kernel_radius);
-                    Kokkos::printf("FAIL: Node %lu has a neighbor %lu that is outside the neighbor kernel radius.\n", static_cast<long unsigned int>(ngp_mesh.identifier(node)), static_cast<long unsigned int>(ngp_mesh.identifier(neighbor)));
-                    Kokkos::abort("Neighbor outside kernel radius.");
-                }
-            }
-        });
-    return true;
-}
-
 void NeighborSearchProcessor::SetKernelRadius(double kernel_radius) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -333,9 +290,9 @@ void NeighborSearchProcessor::DoBallSearch(bool populate_debug_fields) {
     UnpackSearchResultsIntoField(host_search_results);
 
     // Check the validity of the neighbors field
-    KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius());
-    // This has issues. It only works in serial and on some meshes. STK QUESTION: How to fix this?
-    // assert(CheckNeighborsAreActiveNodes());
+    KOKKOS_ASSERT(CheckAllNodesHaveNeighbors(m_mesh_data, m_owned_selector));
+    KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius(m_mesh_data, m_owned_selector));
+    KOKKOS_ASSERT(CheckNeighborsAreActiveNodes(m_mesh_data, m_owned_selector));
 
     if (populate_debug_fields) {
         PopulateDebugFields();
@@ -374,55 +331,30 @@ std::map<std::string, double> NeighborSearchProcessor::GetNumNeighborStats() {
     double max_num_neighbors = 0;
     double min_num_neighbors = std::numeric_limits<double>::max();
     double total_num_neighbors = 0;
-    double num_entities = GetNumOwnedNodes();
-    int reserved_memory = MAX_NODE_NUM_NEIGHBORS;
-    NgpUnsignedField ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+    double num_entities = 0;
+    int reserved_memory = 0;
+    NgpUnsignedField ngp_num_neighbors_field;
 
-    m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-    auto ngp_mesh = m_ngp_mesh;
+    num_entities = GetNumOwnedNodes();
+    ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
+    reserved_memory = MAX_NODE_NUM_NEIGHBORS;
 
-    // Use atomic variables for the reduction
-    Kokkos::View<double, ExecSpace> k_max_num_neighbors("max_num_neighbors");
-    Kokkos::View<double, ExecSpace> k_min_num_neighbors("min_num_neighbors");
-    Kokkos::View<double, ExecSpace> k_total_num_neighbors("total_num_neighbors");
+    FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector, m_bulk_data);
 
-    // Initialize values
-    Kokkos::deep_copy(k_max_num_neighbors, 0.0);
-    Kokkos::deep_copy(k_min_num_neighbors, std::numeric_limits<double>::max());
-    Kokkos::deep_copy(k_total_num_neighbors, 0.0);
-
-    // Perform the reduction directly on the entities
-    stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_owned_selector,
-        KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
-            double num_neighbors = ngp_num_neighbors_field(node_index, 0);
-
-            // Update max (atomically)
-            double current_max = k_max_num_neighbors();
-            while (num_neighbors > current_max) {
-                if (Kokkos::atomic_compare_exchange(&k_max_num_neighbors(), current_max, num_neighbors)) {
-                    break;
-                }
-                current_max = k_max_num_neighbors();
-            }
-
-            // Update min (atomically)
-            double current_min = k_min_num_neighbors();
-            while (num_neighbors < current_min) {
-                if (Kokkos::atomic_compare_exchange(&k_min_num_neighbors(), current_min, num_neighbors)) {
-                    break;
-                }
-                current_min = k_min_num_neighbors();
-            }
-
-            // Update sum (atomically)
-            Kokkos::atomic_add(&k_total_num_neighbors(), num_neighbors);
-        });
-
-    // Copy results back to host
-    Kokkos::deep_copy(max_num_neighbors, k_max_num_neighbors);
-    Kokkos::deep_copy(min_num_neighbors, k_min_num_neighbors);
-    Kokkos::deep_copy(total_num_neighbors, k_total_num_neighbors);
+    // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
+    Kokkos::parallel_reduce(
+        "calculate_stats",
+        num_entities,
+        KOKKOS_LAMBDA(int i, double &max_num_neighbors, double &min_num_neighbors, double &total_num_neighbors) {
+            stk::mesh::EntityFieldData<Unsigned> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
+            double num_neighbors = num_neighbors_field[0];
+            max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
+            min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);
+            total_num_neighbors += num_neighbors;
+        },
+        Kokkos::Max<double>(max_num_neighbors),
+        Kokkos::Min<double>(min_num_neighbors),
+        Kokkos::Sum<double>(total_num_neighbors));
 
     // Use MPI_Allreduce to calculate the min, max, and sum across all MPI ranks
     MPI_Allreduce(MPI_IN_PLACE, &max_num_neighbors, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);

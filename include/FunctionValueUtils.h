@@ -29,4 +29,43 @@ void DebugPrintNeighborsField(std::shared_ptr<aperi::MeshData> mesh_data, const 
  */
 bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, double warning_threshold = 1.0e-6, double error_threshold = 1.0e-2);
 
+/**
+ * @brief Check that all nodes have neighbors.
+ *
+ * For each node in the mesh (selected by the selector, this function checks that it has at least one neighbor.
+ * Optionally prints failures.
+ *
+ * @param mesh_data The mesh data object.
+ * @param selector The selector for the nodes to check.
+ * @param print_failures Whether to print failures (default true).
+ * @return true if all nodes have neighbors, false otherwise.
+ */
+bool CheckAllNodesHaveNeighbors(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures = true);
+
+/**
+ * @brief Check that all neighbors are active nodes.
+ *
+ * For each node in the mesh (selected by the selector), this function checks that all neighbors are active.
+ * Optionally prints failures.
+ *
+ * @param mesh_data The mesh data object.
+ * @param selector The selector for the nodes to check.
+ * @param print_failures Whether to print failures (default true).
+ * @return true if all neighbors are active, false otherwise. Will return true if there are no neighbors.
+ */
+bool CheckNeighborsAreActiveNodes(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures = true);
+
+/**
+ * @brief Check that all neighbors are within the neighbor's kernel radius.
+ *
+ * For each node in the mesh (selected by the selector), this function checks that all neighbors are within the neighbor's kernel radius.
+ * Prints details and aborts if a violation is found.
+ *
+ * @param mesh_data The mesh data object.
+ * @param selector The selector for the nodes to check.
+ * @param print_failures Whether to print failures (default true).
+ * @return true if all neighbors are within kernel radius, false otherwise.
+ */
+bool CheckAllNeighborsAreWithinKernelRadius(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures = true);
+
 }  // namespace aperi

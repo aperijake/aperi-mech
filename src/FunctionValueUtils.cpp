@@ -22,6 +22,7 @@
 namespace aperi {
 
 void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors_field, const stk::mesh::Field<aperi::Unsigned> &num_neighbors_field, const stk::mesh::Field<double> &coordinates_field, const stk::mesh::Selector &selector) {
+    Kokkos::fence();
     // Get the NGP fields
     auto ngp_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(neighbors_field);
     auto ngp_num_neighbors_field = stk::mesh::get_updated_ngp_field<aperi::Unsigned>(num_neighbors_field);
@@ -62,13 +63,14 @@ void DebugPrintNeighborsField(const stk::mesh::Field<aperi::Unsigned> &neighbors
 }
 
 bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, double warning_threshold, double error_threshold) {
+    Kokkos::fence();
     // Grab the fields from mesh_data
-    aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
-                                                      aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
-    aperi::Field<aperi::Unsigned> neighbors_field(mesh_data,
-                                                  aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
-    aperi::Field<aperi::Real> function_values_field(mesh_data,
-                                                    aperi::FieldQueryData<aperi::Real>{"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                            aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> neighbors_field(mesh_data,
+                                                        aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Real> function_values_field(mesh_data,
+                                                          aperi::FieldQueryData<aperi::Real>{"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
 
     // Use a device-compatible flag for error detection
     Kokkos::View<int> error_flag("partition_of_unity_error_flag");
@@ -76,7 +78,7 @@ bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const ape
 
     aperi::ForEachNode(
         KOKKOS_LAMBDA(const aperi::Index &idx) {
-            size_t num_neighbors = num_neighbors_field(idx, 0);
+            const size_t num_neighbors = num_neighbors_field(idx, 0);
             if (num_neighbors == 0) {
                 return;
             }
@@ -88,8 +90,8 @@ bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const ape
             if (Kokkos::abs(function_sum - 1.0) > warning_threshold) {
                 Kokkos::printf("Error: Partition of unity not satisfied at node. Error (1 - sum) = : %.8e\n", 1.0 - function_sum);
                 for (size_t k = num_neighbors; k-- > 0;) {
-                    Real function_value = function_values_field(idx, k);
-                    aperi::Unsigned neighbor = neighbors_field(idx, k);
+                    const Real function_value = function_values_field(idx, k);
+                    const aperi::Unsigned neighbor = neighbors_field(idx, k);
                     Kokkos::printf("Neighbor: %llu, Function Value: %.8e\n", (unsigned long long)neighbor, function_value);
                 }
                 if (Kokkos::abs(function_sum - 1.0) > error_threshold) {
@@ -105,6 +107,137 @@ bool CheckPartitionOfUnity(std::shared_ptr<aperi::MeshData> mesh_data, const ape
     Kokkos::deep_copy(host_error_flag, error_flag);
 
     return host_error_flag == 0;
+}
+
+bool CheckAllNodesHaveNeighbors(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures) {
+    Kokkos::fence();
+    const aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                            aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+    Kokkos::View<int> all_nodes_have_neighbors("all_nodes_have_neighbors");
+    Kokkos::deep_copy(all_nodes_have_neighbors, 1);
+
+    aperi::ForEachNode(
+        KOKKOS_LAMBDA(const aperi::Index &idx) {
+            const aperi::Unsigned num_neighbors = num_neighbors_field(idx, 0);
+            if (num_neighbors == 0) {
+                if (print_failures) {
+                    Kokkos::printf("FAIL: Node (%llu, %llu) has no neighbors.\n",
+                                   (unsigned long long)idx.bucket_id(),
+                                   (unsigned long long)idx.bucket_ord());
+                }
+                Kokkos::atomic_exchange(&all_nodes_have_neighbors(), 0);
+            }
+        },
+        *mesh_data, selector);
+    int host_all_nodes_have_neighbors = 1;
+    Kokkos::deep_copy(host_all_nodes_have_neighbors, all_nodes_have_neighbors);
+    int global_all_nodes_have_neighbors = host_all_nodes_have_neighbors;
+    MPI_Allreduce(MPI_IN_PLACE, &global_all_nodes_have_neighbors, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    return global_all_nodes_have_neighbors;
+}
+
+bool CheckNeighborsAreActiveNodes(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures) {
+    Kokkos::fence();
+    const aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                            aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> neighbors_field(mesh_data,
+                                                        aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> active_field(mesh_data,
+                                                     aperi::FieldQueryData<aperi::Unsigned>{"active", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+    Kokkos::View<int> all_neighbors_active("all_neighbors_active");
+    Kokkos::deep_copy(all_neighbors_active, 1);
+
+    aperi::NgpMeshData ngp_mesh_data = mesh_data->GetUpdatedNgpMesh();
+
+    aperi::ForEachNode(
+        KOKKOS_LAMBDA(const aperi::Index &idx) {
+            const aperi::Unsigned num_neighbors = num_neighbors_field(idx, 0);
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                const aperi::Unsigned neighbor_local_offset = neighbors_field(idx, i);
+                const aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
+                const aperi::Unsigned neighbor_active = active_field(neighbor_idx, 0);
+                if (neighbor_active == 0) {
+                    Kokkos::atomic_exchange(&all_neighbors_active(), 0);
+                    if (print_failures) {
+                        Kokkos::printf("FAIL: Node (%llu, %llu) has inactive neighbor %llu.\n",
+                                       (unsigned long long)idx.bucket_id(),
+                                       (unsigned long long)idx.bucket_ord(),
+                                       (unsigned long long)neighbor_local_offset);
+                    }
+                }
+            }
+        },
+        *mesh_data, selector);
+
+    int host_all_neighbors_active = 1;
+    Kokkos::deep_copy(host_all_neighbors_active, all_neighbors_active);
+
+    int global_all_neighbors_active = host_all_neighbors_active;
+    MPI_Allreduce(MPI_IN_PLACE, &global_all_neighbors_active, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    return global_all_neighbors_active;
+}
+
+bool CheckAllNeighborsAreWithinKernelRadius(std::shared_ptr<aperi::MeshData> mesh_data, const aperi::Selector &selector, bool print_failures) {
+    Kokkos::fence();
+    const aperi::Field<aperi::Real> kernel_radius_field(mesh_data,
+                                                        aperi::FieldQueryData<aperi::Real>{"kernel_radius", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Real> coordinates_field(mesh_data,
+                                                      aperi::FieldQueryData<aperi::Real>{mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> num_neighbors_field(mesh_data,
+                                                            aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    const aperi::Field<aperi::Unsigned> neighbors_field(mesh_data,
+                                                        aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+
+    aperi::NgpMeshData ngp_mesh_data = mesh_data->GetUpdatedNgpMesh();
+
+    Kokkos::View<int> all_neighbors_within_kernel("all_neighbors_within_kernel");
+    Kokkos::deep_copy(all_neighbors_within_kernel, 1);
+
+    aperi::ForEachNode(
+        KOKKOS_LAMBDA(const aperi::Index &idx) {
+            const aperi::Real kernel_radius = kernel_radius_field(idx, 0);
+            const aperi::Unsigned num_neighbors = num_neighbors_field(idx, 0);
+            aperi::Real coords[3] = {coordinates_field(idx, 0), coordinates_field(idx, 1), coordinates_field(idx, 2)};
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                const aperi::Unsigned neighbor_local_offset = neighbors_field(idx, i);
+                const aperi::Index neighbor_idx = ngp_mesh_data.LocalOffsetToIndex(neighbor_local_offset);
+                aperi::Real neighbor_coords[3] = {coordinates_field(neighbor_idx, 0), coordinates_field(neighbor_idx, 1), coordinates_field(neighbor_idx, 2)};
+                const aperi::Real neighbor_kernel_radius = kernel_radius_field(neighbor_idx, 0);
+                aperi::Real distance = 0.0;
+                for (size_t j = 0; j < 3; ++j) {
+                    const aperi::Real diff = coords[j] - neighbor_coords[j];
+                    distance += diff * diff;
+                }
+                distance = Kokkos::sqrt(distance);
+                if (distance > neighbor_kernel_radius) {
+                    if (print_failures) {
+                        Kokkos::printf("--------------------\n");
+                        Kokkos::printf("Node coordinates: %f %f %f\n", coords[0], coords[1], coords[2]);
+                        Kokkos::printf("Neighbor coordinates: %f %f %f\n", neighbor_coords[0], neighbor_coords[1], neighbor_coords[2]);
+                        Kokkos::printf("Distance: %f\n", distance);
+                        Kokkos::printf("Kernel radius: %f\n", kernel_radius);
+                        Kokkos::printf("Neighbor Kernel radius: %f\n", neighbor_kernel_radius);
+                        Kokkos::printf("FAIL: Node (%llu, %llu) has a neighbor %llu that is outside the neighbor kernel radius.\n",
+                                       (unsigned long long)idx.bucket_id(),
+                                       (unsigned long long)idx.bucket_ord(),
+                                       (unsigned long long)neighbor_local_offset);
+                    }
+                    Kokkos::atomic_exchange(&all_neighbors_within_kernel(), 0);
+                }
+            }
+        },
+        *mesh_data, selector);
+
+    int host_all_neighbors_within_kernel = 1;
+    Kokkos::deep_copy(host_all_neighbors_within_kernel, all_neighbors_within_kernel);
+    int global_all_neighbors_within_kernel = host_all_neighbors_within_kernel;
+    MPI_Allreduce(MPI_IN_PLACE, &global_all_neighbors_within_kernel, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    return global_all_neighbors_within_kernel;
 }
 
 }  // namespace aperi

@@ -6,6 +6,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
+#include "FunctionValueUtils.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "NeighborSearchProcessorTestFixture.h"
@@ -252,7 +253,8 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
 
     // Have not added neighbors yet
     bool verbose = false;
-    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodes(verbose));
+    aperi::Selector selector({"block_1"}, m_mesh_data.get());
+    EXPECT_FALSE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
 
     // Add neighbors within a ball
     std::vector<double> kernel_radius_scale_factors = {2.1};
@@ -261,13 +263,15 @@ TEST_F(NeighborSearchProcessorTestFixture, NeighborsAreActive) {
     m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
-    // Check that the neighbors are active.
-    EXPECT_TRUE(m_search_processor->CheckNeighborsAreActiveNodes());
+    // Check that all nodes have neighbors and that the neighbors are active.
+    EXPECT_TRUE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
+    EXPECT_TRUE(aperi::CheckNeighborsAreActiveNodes(m_mesh_data, selector, verbose));
 
     // Mess up the active field
     seed = 21;
     RandomSetValuesFromList<aperi::FieldDataTopologyRank::NODE, aperi::Unsigned>(*m_mesh_data, {"block_1"}, "active", {0, 1}, aperi::FieldQueryState::None, seed);
 
     // Check neighbor active status and expect an issue.
-    EXPECT_FALSE(m_search_processor->CheckNeighborsAreActiveNodes(verbose));
+    EXPECT_TRUE(aperi::CheckAllNodesHaveNeighbors(m_mesh_data, selector, verbose));
+    EXPECT_FALSE(aperi::CheckNeighborsAreActiveNodes(m_mesh_data, selector, verbose));
 }
