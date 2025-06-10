@@ -329,14 +329,21 @@ class NeighborSearchProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
-        // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part(), m_bulk_data);
         const int my_rank = m_bulk_data->parallel_rank();
 
-        Kokkos::parallel_for(
-            stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
-                stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
-                stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
+        // Create atomic counter for indexing into the result array
+        Kokkos::View<unsigned, ExecSpace> counter("counter");
+        Kokkos::deep_copy(counter, 0);
+
+        // Directly iterate over entities using for_each_entity_run
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part(),
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get current index atomically
+                const unsigned i = Kokkos::atomic_fetch_add(&counter(), 1u);
+
+                stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
+                stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
                 node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
@@ -355,16 +362,23 @@ class NeighborSearchProcessor {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
-        // Slow host operation that is needed to get an index. There is plans to add this to the stk::mesh::NgpMesh.
-        FastMeshIndicesViewType node_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_and_active_selector, m_bulk_data);
         const int my_rank = m_bulk_data->parallel_rank();
 
-        Kokkos::parallel_for(
-            stk::ngp::DeviceRangePolicy(0, num_local_nodes), KOKKOS_LAMBDA(const unsigned &i) {
-                stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_indices(i));
+        // Create atomic counter for indexing into the result array
+        Kokkos::View<unsigned, ExecSpace> counter("counter");
+        Kokkos::deep_copy(counter, 0);
+
+        // Directly iterate over entities using for_each_entity_run
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_owned_and_active_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                // Get current index atomically
+                const unsigned i = Kokkos::atomic_fetch_add(&counter(), 1u);
+
+                stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
                 stk::search::Point<double> center(coords[0], coords[1], coords[2]);
-                stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_indices(i));
-                double radius = ngp_kernel_radius_field(node_indices(i), 0);
+                stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
+                double radius = ngp_kernel_radius_field(node_index, 0);
                 node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
             });
 
@@ -569,30 +583,55 @@ class NeighborSearchProcessor {
         double max_num_neighbors = 0;
         double min_num_neighbors = std::numeric_limits<double>::max();
         double total_num_neighbors = 0;
-        double num_entities = 0;
-        int reserved_memory = 0;
-        NgpUnsignedField ngp_num_neighbors_field;
+        double num_entities = GetNumOwnedNodes();
+        int reserved_memory = MAX_NODE_NUM_NEIGHBORS;
+        NgpUnsignedField ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
 
-        num_entities = GetNumOwnedNodes();
-        ngp_num_neighbors_field = *m_ngp_node_num_neighbors_field;
-        reserved_memory = MAX_NODE_NUM_NEIGHBORS;
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
+        auto ngp_mesh = m_ngp_mesh;
 
-        FastMeshIndicesViewType entity_indices = GetLocalEntityIndices(stk::topology::NODE_RANK, m_owned_selector, m_bulk_data);
+        // Use atomic variables for the reduction
+        Kokkos::View<double, ExecSpace> k_max_num_neighbors("max_num_neighbors");
+        Kokkos::View<double, ExecSpace> k_min_num_neighbors("min_num_neighbors");
+        Kokkos::View<double, ExecSpace> k_total_num_neighbors("total_num_neighbors");
 
-        // Use Kokkos::parallel_reduce to calculate the min, max, and sum in parallel
-        Kokkos::parallel_reduce(
-            "calculate_stats",
-            num_entities,
-            KOKKOS_LAMBDA(int i, double &max_num_neighbors, double &min_num_neighbors, double &total_num_neighbors) {
-                stk::mesh::EntityFieldData<Unsigned> num_neighbors_field = ngp_num_neighbors_field(entity_indices(i));
-                double num_neighbors = num_neighbors_field[0];
-                max_num_neighbors = Kokkos::max(max_num_neighbors, num_neighbors);
-                min_num_neighbors = Kokkos::min(min_num_neighbors, num_neighbors);
-                total_num_neighbors += num_neighbors;
-            },
-            Kokkos::Max<double>(max_num_neighbors),
-            Kokkos::Min<double>(min_num_neighbors),
-            Kokkos::Sum<double>(total_num_neighbors));
+        // Initialize values
+        Kokkos::deep_copy(k_max_num_neighbors, 0.0);
+        Kokkos::deep_copy(k_min_num_neighbors, std::numeric_limits<double>::max());
+        Kokkos::deep_copy(k_total_num_neighbors, 0.0);
+
+        // Perform the reduction directly on the entities
+        stk::mesh::for_each_entity_run(
+            ngp_mesh, stk::topology::NODE_RANK, m_owned_selector,
+            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
+                double num_neighbors = ngp_num_neighbors_field(node_index, 0);
+
+                // Update max (atomically)
+                double current_max = k_max_num_neighbors();
+                while (num_neighbors > current_max) {
+                    if (Kokkos::atomic_compare_exchange(&k_max_num_neighbors(), current_max, num_neighbors)) {
+                        break;
+                    }
+                    current_max = k_max_num_neighbors();
+                }
+
+                // Update min (atomically)
+                double current_min = k_min_num_neighbors();
+                while (num_neighbors < current_min) {
+                    if (Kokkos::atomic_compare_exchange(&k_min_num_neighbors(), current_min, num_neighbors)) {
+                        break;
+                    }
+                    current_min = k_min_num_neighbors();
+                }
+
+                // Update sum (atomically)
+                Kokkos::atomic_add(&k_total_num_neighbors(), num_neighbors);
+            });
+
+        // Copy results back to host
+        Kokkos::deep_copy(max_num_neighbors, k_max_num_neighbors);
+        Kokkos::deep_copy(min_num_neighbors, k_min_num_neighbors);
+        Kokkos::deep_copy(total_num_neighbors, k_total_num_neighbors);
 
         // Use MPI_Allreduce to calculate the min, max, and sum across all MPI ranks
         MPI_Allreduce(MPI_IN_PLACE, &max_num_neighbors, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -633,14 +672,6 @@ class NeighborSearchProcessor {
         // This is because the neighbors field is a local offset and not a global id.
         // Throw an exception if this is called.
         throw std::runtime_error("NeighborSearchProcessor::CommunicateAllFieldData should not be called.");
-    }
-
-    double GetNumElements() {
-        return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
-    }
-
-    double GetNumOwnedElements() {
-        return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::ELEMENT_RANK));
     }
 
     double GetNumNodes() {
