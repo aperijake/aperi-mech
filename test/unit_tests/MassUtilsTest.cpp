@@ -117,8 +117,7 @@ class MassMatrixTest : public CaptureOutputTest {
             }
         }
         // Do the neighbor search
-        bool enable_accurate_timers = false;
-        aperi::FindNeighbors(m_io_mesh->GetMeshData(), reproducing_kernel_infos, enable_accurate_timers);
+        aperi::FindNeighbors(m_io_mesh->GetMeshData(), reproducing_kernel_infos, nullptr /*timer not needed*/);
         for (auto &internal_force_contribution : internal_force_contributions) {
             internal_force_contribution->FinishPreprocessing();
         }

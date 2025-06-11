@@ -5,7 +5,7 @@
 
 namespace aperi {
 
-// Add FunctionCreationProcessorTimerType from FunctionEvaluationProcessor.h
+// FunctionCreation timer types
 enum class FunctionCreationProcessorTimerType {
     Instantiate,
     ComputeFunctionValues,
@@ -17,7 +17,7 @@ inline const std::map<FunctionCreationProcessorTimerType, std::string> function_
     {FunctionCreationProcessorTimerType::ComputeFunctionValues, "ComputeFunctionValues"},
     {FunctionCreationProcessorTimerType::NONE, "NONE"}};
 
-// Add NeighborSearchProcessorTimerType from NeighborSearchProcessor.h
+// NeighborSearchProcessor timer types
 enum class NeighborSearchProcessorTimerType {
     Instantiate,
     KokkosDeepCopy,
@@ -40,5 +40,35 @@ inline const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_se
     {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
     {NeighborSearchProcessorTimerType::ComputeKernelRadius, "ComputeKernelRadius"},
     {NeighborSearchProcessorTimerType::NONE, "NONE"}};
+
+// Application timer types
+enum class ApplicationTimerType {
+    ReadInputMesh,
+    CreateFieldResultsFile,
+    CreateTimeStepper,
+    CreateInternalForceContribution,
+    AddFieldsToMesh,
+    LabelMesh,
+    CreateExternalForceContribution,
+    AddInitialConditions,
+    CreateBoundaryConditions,
+    CreateOutputScheduler,
+    Preprocessing,
+    NONE
+};
+
+inline const std::map<ApplicationTimerType, std::string> application_timer_map = {
+    {ApplicationTimerType::ReadInputMesh, "ReadInputMesh"},
+    {ApplicationTimerType::CreateFieldResultsFile, "CreateFieldResultsFile"},
+    {ApplicationTimerType::CreateTimeStepper, "CreateTimeStepper"},
+    {ApplicationTimerType::CreateInternalForceContribution, "CreateInternalForceContribution"},
+    {ApplicationTimerType::AddFieldsToMesh, "AddFieldsToMesh"},
+    {ApplicationTimerType::LabelMesh, "LabelMesh"},
+    {ApplicationTimerType::CreateExternalForceContribution, "CreateExternalForceContribution"},
+    {ApplicationTimerType::AddInitialConditions, "AddInitialConditions"},
+    {ApplicationTimerType::CreateBoundaryConditions, "CreateBoundaryConditions"},
+    {ApplicationTimerType::CreateOutputScheduler, "CreateOutputScheduler"},
+    {ApplicationTimerType::Preprocessing, "Preprocessing"},
+    {ApplicationTimerType::NONE, "NONE"}};
 
 }  // namespace aperi
