@@ -73,7 +73,7 @@ TEST_F(FunctionEvaluationProcessorTestFixture, FunctionEvaluationProcessor) {
     BuildFunctionEvaluationProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
-    m_search_processor->add_nodes_ring_0_nodes();
+    m_search_processor->AddSelfAsNeighbor({"block_1"});
     BuildFunctionCreationProcessor();
     aperi::BasesLinear bases;
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);
@@ -96,7 +96,7 @@ TEST_F(FunctionEvaluationProcessorTestFixture, FunctionEvaluationProcessorMoreNe
     BuildFunctionEvaluationProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
-    m_search_processor->add_nodes_neighbors_within_constant_ball(2.00);
+    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {2.0});
     BuildFunctionCreationProcessor();
     aperi::BasesLinear bases;
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);

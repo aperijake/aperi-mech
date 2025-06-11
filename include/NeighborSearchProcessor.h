@@ -47,16 +47,16 @@ class NeighborSearchProcessor {
                             const std::vector<std::string> &sets,
                             bool enable_accurate_timers);
 
-    void add_nodes_ring_0_nodes(bool set_first_function_value_to_one = false);
-    void add_nodes_neighbors_within_variable_ball(const std::vector<std::string> &sets,
-                                                  const std::vector<double> &kernel_radius_scale_factors);
-    void add_nodes_neighbors_within_constant_ball(double ball_radius);
+    void AddSelfAsNeighbor(const std::vector<std::string> &sets);
+    void AddNeighborsWithinVariableSizedBall(const std::vector<std::string> &sets,
+                                             const std::vector<double> &kernel_radius_scale_factors);
+    void AddNeighborsWithinConstantSizedBall(const std::vector<std::string> &sets,
+                                             const std::vector<double> &kernel_radii);
 
     void PrintNumNeighborsStats();
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
     size_t GetNumNodes();
-    size_t GetNumOwnedNodes();
     size_t GetNumOwnedAndSharedNodes();
     void WriteTimerCSV(const std::string &output_file);
     std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();

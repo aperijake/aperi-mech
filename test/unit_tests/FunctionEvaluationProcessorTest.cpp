@@ -24,7 +24,7 @@ TEST_F(FunctionCreationProcessorTestFixture, OneNeighbor) {
         GTEST_SKIP_("Test only runs with 4 or fewer processes.");
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    m_search_processor->add_nodes_ring_0_nodes();
+    m_search_processor->AddSelfAsNeighbor({"block_1"});
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionCreationProcessor();
@@ -53,7 +53,7 @@ TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsStructuredMesh) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     double kernel_radius_scale_factor = 1.9;
-    m_search_processor->add_nodes_neighbors_within_constant_ball(kernel_radius_scale_factor);
+    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {kernel_radius_scale_factor});
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionCreationProcessor();
@@ -106,7 +106,7 @@ TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     m_max_edge_length_processor->ComputeMaxEdgeLength();  // Recompute the max edge length after the coordinates are randomized
     std::vector<double> kernel_radius_scale_factors = {1.5};
     std::vector<std::string> part_names = {"block_1"};
-    m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, kernel_radius_scale_factors);
+    m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, kernel_radius_scale_factors);
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionCreationProcessor();
