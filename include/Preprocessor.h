@@ -12,6 +12,7 @@
 #include "InternalForceContribution.h"
 #include "NeighborSearchProcessor.h"
 #include "Timer.h"
+#include "TimerTypes.h"
 
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoPreprocessor.h"
@@ -24,9 +25,14 @@ class IoMesh;
 class InternalForceContribution;
 class ExternalForceContribution;
 
-inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelInfo& reproducing_kernel_info, bool enable_accurate_timers) {
+inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelInfo& reproducing_kernel_info, std::shared_ptr<TimerManager<ApplicationTimerType>> timer_manager) {
     if (reproducing_kernel_info.part_names.empty()) {
         return;
+    }
+
+    bool enable_accurate_timers = false;
+    if (timer_manager) {  // If the timer manager is defined, use its setting
+        enable_accurate_timers = timer_manager->AreAccurateTimersEnabled();
     }
 
     // Loop over all elements and store the neighbors
@@ -36,9 +42,12 @@ inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const Reproducing
     search_processor.SyncFieldsToHost();  // Just needed for output
     search_processor.PrintNumNeighborsStats();
 
-    // Get the timer manager and print the timers
-    auto timer_manager = search_processor.GetTimerManager();
-    timer_manager->PrintTimers();
+    // Add the search processor to the timer manager
+    auto search_processor_timer_manager = search_processor.GetTimerManager();
+    search_processor_timer_manager->PrintTimers();
+    if (timer_manager) {
+        timer_manager->AddChild(search_processor.GetTimerManager());
+    }
 }
 
 inline void SetFieldDataForLagrangianFormulation(std::shared_ptr<MeshData> mesh_data, const aperi::LagrangianFormulationType& lagrangian_formulation_type) {
@@ -68,7 +77,7 @@ inline void SetFieldDataForLagrangianFormulation(std::shared_ptr<MeshData> mesh_
  * @param boundary_conditions The vector of boundary conditions.
  * @return void
  */
-inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type, bool enable_accurate_timers) {
+inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>> timer_manager) {
     // Get the mesh data
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
@@ -90,7 +99,7 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
             reproducing_kernel_info.kernel_radius_scale_factors.insert(reproducing_kernel_info.kernel_radius_scale_factors.end(), this_reproducing_kernel_info.kernel_radius_scale_factors.begin(), this_reproducing_kernel_info.kernel_radius_scale_factors.end());
         }
     }
-    FindNeighbors(mesh_data, reproducing_kernel_info, enable_accurate_timers);
+    FindNeighbors(mesh_data, reproducing_kernel_info, timer_manager);
     for (const auto& force_contribution : force_contributions) {
         force_contribution->FinishPreprocessing();
     }

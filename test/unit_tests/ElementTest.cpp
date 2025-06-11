@@ -93,8 +93,7 @@ class CreateElementStrainSmoothedTest : public CaptureOutputTest {
         m_element = aperi::CreateElement(m_element_topology, approximation_space_parameters, integration_scheme_parameters, displacement_field_name, lagrangian_formulation_type, mesh_labeler_parameters, part_names, mesh_data, material, false /* enable_accurate_timers */);
         // Do the neighbor search
         aperi::ReproducingKernelInfo reproducing_kernel_infos = m_element->GetReproducingKernelInfo();
-        bool enable_accurate_timers = false;  // Not needed for this test
-        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos, enable_accurate_timers);
+        aperi::FindNeighbors(mesh_data, reproducing_kernel_infos, nullptr /*timer not needed*/);
         m_element->FinishPreprocessing();
 
         std::array<aperi::FieldQueryData<double>, 2> elem_field_query_data_gather_vec;
