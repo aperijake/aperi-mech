@@ -44,7 +44,6 @@ namespace aperi {
 class NeighborSearchProcessor {
    public:
     NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data,
-                            const std::vector<std::string> &sets,
                             bool enable_accurate_timers);
 
     void AddSelfAsNeighbor(const std::vector<std::string> &sets);
@@ -53,7 +52,6 @@ class NeighborSearchProcessor {
     void AddNeighborsWithinConstantSizedBall(const std::vector<std::string> &sets,
                                              const std::vector<double> &kernel_radii);
 
-    void PrintNumNeighborsStats();
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
     size_t GetNumNodes();
@@ -61,17 +59,17 @@ class NeighborSearchProcessor {
     void WriteTimerCSV(const std::string &output_file);
     std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
 
-    void SetKernelRadius(double kernel_radius);
-    void ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector);
+    void SetKernelRadius(const std::string &set_name, double kernel_radius);
+    void ComputeKernelRadius(const std::string &set_name, double scale_factor);
 
-    DomainViewType CreateNodePoints();
-    RangeViewType CreateNodeSpheres();
+    DomainViewType CreateNodePoints(const aperi::Selector &selector);
+    RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
     bool NodeIsActive(stk::mesh::Entity node);
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
     void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
-    void DoBallSearch();
+    void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
     std::vector<std::string> m_sets;                                        // The sets to process.
@@ -99,10 +97,9 @@ class NeighborSearchProcessor {
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
 };
 
-inline DomainViewType NeighborSearchProcessor::CreateNodePoints() {
+inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
-    const stk::mesh::MetaData &meta = m_bulk_data->mesh_meta_data();
-    const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part());
+    const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
     DomainViewType node_points("node_points", num_local_nodes);
 
     auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -117,7 +114,7 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints() {
 
     // Directly iterate over entities using for_each_entity_run
     stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_owned_selector | meta.globally_shared_part(),
+        ngp_mesh, stk::topology::NODE_RANK, selector(),
         KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
             // Get current index atomically
             const unsigned i = Kokkos::atomic_fetch_add(&counter(), 1u);
@@ -130,9 +127,9 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints() {
     return node_points;
 }
 
-inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres() {
+inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodeSpheres, "Create Node Spheres");
-    const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, m_owned_and_active_selector);
+    const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
     RangeViewType node_spheres("node_spheres", num_local_nodes);
 
     auto ngp_coordinates_field = *m_ngp_coordinates_field;
@@ -148,7 +145,7 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres() {
 
     // Directly iterate over entities using for_each_entity_run
     stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_owned_and_active_selector,
+        ngp_mesh, stk::topology::NODE_RANK, selector(),
         KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
             // Get current index atomically
             const unsigned i = Kokkos::atomic_fetch_add(&counter(), 1u);

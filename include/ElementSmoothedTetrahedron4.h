@@ -97,7 +97,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
     void FindNeighbors() {
         // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_part_names, m_timer_manager->AreAccurateTimersEnabled());
+        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_timer_manager->AreAccurateTimersEnabled());
         search_processor.AddSelfAsNeighbor(m_part_names);
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
