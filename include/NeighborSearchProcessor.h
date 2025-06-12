@@ -62,13 +62,13 @@ class NeighborSearchProcessor {
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
 
-    DomainViewType CreateNodePoints(const aperi::Selector &selector);
-    RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
+    DomainViewLocalType CreateNodePoints(const aperi::Selector &selector);
+    RangeViewGlobalType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
     bool NodeIsActive(stk::mesh::Entity node);
-    void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
-    void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
+    void GhostNodeNeighbors(const ResultViewLocalGlobalType::HostMirror &host_search_results);
+    void UnpackSearchResultsIntoField(const ResultViewLocalGlobalType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
@@ -97,10 +97,10 @@ class NeighborSearchProcessor {
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
 };
 
-inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
+inline DomainViewLocalType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
-    DomainViewType node_points("node_points", num_local_nodes);
+    DomainViewLocalType node_points("node_points", num_local_nodes);
 
     auto ngp_coordinates_field = *m_ngp_coordinates_field;
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -121,16 +121,16 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Sel
 
             stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
-            node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_points(i) = PointLocalIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeLocalIdentProc(node.local_offset(), my_rank)};
         });
 
     return node_points;
 }
 
-inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Selector &selector) {
+inline RangeViewGlobalType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodeSpheres, "Create Node Spheres");
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
-    RangeViewType node_spheres("node_spheres", num_local_nodes);
+    RangeViewGlobalType node_spheres("node_spheres", num_local_nodes);
 
     auto ngp_coordinates_field = *m_ngp_coordinates_field;
     auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
@@ -154,7 +154,7 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Sel
             stk::search::Point<double> center(coords[0], coords[1], coords[2]);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
             double radius = ngp_kernel_radius_field(node_index, 0);
-            node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_spheres(i) = SphereGlobalIdentProc{stk::search::Sphere<double>(center, radius), NodeGlobalIdentProc(ngp_mesh.identifier(node), my_rank)};
         });
 
     return node_spheres;

@@ -26,16 +26,22 @@ using NgpRealField = stk::mesh::NgpField<Real>;
 using UnsignedLongField = stk::mesh::Field<UnsignedLong>;
 using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
-// Search-related type definitions
 using ExecSpace = stk::ngp::ExecSpace;
-using NodeIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
-using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeIdentProc>;
-using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
-using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
 
-using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
-using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
-using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
-using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
+// Neighbor search-related type definitions
+using NodeGlobalIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
+using PointGlobalIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeGlobalIdentProc>;
+using SphereGlobalIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeGlobalIdentProc>;
+using IntersectionGlobalGlobal = stk::search::IdentProcIntersection<NodeGlobalIdentProc, NodeGlobalIdentProc>;
+
+using DomainViewGlobalType = Kokkos::View<PointGlobalIdentProc *, ExecSpace>;
+using RangeViewGlobalType = Kokkos::View<SphereGlobalIdentProc *, ExecSpace>;
+using ResultViewGlobalGlobalType = Kokkos::View<IntersectionGlobalGlobal *, ExecSpace>;
+
+using NodeLocalIdentProc = stk::search::IdentProc<unsigned, int>;
+using PointLocalIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeLocalIdentProc>;
+using IntersectionLocalGlobal = stk::search::IdentProcIntersection<NodeLocalIdentProc, NodeGlobalIdentProc>;
+using DomainViewLocalType = Kokkos::View<PointLocalIdentProc *, ExecSpace>;
+using ResultViewLocalGlobalType = Kokkos::View<IntersectionLocalGlobal *, ExecSpace>;
 
 }  // namespace aperi
