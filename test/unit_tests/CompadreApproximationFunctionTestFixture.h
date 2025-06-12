@@ -134,11 +134,18 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
 
     void SetupFieldToViewTransfer(const bool check_fields = true) {
         // Testing assumes a uniform kernel radius and all nodes are neighbors of each other
+
+        stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+        stk::mesh::Selector selector = aperi::StkGetSelector({"block_1"}, &meta_data);
+        stk::mesh::Selector owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part() & selector;
+        stk::mesh::Selector shared_selector = m_bulk_data->mesh_meta_data().globally_shared_part();
+        stk::mesh::Selector shared_and_owned_selector = shared_selector | owned_selector;
+
         // Number of local nodes
-        const int num_local_nodes = m_search_processor->GetNumNodes();
+        const int num_local_nodes = stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
 
         // Number of local owned and shared nodes
-        const int num_local_owned_and_shared_nodes = m_search_processor->GetNumOwnedAndSharedNodes();
+        const int num_local_owned_and_shared_nodes = stk::mesh::count_selected_entities(shared_and_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
 
         // Total number of nodes in the mesh
         int total_num_nodes = m_mesh_data->GetNumNodes();
@@ -298,9 +305,9 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         auto search_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         std::vector<std::string> part_names = {"block_1"};
         if (use_variable_ball) {
-            m_search_processor->add_nodes_neighbors_within_variable_ball(part_names, {m_kernel_factor});
+            m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, {m_kernel_factor});
         } else {
-            m_search_processor->add_nodes_neighbors_within_constant_ball(m_kernel_factor);
+            m_search_processor->AddNeighborsWithinConstantSizedBall(part_names, {m_kernel_factor});
         }
         auto search_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> search_runtime = search_end_time - search_start_time;
@@ -367,10 +374,15 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         std::chrono::duration<double> elapsed_seconds = end - start;
         runtimes.emplace("total", elapsed_seconds.count());
 
+        stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+        stk::mesh::Selector selector = aperi::StkGetSelector({"block_1"}, &meta_data);
+
+        // Number of local nodes
+        size_t num_local_nodes = stk::mesh::count_selected_entities(selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
+
         // Check the alphas
         double tolerance = 1.0e-6;
         EXPECT_EQ(alphas_host.extent(0), m_total_num_neighbors);
-        size_t num_local_nodes = m_search_processor->GetNumNodes();
         size_t k = 0;
         size_t num_with_value = 0;
         size_t num_with_zero = 0;

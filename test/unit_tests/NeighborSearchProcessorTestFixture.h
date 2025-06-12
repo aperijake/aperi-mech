@@ -107,9 +107,8 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
 
     void CreateSearchProcessor() {
         // Create the NeighborSearchProcessor
-        std::vector<std::string> sets = {"block_1"};
         bool enable_accurate_timers = false;
-        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, sets, enable_accurate_timers);
+        m_search_processor = std::make_shared<aperi::NeighborSearchProcessor>(m_mesh_data, enable_accurate_timers);
     }
 
     void CreateMaxEdgeLengthProcessor() {

@@ -9,8 +9,11 @@
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
+#include "FunctionValueUtils.h"
 #include "InternalForceContribution.h"
+#include "MeshData.h"
 #include "NeighborSearchProcessor.h"
+#include "Selector.h"
 #include "Timer.h"
 #include "TimerTypes.h"
 
@@ -36,11 +39,15 @@ inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const Reproducing
     }
 
     // Loop over all elements and store the neighbors
-    aperi::NeighborSearchProcessor search_processor(mesh_data, reproducing_kernel_info.part_names, enable_accurate_timers);
-    search_processor.add_nodes_neighbors_within_variable_ball(reproducing_kernel_info.part_names, reproducing_kernel_info.kernel_radius_scale_factors);
+    aperi::NeighborSearchProcessor search_processor(mesh_data, enable_accurate_timers);
+    search_processor.AddNeighborsWithinVariableSizedBall(reproducing_kernel_info.part_names, reproducing_kernel_info.kernel_radius_scale_factors);
 
     search_processor.SyncFieldsToHost();  // Just needed for output
-    search_processor.PrintNumNeighborsStats();
+
+    // Print the number of neighbors statistics
+    aperi::Selector selector(reproducing_kernel_info.part_names, mesh_data.get(), SelectorOwnership::OWNED);
+    NeighborStats node_stats = GetNumNeighborStats(mesh_data, selector);
+    node_stats.Print();
 
     // Add the search processor to the timer manager
     auto search_processor_timer_manager = search_processor.GetTimerManager();

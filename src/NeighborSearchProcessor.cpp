@@ -2,11 +2,29 @@
 
 namespace aperi {
 
+// Append "_active" to each set name and create a selector for the active entities
+inline std::vector<std::string> AppendActiveSuffix(const std::vector<std::string> &sets) {
+    std::vector<std::string> active_sets(sets.size());
+    for (size_t i = 0; i < sets.size(); ++i) {
+        active_sets[i] = sets[i] + "_active";
+    }
+    return active_sets;
+}
+
+inline aperi::Selector GetRangeSelector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data) {
+    std::vector<std::string> active_sets = AppendActiveSuffix(sets);
+    aperi::Selector selector(active_sets, mesh_data, aperi::SelectorOwnership::OWNED);
+    return selector;
+}
+
+inline aperi::Selector GetDomainSelector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data) {
+    aperi::Selector selector(sets, mesh_data, aperi::SelectorOwnership::OWNED_OR_SHARED);
+    return selector;
+}
+
 NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data,
-                                                 const std::vector<std::string> &sets,
                                                  bool enable_accurate_timers)
     : m_mesh_data(mesh_data),
-      m_sets(sets),
       m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names_map, enable_accurate_timers) {
     // Throw an exception if the mesh data is null.
     if (mesh_data == nullptr) {
@@ -16,31 +34,6 @@ NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData
     m_bulk_data = mesh_data->GetBulkData();
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-
-    // Create the selector for the sets
-    m_selector = StkGetSelector(sets, meta_data);
-    // Warn if the selector is empty.
-    if (m_selector.is_empty(stk::topology::ELEMENT_RANK)) {
-        aperi::CoutP0() << "Warning: NeighborSearchProcessor selector is empty." << std::endl;
-    }
-
-    // Create the selector for the owned entities
-    stk::mesh::Selector full_owned_selector = m_bulk_data->mesh_meta_data().locally_owned_part();
-    m_owned_selector = m_selector & full_owned_selector;
-
-    // Append "_active" to each set name and create a selector for the active entities
-    std::vector<std::string> active_sets;
-    for (const std::string &set : sets) {
-        active_sets.push_back(set + "_active");
-    }
-    m_active_selector = StkGetSelector(active_sets, meta_data);
-    // Warn if the active selector is empty.
-    if (m_active_selector.is_empty(stk::topology::NODE_RANK)) {
-        aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
-    }
-
-    // Create the selector for the owned and active entities
-    m_owned_and_active_selector = m_owned_selector & m_active_selector;
 
     // Get the node number of neighbors field
     m_node_num_neighbors_field = StkGetField(FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
@@ -71,7 +64,8 @@ NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData
     m_ngp_node_function_values_field = &stk::mesh::get_updated_ngp_field<double>(*m_node_function_values_field);
 }
 
-void NeighborSearchProcessor::add_nodes_ring_0_nodes(bool set_first_function_value_to_one) {
+void NeighborSearchProcessor::AddSelfAsNeighbor(const std::vector<std::string> &sets) {
+    aperi::Selector selector(sets, m_mesh_data.get());
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     auto ngp_mesh = m_ngp_mesh;
     // Get the ngp fields
@@ -81,7 +75,7 @@ void NeighborSearchProcessor::add_nodes_ring_0_nodes(bool set_first_function_val
 
     // Add itself to the neighbors field
     stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_selector,
+        ngp_mesh, stk::topology::NODE_RANK, selector(),
         KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
             // Get the node entity
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
@@ -89,46 +83,27 @@ void NeighborSearchProcessor::add_nodes_ring_0_nodes(bool set_first_function_val
             KOKKOS_ASSERT(starting_num_nodes < MAX_NODE_NUM_NEIGHBORS);
             ngp_node_num_neighbors_field(node_index, 0) += 1;
             ngp_node_neighbors_field(node_index, (size_t)starting_num_nodes) = (double)node.local_offset();
-            if (set_first_function_value_to_one) {
-                ngp_node_function_values_field(node_index, (size_t)starting_num_nodes) = 1.0;
-            }
+            ngp_node_function_values_field(node_index, (size_t)starting_num_nodes) = 1.0;
         });
     m_ngp_node_num_neighbors_field->clear_sync_state();
     m_ngp_node_num_neighbors_field->modify_on_device();
     m_ngp_node_neighbors_field->clear_sync_state();
     m_ngp_node_neighbors_field->modify_on_device();
-    if (set_first_function_value_to_one) {
-        m_ngp_node_function_values_field->clear_sync_state();
-        m_ngp_node_function_values_field->modify_on_device();
-    }
+    m_ngp_node_function_values_field->clear_sync_state();
+    m_ngp_node_function_values_field->modify_on_device();
 }
 
-void NeighborSearchProcessor::add_nodes_neighbors_within_variable_ball(const std::vector<std::string> &sets,
-                                                                       const std::vector<double> &kernel_radius_scale_factors) {
-    // Create the selector for the sets
-    stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-    // Append "_active" to each set name and create a selector for the active entities
-    std::vector<std::string> active_sets;
-    for (const std::string &set : sets) {
-        active_sets.push_back(set + "_active");
-    }
-    stk::mesh::Selector active_selector = StkGetSelector(active_sets, meta_data);
-    // Warn if the active selector is empty.
-    if (active_selector.is_empty(stk::topology::NODE_RANK)) {
-        aperi::CoutP0() << "Warning: NeighborSearchProcessor active selector is empty." << std::endl;
+void NeighborSearchProcessor::AddNeighborsWithinVariableSizedBall(const std::vector<std::string> &sets,
+                                                                  const std::vector<double> &kernel_radius_scale_factors) {
+    if (kernel_radius_scale_factors.size() != sets.size()) {
+        throw std::runtime_error("NeighborSearchProcessor::AddNeighborsWithinVariableSizedBall: kernel_radius_scale_factors must have the same number of elements as sets.");
     }
 
-    for (double scale_factor : kernel_radius_scale_factors) {
-        ComputeKernelRadius(scale_factor, active_selector);
+    std::vector<std::string> active_sets = AppendActiveSuffix(sets);
+    for (size_t i = 0; i < sets.size(); ++i) {
+        ComputeKernelRadius(active_sets[i], kernel_radius_scale_factors[i]);
     }
-    DoBallSearch();
-}
-
-void NeighborSearchProcessor::PrintNumNeighborsStats() {
-    // Node
-    aperi::Selector selector(m_owned_selector);
-    NeighborStats node_stats = GetNumNeighborStats(m_mesh_data, selector);
-    node_stats.Print();
+    DoBallSearch(sets);
 }
 
 void NeighborSearchProcessor::SyncFieldsToHost() {
@@ -145,20 +120,6 @@ void NeighborSearchProcessor::CommunicateAllFieldData() const {
     throw std::runtime_error("NeighborSearchProcessor::CommunicateAllFieldData should not be called.");
 }
 
-size_t NeighborSearchProcessor::GetNumNodes() {
-    return stk::mesh::count_selected_entities(m_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
-}
-
-size_t NeighborSearchProcessor::GetNumOwnedNodes() {
-    return stk::mesh::count_selected_entities(m_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
-}
-
-size_t NeighborSearchProcessor::GetNumOwnedAndSharedNodes() {
-    stk::mesh::Selector shared_selector = m_bulk_data->mesh_meta_data().globally_shared_part();
-    stk::mesh::Selector shared_and_owned_selector = shared_selector | m_owned_selector;
-    return stk::mesh::count_selected_entities(shared_and_owned_selector, m_bulk_data->buckets(stk::topology::NODE_RANK));
-}
-
 void NeighborSearchProcessor::WriteTimerCSV(const std::string &output_file) {
     m_timer_manager.WriteCSV(output_file);
 }
@@ -168,20 +129,31 @@ NeighborSearchProcessor::GetTimerManager() {
     return std::make_shared<aperi::TimerManager<NeighborSearchProcessorTimerType>>(m_timer_manager);
 }
 
-void NeighborSearchProcessor::add_nodes_neighbors_within_constant_ball(double ball_radius) {
-    SetKernelRadius(ball_radius);
-    DoBallSearch();
+void NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall(const std::vector<std::string> &sets,
+                                                                  const std::vector<double> &kernel_radii) {
+    if (kernel_radii.size() != sets.size()) {
+        throw std::runtime_error("NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall: kernel_radii must have the same number of elements as sets.");
+    }
+
+    std::vector<std::string> active_sets = AppendActiveSuffix(sets);
+    for (size_t i = 0; i < sets.size(); ++i) {
+        SetKernelRadius(active_sets[i], kernel_radii[i]);
+    }
+    DoBallSearch(sets);
 }
 
-void NeighborSearchProcessor::SetKernelRadius(double kernel_radius) {
+void NeighborSearchProcessor::SetKernelRadius(const std::string &set, double kernel_radius) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     auto ngp_mesh = m_ngp_mesh;
     // Get the ngp fields
     auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
 
+    // Get the selector for the set
+    aperi::Selector selector({set}, m_mesh_data.get());
+
     stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, m_active_selector,
+        ngp_mesh, stk::topology::NODE_RANK, selector(),
         KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
             // Get the node's coordinates
             ngp_kernel_radius_field(node_index, 0) = kernel_radius;
@@ -191,12 +163,9 @@ void NeighborSearchProcessor::SetKernelRadius(double kernel_radius) {
     ngp_kernel_radius_field.sync_to_host();
 }
 
-void NeighborSearchProcessor::ComputeKernelRadius(double scale_factor, const stk::mesh::Selector &selector) {
+void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double scale_factor) {
     // Add a small number to the scale factor to avoid too much variation in the number of neighbors.
     // If the in/out check can flip one way or the other if a neighbor is right on the edge.
-    if (selector.is_null()) {
-        throw std::runtime_error("Selector is null. Cannot compute kernel radius.");
-    }
     if (scale_factor < 0.0) {
         throw std::runtime_error("Kernel radius scale factor must be non-negative.");
     }
@@ -210,8 +179,11 @@ void NeighborSearchProcessor::ComputeKernelRadius(double scale_factor, const stk
     auto ngp_kernel_radius_field = *m_ngp_kernel_radius_field;
     auto ngp_max_edge_length_field = *m_ngp_max_edge_length_field;
 
+    // Get the selector for the set
+    aperi::Selector selector({set}, m_mesh_data.get());
+
     stk::mesh::for_each_entity_run(
-        ngp_mesh, stk::topology::NODE_RANK, selector,
+        ngp_mesh, stk::topology::NODE_RANK, selector(),
         KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &node_index) {
             // Get the max edge length
             double max_edge_length = ngp_max_edge_length_field(node_index, 0);
@@ -296,9 +268,12 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType:
     m_node_num_neighbors_field->sync_to_device();
 }
 
-void NeighborSearchProcessor::DoBallSearch() {
-    DomainViewType node_points = CreateNodePoints();
-    RangeViewType node_spheres = CreateNodeSpheres();
+void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets) {
+    aperi::Selector domain_selector = GetDomainSelector(sets, m_mesh_data.get());
+    aperi::Selector range_selector = GetRangeSelector(sets, m_mesh_data.get());
+
+    DomainViewType node_points = CreateNodePoints(domain_selector);
+    RangeViewType node_spheres = CreateNodeSpheres(range_selector);
 
     ResultViewType search_results;
     stk::search::SearchMethod search_method = stk::search::MORTON_LBVH;
@@ -322,9 +297,10 @@ void NeighborSearchProcessor::DoBallSearch() {
     UnpackSearchResultsIntoField(host_search_results);
 
     // Check the validity of the neighbors field
-    KOKKOS_ASSERT(CheckAllNodesHaveNeighbors(m_mesh_data, m_owned_selector));
-    KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius(m_mesh_data, m_owned_selector));
-    KOKKOS_ASSERT(CheckNeighborsAreActiveNodes(m_mesh_data, m_owned_selector));
+    aperi::Selector owned_selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    KOKKOS_ASSERT(CheckAllNodesHaveNeighbors(m_mesh_data, owned_selector));
+    KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius(m_mesh_data, owned_selector));
+    KOKKOS_ASSERT(CheckNeighborsAreActiveNodes(m_mesh_data, owned_selector));
 }
 
 bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {
@@ -333,6 +309,10 @@ bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {
 
 void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
+    // Skip if the parallel size is 1 or if there are no search results
+    if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {
+        return;
+    }
     m_bulk_data->modification_begin();
     stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
     std::vector<stk::mesh::EntityProc> nodes_to_ghost;

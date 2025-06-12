@@ -23,7 +23,7 @@ TEST_F(CompadreApproximationFunctionTest, TransferFieldsToKokkosView) {
     // Perform non-Compadre neighbor search
     double diagonal_length = std::sqrt(m_num_elements_x * m_num_elements_x + m_num_elements_y * m_num_elements_y + m_num_elements_z * m_num_elements_z);
     m_kernel_factor = 1.01 * diagonal_length;  // Large ball radius, all nodes are neighbors
-    m_search_processor->add_nodes_neighbors_within_constant_ball(m_kernel_factor);
+    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {m_kernel_factor});
 
     SetupFieldToViewTransfer();
 }
