@@ -9,7 +9,7 @@
   python -m venv venv
   source ./venv/bin/activate
   echo "export aperi_mech=$aperi_mech" >> $aperi_mech/venv/bin/activate
-  cd $aperi_mech/tools/python/aperi
+  cd $aperi_mech/tools/python/aperi-mech
   python3 -m pip install -e .
   cd $aperi_mech/tools/python/spackx
   python3 -m pip install -e .
