@@ -194,9 +194,10 @@ void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double
     ngp_kernel_radius_field.sync_to_host();
 }
 
-void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewLocalGlobalType::HostMirror &host_search_results) {
+void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
     const int my_rank = m_bulk_data->parallel_rank();
+    const bool serial = m_bulk_data->parallel_size() <= 1;
 
     size_t too_many_neighbors_count = 0;
 
@@ -204,14 +205,14 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewLocal
         auto result = host_search_results(i);
         if (result.domainIdentProc.proc() == my_rank) {
             stk::mesh::Entity node(result.domainIdentProc.id());
-            stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
-            assert(NodeIsActive(neighbor));
+            stk::mesh::Entity neighbor = serial ? stk::mesh::Entity(result.rangeIdentProc.id()) : m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+            KOKKOS_ASSERT(NodeIsActive(neighbor));
+
+            Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
+
             const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
             const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
-            Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-            Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-            assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-            double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
 
             // Calculate the squared distance between the node and the neighbor
             double distance_squared = 0.0;
@@ -221,6 +222,7 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewLocal
             }
 
             // Find where to insert the neighbor, based on the distance
+            double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
             size_t insert_index = (size_t)num_neighbors;  // Default to the end of the list
             for (size_t j = 0; j < insert_index; ++j) {
                 if (distance_squared < p_function_values[j]) {
@@ -242,6 +244,8 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewLocal
             } else {
                 num_neighbors += 1;
             }
+
+            Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
             for (size_t j = reverse_start_index; j > insert_index; --j) {
                 p_function_values[j] = p_function_values[j - 1];
                 p_neighbor_data[j] = p_neighbor_data[j - 1];
@@ -272,10 +276,10 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
     aperi::Selector domain_selector = GetDomainSelector(sets, m_mesh_data.get());
     aperi::Selector range_selector = GetRangeSelector(sets, m_mesh_data.get());
 
-    DomainViewLocalType node_points = CreateNodePoints(domain_selector);
-    RangeViewGlobalType node_spheres = CreateNodeSpheres(range_selector);
+    DomainViewType node_points = CreateNodePoints(domain_selector);
+    RangeViewType node_spheres = CreateNodeSpheres(range_selector);
 
-    ResultViewLocalGlobalType search_results;
+    ResultViewType search_results;
     stk::search::SearchMethod search_method = stk::search::MORTON_LBVH;
 
     stk::ngp::ExecSpace exec_space = Kokkos::DefaultExecutionSpace{};
@@ -286,7 +290,7 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
         stk::search::coarse_search(node_points, node_spheres, search_method, m_bulk_data->parallel(), search_results, exec_space, results_parallel_symmetry);
     }
 
-    ResultViewLocalGlobalType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
+    ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
     {
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::KokkosDeepCopy, "Kokkos DeepCopy");
         Kokkos::deep_copy(host_search_results, search_results);
@@ -307,7 +311,7 @@ bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {
     return stk::mesh::field_data(*m_node_active_field, node)[0] != 0;
 }
 
-void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewLocalGlobalType::HostMirror &host_search_results) {
+void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
     // Skip if the parallel size is 1 or if there are no search results
     if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {

@@ -29,19 +29,14 @@ using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 using ExecSpace = stk::ngp::ExecSpace;
 
 // Neighbor search-related type definitions
-using NodeGlobalIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
-using PointGlobalIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeGlobalIdentProc>;
-using SphereGlobalIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeGlobalIdentProc>;
-using IntersectionGlobalGlobal = stk::search::IdentProcIntersection<NodeGlobalIdentProc, NodeGlobalIdentProc>;
+// Node ID and processor ID. Global ID is stk::mesh::EntityId (uint64_t) and local ID is unsigned. Using uint64_t to be large enough for all cases.
+using NodeIdentProc = stk::search::IdentProc<uint64_t, int>;
+using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeIdentProc>;
+using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
+using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
 
-using DomainViewGlobalType = Kokkos::View<PointGlobalIdentProc *, ExecSpace>;
-using RangeViewGlobalType = Kokkos::View<SphereGlobalIdentProc *, ExecSpace>;
-using ResultViewGlobalGlobalType = Kokkos::View<IntersectionGlobalGlobal *, ExecSpace>;
-
-using NodeLocalIdentProc = stk::search::IdentProc<unsigned, int>;
-using PointLocalIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeLocalIdentProc>;
-using IntersectionLocalGlobal = stk::search::IdentProcIntersection<NodeLocalIdentProc, NodeGlobalIdentProc>;
-using DomainViewLocalType = Kokkos::View<PointLocalIdentProc *, ExecSpace>;
-using ResultViewLocalGlobalType = Kokkos::View<IntersectionLocalGlobal *, ExecSpace>;
+using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
+using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
+using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
 
 }  // namespace aperi
