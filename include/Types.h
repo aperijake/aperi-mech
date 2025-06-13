@@ -26,9 +26,11 @@ using NgpRealField = stk::mesh::NgpField<Real>;
 using UnsignedLongField = stk::mesh::Field<UnsignedLong>;
 using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
-// Search-related type definitions
 using ExecSpace = stk::ngp::ExecSpace;
-using NodeIdentProc = stk::search::IdentProc<stk::mesh::EntityId, int>;
+
+// Neighbor search-related type definitions
+// Node ID and processor ID. Global ID is stk::mesh::EntityId (uint64_t) and local ID is unsigned. Using uint64_t to be large enough for all cases.
+using NodeIdentProc = stk::search::IdentProc<uint64_t, int>;
 using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeIdentProc>;
 using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
 using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
@@ -36,6 +38,5 @@ using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdent
 using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
 using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
 using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
-using FastMeshIndicesViewType = Kokkos::View<stk::mesh::FastMeshIndex *, ExecSpace>;
 
 }  // namespace aperi

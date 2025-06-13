@@ -106,6 +106,19 @@ void NeighborSearchProcessor::AddNeighborsWithinVariableSizedBall(const std::vec
     DoBallSearch(sets);
 }
 
+void NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall(const std::vector<std::string> &sets,
+                                                                  const std::vector<double> &kernel_radii) {
+    if (kernel_radii.size() != sets.size()) {
+        throw std::runtime_error("NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall: kernel_radii must have the same number of elements as sets.");
+    }
+
+    std::vector<std::string> active_sets = AppendActiveSuffix(sets);
+    for (size_t i = 0; i < sets.size(); ++i) {
+        SetKernelRadius(active_sets[i], kernel_radii[i]);
+    }
+    DoBallSearch(sets);
+}
+
 void NeighborSearchProcessor::SyncFieldsToHost() {
     m_ngp_node_num_neighbors_field->sync_to_host();
     m_ngp_node_function_values_field->sync_to_host();
@@ -124,22 +137,8 @@ void NeighborSearchProcessor::WriteTimerCSV(const std::string &output_file) {
     m_timer_manager.WriteCSV(output_file);
 }
 
-std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>>
-NeighborSearchProcessor::GetTimerManager() {
+std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> NeighborSearchProcessor::GetTimerManager() {
     return std::make_shared<aperi::TimerManager<NeighborSearchProcessorTimerType>>(m_timer_manager);
-}
-
-void NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall(const std::vector<std::string> &sets,
-                                                                  const std::vector<double> &kernel_radii) {
-    if (kernel_radii.size() != sets.size()) {
-        throw std::runtime_error("NeighborSearchProcessor::AddNeighborsWithinConstantSizedBall: kernel_radii must have the same number of elements as sets.");
-    }
-
-    std::vector<std::string> active_sets = AppendActiveSuffix(sets);
-    for (size_t i = 0; i < sets.size(); ++i) {
-        SetKernelRadius(active_sets[i], kernel_radii[i]);
-    }
-    DoBallSearch(sets);
 }
 
 void NeighborSearchProcessor::SetKernelRadius(const std::string &set, double kernel_radius) {
@@ -194,24 +193,53 @@ void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double
     ngp_kernel_radius_field.sync_to_host();
 }
 
+bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {
+    return stk::mesh::field_data(*m_node_active_field, node)[0] != 0;
+}
+
+void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
+    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
+    // Skip if the parallel size is 1 or if there are no search results
+    if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {
+        return;
+    }
+    m_bulk_data->modification_begin();
+    stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
+    std::vector<stk::mesh::EntityProc> nodes_to_ghost;
+
+    const int my_rank = m_bulk_data->parallel_rank();
+
+    for (size_t i = 0; i < host_search_results.size(); ++i) {
+        auto result = host_search_results(i);
+        if (result.domainIdentProc.proc() != my_rank && result.rangeIdentProc.proc() == my_rank) {
+            stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+            nodes_to_ghost.emplace_back(node, result.domainIdentProc.proc());
+        }
+    }
+
+    m_bulk_data->change_ghosting(neighbor_ghosting, nodes_to_ghost);
+    m_bulk_data->modification_end();
+}
+
 void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
     const int my_rank = m_bulk_data->parallel_rank();
+    const bool serial = m_bulk_data->parallel_size() <= 1;
 
     size_t too_many_neighbors_count = 0;
 
     for (size_t i = 0; i < host_search_results.size(); ++i) {
         auto result = host_search_results(i);
         if (result.domainIdentProc.proc() == my_rank) {
-            stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.domainIdentProc.id());
-            stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
-            assert(NodeIsActive(neighbor));
+            stk::mesh::Entity node(result.domainIdentProc.id());
+            stk::mesh::Entity neighbor = serial ? stk::mesh::Entity(result.rangeIdentProc.id()) : m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
+            KOKKOS_ASSERT(NodeIsActive(neighbor));
+
+            Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
+            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
+
             const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
             const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
-            Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-            Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-            assert(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-            double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
 
             // Calculate the squared distance between the node and the neighbor
             double distance_squared = 0.0;
@@ -221,6 +249,7 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType:
             }
 
             // Find where to insert the neighbor, based on the distance
+            double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
             size_t insert_index = (size_t)num_neighbors;  // Default to the end of the list
             for (size_t j = 0; j < insert_index; ++j) {
                 if (distance_squared < p_function_values[j]) {
@@ -242,6 +271,8 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType:
             } else {
                 num_neighbors += 1;
             }
+
+            Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
             for (size_t j = reverse_start_index; j > insert_index; --j) {
                 p_function_values[j] = p_function_values[j - 1];
                 p_neighbor_data[j] = p_neighbor_data[j - 1];
@@ -301,34 +332,6 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
     KOKKOS_ASSERT(CheckAllNodesHaveNeighbors(m_mesh_data, owned_selector));
     KOKKOS_ASSERT(CheckAllNeighborsAreWithinKernelRadius(m_mesh_data, owned_selector));
     KOKKOS_ASSERT(CheckNeighborsAreActiveNodes(m_mesh_data, owned_selector));
-}
-
-bool NeighborSearchProcessor::NodeIsActive(stk::mesh::Entity node) {
-    return stk::mesh::field_data(*m_node_active_field, node)[0] != 0;
-}
-
-void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
-    // Skip if the parallel size is 1 or if there are no search results
-    if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {
-        return;
-    }
-    m_bulk_data->modification_begin();
-    stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
-    std::vector<stk::mesh::EntityProc> nodes_to_ghost;
-
-    const int my_rank = m_bulk_data->parallel_rank();
-
-    for (size_t i = 0; i < host_search_results.size(); ++i) {
-        auto result = host_search_results(i);
-        if (result.domainIdentProc.proc() != my_rank && result.rangeIdentProc.proc() == my_rank) {
-            stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id());
-            nodes_to_ghost.emplace_back(node, result.domainIdentProc.proc());
-        }
-    }
-
-    m_bulk_data->change_ghosting(neighbor_ghosting, nodes_to_ghost);
-    m_bulk_data->modification_end();
 }
 
 }  // namespace aperi

@@ -54,8 +54,6 @@ class NeighborSearchProcessor {
 
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
-    size_t GetNumNodes();
-    size_t GetNumOwnedAndSharedNodes();
     void WriteTimerCSV(const std::string &output_file);
     std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
 
@@ -121,7 +119,7 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Sel
 
             stk::mesh::EntityFieldData<double> coords = ngp_coordinates_field(node_index);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
-            node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_points(i) = PointIdentProc{stk::search::Point<double>(coords[0], coords[1], coords[2]), NodeIdentProc(node.local_offset(), my_rank)};
         });
 
     return node_points;
@@ -137,7 +135,11 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Sel
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     const stk::mesh::NgpMesh &ngp_mesh = m_ngp_mesh;
 
+    // Get my rank
     const int my_rank = m_bulk_data->parallel_rank();
+
+    // Get the parallel size
+    const bool serial = m_bulk_data->parallel_size() <= 1;
 
     // Create atomic counter for indexing into the result array
     Kokkos::View<unsigned, ExecSpace> counter("counter");
@@ -154,7 +156,8 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Sel
             stk::search::Point<double> center(coords[0], coords[1], coords[2]);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
             double radius = ngp_kernel_radius_field(node_index, 0);
-            node_spheres(i) = SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_spheres(i) = serial ? SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(node.local_offset(), my_rank)}
+                                     : SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
         });
 
     return node_spheres;
