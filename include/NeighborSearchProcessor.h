@@ -54,8 +54,6 @@ class NeighborSearchProcessor {
 
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
-    size_t GetNumNodes();
-    size_t GetNumOwnedAndSharedNodes();
     void WriteTimerCSV(const std::string &output_file);
     std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
 
