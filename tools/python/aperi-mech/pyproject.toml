@@ -15,11 +15,10 @@ dependencies = [
   "matplotlib==3.9.1",
   "ipykernel==6.29.5",
   "meshio==5.3.5",
-  "gmsh==4.13.1",
   "netCDF4==1.7.1.post1",
   "pandas==2.2.3",
   "ruff",
-  "mypy"
+  "mypy",
 ]
 
 [build-system]
