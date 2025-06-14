@@ -1,6 +1,6 @@
 # aperi-mech Tooling
 
-**Note:** It is recommended to set the paths to your Fortran compilers to avoid potential issues. You can do this by running:
+**Note:** It is recommended to set the paths to your Fortran compilers to avoid potential issues. For example, you can do this by running:
 
 ```shell
 export FC=/usr/bin/gfortran
@@ -39,7 +39,7 @@ export F77=/usr/bin/gfortran
    ```shell
    spack compiler find
    spack external find
-   # Optionally, specify packages explicitly:
+   # Optionally, specify packages explicitly. This helps spack find more externals:
    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
    ```
 
@@ -68,7 +68,7 @@ export F77=/usr/bin/gfortran
    ```shell
    spack env create aperi-mech
    spacktivate aperi-mech
-   spack add aperi-mech ~cuda
+   spack add aperi-mech
    spack concretize
    spack install
    ```

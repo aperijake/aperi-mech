@@ -5,11 +5,6 @@
       "spec": "mpi"
     },
     {
-      "name": "c++ lang",
-      "spec": "cxx",
-      "type": "build"
-    },
-    {
       "name": "lcov",
       "spec": "lcov",
       "when": "+cov"
