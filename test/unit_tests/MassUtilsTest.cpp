@@ -219,7 +219,7 @@ TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsHexes) {
 // Test ComputeMassMatrix with generalized fields for nodal integration
 TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsNodalIntegration) {
     bool uses_generalized_fields = true;
-    std::string override_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
+    std::string override_mesh_string = "share/aperi-mech/test_inputs/thex_2x2x2_brick.exo";
     m_volume = 8.0;
     m_part_parameters[0].mesh_labeler_parameters.smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     TestComputeMassMatrix(uses_generalized_fields, false, override_mesh_string);
@@ -251,7 +251,7 @@ TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsTwoParts) {
 // Test ComputeMassMatrix with generalized fields on two parts nodal integration
 TEST_F(MassMatrixTest, ComputeMassMatrixGeneralizedFieldsTwoPartsNodalIntegration) {
     bool uses_generalized_fields = true;
-    std::string override_mesh_string = "test_inputs/thex_2_blocks_2x2x2_brick.exo";
+    std::string override_mesh_string = "share/aperi-mech/test_inputs/thex_2_blocks_2x2x2_brick.exo";
     m_volume = 16.0;  // Volume per block
     m_kernel_radius_scale_factor = 1.1;
     m_part_parameters.resize(2);
