@@ -32,7 +32,7 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         m_mesh_labeler = aperi::CreateMeshLabeler(m_mesh_data);
     }
 
-    void ReadThexMesh(const std::string& mesh_string = "test_inputs/thex.exo") {
+    void ReadThexMesh(const std::string& mesh_string = "share/aperi-mech/test_inputs/thex.exo") {
         CreateIoMeshFile();
         m_io_mesh->ReadMesh(mesh_string, {"block_1"});
         AddFieldsAndCreateMeshLabeler();

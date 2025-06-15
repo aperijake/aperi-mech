@@ -1,0 +1,84 @@
+spack:
+  repos:
+    - $APERI_MECH_SOURCE_DIR/spack/repo
+  compilers:
+    - compiler:
+        spec: gcc@=14.2.0
+        paths:
+          cc: /opt/local/bin/gcc-mp-14
+          cxx: /opt/local/bin/g++-mp-14
+          f77: /opt/local/bin/gfortran-mp-14
+          fc: /opt/local/bin/gfortran-mp-14
+        flags: {}
+        operating_system: bigsur
+        target: x86_64
+        modules: []
+        environment: {}
+        extra_rpaths: []
+  packages:
+    all:
+      providers:
+        lapack:
+          - openblas
+        blas:
+          - openblas
+    openmpi:
+      buildable: false
+      externals:
+        - spec: openmpi@5.0.6
+          prefix: /opt/local
+    cmake:
+      buildable: false
+      externals:
+        - spec: cmake@3.31.0
+          prefix: /opt/local
+    gmake:
+      buildable: false
+      externals:
+        - spec: gmake@4.4.1
+          prefix: /opt/local
+    openblas:
+      buildable: false
+      externals:
+        - spec: openblas@0.3.28
+          prefix: /opt/local
+    googletest:
+      buildable: false
+      externals:
+        - spec: googletest@1.15.2
+          prefix: /opt/local
+    eigen:
+      buildable: false
+      externals:
+        - spec: eigen@3.4.0
+          prefix: /opt/local
+    zlib-ng:
+      buildable: false
+      externals:
+        - spec: zlib-ng@2.2.2
+          prefix: /opt/local
+    hwloc:
+      buildable: false
+      externals:
+        - spec: hwloc@2.11.0
+          prefix: /opt/local
+    perl:
+      buildable: false
+      externals:
+        - spec: perl@5.30.0
+          prefix: /usr
+    python:
+      buildable: false
+      externals:
+        - spec: python@3.11.0
+          prefix: /Users/tjfulle/Workspace/aperi/venv
+  config:
+    install_tree:
+      root: /Users/tjfulle/Workspace/aperi/opt
+  develop:
+    aperi-mech:
+      spec: aperi-mech@=master
+      path: $APERI_MECH_SOURCE_DIR
+  specs:
+    - aperi-mech
+    - seacas+applications~x11~tests~fortran~matio~cgns

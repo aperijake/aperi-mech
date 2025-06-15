@@ -31,21 +31,18 @@ if(USE_PROTEGO_MECH)
 endif()
 gtest_discover_tests(unit_tests TIMEOUT 3600 DISCOVERY_TIMEOUT 600)
 
-#--------------------------------------------------
-# Add a custom target to run all the unit tests
-add_custom_target(run_unit_tests
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/run_unit_tests.sh
-    DEPENDS unit_tests
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+# Install unit_tests executable
+install(TARGETS unit_tests
+    RUNTIME DESTINATION bin
 )
-#--------------------------------------------------
 
 #--------------------------------------------------
 # Create a symbolic link to the test/unit_tests/test_inputs directory in the build directory so that unit_tests can find it
 add_custom_target(create_inputs_symlink ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/share/aperi-mech
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-    ${CMAKE_SOURCE_DIR}/test/unit_tests/test_inputs ${CMAKE_CURRENT_BINARY_DIR}/test_inputs
-    COMMENT "Creating symlink to test_inputs directory"
+    ${CMAKE_SOURCE_DIR}/test/unit_tests/test_inputs ${CMAKE_CURRENT_BINARY_DIR}/share/aperi-mech/test_inputs
+    COMMENT "Creating symlink to share/aperi-mech/test_inputs directory"
 )
 #--------------------------------------------------
 

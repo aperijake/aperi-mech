@@ -1,0 +1,47 @@
+[project]
+name = "aperi_mech"
+version = "0.0.1"
+requires-python = ">=3.11"
+description = "Aperi mech python package"
+
+dependencies = [
+  "clingo",
+  "pytest==8.3.2",
+  "testbook==0.4.2",
+  "jupyter==1.0.0",
+  "jupyterlab==4.2.4",
+  "numpy==2.0.1",
+  "scipy==1.14.0",
+  "matplotlib==3.9.1",
+  "ipykernel==6.29.5",
+  "meshio==5.3.5",
+  "netCDF4==1.7.1.post1",
+  "pandas==2.2.3",
+  "ruff",
+  "mypy",
+]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = "../../.."
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.format.ruff]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+ignore = ["E741", "F841", "E731"]
+
+[tool.ruff.lint.isort]
+force-single-line = true

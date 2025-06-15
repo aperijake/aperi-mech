@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Get the current directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+
 # Initialize variables with default values
 BUILD_TYPE="Release"
 CHECK_CODE_COVERAGE=OFF
@@ -8,9 +11,7 @@ USE_GPU=OFF
 USE_PROTEGO_MECH=OFF
 USE_SANITIZER=OFF
 GPU_OPT_LEVEL=3
-
-# Get the current directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+INSTALL_PREFIX="${SCRIPT_DIR}/install"
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
@@ -46,6 +47,11 @@ while [[ $# -gt 0 ]]; do
 	--gpu-opt)
 		GPU_OPT_LEVEL="$2"
 		echo "Setting GPU optimization level to O$2"
+		shift
+		shift
+		;;
+	-i | --install-prefix)
+		INSTALL_PREFIX="$2"
 		shift
 		shift
 		;;
@@ -134,6 +140,9 @@ cmake_command+=" -D CMAKE_CXX_EXTENSIONS=Off"
 
 # Add the script path to the stk_ngp_basic source code
 cmake_command+=" ${SCRIPT_DIR}"
+
+# Set the install prefix
+cmake_command+=" -D CMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX}"
 
 # Create build directory
 # Build directory base

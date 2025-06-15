@@ -111,7 +111,7 @@ TEST_F(MeshLabelerTestFixture, LabelFieldsForNodalSmoothingLargerMesh) {
     if (m_num_procs > 20) {
         GTEST_SKIP() << "This test is only valid for 20 or fewer processes.";
     }
-    ReadThexMesh("test_inputs/thex_2x2x2_brick.exo");
+    ReadThexMesh("share/aperi-mech/test_inputs/thex_2x2x2_brick.exo");
     // Input mesh is a tet that has been divided into hexes, so should have 4 active nodes
     size_t total_nodes = 293;
     size_t active_nodes = 27;

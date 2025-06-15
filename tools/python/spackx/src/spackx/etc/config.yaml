@@ -1,0 +1,4 @@
+config:
+  extensions:
+    # spackx is set by a Spack extension entry point
+    - $spackx/spack-aperi

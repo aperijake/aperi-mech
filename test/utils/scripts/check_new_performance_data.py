@@ -257,7 +257,7 @@ def check_new_performance_data(
         full_df = pd.concat([full_df, merged_df], ignore_index=True)
 
     # Label the benchmarks as good or bad based on the metric (positive is good, negative is bad)
-    # full_df = label_good_bad(full_df)
+    full_df = label_good_bad(full_df)
 
     # Split the dataframe into units of "seconds" and "MB"
     seconds_df = full_df[full_df["unit"] == "seconds"]

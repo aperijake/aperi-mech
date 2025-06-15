@@ -193,7 +193,7 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelOnHex8TwoPass) {
 TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalOnePass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
-    m_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
+    m_mesh_string = "share/aperi-mech/test_inputs/thex_2x2x2_brick.exo";
     m_io_mesh_parameters->mesh_type = "exodusII";
     aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     m_expected_volume = 8;
@@ -210,7 +210,7 @@ TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalOnePass) {
 TEST_F(CreateElementStrainSmoothedTest, ReproducingKernelNodalTwoPass) {
     // Hex8 element
     m_element_topology = aperi::ElementTopology::Hexahedron8;
-    m_mesh_string = "test_inputs/thex_2x2x2_brick.exo";
+    m_mesh_string = "share/aperi-mech/test_inputs/thex_2x2x2_brick.exo";
     m_io_mesh_parameters->mesh_type = "exodusII";
     aperi::SmoothingCellType smoothing_cell_type = aperi::SmoothingCellType::Nodal;
     m_expected_volume = 8;
