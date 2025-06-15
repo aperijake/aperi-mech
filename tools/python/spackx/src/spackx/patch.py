@@ -1,9 +1,9 @@
 import os
 import pathlib
 import sys
+
 from llnl.util.filesystem import working_dir
-from spack.util.executable import which
-from spack.util.executable import which_string
+from spack.util.executable import which, which_string
 
 
 def apply_patch(

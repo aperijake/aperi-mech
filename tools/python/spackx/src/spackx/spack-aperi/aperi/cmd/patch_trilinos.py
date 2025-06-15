@@ -2,13 +2,10 @@ import importlib.resources
 import os
 import subprocess
 
-import spack.paths
-from llnl.util.filesystem import touchp
-from llnl.util.filesystem import working_dir
 import llnl.util.tty as tty
-
+import spack.paths
+from llnl.util.filesystem import touchp, working_dir
 from spackx.patch import apply_patch
-
 
 level = "short"
 description = "Patch the builtin Trilinos package"
@@ -34,10 +31,12 @@ def patch_trilinos(parser, args):
             touchp(breadcrumb)
 
 
-def get_version_patch() -> str | None: 
+def get_version_patch() -> str | None:
     patch_dir = os.path.join(get_spackx_dir(), "patches")
     with working_dir(spack.paths.prefix):
-        branch = subprocess.check_output(["git", "branch", "--show-current"], encoding="utf-8").strip()
+        branch = subprocess.check_output(
+            ["git", "branch", "--show-current"], encoding="utf-8"
+        ).strip()
         patch = os.path.join(patch_dir, f"{branch.replace('/', '-')}.patch")
         if os.path.exists(patch):
             return patch
@@ -49,7 +48,7 @@ def get_spackx_dir() -> str | None:
 
     Spack expects the directory name of the configuration path to be returned
     We also set the variable spackx which is used to locate extension resources
-    
+
     """
     spackx = importlib.resources.files("spackx")
     return str(spackx)

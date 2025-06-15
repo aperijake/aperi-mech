@@ -1,12 +1,16 @@
 import llnl.util.tty as tty
-from spack.package import CMakePackage
-from spack.package import variant
+from spack.package import CMakePackage, variant
 from spack.util.git import git as find_git
 
 
 class GitPackage(CMakePackage):
 
-    variant("commit", default="NULL", description="Git commit for the package", when="@master")
+    variant(
+        "commit",
+        default="NULL",
+        description="Git commit for the package",
+        when="@master",
+    )
 
     def do_fetch(self, mirror_only=False):
         if self.spec.variants["commit"].value != "NULL":
@@ -24,11 +28,23 @@ class GitPackage(CMakePackage):
             requested = self.spec.variants["commit"].value
             staged = self.get_commit(self.stage.source_path)
             if requested != staged:
-                tty.die(f"Staged commit {staged} does not match requested commit {requested}")
+                tty.die(
+                    f"Staged commit {staged} does not match requested commit {requested}"
+                )
 
     @staticmethod
     def get_commit(path):
         """Get latest commit sha"""
         git = find_git()
-        output = git("-C", path, "log", "--first-parent", "-n", "1", '--pretty=format:"%H"', output=str, error=str)
+        output = git(
+            "-C",
+            path,
+            "log",
+            "--first-parent",
+            "-n",
+            "1",
+            '--pretty=format:"%H"',
+            output=str,
+            error=str,
+        )
         return output.strip('"')

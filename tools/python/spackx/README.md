@@ -25,9 +25,7 @@
 
 When calling Spack, call as `spack -C $aperi_mech/spack/etc`
 
-
 ## Install aperi-mech
-
 
 ```console
 spack -C $aperi_mech/spack/etc install aperi-mech
