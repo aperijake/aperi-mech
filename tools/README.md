@@ -54,6 +54,7 @@ export F77=/usr/bin/gfortran
 1. **Activate the virtual environment:**
 
    ```shell
+   export aperi_mech=$(pwd)
    source $aperi_mech/venv/bin/activate
    ```
 
@@ -68,6 +69,7 @@ export F77=/usr/bin/gfortran
    ```shell
    spack env create aperi-mech
    spacktivate aperi-mech
+   spack develop --path $aperi_mech --build-directory $aperi_mech/build aperi-mech
    spack add aperi-mech
    spack concretize
    spack install

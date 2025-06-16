@@ -39,6 +39,11 @@ class AperiMech(CMakePackage, CudaPackage):
                     dep_spec.format(cuda_arch=cuda_arch),
                     when=f"+cuda cuda_arch={cuda_arch}",
                 )
+        elif dep["name"] == "trilinos":
+            depends_on(f"{dep['spec']} ~cuda", when="~cuda")
+            for cuda_arch in CudaPackage.cuda_arch_values:
+                trilinos_cuda_spec = f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
+                depends_on(trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch}")
         else:
             depends_on(
                 dep["spec"],
