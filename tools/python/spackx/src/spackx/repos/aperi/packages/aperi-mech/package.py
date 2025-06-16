@@ -40,7 +40,10 @@ class AperiMech(CMakePackage, CudaPackage):
                     when=f"+cuda cuda_arch={cuda_arch}",
                 )
         elif dep["name"] == "trilinos":
-            depends_on(f"{dep['spec']} ~cuda", when="~cuda")
+            # For non-CUDA case, use the spec as-is (it already has ~cuda)
+            depends_on(dep["spec"], when="~cuda")
+
+            # For CUDA case, replace ~cuda with +cuda
             for cuda_arch in CudaPackage.cuda_arch_values:
                 trilinos_cuda_spec = f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
                 depends_on(trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch}")
