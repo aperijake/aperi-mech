@@ -53,6 +53,8 @@ export F77=/usr/bin/gfortran
 
 1. **Activate the virtual environment:**
 
+   First, change to the root directory of your `aperi-mech` source code then:
+
    ```shell
    export aperi_mech=$(pwd)
    source $aperi_mech/venv/bin/activate
