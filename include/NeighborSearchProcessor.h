@@ -29,6 +29,7 @@
 #include <stk_util/ngp/NgpSpaces.hpp>
 
 #include "AperiStkUtils.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "FunctionValueUtils.h"
 #include "LogUtils.h"
@@ -64,9 +65,9 @@ class NeighborSearchProcessor {
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
-    bool NodeIsActive(stk::mesh::Entity node);
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
-    void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
+    void UnpackSearchResultsIntoField(const ResultViewType &_search_results);
+    void UnpackSearchResultsIntoFieldHost(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
@@ -93,6 +94,10 @@ class NeighborSearchProcessor {
     NgpRealField *m_ngp_kernel_radius_field;           // The ngp kernel radius field
     NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
+
+    mutable aperi::Field<Real> m_aperi_function_values_field;
+    mutable aperi::Field<Unsigned> m_aperi_num_neighbors_field;
+    mutable aperi::Field<Unsigned> m_aperi_node_neighbors_field;
 };
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
