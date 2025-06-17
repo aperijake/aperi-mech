@@ -70,6 +70,7 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("max_edge_length", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));     // The maximum edge length for the node
 
     field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}));  // Indicator for essential boundary conditions
+    field_data.push_back(FieldData("node_locks", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}, false));   // Node locks, used for gpu parallelization guarding
 
     // Element data
     field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
