@@ -98,7 +98,6 @@ class NeighborSearchProcessor {
     mutable aperi::Field<Real> m_aperi_function_values_field;
     mutable aperi::Field<Unsigned> m_aperi_num_neighbors_field;
     mutable aperi::Field<Unsigned> m_aperi_node_neighbors_field;
-    mutable aperi::Field<Unsigned> m_aperi_node_locks_field;
 };
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {

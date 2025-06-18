@@ -236,7 +236,6 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
     m_aperi_node_neighbors_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
     m_aperi_num_neighbors_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
     m_aperi_function_values_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Real>{"function_values", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
-    m_aperi_node_locks_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Unsigned>{"node_locks", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
 
     // Get the aperi::NgpMeshData
     auto ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
@@ -257,20 +256,6 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
                 // Ensure the neighbor is active
                 KOKKOS_ASSERT(node_active_field(neighbor_index, 0) != 0);
 
-                // Get node lock reference
-                Unsigned &node_lock = m_aperi_node_locks_field(node_index, 0);
-
-                // Acquire spin lock for this node
-                uint32_t spin_counter = 0;
-                while (Kokkos::atomic_compare_exchange(&node_lock, 0, 1) != 0) {
-                    spin_counter++;
-                    if (spin_counter > 100000) {
-                        Kokkos::printf("Warning: Long wait for lock on node %lu... count=%u\n", (unsigned long)node.local_offset(), spin_counter);
-                        spin_counter = 0;
-                    }
-                }
-
-                // Now we have exclusive access to this node's neighbor list
                 Unsigned num_neighbors = m_aperi_num_neighbors_field(node_index, 0);
                 KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
 
@@ -294,8 +279,6 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
 
                 // If we're at max neighbors and the new neighbor is further than all existing ones, skip it
                 if (num_neighbors == MAX_NODE_NUM_NEIGHBORS && insert_index == MAX_NODE_NUM_NEIGHBORS) {
-                    // Release the spin lock before returning
-                    Kokkos::atomic_exchange(&node_lock, 0);
                     return;
                 }
 
@@ -320,9 +303,6 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
                 // Insert the new neighbor
                 function_values(insert_index) = distance_squared;
                 node_neighbors(insert_index) = neighbor.local_offset();
-
-                // Release the spin lock
-                Kokkos::atomic_exchange(&node_lock, 0);
             }
         });
 

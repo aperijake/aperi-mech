@@ -77,9 +77,6 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
 
         m_subcell_id_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::ELEMENT_RANK, "subcell_id", 1);
         stk::mesh::put_field_on_entire_mesh(*m_subcell_id_field, 1);
-
-        m_node_locks_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "node_locks", 1);
-        stk::mesh::put_field_on_entire_mesh(*m_node_locks_field, 1);
     }
 
     template <typename T>
@@ -156,7 +153,6 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_max_edge_length_field = nullptr;
         m_cell_id_field = nullptr;
         m_subcell_id_field = nullptr;
-        m_node_locks_field = nullptr;
 
         m_extra_fields.clear();
     }
@@ -173,7 +169,6 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     aperi::UnsignedLongField *m_node_active_temp_field;
     aperi::UnsignedField *m_cell_id_field;
     aperi::UnsignedField *m_subcell_id_field;
-    aperi::UnsignedField *m_node_locks_field;
     aperi::RealField *m_node_neighbors_function_values_field;
     aperi::RealField *m_kernel_radius_field;
     aperi::RealField *m_max_edge_length_field;
