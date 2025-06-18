@@ -60,13 +60,14 @@ class NeighborSearchProcessor {
 
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
+    void CalculateResultsDistances(ResultViewType &search_results);
+    void UnpackSearchResultsIntoField(const ResultViewType &_search_results, size_t num_domain_nodes);
 
     DomainViewType CreateNodePoints(const aperi::Selector &selector);
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
-    void UnpackSearchResultsIntoField(const ResultViewType &_search_results);
     void UnpackSearchResultsIntoFieldHost(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
@@ -161,8 +162,8 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Sel
             stk::search::Point<double> center(coords[0], coords[1], coords[2]);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
             double radius = ngp_kernel_radius_field(node_index, 0);
-            node_spheres(i) = serial ? SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(node.local_offset(), my_rank)}
-                                     : SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_spheres(i) = serial ? SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeAndDistanceIdentProc({node.local_offset(), REAL_MAX}, my_rank)}
+                                     : SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeAndDistanceIdentProc({ngp_mesh.identifier(node), REAL_MAX}, my_rank)};
         });
 
     return node_spheres;
