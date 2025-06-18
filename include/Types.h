@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Kokkos_Core.hpp>
-#include <limits>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/Types.hpp>
@@ -19,7 +18,7 @@ using Real = double;
 using Unsigned = uint64_t;
 using UnsignedLong = unsigned long;
 
-constexpr Real REAL_MAX = std::numeric_limits<Real>::max();
+#define REAL_MAX 1.7976931348623157e+308
 
 using UnsignedField = stk::mesh::Field<Unsigned>;
 using NgpUnsignedField = stk::mesh::NgpField<Unsigned>;
