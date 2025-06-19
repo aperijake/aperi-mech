@@ -18,6 +18,8 @@ using Real = double;
 using Unsigned = uint64_t;
 using UnsignedLong = unsigned long;
 
+#define REAL_MAX 1.7976931348623157e+308
+
 using UnsignedField = stk::mesh::Field<Unsigned>;
 using NgpUnsignedField = stk::mesh::NgpField<Unsigned>;
 using RealField = stk::mesh::Field<Real>;
@@ -31,9 +33,10 @@ using ExecSpace = stk::ngp::ExecSpace;
 // Neighbor search-related type definitions
 // Node ID and processor ID. Global ID is stk::mesh::EntityId (uint64_t) and local ID is unsigned. Using uint64_t to be large enough for all cases.
 using NodeIdentProc = stk::search::IdentProc<uint64_t, int>;
-using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeIdentProc>;
+using NodeAndDistanceIdentProc = stk::search::IdentProc<Kokkos::pair<uint64_t, Real>, int>;
+using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, NodeAndDistanceIdentProc>;
 using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
-using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeIdentProc>;
+using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeAndDistanceIdentProc>;
 
 using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
 using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;

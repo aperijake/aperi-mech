@@ -29,6 +29,7 @@
 #include <stk_util/ngp/NgpSpaces.hpp>
 
 #include "AperiStkUtils.h"
+#include "Field.h"
 #include "FieldData.h"
 #include "FunctionValueUtils.h"
 #include "LogUtils.h"
@@ -59,14 +60,14 @@ class NeighborSearchProcessor {
 
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
+    void CalculateResultsDistances(ResultViewType &search_results);
+    void UnpackSearchResultsIntoField(ResultViewType &_search_results, size_t num_domain_nodes);
 
     DomainViewType CreateNodePoints(const aperi::Selector &selector);
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
-    bool NodeIsActive(stk::mesh::Entity node);
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
-    void UnpackSearchResultsIntoField(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
@@ -93,6 +94,10 @@ class NeighborSearchProcessor {
     NgpRealField *m_ngp_kernel_radius_field;           // The ngp kernel radius field
     NgpRealField *m_ngp_max_edge_length_field;         // The ngp max edge length field
     NgpRealField *m_ngp_node_function_values_field;    // The ngp function values field
+
+    mutable aperi::Field<Real> m_aperi_function_values_field;
+    mutable aperi::Field<Unsigned> m_aperi_num_neighbors_field;
+    mutable aperi::Field<Unsigned> m_aperi_node_neighbors_field;
 };
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
@@ -156,8 +161,8 @@ inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Sel
             stk::search::Point<double> center(coords[0], coords[1], coords[2]);
             stk::mesh::Entity node = ngp_mesh.get_entity(stk::topology::NODE_RANK, node_index);
             double radius = ngp_kernel_radius_field(node_index, 0);
-            node_spheres(i) = serial ? SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(node.local_offset(), my_rank)}
-                                     : SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeIdentProc(ngp_mesh.identifier(node), my_rank)};
+            node_spheres(i) = serial ? SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeAndDistanceIdentProc({node.local_offset(), REAL_MAX}, my_rank)}
+                                     : SphereIdentProc{stk::search::Sphere<double>(center, radius), NodeAndDistanceIdentProc({ngp_mesh.identifier(node), REAL_MAX}, my_rank)};
         });
 
     return node_spheres;
