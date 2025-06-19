@@ -57,7 +57,7 @@ class TimerManagerBase {
 
     virtual double GetTotalTime() const = 0;
     virtual std::string GetGroupName() const = 0;
-    virtual void PrintTimers() const = 0;
+    virtual void PrintTimers(int indent = 0) const = 0;
     virtual void AppendToCSV(std::ofstream& csv_file, const std::string& runstring = "") const = 0;
     virtual void WriteCSV(const std::string& filename_base, const std::string& runstring = "") const = 0;
 };
@@ -98,9 +98,8 @@ class TimerManager : public TimerManagerBase {
         m_children.push_back(std::static_pointer_cast<TimerManagerBase>(child));
     }
 
-    void PrintTimers() const override {
-        // Print the timers in tabular format
-        size_t max_name_length = 0;  // Find the maximum length of the timer names to align the columns in the output
+    void PrintTimers(int indent = 0) const override {
+        size_t max_name_length = 0;
         for (const auto& name : m_timer_names) {
             max_name_length = std::max(max_name_length, name.second.size());
         }
@@ -112,40 +111,48 @@ class TimerManager : public TimerManagerBase {
         size_t percent_width = 17;
         size_t header_width = max_name_length + 3 + time_width + 3 + percent_width + 3;
 
-        // Print the header
-        PrintLine(header_width);
-
-        // Print the group name
-        aperi::CoutP0() << "Timer Group: " << m_timer_group_name << std::endl;
-
-        double total_time = GetTotalTime();
-        // Print the total time
-        aperi::CoutP0() << "Total Time: " << total_time << " seconds" << std::endl;
-        PrintLine(header_width);
-
-        aperi::CoutP0() << std::setw(max_name_length) << "Timer Name"
-                        << " | " << std::setw(time_width) << "Time (seconds)"
-                        << " | " << std::setw(percent_width) << " % of Total Time" << std::endl;
-        PrintLine(header_width);
-
-        // Print the timers
-        for (size_t i = 0; i < m_timers.size(); ++i) {
-            aperi::CoutP0() << std::scientific << std::setprecision(6);
-            aperi::CoutP0() << std::setw(max_name_length) << m_timer_names.at(static_cast<TimerType>(i)) << " | " << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat << std::setw(percent_width) << m_timers[i] / total_time * 100 << "%" << std::endl;
+        // ASCII indentation
+        std::string indent_str;
+        for (int i = 0; i < indent; ++i) {
+            indent_str += "|  ";
         }
 
-        // Print child timers as if they were additional timers
+        // ASCII box lines
+        std::string header_line = "+" + std::string(header_width - 2, '-') + "+";
+        std::string footer_line = "+" + std::string(header_width - 2, '-') + "+";
+
+        aperi::CoutP0() << indent_str << header_line << std::endl;
+        aperi::CoutP0() << indent_str << "| Timer Group: " << m_timer_group_name << std::endl;
+        double total_time = GetTotalTime();
+        aperi::CoutP0() << indent_str << "| Total Time: " << total_time << " seconds" << std::endl;
+        aperi::CoutP0() << indent_str << header_line << std::endl;
+
+        aperi::CoutP0() << indent_str << "| " << std::setw(max_name_length) << "Timer Name"
+                        << " | " << std::setw(time_width) << "Time (seconds)"
+                        << " | " << std::setw(percent_width) << " % of Total Time"
+                        << " |" << std::endl;
+        aperi::CoutP0() << indent_str << header_line << std::endl;
+
+        for (size_t i = 0; i < m_timers.size(); ++i) {
+            aperi::CoutP0() << indent_str << "| " << std::scientific << std::setprecision(6)
+                            << std::setw(max_name_length) << m_timer_names.at(static_cast<TimerType>(i)) << " | "
+                            << std::setw(time_width) << m_timers[i] << " | " << std::defaultfloat
+                            << std::setw(percent_width) << m_timers[i] / total_time * 100 << "% |" << std::endl;
+        }
+
         for (const auto& child : m_children) {
             double child_time = child->GetTotalTime();
-            aperi::CoutP0() << std::scientific << std::setprecision(6);
-            aperi::CoutP0() << std::setw(max_name_length) << child->GetGroupName() << " | " << std::setw(time_width) << child_time << " | " << std::defaultfloat << std::setw(percent_width) << child_time / total_time * 100 << "%" << std::endl;
+            aperi::CoutP0() << indent_str << "| " << std::scientific << std::setprecision(6)
+                            << std::setw(max_name_length) << child->GetGroupName() << " | "
+                            << std::setw(time_width) << child_time << " | " << std::defaultfloat
+                            << std::setw(percent_width) << child_time / total_time * 100 << "% |" << std::endl;
         }
 
-        PrintLine(header_width);
+        aperi::CoutP0() << indent_str << footer_line << std::endl;
 
-        // Recursively print child timers
+        // Recursively print child timers with increased indentation
         for (const auto& child : m_children) {
-            child->PrintTimers();
+            child->PrintTimers(indent + 1);
         }
     }
 
@@ -214,7 +221,8 @@ class TimerManager : public TimerManagerBase {
     }
 
    private:
-    void PrintLine(const size_t width) const {
+    void PrintLine(const size_t width, const std::string& indent_str = "") const {
+        aperi::CoutP0() << indent_str;
         for (size_t i = 0; i < width; ++i) {
             aperi::CoutP0() << "-";
         }

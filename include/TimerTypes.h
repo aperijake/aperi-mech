@@ -20,25 +20,29 @@ inline const std::map<FunctionCreationProcessorTimerType, std::string> function_
 // NeighborSearchProcessor timer types
 enum class NeighborSearchProcessorTimerType {
     Instantiate,
-    KokkosDeepCopy,
-    CoarseSearch,
-    UnpackSearchResultsIntoField,
-    GhostNodeNeighbors,
-    CreateNodeSpheres,
-    CreateNodePoints,
     ComputeKernelRadius,
+    CreateNodePoints,
+    CreateNodeSpheres,
+    CoarseSearch,
+    KokkosDeepCopy,
+    GhostNodeNeighbors,
+    CalculateResultsDistances,
+    SortSearchResults,
+    UnpackSearchResultsIntoField,
     NONE
 };
 
 inline const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_search_processor_timer_names_map = {
     {NeighborSearchProcessorTimerType::Instantiate, "Instantiate"},
-    {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},
-    {NeighborSearchProcessorTimerType::CoarseSearch, "CoarseSearch"},
-    {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "UnpackSearchResultsIntoField"},
-    {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "GhostNodeNeighbors"},
-    {NeighborSearchProcessorTimerType::CreateNodeSpheres, "CreateNodeSpheres"},
-    {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
     {NeighborSearchProcessorTimerType::ComputeKernelRadius, "ComputeKernelRadius"},
+    {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
+    {NeighborSearchProcessorTimerType::CreateNodeSpheres, "CreateNodeSpheres"},
+    {NeighborSearchProcessorTimerType::CoarseSearch, "CoarseSearch"},
+    {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},
+    {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "GhostNodeNeighbors"},
+    {NeighborSearchProcessorTimerType::CalculateResultsDistances, "CalculateResultsDistances"},
+    {NeighborSearchProcessorTimerType::SortSearchResults, "SortSearchResults"},
+    {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "UnpackSearchResultsIntoField"},
     {NeighborSearchProcessorTimerType::NONE, "NONE"}};
 
 // Application timer types
@@ -70,5 +74,16 @@ inline const std::map<ApplicationTimerType, std::string> application_timer_map =
     {ApplicationTimerType::CreateOutputScheduler, "CreateOutputScheduler"},
     {ApplicationTimerType::Preprocessing, "Preprocessing"},
     {ApplicationTimerType::NONE, "NONE"}};
+
+enum class ElementTimerType {
+    CreateElementForceProcessor,
+    Other,
+    NONE
+};
+
+inline const std::map<ElementTimerType, std::string> element_timer_map = {
+    {ElementTimerType::CreateElementForceProcessor, "CreateElementForceProcessor"},
+    {ElementTimerType::Other, "Other"},
+    {ElementTimerType::NONE, "NONE"}};
 
 }  // namespace aperi

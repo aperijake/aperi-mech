@@ -61,6 +61,7 @@ class NeighborSearchProcessor {
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
     void CalculateResultsDistances(ResultViewType &search_results);
+    void SortSearchResults(ResultViewType &search_results);
     void UnpackSearchResultsIntoField(ResultViewType &_search_results, size_t num_domain_nodes);
 
     DomainViewType CreateNodePoints(const aperi::Selector &selector);
