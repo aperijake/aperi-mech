@@ -47,6 +47,11 @@ class SimpleTimer {
      * @param time_point Time point of the event.
      */
     void LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point) const;
+
+    /**
+     * @brief Returns true if timing output is enabled (delegates to factory).
+     */
+    static bool IsEnabled();
 };
 
 }  // namespace aperi

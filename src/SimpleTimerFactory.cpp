@@ -29,4 +29,17 @@ bool& SimpleTimerFactory::GetAccurateTimers() {
     return accurate;
 }
 
+void SimpleTimerFactory::SetEnabled(bool enabled) {
+    GetEnabled() = enabled;
+}
+
+bool SimpleTimerFactory::IsEnabled() {
+    return GetEnabled();
+}
+
+bool& SimpleTimerFactory::GetEnabled() {
+    static bool enabled = true;
+    return enabled;
+}
+
 }  // namespace aperi

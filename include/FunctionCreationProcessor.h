@@ -16,6 +16,7 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
 #include "TimerTypes.h"
 #include "Types.h"
@@ -83,6 +84,7 @@ class FunctionCreationProcessor {
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
         // Start timer for function value computation
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionCreationProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
+        auto simple_timer = aperi::SimpleTimerFactory::Create(FunctionCreationProcessorTimerType::ComputeFunctionValues, aperi::function_value_storage_processor_timer_map);
 
         // Update and get the device mesh
         m_ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();

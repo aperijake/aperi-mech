@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "Kokkos_Core.hpp"
+#include "SimpleTimerFactory.h"
 
 namespace aperi {
 
@@ -17,7 +18,9 @@ SimpleTimer::SimpleTimer(const std::string& name, const std::string& log_file, c
         Kokkos::fence();
     }
     m_start_time = std::chrono::high_resolution_clock::now();
-    LogEvent("START", m_start_time);
+    if (IsEnabled()) {
+        LogEvent("START", m_start_time);
+    }
 }
 
 // Destructor: Optionally fences for accuracy, logs "END" event
@@ -26,7 +29,13 @@ SimpleTimer::~SimpleTimer() {
         Kokkos::fence();
     }
     auto end_time = std::chrono::high_resolution_clock::now();
-    LogEvent("END", end_time);
+    if (IsEnabled()) {
+        LogEvent("END", end_time);
+    }
+}
+
+bool SimpleTimer::IsEnabled() {
+    return SimpleTimerFactory::IsEnabled();
 }
 
 // Log an event (START or END) to the log file with timestamp and optional metadata

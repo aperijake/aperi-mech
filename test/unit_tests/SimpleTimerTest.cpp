@@ -22,10 +22,13 @@ class SimpleTimerTest : public ::testing::Test {
         // Set factory default
         SimpleTimerFactory::SetDefaultLogFile(m_log_file);
         SimpleTimerFactory::SetAccurateTimers(false);
+        SimpleTimerFactory::SetEnabled(true);
     }
 
     void TearDown() override {
         std::remove(m_log_file.c_str());
+        // Restore global timer logging to disabled after each test
+        SimpleTimerFactory::SetEnabled(false);
     }
 
     std::string m_log_file;
@@ -103,6 +106,44 @@ TEST_F(SimpleTimerTest, MultipleTimersAppendToSameFile) {
     EXPECT_TRUE(lines[1].find("END,Event1,") == 0);
     EXPECT_TRUE(lines[2].find("START,Event2,") == 0);
     EXPECT_TRUE(lines[3].find("END,Event2,") == 0);
+}
+
+// Example enum and map for testing enum-based timer creation
+enum class TestEnumTimerType {
+    TIMER_A,
+    TIMER_B,
+    NONE
+};
+
+inline const std::map<TestEnumTimerType, std::string> test_enum_timer_map = {
+    {TestEnumTimerType::TIMER_A, "EnumTimerA"},
+    {TestEnumTimerType::TIMER_B, "EnumTimerB"},
+    {TestEnumTimerType::NONE, "NONE"}};
+
+TEST_F(SimpleTimerTest, FactoryCreatesTimerWithEnumName) {
+    {
+        auto timer = SimpleTimerFactory::Create(TestEnumTimerType::TIMER_A, test_enum_timer_map);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    auto lines = ReadLines(m_log_file);
+    ASSERT_EQ(lines.size(), 2u);
+    EXPECT_TRUE(lines[0].find("START,EnumTimerA,") == 0);
+    EXPECT_TRUE(lines[1].find("END,EnumTimerA,") == 0);
+}
+
+TEST_F(SimpleTimerTest, FactoryDisablesTimingOutput) {
+    SimpleTimerFactory::SetEnabled(false);
+    {
+        auto timer = SimpleTimerFactory::Create("DisabledEvent");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    // File should not exist or be empty
+    std::ifstream file(m_log_file);
+    // Either the file does not exist or is empty
+    EXPECT_TRUE(!file.good() || file.peek() == std::ifstream::traits_type::eof());
+    file.close();
+    // Reset for other tests
+    SimpleTimerFactory::SetEnabled(true);
 }
 
 }  // namespace aperi

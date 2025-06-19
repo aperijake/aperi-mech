@@ -13,9 +13,9 @@ enum class FunctionCreationProcessorTimerType {
 };
 
 inline const std::map<FunctionCreationProcessorTimerType, std::string> function_value_storage_processor_timer_map = {
-    {FunctionCreationProcessorTimerType::Instantiate, "Instantiate"},
-    {FunctionCreationProcessorTimerType::ComputeFunctionValues, "ComputeFunctionValues"},
-    {FunctionCreationProcessorTimerType::NONE, "NONE"}};
+    {FunctionCreationProcessorTimerType::Instantiate, "FunctionCreationProcessor_Instantiate"},
+    {FunctionCreationProcessorTimerType::ComputeFunctionValues, "FunctionCreationProcessor_ComputeFunctionValues"},
+    {FunctionCreationProcessorTimerType::NONE, "FunctionCreationProcessor_NONE"}};
 
 // NeighborSearchProcessor timer types
 enum class NeighborSearchProcessorTimerType {
@@ -33,20 +33,21 @@ enum class NeighborSearchProcessorTimerType {
 };
 
 inline const std::map<NeighborSearchProcessorTimerType, std::string> neighbor_search_processor_timer_names_map = {
-    {NeighborSearchProcessorTimerType::Instantiate, "Instantiate"},
-    {NeighborSearchProcessorTimerType::ComputeKernelRadius, "ComputeKernelRadius"},
-    {NeighborSearchProcessorTimerType::CreateNodePoints, "CreateNodePoints"},
-    {NeighborSearchProcessorTimerType::CreateNodeSpheres, "CreateNodeSpheres"},
-    {NeighborSearchProcessorTimerType::CoarseSearch, "CoarseSearch"},
-    {NeighborSearchProcessorTimerType::KokkosDeepCopy, "KokkosDeepCopy"},
-    {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "GhostNodeNeighbors"},
-    {NeighborSearchProcessorTimerType::CalculateResultsDistances, "CalculateResultsDistances"},
-    {NeighborSearchProcessorTimerType::SortSearchResults, "SortSearchResults"},
-    {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "UnpackSearchResultsIntoField"},
-    {NeighborSearchProcessorTimerType::NONE, "NONE"}};
+    {NeighborSearchProcessorTimerType::Instantiate, "NeighborSearchProcessor_Instantiate"},
+    {NeighborSearchProcessorTimerType::ComputeKernelRadius, "NeighborSearchProcessor_ComputeKernelRadius"},
+    {NeighborSearchProcessorTimerType::CreateNodePoints, "NeighborSearchProcessor_CreateNodePoints"},
+    {NeighborSearchProcessorTimerType::CreateNodeSpheres, "NeighborSearchProcessor_CreateNodeSpheres"},
+    {NeighborSearchProcessorTimerType::CoarseSearch, "NeighborSearchProcessor_CoarseSearch"},
+    {NeighborSearchProcessorTimerType::KokkosDeepCopy, "NeighborSearchProcessor_KokkosDeepCopy"},
+    {NeighborSearchProcessorTimerType::GhostNodeNeighbors, "NeighborSearchProcessor_GhostNodeNeighbors"},
+    {NeighborSearchProcessorTimerType::CalculateResultsDistances, "NeighborSearchProcessor_CalculateResultsDistances"},
+    {NeighborSearchProcessorTimerType::SortSearchResults, "NeighborSearchProcessor_SortSearchResults"},
+    {NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "NeighborSearchProcessor_UnpackSearchResultsIntoField"},
+    {NeighborSearchProcessorTimerType::NONE, "NeighborSearchProcessor_NONE"}};
 
 // Application timer types
 enum class ApplicationTimerType {
+    Total,
     ReadInputMesh,
     CreateFieldResultsFile,
     CreateTimeStepper,
@@ -62,18 +63,19 @@ enum class ApplicationTimerType {
 };
 
 inline const std::map<ApplicationTimerType, std::string> application_timer_map = {
-    {ApplicationTimerType::ReadInputMesh, "ReadInputMesh"},
-    {ApplicationTimerType::CreateFieldResultsFile, "CreateFieldResultsFile"},
-    {ApplicationTimerType::CreateTimeStepper, "CreateTimeStepper"},
-    {ApplicationTimerType::CreateInternalForceContribution, "CreateInternalForceContribution"},
-    {ApplicationTimerType::AddFieldsToMesh, "AddFieldsToMesh"},
-    {ApplicationTimerType::LabelMesh, "LabelMesh"},
-    {ApplicationTimerType::CreateExternalForceContribution, "CreateExternalForceContribution"},
-    {ApplicationTimerType::AddInitialConditions, "AddInitialConditions"},
-    {ApplicationTimerType::CreateBoundaryConditions, "CreateBoundaryConditions"},
-    {ApplicationTimerType::CreateOutputScheduler, "CreateOutputScheduler"},
-    {ApplicationTimerType::Preprocessing, "Preprocessing"},
-    {ApplicationTimerType::NONE, "NONE"}};
+    {ApplicationTimerType::Total, "Application_Total"},
+    {ApplicationTimerType::ReadInputMesh, "Application_ReadInputMesh"},
+    {ApplicationTimerType::CreateFieldResultsFile, "Application_CreateFieldResultsFile"},
+    {ApplicationTimerType::CreateTimeStepper, "Application_CreateTimeStepper"},
+    {ApplicationTimerType::CreateInternalForceContribution, "Application_CreateInternalForceContribution"},
+    {ApplicationTimerType::AddFieldsToMesh, "Application_AddFieldsToMesh"},
+    {ApplicationTimerType::LabelMesh, "Application_LabelMesh"},
+    {ApplicationTimerType::CreateExternalForceContribution, "Application_CreateExternalForceContribution"},
+    {ApplicationTimerType::AddInitialConditions, "Application_AddInitialConditions"},
+    {ApplicationTimerType::CreateBoundaryConditions, "Application_CreateBoundaryConditions"},
+    {ApplicationTimerType::CreateOutputScheduler, "Application_CreateOutputScheduler"},
+    {ApplicationTimerType::Preprocessing, "Application_Preprocessing"},
+    {ApplicationTimerType::NONE, "Application_NONE"}};
 
 enum class ElementTimerType {
     CreateElementForceProcessor,

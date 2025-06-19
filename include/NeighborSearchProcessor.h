@@ -36,6 +36,7 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Selector.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
 #include "TimerTypes.h"
 #include "Types.h"
@@ -103,6 +104,8 @@ class NeighborSearchProcessor {
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
+    auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CreateNodePoints, aperi::neighbor_search_processor_timer_names_map);
+
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
     DomainViewType node_points("node_points", num_local_nodes);
 
@@ -133,6 +136,7 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Sel
 
 inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Selector &selector) {
     auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodeSpheres, "Create Node Spheres");
+    auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CreateNodeSpheres, aperi::neighbor_search_processor_timer_names_map);
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
     RangeViewType node_spheres("node_spheres", num_local_nodes);
 
