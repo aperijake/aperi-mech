@@ -4,6 +4,46 @@
 
 namespace aperi {
 
+struct ParallelRunComparator {
+    size_t m_rank;
+
+    ParallelRunComparator(size_t my_rank) : m_rank(my_rank) {}
+
+    KOKKOS_INLINE_FUNCTION
+    bool operator()(const ResultViewType::value_type &a, const ResultViewType::value_type &b) const {
+        if (a.domainIdentProc.proc() != m_rank) {
+            return false;  // a is not on this rank, so it should come after b
+        }
+        if (b.domainIdentProc.proc() != m_rank) {
+            return true;  // b is not on this rank, so a should come before b
+        }
+        // Compare based on the domainIdentProc.id() (which is the node index) and the rangeIdentProc.id().second (which is the distance squared)
+        if (a.domainIdentProc.id() != b.domainIdentProc.id()) {
+            return a.domainIdentProc.id() < b.domainIdentProc.id();
+        }
+        if (a.rangeIdentProc.id().second == b.rangeIdentProc.id().second) {
+            // If squared distances are equal, compare by the first part of the id (which is the node index)
+            return a.rangeIdentProc.id().first < b.rangeIdentProc.id().first;
+        }
+        return a.rangeIdentProc.id().second < b.rangeIdentProc.id().second;  // Compare squared distances
+    }
+};
+
+struct SerialRunComparator {
+    KOKKOS_INLINE_FUNCTION
+    bool operator()(const ResultViewType::value_type &a, const ResultViewType::value_type &b) const {
+        // Compare based on the domainIdentProc.id() (which is the node index) and the rangeIdentProc.id().second (which is the distance squared)
+        if (a.domainIdentProc.id() != b.domainIdentProc.id()) {
+            return a.domainIdentProc.id() < b.domainIdentProc.id();
+        }
+        if (a.rangeIdentProc.id().second == b.rangeIdentProc.id().second) {
+            // If squared distances are equal, compare by the first part of the id (which is the node index)
+            return a.rangeIdentProc.id().first < b.rangeIdentProc.id().first;
+        }
+        return a.rangeIdentProc.id().second < b.rangeIdentProc.id().second;  // Compare squared distances
+    }
+};
+
 // Append "_active" to each set name and create a selector for the active entities
 inline std::vector<std::string> AppendActiveSuffix(const std::vector<std::string> &sets) {
     std::vector<std::string> active_sets(sets.size());
@@ -219,12 +259,18 @@ void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirro
     m_bulk_data->modification_end();
 }
 
-void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType &search_results, size_t num_domain_nodes) {
-    // Ensure that this code is only run in serial mode. The rangeIdentProc.id() needs to be the local offset of the neighbor.
-    // The UnpackSearchResultsIntoFieldHost function will handle the case where the parallel size is greater than 1, for now.
-    // There is no "get_entity" on device, currently.
-    // TODO(jake): For multi-GPU support, we need to handle the case where the rangeIdentProc.id() is not a local offset.
-    KOKKOS_ASSERT(m_bulk_data->parallel_size() <= 1);
+void NeighborSearchProcessor::UnpackSearchResultsIntoField(ResultViewType &search_results, size_t num_domain_nodes) {
+    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
+    const int my_rank = m_bulk_data->parallel_rank();
+    bool serial = (m_bulk_data->parallel_size() == 1);
+
+    CalculateResultsDistances(search_results);
+
+    if (m_bulk_data->parallel_size() > 1) {
+        Kokkos::sort(search_results, ParallelRunComparator(my_rank));
+    } else {
+        Kokkos::sort(search_results, SerialRunComparator());
+    }
 
     // Get aperi fields
     m_aperi_node_neighbors_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
@@ -234,11 +280,16 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
     auto ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
     Kokkos::View<size_t *> node_index_starts("node_index_starts", num_domain_nodes);
+    // Initialize the node index starts to 0
+    Kokkos::deep_copy(node_index_starts, 0);
     // Compute the start indices for each node. This is the location where the node index changes in the search results.
     Kokkos::parallel_scan(
         "ComputeNodeIndexStarts", Kokkos::RangePolicy<>(0, search_results.size()),
         KOKKOS_CLASS_LAMBDA(const size_t i, size_t &update, const bool final) {
             auto result = search_results(i);
+            if (result.domainIdentProc.proc() != my_rank) {
+                return;
+            }
             bool is_new = (i == 0) || (result.domainIdentProc.id() != search_results(i - 1).domainIdentProc.id());
             if (final && is_new) {
                 node_index_starts(update) = i;
@@ -254,31 +305,46 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
             // Get the start index for this node
             size_t start_index = node_index_starts(i);
             size_t end_index = (i + 1 < node_index_starts.size()) ? node_index_starts(i + 1) : search_results.size();
-            size_t range = end_index - start_index;
-
-            if (range > MAX_NODE_NUM_NEIGHBORS) {
-                // If the range is larger than the maximum number of neighbors, we will truncate it later
-                Kokkos::atomic_add(too_many_neighbors_count.data(), range - MAX_NODE_NUM_NEIGHBORS);
-                end_index = start_index + MAX_NODE_NUM_NEIGHBORS;
-                range = MAX_NODE_NUM_NEIGHBORS;
-            }
 
             // Get the node and neighbor entities and their indices
             stk::mesh::Entity node(search_results(start_index).domainIdentProc.id());
             aperi::Index node_index = ngp_mesh_data.EntityToIndex(node);
 
-            // Set the number of neighbors for this node
-            m_aperi_num_neighbors_field(node_index, 0) = static_cast<Unsigned>(range);
+            size_t insert_index = 0;
+            size_t num_extra_neighbors = 0;
 
             for (size_t j = start_index; j < end_index; ++j) {
                 // Get the search result for this node
                 auto result = search_results(j);
+                if (result.domainIdentProc.proc() != my_rank || result.rangeIdentProc.id().second == REAL_MAX) {
+                    continue;
+                }
                 KOKKOS_ASSERT(result.domainIdentProc.id() == search_results(start_index).domainIdentProc.id());
+                if (insert_index >= MAX_NODE_NUM_NEIGHBORS) {
+                    // If the insert index exceeds the maximum number of neighbors, we need to truncate
+                    num_extra_neighbors++;
+                    continue;
+                }
 
                 // The neighbors should be already sorted by distance, so we can insert them directly
-                size_t insert_index = j - start_index;  // This is the index in the neighbors list for this node
-                m_aperi_node_neighbors_field(node_index, insert_index) = result.rangeIdentProc.id().first;
+                auto identifier = result.rangeIdentProc.id().first;
+                if (!serial) {
+                    // If we are not in serial mode, we need to convert the global id to a local offset
+                    // There is no "get_entity" on device, currently.
+                    // TODO(jake): For multi-GPU support, we need to handle the case where the rangeIdentProc.id() is not a local offset.
+                    stk::mesh::Entity neighbor = m_bulk_data->get_entity(stk::topology::NODE_RANK, identifier);
+                    identifier = neighbor.local_offset();  // Convert the global id to a local offset
+                }
+                m_aperi_node_neighbors_field(node_index, insert_index) = static_cast<Unsigned>(identifier);
+                insert_index++;
             }
+
+            if (num_extra_neighbors > 0) {
+                Kokkos::atomic_add(too_many_neighbors_count.data(), num_extra_neighbors);
+            }
+
+            // Set the number of neighbors for this node
+            m_aperi_num_neighbors_field(node_index, 0) = static_cast<Unsigned>(insert_index);
         });
 
     // Report the number of extra neighbors
@@ -297,92 +363,9 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(const ResultViewType 
     m_aperi_num_neighbors_field.MarkModifiedOnDevice();
 }
 
-void NeighborSearchProcessor::UnpackSearchResultsIntoFieldHost(const ResultViewType::HostMirror &host_search_results) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
-    const int my_rank = m_bulk_data->parallel_rank();
-    const bool serial = m_bulk_data->parallel_size() <= 1;
-
-    size_t too_many_neighbors_count = 0;
-
-    for (size_t i = 0; i < host_search_results.size(); ++i) {
-        auto result = host_search_results(i);
-        if (result.domainIdentProc.proc() == my_rank) {
-            stk::mesh::Entity node(result.domainIdentProc.id());
-            stk::mesh::Entity neighbor = serial ? stk::mesh::Entity(result.rangeIdentProc.id().first) : m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id().first);
-            KOKKOS_ASSERT(stk::mesh::field_data(*m_node_active_field, neighbor)[0] != 0);  // Ensure the neighbor is active
-
-            Unsigned &num_neighbors = *stk::mesh::field_data(*m_node_num_neighbors_field, node);
-            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-
-            const double *p_neighbor_coordinates = stk::mesh::field_data(*m_coordinates_field, neighbor);
-            const double *p_node_coordinates = stk::mesh::field_data(*m_coordinates_field, node);
-
-            // Calculate the squared distance between the node and the neighbor
-            double distance_squared = 0.0;
-            for (size_t j = 0; j < 3; ++j) {
-                const double value = p_neighbor_coordinates[j] - p_node_coordinates[j];
-                distance_squared += value * value;
-            }
-
-            // Find where to insert the neighbor, based on the distance
-            double *p_function_values = stk::mesh::field_data(*m_node_function_values_field, node);
-            size_t insert_index = (size_t)num_neighbors;  // Default to the end of the list
-            for (size_t j = 0; j < insert_index; ++j) {
-                if (distance_squared < p_function_values[j]) {
-                    insert_index = j;
-                    break;
-                }
-            }
-
-            // If we're at max neighbors and the new neighbor is further than all existing ones, skip it
-            if (num_neighbors == MAX_NODE_NUM_NEIGHBORS && insert_index == MAX_NODE_NUM_NEIGHBORS) {
-                continue;  // Skip to the next node in the loop
-            }
-
-            // Shift the function values and neighbors to make room for the new neighbor
-            size_t reverse_start_index = (size_t)num_neighbors;
-            if (reverse_start_index == MAX_NODE_NUM_NEIGHBORS) {
-                ++too_many_neighbors_count;
-                --reverse_start_index;
-            } else {
-                num_neighbors += 1;
-            }
-
-            Unsigned *p_neighbor_data = stk::mesh::field_data(*m_node_neighbors_field, node);
-            for (size_t j = reverse_start_index; j > insert_index; --j) {
-                p_function_values[j] = p_function_values[j - 1];
-                p_neighbor_data[j] = p_neighbor_data[j - 1];
-            }
-
-            // Insert the new neighbor
-            p_function_values[insert_index] = distance_squared;
-            p_neighbor_data[insert_index] = neighbor.local_offset();
-            KOKKOS_ASSERT(num_neighbors <= MAX_NODE_NUM_NEIGHBORS);
-        }
-    }
-
-    // Report the number of extra neighbors
-    size_t global_too_many_neighbors_count = 0;
-    MPI_Allreduce(&too_many_neighbors_count, &global_too_many_neighbors_count, 1, MPI_UNSIGNED_LONG, MPI_SUM, m_bulk_data->parallel());
-    if (global_too_many_neighbors_count > 0) {
-        aperi::CoutP0() << "Warning: Found " << global_too_many_neighbors_count << " total extra neighbors. Truncated any neighbor lists that were longer than " << MAX_NODE_NUM_NEIGHBORS << " neighbors. Removed furthest neighbors." << std::endl;
-    }
-
-    // Never communicate the neighbors field. The shared nodes need to have a processor local value and not the value of the owning processor.
-    m_node_neighbors_field->modify_on_host();
-    m_node_num_neighbors_field->modify_on_host();
-    m_node_neighbors_field->sync_to_device();
-    m_node_num_neighbors_field->sync_to_device();
-}
-
 void NeighborSearchProcessor::CalculateResultsDistances(ResultViewType &search_results) {
     const int my_rank = m_bulk_data->parallel_rank();
-
-    // Ensure that this code is only run in serial mode. The rangeIdentProc.id() needs to be the local offset of the neighbor.
-    // The UnpackSearchResultsIntoFieldHost function will handle the case where the parallel size is greater than 1, for now.
-    // There is no "get_entity" on device, currently.
-    // TODO(jake): For multi-GPU support, we need to handle the case where the rangeIdentProc.id() is not a local offset.
-    KOKKOS_ASSERT(m_bulk_data->parallel_size() <= 1);
+    const bool serial = m_bulk_data->parallel_size() <= 1;
 
     // Get aperi fields
     auto coordinates_field = aperi::Field(m_mesh_data, aperi::FieldQueryData<Real>{m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
@@ -395,17 +378,27 @@ void NeighborSearchProcessor::CalculateResultsDistances(ResultViewType &search_r
             if (result.domainIdentProc.proc() == my_rank) {
                 stk::mesh::Entity node(result.domainIdentProc.id());
                 aperi::Index node_index = ngp_mesh_data.EntityToIndex(node);
-                stk::mesh::Entity neighbor(result.rangeIdentProc.id().first);
+
+                // There is no "get_entity" on device, currently.
+                // TODO(jake): For multi-GPU support, we need to handle the case where the rangeIdentProc.id() is not a local offset.
+                stk::mesh::Entity neighbor = serial ? stk::mesh::Entity(result.rangeIdentProc.id().first) : m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id().first);
                 aperi::Index neighbor_index = ngp_mesh_data.EntityToIndex(neighbor);
 
                 // Ensure the neighbor is active
                 KOKKOS_ASSERT(node_active_field(neighbor_index, 0) != 0);
 
-                const Eigen::Matrix<Real, 3, 1> neighbor_coordinates = coordinates_field.GetEigenVectorMap(neighbor_index, 3);
+                Eigen::Matrix<Real, 3, 1> neighbor_coordinates = coordinates_field.GetEigenVectorMap(neighbor_index, 3);
                 const Eigen::Matrix<Real, 3, 1> node_coordinates = coordinates_field.GetEigenVectorMap(node_index, 3);
 
+                // Tweak the neighbor_coordinates to avoid numerical issues. Multiply x by 1+1.0e-6, y by 1+1.0e-7, and z by 1+1.0e-8
+                neighbor_coordinates(0) *= 1 + 1.0e-6;
+                neighbor_coordinates(1) *= 1 + 1.0e-7;
+                neighbor_coordinates(2) *= 1 + 1.0e-8;
+
+                const Eigen::Matrix<Real, 3, 1> neighbor_coordinates_diff = neighbor_coordinates - node_coordinates;
+
                 // Calculate the squared distance between the node and the neighbor
-                double distance_squared = (neighbor_coordinates - node_coordinates).squaredNorm();
+                double distance_squared = neighbor_coordinates_diff.squaredNorm();
 
                 // Store the distance in the result
                 auto result_range_id = result.rangeIdentProc.id();
@@ -414,17 +407,6 @@ void NeighborSearchProcessor::CalculateResultsDistances(ResultViewType &search_r
             }
         });
 }
-
-struct Comparator {
-    KOKKOS_INLINE_FUNCTION
-    bool operator()(const ResultViewType::value_type &a, const ResultViewType::value_type &b) const {
-        // Compare based on the domainIdentProc.id() (which is the node index) and the rangeIdentProc.id().second (which is the distance squared)
-        if (a.domainIdentProc.id() != b.domainIdentProc.id()) {
-            return a.domainIdentProc.id() < b.domainIdentProc.id();
-        }
-        return a.rangeIdentProc.id().second < b.rangeIdentProc.id().second;  // Compare squared distances
-    }
-};
 
 void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets) {
     aperi::Selector domain_selector = GetDomainSelector(sets, m_mesh_data.get());
@@ -451,14 +433,9 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
             Kokkos::deep_copy(host_search_results, search_results);
         }
         GhostNodeNeighbors(host_search_results);
-        UnpackSearchResultsIntoFieldHost(host_search_results);
-    } else {
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
-        CalculateResultsDistances(search_results);
-        Kokkos::sort(search_results, Comparator());
-        size_t num_domain_nodes = node_points.size();
-        UnpackSearchResultsIntoField(search_results, num_domain_nodes);
     }
+    size_t num_domain_nodes = node_points.size();
+    UnpackSearchResultsIntoField(search_results, num_domain_nodes);
 
     // Check the validity of the neighbors field
     aperi::Selector owned_selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);

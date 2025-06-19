@@ -61,14 +61,13 @@ class NeighborSearchProcessor {
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
     void CalculateResultsDistances(ResultViewType &search_results);
-    void UnpackSearchResultsIntoField(const ResultViewType &_search_results, size_t num_domain_nodes);
+    void UnpackSearchResultsIntoField(ResultViewType &_search_results, size_t num_domain_nodes);
 
     DomainViewType CreateNodePoints(const aperi::Selector &selector);
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
-    void UnpackSearchResultsIntoFieldHost(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
