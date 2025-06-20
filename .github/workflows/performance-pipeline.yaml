@@ -311,6 +311,13 @@ jobs:
         shell: bash
         run: ./.github/workflows/collect_performance_test_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
 
+      - name: Checkout gh-pages branch
+        run: |
+          # Checkout gh-pages branch
+          git fetch origin gh-pages
+          git checkout gh-pages
+          git pull origin gh-pages
+
       - name: Run performance comparison script
         run: |
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
@@ -319,13 +326,6 @@ jobs:
               cd ~/aperi-mech
               python3 test/utils/scripts/check_new_performance_data.py
           EOF
-
-      - name: Checkout gh-pages branch
-        run: |
-          # Checkout gh-pages branch
-          git fetch origin gh-pages
-          git checkout gh-pages
-          git pull origin gh-pages
 
       - name: Transfer benchmark data from VM to GitHub Actions runner (gh-pages summary)
         run: |
