@@ -19,6 +19,9 @@
     <div id="timing_plot_total"></div>
     <script>
 	    // Load the JSON data
+        function symlog(val) {
+            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+        }
         fetch('performance_comparison_timing_results.json')
             .then(response => response.json())
             .then(data => {
@@ -27,10 +30,13 @@
                 const value_new = data.map(d => d.value_new);
                 const percent_total_difference = data.map(d => d.percent_total_difference);
 
+                const value_new_symlog = value_new.map(symlog);
+                const percent_total_difference_symlog = percent_total_difference.map(symlog);
+
                 // Create the plot
                 const trace = {
-                    x: value_new,
-                    y: percent_total_difference,
+                    x: value_new_symlog,
+                    y: percent_total_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -47,14 +53,12 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison',
+                    title: 'Performance Comparison (symlog axes)',
                     xaxis: {
-                        title: 'New Value (symlog scale)',
-                        type: 'symlog'
+                        title: 'New Value (symlog scale)'
                     },
                     yaxis: {
-                        title: 'Percent Difference in Total Time of Timer Group',
-                        type: 'symlog'
+                        title: 'Percent Difference in Total Time of Timer Group (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
@@ -66,6 +70,9 @@
     <div id="timing_plot"></div>
     <script>
 	    // Load the JSON data
+        function symlog(val) {
+            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+        }
         fetch('performance_comparison_timing_results.json')
             .then(response => response.json())
             .then(data => {
@@ -74,10 +81,13 @@
                 const value_new = data.map(d => d.value_new);
                 const percent_difference = data.map(d => d.percent_difference);
 
+                const value_new_symlog = value_new.map(symlog);
+                const percent_difference_symlog = percent_difference.map(symlog);
+
                 // Create the plot
                 const trace = {
-                    x: value_new,
-                    y: percent_difference,
+                    x: value_new_symlog,
+                    y: percent_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -94,14 +104,12 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison',
+                    title: 'Performance Comparison (symlog axes)',
                     xaxis: {
-                        title: 'New Value (symlog scale)',
-                        type: 'symlog'
+                        title: 'New Value (symlog scale)'
                     },
                     yaxis: {
-                        title: 'Percent Difference',
-                        type: 'symlog'
+                        title: 'Percent Difference (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
@@ -113,18 +121,24 @@
     <div id="memory_plot"></div>
     <script>
 	    // Load the JSON data
+        function symlog(val) {
+            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+        }
         fetch('performance_comparison_memory_results.json')
             .then(response => response.json())
-            .then data => {
+            .then(data => {
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_new = data.map(d => d.value_new);
                 const percent_difference = data.map(d => d.percent_difference);
 
+                const value_new_symlog = value_new.map(symlog);
+                const percent_difference_symlog = percent_difference.map(symlog);
+
                 // Create the plot
                 const trace = {
-                    x: value_new,
-                    y: percent_difference,
+                    x: value_new_symlog,
+                    y: percent_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -141,14 +155,12 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison',
+                    title: 'Performance Comparison (symlog axes)',
                     xaxis: {
-                        title: 'New Value (symlog scale)',
-                        type: 'symlog'
+                        title: 'New Value (symlog scale)'
                     },
                     yaxis: {
-                        title: 'Percent Difference',
-                        type: 'symlog'
+                        title: 'Percent Difference (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
