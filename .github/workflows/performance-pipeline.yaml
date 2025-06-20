@@ -68,6 +68,7 @@ jobs:
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
 
       - name: Checkout Code on VM
         # This step is only run if the workflow was triggered manually, assumes that the code is already checked out on the VM otherwise
@@ -157,6 +158,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: false
           with-protego: false
 
@@ -194,6 +196,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: true
           with-protego: false
 
@@ -221,6 +224,7 @@ jobs:
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
 
       - name: Run gtest performance tests
         uses: ./.github/actions/run-gtest-performance-tests
@@ -272,6 +276,7 @@ jobs:
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
 
       - name: Run gtest performance tests
         uses: ./.github/actions/run-gtest-performance-tests
@@ -306,6 +311,7 @@ jobs:
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
 
       - name: Collect performance test results
         shell: bash
