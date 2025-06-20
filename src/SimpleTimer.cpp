@@ -19,7 +19,7 @@ SimpleTimer::SimpleTimer(const std::string& name, const std::string& log_file, c
     }
     m_start_time = std::chrono::high_resolution_clock::now();
     if (IsEnabled()) {
-        LogEvent("START", m_start_time);
+        LogEvent("START", m_start_time, 0.0);
     }
 }
 
@@ -30,7 +30,8 @@ SimpleTimer::~SimpleTimer() {
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     if (IsEnabled()) {
-        LogEvent("END", end_time);
+        double elapsed = std::chrono::duration<double>(end_time - m_start_time).count();
+        LogEvent("END", end_time, elapsed);
     }
 }
 
@@ -39,17 +40,18 @@ bool SimpleTimer::IsEnabled() {
 }
 
 // Log an event (START or END) to the log file with timestamp and optional metadata
-void SimpleTimer::LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point) const {
+void SimpleTimer::LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point, double elapsed) const {
     // Convert time_point to seconds since epoch with high precision
     auto epoch = time_point.time_since_epoch();
     double timestamp = std::chrono::duration<double>(epoch).count();
 
-    // Format: EVENT_TYPE,TIMER_NAME,TIMESTAMP[,METADATA]
+    // Format: EVENT_TYPE,TIMER_NAME,TIMESTAMP[,ELAPSED][,METADATA]
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(9)
         << event_type << ","
         << m_name << ","
-        << timestamp;
+        << timestamp << ","
+        << elapsed;
     if (!m_metadata.empty()) {
         oss << "," << m_metadata;
     }

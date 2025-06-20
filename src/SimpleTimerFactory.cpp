@@ -2,42 +2,45 @@
 
 namespace aperi {
 
-// Set the default log file path for all timers
 void SimpleTimerFactory::SetDefaultLogFile(const std::string& filename) {
-    GetLogFile() = filename;
+    GetLogFileRef() = filename;
 }
 
-// Set whether all timers should use accurate timing
 void SimpleTimerFactory::SetAccurateTimers(bool enabled) {
-    GetAccurateTimers() = enabled;
+    GetAccurateTimersRef() = enabled;
 }
 
-// Create a new SimpleTimer with the current default log file and accurate timer setting
+void SimpleTimerFactory::SetEnabled(bool enabled) {
+    GetEnabledRef() = enabled;
+}
+
+bool SimpleTimerFactory::IsEnabled() {
+    return GetEnabledRef();
+}
+
 std::unique_ptr<SimpleTimer> SimpleTimerFactory::Create(const std::string& name, const std::string& metadata) {
-    return std::make_unique<SimpleTimer>(name, GetLogFile(), metadata, GetAccurateTimers());
+    return std::make_unique<SimpleTimer>(name, GetLogFileRef(), metadata, GetAccurateTimersRef());
 }
 
-// Static accessor for the log file path
-std::string& SimpleTimerFactory::GetLogFile() {
+const std::string& SimpleTimerFactory::GetDefaultLogFile() {
+    return GetLogFileRef();
+}
+
+bool SimpleTimerFactory::GetAccurateTimers() {
+    return GetAccurateTimersRef();
+}
+
+std::string& SimpleTimerFactory::GetLogFileRef() {
     static std::string log_file = "timing.log";
     return log_file;
 }
 
-// Static accessor for the accurate timer flag
-bool& SimpleTimerFactory::GetAccurateTimers() {
+bool& SimpleTimerFactory::GetAccurateTimersRef() {
     static bool accurate = false;
     return accurate;
 }
 
-void SimpleTimerFactory::SetEnabled(bool enabled) {
-    GetEnabled() = enabled;
-}
-
-bool SimpleTimerFactory::IsEnabled() {
-    return GetEnabled();
-}
-
-bool& SimpleTimerFactory::GetEnabled() {
+bool& SimpleTimerFactory::GetEnabledRef() {
     static bool enabled = true;
     return enabled;
 }

@@ -13,6 +13,7 @@
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
+#include "ManualScopeTimerFactory.h"
 #include "MassUtils.h"
 #include "Material.h"
 #include "MathUtils.h"
@@ -203,6 +204,9 @@ void ExplicitSolver::BuildMassMatrix() {
 }
 
 double ExplicitSolver::Solve() {
+    // Add the simple timer for the explicit solver
+    auto explicit_solver_timer = aperi::SimpleTimerFactory::Create(aperi::SolverTimerType::Total, aperi::explicit_solver_timer_names_map);
+
     // Print the number of nodes
     mp_mesh_data->PrintNodeCounts();
 
@@ -230,11 +234,23 @@ double ExplicitSolver::Solve() {
                     << "Marching through time steps:" << std::endl;
     LogHeader();
 
+    // Create ManualScopeTimers for each function you want to accumulate
+    auto update_field_states_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::UpdateFieldStates, explicit_solver_timer_names_map);
+    auto compute_force_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::ComputeForce, explicit_solver_timer_names_map);
+    auto communicate_force_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::CommunicateForce, explicit_solver_timer_names_map);
+    auto update_shape_functions_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::UpdateShapeFunctions, explicit_solver_timer_names_map);
+    auto write_output_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::WriteOutput, explicit_solver_timer_names_map);
+    auto time_step_compute_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::TimeStepCompute, explicit_solver_timer_names_map);
+    auto time_integration_nodal_updates_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::TimeIntegrationNodalUpdates, explicit_solver_timer_names_map);
+    auto apply_boundary_conditions_timer = aperi::ManualScopeTimerFactory::Create(SolverTimerType::ApplyBoundaryConditions, explicit_solver_timer_names_map);
+
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
     {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
+        time_step_compute_timer->Start();
         time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+        time_step_compute_timer->Stop();
     }
     double time_increment = time_increment_data.time_increment;
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
@@ -246,7 +262,9 @@ double ExplicitSolver::Solve() {
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     {
         auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+        time_integration_nodal_updates_timer->Start();
         explicit_time_integrator->ComputeAcceleration();
+        time_integration_nodal_updates_timer->Stop();
     }
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
@@ -256,7 +274,9 @@ double ExplicitSolver::Solve() {
     aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
     if (m_output_scheduler->AtNextEvent(time)) {
         LogEvent(n, time, 0.0, average_runtime, "Write Field Output");
+        write_output_timer->Start();
         WriteOutput(time);
+        write_output_timer->Stop();
     }
 
     // Loop over time steps
@@ -269,12 +289,16 @@ double ExplicitSolver::Solve() {
         auto start_time = std::chrono::high_resolution_clock::now();
 
         // Swap states n and np1
+        update_field_states_timer->Start();
         UpdateFieldStates();
+        update_field_states_timer->Stop();
 
         // Get the next time step, Δt^{n+½}
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
+            time_step_compute_timer->Start();
             time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+            time_step_compute_timer->Stop();
         }
         time_increment = time_increment_data.time_increment;
         if (time_increment_data.updated) {
@@ -289,47 +313,63 @@ double ExplicitSolver::Solve() {
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeFirstPartialUpdate();
+            time_integration_nodal_updates_timer->Stop();
         }
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
+            apply_boundary_conditions_timer->Start();
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyVelocity(time_midstep);
             }
+            apply_boundary_conditions_timer->Stop();
         }
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->UpdateDisplacements();
+            time_integration_nodal_updates_timer->Stop();
         }
 
         // Compute the force, f^{n+1}
+        compute_force_timer->Start();
         ComputeForce(aperi::SolverTimerType::ComputeForce, time, time_increment);
+        compute_force_timer->Stop();
 
         // Communicate the force field data
+        communicate_force_timer->Start();
         CommunicateForce(aperi::SolverTimerType::CommunicateForce);
+        communicate_force_timer->Stop();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeAcceleration();
+            time_integration_nodal_updates_timer->Stop();
         }
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
+            apply_boundary_conditions_timer->Start();
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyAcceleration(time_next);
             }
+            apply_boundary_conditions_timer->Stop();
         }
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         {
             auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
+            time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeSecondPartialUpdate();
+            time_integration_nodal_updates_timer->Stop();
         }
 
         // Compute the energy balance
@@ -350,14 +390,28 @@ double ExplicitSolver::Solve() {
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
             LogEvent(n, time, time_increment, average_runtime, "Write Field Output");
+            write_output_timer->Start();
             WriteOutput(time);
+            write_output_timer->Stop();
         }
 
         // Update the shape functions
+        update_shape_functions_timer->Start();
         UpdateShapeFunctions(n, explicit_time_integrator);
+        update_shape_functions_timer->Stop();
     }
     LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
     LogLine();
+
+    // After the loop, dump the accumulated timing results
+    update_field_states_timer->Dump();
+    compute_force_timer->Dump();
+    communicate_force_timer->Dump();
+    update_shape_functions_timer->Dump();
+    write_output_timer->Dump();
+    time_step_compute_timer->Dump();
+    time_integration_nodal_updates_timer->Dump();
+    apply_boundary_conditions_timer->Dump();
 
     return average_runtime;
 }

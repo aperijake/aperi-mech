@@ -7,6 +7,7 @@
 #include "Material.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
 #include "TimerTypes.h"
 

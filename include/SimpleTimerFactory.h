@@ -60,24 +60,34 @@ class SimpleTimerFactory {
      */
     static bool IsEnabled();
 
+    /**
+     * @brief Get the current default log file path.
+     */
+    static const std::string& GetDefaultLogFile();
+
+    /**
+     * @brief Get the current accurate timer flag.
+     */
+    static bool GetAccurateTimers();
+
    private:
     /**
      * @brief Accessor for the static log file path.
      * @return Reference to the log file path string.
      */
-    static std::string& GetLogFile();
+    static std::string& GetLogFileRef();
 
     /**
      * @brief Accessor for the static accurate timer flag.
      * @return Reference to the accurate timer flag.
      */
-    static bool& GetAccurateTimers();
+    static bool& GetAccurateTimersRef();
 
     /**
      * @brief Accessor for the static enable/disable flag.
      * @return Reference to the enable/disable flag.
      */
-    static bool& GetEnabled();
+    static bool& GetEnabledRef();
 };
 
 }  // namespace aperi

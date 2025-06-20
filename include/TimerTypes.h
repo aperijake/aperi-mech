@@ -84,8 +84,69 @@ enum class ElementTimerType {
 };
 
 inline const std::map<ElementTimerType, std::string> element_timer_map = {
-    {ElementTimerType::CreateElementForceProcessor, "CreateElementForceProcessor"},
-    {ElementTimerType::Other, "Other"},
-    {ElementTimerType::NONE, "NONE"}};
+    {ElementTimerType::CreateElementForceProcessor, "Element_CreateElementForceProcessor"},
+    {ElementTimerType::Other, "Element_Other"},
+    {ElementTimerType::NONE, "Element_NONE"}};
+
+enum class StrainSmoothingTimerType {
+    Instantiate,
+    ComputeDerivatives,
+    BuildSmoothedCellData,
+    NONE
+};
+
+inline const std::map<StrainSmoothingTimerType, std::string> strain_smoothing_timer_map = {
+    {StrainSmoothingTimerType::Instantiate, "StrainSmoothingProcessor_Instantiate"},
+    {StrainSmoothingTimerType::ComputeDerivatives, "StrainSmoothingProcessor_ComputeDerivatives"},
+    {StrainSmoothingTimerType::BuildSmoothedCellData, "StrainSmoothingProcessor_BuildSmoothedCellData"},
+    {StrainSmoothingTimerType::NONE, "StrainSmoothingProcessor_NONE"}};
+
+enum class SmoothedCellDataTimerType {
+    LabelParts,
+    Instantiate,
+    SyncFields,
+    AddCellNumElements,
+    SetCellLocalOffsets,
+    SetNodeIndiciesAndMap,
+    SetFunctionDerivatives,
+    NONE
+};
+
+inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data_timer_map = {
+    {SmoothedCellDataTimerType::LabelParts, "SmoothedCellData_LabelParts"},
+    {SmoothedCellDataTimerType::Instantiate, "SmoothedCellData_Instantiate"},
+    {SmoothedCellDataTimerType::SyncFields, "SmoothedCellData_SyncFields"},
+    {SmoothedCellDataTimerType::AddCellNumElements, "SmoothedCellData_AddCellNumElements"},
+    {SmoothedCellDataTimerType::SetCellLocalOffsets, "SmoothedCellData_SetCellLocalOffsets"},
+    {SmoothedCellDataTimerType::SetNodeIndiciesAndMap, "SmoothedCellData_SetNodeIndiciesAndMap"},
+    {SmoothedCellDataTimerType::SetFunctionDerivatives, "SmoothedCellData_SetFunctionDerivatives"},
+    {SmoothedCellDataTimerType::NONE, "SmoothedCellData_NONE"}};
+
+enum class SolverTimerType {
+    Total,
+    UpdateFieldStates,
+    ApplyBoundaryConditions,
+    ComputeForce,
+    TimeIntegrationNodalUpdates,
+    CommunicateDisplacements,
+    CommunicateForce,
+    TimeStepCompute,
+    WriteOutput,
+    UpdateShapeFunctions,
+    NONE
+};
+
+inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_map = {
+    {SolverTimerType::Total, "Solver_Total"},
+    {SolverTimerType::UpdateFieldStates, "Solver_UpdateFieldStates"},
+    {SolverTimerType::ApplyBoundaryConditions, "Solver_ApplyBoundaryConditions"},
+    {SolverTimerType::ComputeForce, "Solver_ComputeForce"},
+    {SolverTimerType::TimeIntegrationNodalUpdates, "Solver_TimeIntegrationNodalUpdates"},
+    {SolverTimerType::CommunicateDisplacements, "Solver_CommunicateDisplacements"},
+    {SolverTimerType::CommunicateForce, "Solver_CommunicateForce"},
+    {SolverTimerType::TimeStepCompute, "Solver_TimeStepCompute"},
+    {SolverTimerType::WriteOutput, "Solver_WriteOutput"},
+    {SolverTimerType::UpdateShapeFunctions, "Solver_UpdateShapeFunctions"},
+    {SolverTimerType::NONE, "Solver_NONE"}};
 
 }  // namespace aperi

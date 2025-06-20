@@ -13,7 +13,9 @@
 #include "IoMesh.h"
 #include "MeshData.h"
 #include "Selector.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
+#include "TimerTypes.h"
 
 namespace aperi {
 
@@ -23,31 +25,6 @@ class ExternalForceContribution;
 class TimeStepper;
 template <typename EventType>
 class Scheduler;
-
-enum class SolverTimerType {
-    UpdateFieldStates,
-    ApplyBoundaryConditions,
-    ComputeForce,
-    TimeIntegrationNodalUpdates,
-    CommunicateDisplacements,
-    CommunicateForce,
-    TimeStepCompute,
-    WriteOutput,
-    UpdateShapeFunctions,
-    NONE
-};
-
-inline const std::map<SolverTimerType, std::string> explicit_solver_timer_names_map = {
-    {SolverTimerType::UpdateFieldStates, "UpdateFieldStates"},
-    {SolverTimerType::ApplyBoundaryConditions, "ApplyBoundaryConditions"},
-    {SolverTimerType::ComputeForce, "ComputeForce"},
-    {SolverTimerType::TimeIntegrationNodalUpdates, "TimeIntegrationNodalUpdates"},
-    {SolverTimerType::CommunicateDisplacements, "CommunicateDisplacements"},
-    {SolverTimerType::CommunicateForce, "CommunicateForce"},
-    {SolverTimerType::TimeStepCompute, "TimeStepCompute"},
-    {SolverTimerType::WriteOutput, "WriteOutput"},
-    {SolverTimerType::UpdateShapeFunctions, "UpdateShapeFunctions"},
-    {SolverTimerType::NONE, "NONE"}};
 
 /**
  * @class Solver

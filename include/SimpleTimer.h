@@ -27,7 +27,7 @@ class SimpleTimer {
     SimpleTimer(const std::string& name, const std::string& log_file, const std::string& metadata = "", bool accurate_timer = false);
 
     /**
-     * @brief Destructor logs the "END" event.
+     * @brief Destructor logs the "END" event with elapsed time.
      */
     ~SimpleTimer();
 
@@ -41,12 +41,13 @@ class SimpleTimer {
     static std::mutex s_log_mutex;  ///< Mutex for thread-safe file writes
 
     /**
-     * @brief Helper to log an event (either "START" or "END") with timestamp and metadata.
+     * @brief Helper to log an event (either "START" or "END") with timestamp, elapsed time (for END), and metadata.
      *
      * @param event_type Type of event ("START" or "END").
      * @param time_point Time point of the event.
+     * @param elapsed Elapsed time (only used for "END", 0.0 for "START").
      */
-    void LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point) const;
+    void LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point, double elapsed) const;
 
     /**
      * @brief Returns true if timing output is enabled (delegates to factory).

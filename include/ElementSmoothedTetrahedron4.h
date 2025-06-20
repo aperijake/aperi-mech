@@ -82,6 +82,7 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
     void CreateElementForceProcessor() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         // Create the element processor
         if (!m_mesh_data) {

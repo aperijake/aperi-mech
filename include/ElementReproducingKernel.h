@@ -70,9 +70,15 @@ class ElementReproducingKernel : public ElementBase {
         // Run neighbor search on all parts before doing this
         m_function_value_storage_processor->FinishPreprocessing();
         m_compute_force->FinishPreprocessing();
-        ComputeAndStoreFunctionValues(false /*check_failed_subcells*/);  // Dont want to check for failed subcells on the first pass
+        {
+            auto simple_timer = aperi::SimpleTimerFactory::Create(FunctionCreationProcessorTimerType::ComputeFunctionValues, aperi::function_value_storage_processor_timer_map);
+            ComputeAndStoreFunctionValues(false /*check_failed_subcells*/);  // Dont want to check for failed subcells on the first pass
+        }
         BuildSmoothedCellData();
-        ComputeFunctionDerivatives();
+        {
+            auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::SetFunctionDerivatives, smoothed_cell_data_timer_map);
+            ComputeFunctionDerivatives();
+        }
     }
 
     ReproducingKernelInfo GetReproducingKernelInfo() const override {
@@ -133,6 +139,7 @@ class ElementReproducingKernel : public ElementBase {
     void CreateElementForceProcessor() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         if (!m_mesh_data) {
             // Allowing for testing
