@@ -30,12 +30,11 @@
                 const value_new = data.map(d => d.value_new);
                 const percent_total_difference = data.map(d => d.percent_total_difference);
 
-                const value_new_symlog = value_new.map(symlog);
                 const percent_total_difference_symlog = percent_total_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
-                    x: value_new_symlog,
+                    x: value_new,
                     y: percent_total_difference_symlog,
                     text: names,
                     mode: 'markers',
@@ -53,9 +52,10 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison (symlog axes)',
+                    title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (symlog scale)'
+                        title: 'New Value (log scale)',
+                        type: 'log'
                     },
                     yaxis: {
                         title: 'Percent Difference in Total Time of Timer Group (symlog scale)'
@@ -81,12 +81,11 @@
                 const value_new = data.map(d => d.value_new);
                 const percent_difference = data.map(d => d.percent_difference);
 
-                const value_new_symlog = value_new.map(symlog);
                 const percent_difference_symlog = percent_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
-                    x: value_new_symlog,
+                    x: value_new,
                     y: percent_difference_symlog,
                     text: names,
                     mode: 'markers',
@@ -104,9 +103,10 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison (symlog axes)',
+                    title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (symlog scale)'
+                        title: 'New Value (log scale)',
+                        type: 'log'
                     },
                     yaxis: {
                         title: 'Percent Difference (symlog scale)'
@@ -132,12 +132,11 @@
                 const value_new = data.map(d => d.value_new);
                 const percent_difference = data.map(d => d.percent_difference);
 
-                const value_new_symlog = value_new.map(symlog);
                 const percent_difference_symlog = percent_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
-                    x: value_new_symlog,
+                    x: value_new,
                     y: percent_difference_symlog,
                     text: names,
                     mode: 'markers',
@@ -155,9 +154,10 @@
                 const data_plot = [trace];
 
                 const layout = {
-                    title: 'Performance Comparison (symlog axes)',
+                    title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (symlog scale)'
+                        title: 'New Value (log scale)',
+                        type: 'log'
                     },
                     yaxis: {
                         title: 'Percent Difference (symlog scale)'
