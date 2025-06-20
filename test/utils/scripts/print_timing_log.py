@@ -1,3 +1,4 @@
+import csv
 import sys
 
 
@@ -222,6 +223,44 @@ def print_top_events(events, top_n=10):
         print_event(name, event, events)
 
 
+def create_csv(events, run_name, filename="timing_log.csv"):
+    # Timer Name, Time (seconds), Run
+    # Explicit_Solver_UpdateFieldStates, 0.000295623, new_sort
+    # Explicit_Solver_ApplyBoundaryConditions, 0.00232225, new_sort
+    # Explicit_Solver_ComputeForce, 7.3051, new_sort
+    # Explicit_Solver_TimeIntegrationNodalUpdates, 0.0903948, new_sort
+    # Explicit_Solver_CommunicateDisplacements, 0, new_sort
+    # Explicit_Solver_CommunicateForce, 1.1958e-05, new_sort
+    # Explicit_Solver_TimeStepCompute, 1.1794e-05, new_sort
+    # Explicit_Solver_WriteOutput, 3.36621, new_sort
+    # Explicit_Solver_UpdateShapeFunctions, 0, new_sort
+
+    with open(filename, "w", newline="") as csvfile:
+        fieldnames = ["Timer Name", "Time (seconds)"]
+        if run_name:
+            fieldnames.append("Run")
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for name, event in events.items():
+            if event["elapsed"] > 0:
+                if run_name:
+                    writer.writerow(
+                        {
+                            "Timer Name": name,
+                            "Time (seconds)": f"{event['elapsed']:.6f}",
+                            "Run": run_name,
+                        }
+                    )
+                else:
+                    writer.writerow(
+                        {
+                            "Timer Name": name,
+                            "Time (seconds)": f"{event['elapsed']:.6f}",
+                        }
+                    )
+
+
 def main():
     import argparse
 
@@ -231,6 +270,22 @@ def main():
     parser.add_argument(
         "logfile", help="Path to timing log file (e.g., input_timer.log)"
     )
+    parser.add_argument(
+        "--run_name",
+        default="",
+        help="Name of the run to include in the CSV output (optional)",
+    )
+    parser.add_argument(
+        "--csv",
+        action="store_true",
+        help="Create a CSV file with the timing data (default: False)",
+    )
+    parser.add_argument(
+        "--csv_filename",
+        default="timing_log.csv",
+        help="Filename for the CSV output (default: timing_log.csv)",
+    )
+
     args = parser.parse_args()
 
     keys = get_keys(args.logfile)
@@ -245,6 +300,9 @@ def main():
     events = set_levels(events)
     print_event_tree(events)
     print_top_events(events, top_n=15)
+    if args.csv:
+        create_csv(events, args.run_name, filename=args.csv_filename)
+        print(f"CSV file created: {args.csv_filename}")
 
 
 if __name__ == "__main__":

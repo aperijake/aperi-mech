@@ -324,6 +324,10 @@ jobs:
               set -e # Exit on error
 
               cd ~/aperi-mech
+              # Checkout gh-pages branch
+              git fetch origin gh-pages
+              git checkout gh-pages
+              git pull origin gh-pages
               python3 test/utils/scripts/check_new_performance_data.py
           EOF
 
