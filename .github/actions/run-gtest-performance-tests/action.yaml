@@ -22,9 +22,6 @@ runs:
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
 
-    - name: Write known_hosts file
-      run: echo "${{ secrets.VM_KNOWN_HOST }}" > ~/.ssh/known_hosts
-
     - name: Run gtest performance tests
       shell: bash
       run: python3 ./.github/actions/run-gtest-performance-tests/run_gtest_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --build-type ${{ inputs.build-type }}

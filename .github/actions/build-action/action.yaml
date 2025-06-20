@@ -40,9 +40,6 @@ runs:
         echo "code-coverage: ${{ inputs.code-coverage }}"
         echo "with-protego: ${{ inputs.with-protego }}"
 
-    - name: Write known_hosts file
-      run: echo "${{ secrets.VM_KNOWN_HOST }}" > ~/.ssh/known_hosts
-
     - name: Build project
       shell: bash
       run: |

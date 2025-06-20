@@ -22,9 +22,6 @@ runs:
         echo "gpu: ${{ inputs.gpu }}"
         echo "parallel: ${{ inputs.parallel }}"
 
-    - name: Write known_hosts file
-      run: echo "${{ secrets.VM_KNOWN_HOST }}" > ~/.ssh/known_hosts
-
     - name: Run aperi-mech performance tests
       shell: bash
       run: python3 ./.github/actions/run-aperi-mech-performance-tests/run_aperi-mech_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --parallel ${{ inputs.parallel }}
