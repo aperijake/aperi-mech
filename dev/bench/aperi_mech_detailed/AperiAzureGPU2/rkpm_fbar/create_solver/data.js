@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750334875140,
+  "lastUpdate": 1750459977329,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -5900,6 +5900,358 @@ window.BENCHMARK_DATA = {
           {
             "name": "Neighbor_Search_Processor_ComputeKernelRadius_rkpm_fbar_taylor_bar_gpu_np_1",
             "value": 0.00449946,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "03d3ddeb0c58ffc3f64d8bffff92fc1dd2da8cf5",
+          "message": "fix ordering issue in performance pipeline [skip ci]",
+          "timestamp": "2025-06-20T21:53:27Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/03d3ddeb0c58ffc3f64d8bffff92fc1dd2da8cf5"
+        },
+        "date": 1750459976799,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Application_Setup_Application_Total_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.142538,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000076979,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000043885,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000104262,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 25.2056,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000035078,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.00728511,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000580444,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000040178,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 105.623,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000064394,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.000230886,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.0514937,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.0019377,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CoarseSearch_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 5.57519,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_KokkosDeepCopy_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_GhostNodeNeighbors_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.311001,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_SortSearchResults_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 2.52246,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_taylor_bar_cpu_np_1",
+            "value": 0.297019,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Total_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 1.99107,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.637011,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000047963,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000098883,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 6.23154,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000051911,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.00306049,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000316485,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000034698,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 33.0245,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_Instantiate_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000072151,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000086919,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.0221887,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.00228434,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CoarseSearch_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 1.54229,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_KokkosDeepCopy_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.000040138,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_GhostNodeNeighbors_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.10658,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.406829,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_SortSearchResults_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.799083,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_taylor_bar_cpu_np_4",
+            "value": 0.581311,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Total_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.210074,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000125924,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000050688,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00126122,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 26.0624,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000042653,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 2.47966,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.0204175,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000050017,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 19.392,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_Instantiate_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.000100755,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00453431,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00844456,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.00130846,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CoarseSearch_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.244728,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_KokkosDeepCopy_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_GhostNodeNeighbors_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.019778,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_SortSearchResults_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.258492,
+            "unit": "seconds"
+          },
+          {
+            "name": "Neighbor_Search_Processor_NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_taylor_bar_gpu_np_1",
+            "value": 0.0273601,
             "unit": "seconds"
           }
         ]
