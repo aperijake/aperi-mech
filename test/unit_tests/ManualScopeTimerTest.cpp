@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 
 #include <cstdio>
 #include <fstream>
@@ -15,6 +16,11 @@ namespace aperi {
 class ManualScopeTimerTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        int size = 1;
+        MPI_Comm_size(MPI_COMM_WORLD, &size);
+        if (size > 1) {
+            GTEST_SKIP() << "ManualScopeTimerTest only runs in serial (MPI size == 1)";
+        }
         m_log_file = "manual_scope_timer_test.log";
         std::remove(m_log_file.c_str());
         SimpleTimerFactory::SetEnabled(true);
@@ -30,6 +36,7 @@ class ManualScopeTimerTest : public ::testing::Test {
     std::string m_log_file;
 };
 
+// Helper to read all lines from a file (static to avoid ODR violation)
 static std::vector<std::string> ReadLines(const std::string& filename) {
     std::vector<std::string> lines;
     std::ifstream file(filename);
@@ -124,6 +131,18 @@ TEST_F(ManualScopeTimerTest, MetadataIsLogged) {
     ASSERT_EQ(lines.size(), 2u);
     EXPECT_NE(lines[0].find(",meta"), std::string::npos);
     EXPECT_NE(lines[1].find(",meta"), std::string::npos);
+}
+
+TEST_F(ManualScopeTimerTest, DisabledDoesNotLog) {
+    SimpleTimerFactory::SetEnabled(false);
+    ManualScopeTimer timer("DisabledEvent", m_log_file);
+    timer.Start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    timer.Stop();
+    timer.Dump();
+    auto lines = ReadLines(m_log_file);
+    EXPECT_TRUE(lines.empty());
+    SimpleTimerFactory::SetEnabled(true);
 }
 
 }  // namespace aperi

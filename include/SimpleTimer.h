@@ -11,6 +11,7 @@ namespace aperi {
  * @brief Logs start and end events to a file for timing analysis.
  *
  * Thread-safe. Optionally uses Kokkos::fence() for accurate timing.
+ * Honors global enable/disable flag from SimpleTimerFactory.
  */
 class SimpleTimer {
    public:

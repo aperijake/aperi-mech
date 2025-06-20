@@ -31,8 +31,7 @@ class SimpleTimerFactory {
      * @param metadata Optional metadata string.
      * @return Unique pointer to a SimpleTimer.
      */
-    static std::unique_ptr<SimpleTimer> Create(
-        const std::string& name, const std::string& metadata = "");
+    static std::unique_ptr<SimpleTimer> Create(const std::string& name, const std::string& metadata = "");
 
     /**
      * @brief Create a new SimpleTimer using an enum value for the timer name.
@@ -62,11 +61,13 @@ class SimpleTimerFactory {
 
     /**
      * @brief Get the current default log file path.
+     * @return Reference to the log file path string.
      */
     static const std::string& GetDefaultLogFile();
 
     /**
      * @brief Get the current accurate timer flag.
+     * @return True if accurate timers are enabled.
      */
     static bool GetAccurateTimers();
 

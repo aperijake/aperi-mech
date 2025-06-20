@@ -1,5 +1,7 @@
 #include "SimpleTimer.h"
 
+#include <mpi.h>
+
 #include <iomanip>
 #include <sstream>
 
@@ -23,7 +25,7 @@ SimpleTimer::SimpleTimer(const std::string& name, const std::string& log_file, c
     }
 }
 
-// Destructor: Optionally fences for accuracy, logs "END" event
+// Destructor: Optionally fences for accuracy, logs "END" event with elapsed time
 SimpleTimer::~SimpleTimer() {
     if (m_accurate_timer) {
         Kokkos::fence();
@@ -39,13 +41,18 @@ bool SimpleTimer::IsEnabled() {
     return SimpleTimerFactory::IsEnabled();
 }
 
-// Log an event (START or END) to the log file with timestamp and optional metadata
+// Log an event (START or END) to the log file with timestamp, elapsed, and optional metadata
 void SimpleTimer::LogEvent(const std::string& event_type, const std::chrono::time_point<std::chrono::high_resolution_clock>& time_point, double elapsed) const {
+    // Only output on rank 0
+    int rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank != 0) return;
+
     // Convert time_point to seconds since epoch with high precision
     auto epoch = time_point.time_since_epoch();
     double timestamp = std::chrono::duration<double>(epoch).count();
 
-    // Format: EVENT_TYPE,TIMER_NAME,TIMESTAMP[,ELAPSED][,METADATA]
+    // Format: EVENT_TYPE,TIMER_NAME,TIMESTAMP,ELAPSED[,METADATA]
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(9)
         << event_type << ","

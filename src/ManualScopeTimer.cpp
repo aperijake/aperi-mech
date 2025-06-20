@@ -1,5 +1,7 @@
 #include "ManualScopeTimer.h"
 
+#include <mpi.h>
+
 #include <iomanip>
 #include <sstream>
 
@@ -42,12 +44,18 @@ void ManualScopeTimer::Stop() {
 
 void ManualScopeTimer::Dump() const {
     if (!IsEnabled()) return;
+    int rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank != 0) return;
+
     std::lock_guard<std::mutex> lock(s_log_mutex);
     std::ofstream ofs(m_log_file, std::ios::app);
     if (!ofs.is_open()) return;
+    // Log ACCUMULATOR_START with 0.0 elapsed for compatibility
     ofs << "ACCUMULATOR_START," << m_name << "," << std::fixed << std::setprecision(9) << m_first_start_time << "," << 0.0;
     if (!m_metadata.empty()) ofs << "," << m_metadata;
     ofs << std::endl;
+    // Log ACCUMULATOR_END with total elapsed
     ofs << "ACCUMULATOR_END," << m_name << "," << std::fixed << std::setprecision(9) << m_last_end_time << "," << m_total_time;
     if (!m_metadata.empty()) ofs << "," << m_metadata;
     ofs << std::endl;

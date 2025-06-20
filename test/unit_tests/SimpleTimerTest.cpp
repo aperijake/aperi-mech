@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 
 #include <cstdio>
 #include <fstream>
@@ -15,9 +16,13 @@ namespace aperi {
 class SimpleTimerTest : public ::testing::Test {
    protected:
     void SetUp() override {
+        int size = 1;
+        MPI_Comm_size(MPI_COMM_WORLD, &size);
+        if (size > 1) {
+            GTEST_SKIP() << "SimpleTimerTest only runs in serial (MPI size == 1)";
+        }
         // Use a unique log file for each test
         m_log_file = "simple_timer_test.log";
-        // Remove any existing file
         std::remove(m_log_file.c_str());
         // Set factory default
         SimpleTimerFactory::SetDefaultLogFile(m_log_file);
@@ -34,8 +39,8 @@ class SimpleTimerTest : public ::testing::Test {
     std::string m_log_file;
 };
 
-// Helper to read all lines from a file
-std::vector<std::string> ReadLines(const std::string& filename) {
+// Helper to read all lines from a file (static to avoid ODR violation)
+static std::vector<std::string> ReadLines(const std::string& filename) {
     std::vector<std::string> lines;
     std::ifstream file(filename);
     std::string line;
@@ -45,7 +50,7 @@ std::vector<std::string> ReadLines(const std::string& filename) {
     return lines;
 }
 
-TEST_F(SimpleTimerTest, LogsStartAndEndEvents) {
+TEST_F(SimpleTimerTest, LogsStartAndEndEventsWithElapsed) {
     {
         SimpleTimer timer("TestEvent", m_log_file);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -54,6 +59,14 @@ TEST_F(SimpleTimerTest, LogsStartAndEndEvents) {
     ASSERT_EQ(lines.size(), 2u);
     EXPECT_TRUE(lines[0].find("START,TestEvent,") == 0);
     EXPECT_TRUE(lines[1].find("END,TestEvent,") == 0);
+    // Check that elapsed time is present and positive in END line
+    auto parts = std::vector<std::string>();
+    std::istringstream iss(lines[1]);
+    std::string part;
+    while (std::getline(iss, part, ',')) parts.push_back(part);
+    ASSERT_GE(parts.size(), 4u);
+    double elapsed = std::stod(parts[3]);
+    EXPECT_GT(elapsed, 0.0);
 }
 
 TEST_F(SimpleTimerTest, LogsMetadata) {

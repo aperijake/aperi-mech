@@ -9,21 +9,39 @@ namespace aperi {
 
 /**
  * @brief Timer with explicit Start/Stop, logs only one start and one end event, accumulates total time.
+ *
+ * Thread-safe. Honors global enable/disable flag from SimpleTimerFactory.
  */
 class ManualScopeTimer {
    public:
+    /**
+     * @brief Construct a ManualScopeTimer.
+     * @param name Name of the timer/event.
+     * @param log_file Path to the log file.
+     * @param metadata Optional metadata string.
+     * @param accurate_timer If true, use Kokkos::fence() before timing.
+     */
     ManualScopeTimer(const std::string& name, const std::string& log_file, const std::string& metadata = "", bool accurate_timer = false);
 
-    // Start timing (can be called multiple times, only logs the first start)
+    /**
+     * @brief Start timing (can be called multiple times, only logs the first start).
+     */
     void Start();
 
-    // Stop timing (can be called multiple times, only logs the last stop)
+    /**
+     * @brief Stop timing (can be called multiple times, only logs the last stop).
+     */
     void Stop();
 
-    // Write the accumulator start and end events to the log file
+    /**
+     * @brief Write the accumulator start and end events to the log file (if enabled).
+     */
     void Dump() const;
 
-    // Get total accumulated time
+    /**
+     * @brief Get total accumulated time.
+     * @return Total time in seconds.
+     */
     double GetTotalTime() const;
 
    private:
@@ -42,6 +60,9 @@ class ManualScopeTimer {
 
     static std::mutex s_log_mutex;
 
+    /**
+     * @brief Get current time as seconds since epoch.
+     */
     double Now() const;
 
     /**
