@@ -49,12 +49,12 @@
                 const layout = {
                     title: 'Performance Comparison',
                     xaxis: {
-                        title: 'New Value (log scale)',
-                        type: 'log'
+                        title: 'New Value (symlog scale)',
+                        type: 'symlog'
                     },
                     yaxis: {
                         title: 'Percent Difference in Total Time of Timer Group',
-                        type: 'log'
+                        type: 'symlog'
                     },
                     hovermode: 'closest'
                 };
@@ -96,12 +96,12 @@
                 const layout = {
                     title: 'Performance Comparison',
                     xaxis: {
-                        title: 'New Value (log scale)',
-                        type: 'log'
+                        title: 'New Value (symlog scale)',
+                        type: 'symlog'
                     },
                     yaxis: {
                         title: 'Percent Difference',
-                        type: 'log'
+                        type: 'symlog'
                     },
                     hovermode: 'closest'
                 };
@@ -115,7 +115,7 @@
 	    // Load the JSON data
         fetch('performance_comparison_memory_results.json')
             .then(response => response.json())
-            .then(data => {
+            .then data => {
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_new = data.map(d => d.value_new);
@@ -143,12 +143,12 @@
                 const layout = {
                     title: 'Performance Comparison',
                     xaxis: {
-                        title: 'New Value (log scale)',
-                        type: 'log'
+                        title: 'New Value (symlog scale)',
+                        type: 'symlog'
                     },
                     yaxis: {
                         title: 'Percent Difference',
-                        type: 'log'
+                        type: 'symlog'
                     },
                     hovermode: 'closest'
                 };
