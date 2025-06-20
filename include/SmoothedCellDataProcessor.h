@@ -28,45 +28,13 @@
 #include "MeshData.h"
 #include "MeshLabeler.h"
 #include "MeshLabelerParameters.h"
+#include "SimpleTimerFactory.h"
 #include "SmoothedCellData.h"
 #include "Timer.h"
+#include "TimerTypes.h"
 #include "Types.h"
 
 namespace aperi {
-
-enum class StrainSmoothingTimerType {
-    Instantiate,
-    ComputeDerivatives,
-    BuildSmoothedCellData,
-    NONE
-};
-
-inline const std::map<StrainSmoothingTimerType, std::string> strain_smoothing_timer_map = {
-    {StrainSmoothingTimerType::Instantiate, "Instantiate"},
-    {StrainSmoothingTimerType::ComputeDerivatives, "ComputeDerivatives"},
-    {StrainSmoothingTimerType::BuildSmoothedCellData, "BuildSmoothedCellData"},
-    {StrainSmoothingTimerType::NONE, "NONE"}};
-
-enum class SmoothedCellDataTimerType {
-    LabelParts,
-    Instantiate,
-    SyncFields,
-    AddCellNumElements,
-    SetCellLocalOffsets,
-    SetNodeIndiciesAndMap,
-    SetFunctionDerivatives,
-    NONE
-};
-
-inline const std::map<SmoothedCellDataTimerType, std::string> smoothed_cell_data_timer_map = {
-    {SmoothedCellDataTimerType::LabelParts, "LabelParts"},
-    {SmoothedCellDataTimerType::Instantiate, "Instantiate"},
-    {SmoothedCellDataTimerType::SyncFields, "SyncFields"},
-    {SmoothedCellDataTimerType::AddCellNumElements, "AddCellNumElements"},
-    {SmoothedCellDataTimerType::SetCellLocalOffsets, "SetCellLocalOffsets"},
-    {SmoothedCellDataTimerType::SetNodeIndiciesAndMap, "SetNodeIndiciesAndMap"},
-    {SmoothedCellDataTimerType::SetFunctionDerivatives, "SetFunctionDerivatives"},
-    {SmoothedCellDataTimerType::NONE, "NONE"}};
 
 class SmoothedCellDataProcessor {
    public:
@@ -87,6 +55,7 @@ class SmoothedCellDataProcessor {
             throw std::runtime_error("Mesh data is null.");
         }
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::Instantiate, "Strain Smoothing Processor Instantiation");
+        auto simple_timer = aperi::SimpleTimerFactory::Create(StrainSmoothingTimerType::Instantiate, strain_smoothing_timer_map);
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
@@ -199,6 +168,7 @@ class SmoothedCellDataProcessor {
     void LabelParts() {
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::LabelParts);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::LabelParts, smoothed_cell_data_timer_map);
 
         // Create a mesh labeler
         std::shared_ptr<aperi::MeshLabeler> mesh_labeler = CreateMeshLabeler(m_mesh_data);
@@ -247,6 +217,7 @@ class SmoothedCellDataProcessor {
     std::shared_ptr<aperi::SmoothedCellData> InstantiateSmoothedCellData(size_t estimated_num_nodes_per_cell, bool one_pass_method, std::shared_ptr<aperi::TimerManager<SmoothedCellDataTimerType>> timer_manager) {
         // Create a scoped timer
         auto timer = timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::Instantiate);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::Instantiate, smoothed_cell_data_timer_map);
 
         // Get the sizes of the smoothed cell data
         SmoothedCellDataSizes sizes = GetSmoothedCellDataSizes(estimated_num_nodes_per_cell);
@@ -270,6 +241,7 @@ class SmoothedCellDataProcessor {
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::AddCellNumElements);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::AddCellNumElements, smoothed_cell_data_timer_map);
 
         // Get the functor to add the number of elements to the smoothed cell data
         auto add_subcell_num_elements_functor = m_smoothed_cell_data->GetAddSubcellNumElementsFunctor();
@@ -307,6 +279,7 @@ class SmoothedCellDataProcessor {
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetCellLocalOffsets);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::SetCellLocalOffsets, smoothed_cell_data_timer_map);
 
         // Get the functor to add the element to the smoothed cell data
         auto add_subcell_element_functor = m_smoothed_cell_data->GetAddSubcellElementFunctor();
@@ -451,6 +424,7 @@ class SmoothedCellDataProcessor {
 
         // Create a scoped timer
         auto timer = m_smoothed_cell_timer_manager->CreateScopedTimer(SmoothedCellDataTimerType::SetNodeIndiciesAndMap);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(SmoothedCellDataTimerType::SetNodeIndiciesAndMap, smoothed_cell_data_timer_map);
 
         // Get views of the node index lengths starts
         auto node_lengths = m_smoothed_cell_data->GetNodeCSRIndices().GetLengthView();
@@ -856,6 +830,7 @@ class SmoothedCellDataProcessor {
             timer_name += set + " ";
         }
         auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, timer_name);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(StrainSmoothingTimerType::BuildSmoothedCellData, strain_smoothing_timer_map);
 
         // Update the ngp mesh
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);

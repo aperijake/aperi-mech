@@ -3,6 +3,8 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "SimpleTimerFactory.h"  // Add this include
+
 class MPIKokkosEnvironment : public ::testing::Environment {
    public:
     void SetUp() override {
@@ -30,5 +32,9 @@ int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::UnitTest::GetInstance()->listeners().Append(new StreamResetter);
     ::testing::AddGlobalTestEnvironment(new MPIKokkosEnvironment);
+
+    // Disable timer logging globally for all tests by default
+    aperi::SimpleTimerFactory::SetEnabled(false);
+
     return RUN_ALL_TESTS();
 }

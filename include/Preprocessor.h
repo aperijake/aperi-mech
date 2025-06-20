@@ -51,7 +51,6 @@ inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const Reproducing
 
     // Add the search processor to the timer manager
     auto search_processor_timer_manager = search_processor.GetTimerManager();
-    search_processor_timer_manager->PrintTimers();
     if (timer_manager) {
         timer_manager->AddChild(search_processor.GetTimerManager());
     }

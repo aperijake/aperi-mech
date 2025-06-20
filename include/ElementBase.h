@@ -7,22 +7,13 @@
 #include "Material.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
+#include "TimerTypes.h"
 
 namespace aperi {
 
 class SmoothedCellData;
-
-enum class ElementTimerType {
-    CreateElementForceProcessor,
-    Other,
-    NONE
-};
-
-inline const std::map<ElementTimerType, std::string> element_timer_map = {
-    {ElementTimerType::CreateElementForceProcessor, "CreateElementForceProcessor"},
-    {ElementTimerType::Other, "Other"},
-    {ElementTimerType::NONE, "NONE"}};
 
 struct ReproducingKernelInfo {
     std::vector<std::string> part_names;

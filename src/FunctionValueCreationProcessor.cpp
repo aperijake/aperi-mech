@@ -24,6 +24,7 @@ FunctionCreationProcessor::FunctionCreationProcessor(
 
     // Start instantiation timer
     auto timer = m_timer_manager.CreateScopedTimer(FunctionCreationProcessorTimerType::Instantiate);
+    auto simple_timer = aperi::SimpleTimerFactory::Create(FunctionCreationProcessorTimerType::Instantiate, aperi::function_value_storage_processor_timer_map);
 
     // Initialize the selector based on the provided sets
     m_selector = aperi::Selector(sets, mesh_data.get());

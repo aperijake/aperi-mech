@@ -11,6 +11,8 @@
 
 #include "Application.h"
 #include "LogUtils.h"
+#include "SimpleTimerFactory.h"
+#include "TimerTypes.h"
 #include "git_commit.h"
 
 void RunApplication(const std::string& input_filename, MPI_Comm comm, bool dump_performance_data, const std::string& performance_data_runstring) {
@@ -130,8 +132,29 @@ int main(int argc, char* argv[]) {
     // Get input filename from command-line argument
     std::string input_filename = argv[1];
 
-    // Run the application
-    RunApplication(input_filename, p_comm, dump_performance_data, performance_data_runstring);
+    {
+        // Create a name for the timer file: input_filename - extension + _ + performance_data_runstring + _timer.log
+        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) +
+                                     (dump_performance_data ? "_" + performance_data_runstring : "") + "_timer.log";
+
+        // Replace spaces with underscores
+        std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
+
+        // Remove the file if it already exists
+        std::remove(timer_filename.c_str());
+
+        // Set the default log file for all timers created by this factory
+        aperi::SimpleTimerFactory::SetDefaultLogFile(timer_filename);
+
+        // Set whether all timers created should use accurate timing (Kokkos::fence())
+        aperi::SimpleTimerFactory::SetAccurateTimers(dump_performance_data);
+
+        // Create a simple timer to measure the total time taken by the application
+        auto timer = aperi::SimpleTimerFactory::Create(aperi::ApplicationTimerType::Total, aperi::application_timer_map);
+
+        // Run the application
+        RunApplication(input_filename, p_comm, dump_performance_data, performance_data_runstring);
+    }
 
     // Print footer
     auto end_time = std::chrono::system_clock::now();

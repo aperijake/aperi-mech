@@ -16,6 +16,7 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "SimpleTimerFactory.h"
 #include "Timer.h"
 #include "TimerTypes.h"
 #include "Types.h"

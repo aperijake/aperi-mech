@@ -70,6 +70,7 @@ class ElementTetrahedron4 : public ElementBase {
     void CreateElementForceProcessor() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         // Create the element processor
         if (!m_mesh_data) {
@@ -111,6 +112,7 @@ class ElementTetrahedron4 : public ElementBase {
     void CreateFunctors() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::Other, aperi::element_timer_map);
 
         // Functor for computing shape function derivatives
         size_t compute_shape_function_derivatives_functor_size = sizeof(ShapeFunctionsFunctorTet4);
@@ -161,6 +163,7 @@ class ElementTetrahedron4 : public ElementBase {
     void ComputeElementVolume() {
         // Create a scoped timer
         auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::Other, aperi::element_timer_map);
 
         // Check that the functors are created
         assert(m_element_node_processor != nullptr);
