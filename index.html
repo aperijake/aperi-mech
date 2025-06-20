@@ -15,12 +15,12 @@
         <li><a href="dev/bench/aperi_mech_detailed/AperiAzureGPU2/index.html">Detailed Executable Benchmarks</a></li>
     </ul>
     <h2>Timing Performance Summary</h2>
-    <h3>Percent Difference in Total Time of Timer Group vs. New Value</h3>
+    <h3>Relative Difference (new - previous) / (previous total time of timer group)</h3>
     <div id="timing_plot_total"></div>
     <script>
 	    // Load the JSON data
         function symlog(val) {
-            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+            return Math.sign(val) * Math.log10(1.0 + Math.abs(val));
         }
         fetch('performance_comparison_timing_results.json')
             .then(response => response.json())
@@ -28,14 +28,14 @@
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_new = data.map(d => d.value_new);
-                const percent_total_difference = data.map(d => d.percent_total_difference);
-
-                const percent_total_difference_symlog = percent_total_difference.map(symlog);
+                // Convert percent to factor
+                const factor_total_difference = data.map(d => d.percent_total_difference / 100.0);
+                const factor_total_difference_symlog = factor_total_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
                     x: value_new,
-                    y: percent_total_difference_symlog,
+                    y: factor_total_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -54,11 +54,11 @@
                 const layout = {
                     title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (log scale)',
+                        title: 'New Value (seconds, log scale)',
                         type: 'log'
                     },
                     yaxis: {
-                        title: 'Percent Difference in Total Time of Timer Group (symlog scale)'
+                        title: 'Relative Difference (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
@@ -66,12 +66,12 @@
                 Plotly.newPlot('timing_plot_total', data_plot, layout);
             });
     </script>
-    <h3>Percent Difference vs. New Value</h3>
+    <h3>Difference (new - previous) / (previous)</h3>
     <div id="timing_plot"></div>
     <script>
 	    // Load the JSON data
         function symlog(val) {
-            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+            return Math.sign(val) * Math.log10(1.0 + Math.abs(val));
         }
         fetch('performance_comparison_timing_results.json')
             .then(response => response.json())
@@ -79,14 +79,14 @@
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_new = data.map(d => d.value_new);
-                const percent_difference = data.map(d => d.percent_difference);
-
-                const percent_difference_symlog = percent_difference.map(symlog);
+                // Convert percent to factor
+                const factor_difference = data.map(d => d.percent_difference / 100.0);
+                const factor_difference_symlog = factor_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
                     x: value_new,
-                    y: percent_difference_symlog,
+                    y: factor_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -105,11 +105,11 @@
                 const layout = {
                     title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (log scale)',
+                        title: 'New Value (seconds, log scale)',
                         type: 'log'
                     },
                     yaxis: {
-                        title: 'Percent Difference (symlog scale)'
+                        title: 'Relative Difference (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
@@ -118,11 +118,12 @@
             });
     </script>
     <h2>Memory Performance Summary</h2>
+    <h3>Memory Difference (new - previous) / (previous)</h3>
     <div id="memory_plot"></div>
     <script>
 	    // Load the JSON data
         function symlog(val) {
-            return Math.sign(val) * Math.log10(1 + Math.abs(val));
+            return Math.sign(val) * Math.log10(1.0 + Math.abs(val));
         }
         fetch('performance_comparison_memory_results.json')
             .then(response => response.json())
@@ -130,14 +131,14 @@
                 // Process the data for Plotly
                 const names = data.map(d => d.name);
                 const value_new = data.map(d => d.value_new);
-                const percent_difference = data.map(d => d.percent_difference);
-
-                const percent_difference_symlog = percent_difference.map(symlog);
+                // Convert percent to factor
+                const factor_difference = data.map(d => d.percent_difference / 100.0);
+                const factor_difference_symlog = factor_difference.map(symlog);
 
                 // Create the plot
                 const trace = {
                     x: value_new,
-                    y: percent_difference_symlog,
+                    y: factor_difference_symlog,
                     text: names,
                     mode: 'markers',
                     marker: {
@@ -156,11 +157,11 @@
                 const layout = {
                     title: 'Performance Comparison (log x, symlog y)',
                     xaxis: {
-                        title: 'New Value (log scale)',
+                        title: 'New Value (MB, log scale)',
                         type: 'log'
                     },
                     yaxis: {
-                        title: 'Percent Difference (symlog scale)'
+                        title: 'Relative Difference (symlog scale)'
                     },
                     hovermode: 'closest'
                 };
