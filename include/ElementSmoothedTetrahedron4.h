@@ -42,16 +42,14 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
         const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool use_f_bar,
-        bool enable_accurate_timers)
+        bool use_f_bar)
         : ElementBase(TET4_NUM_NODES,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters,
-                      enable_accurate_timers),
+                      mesh_labeler_parameters),
           m_use_f_bar(use_f_bar) {
         // F bar not supported for this element type right now
         if (m_use_f_bar) {
@@ -81,7 +79,6 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
      */
     void CreateElementForceProcessor() {
         // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         // Create the element processor
@@ -98,13 +95,13 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
     void FindNeighbors() {
         // Loop over all elements and store the neighbors
-        aperi::NeighborSearchProcessor search_processor(m_mesh_data, m_timer_manager->AreAccurateTimersEnabled());
+        aperi::NeighborSearchProcessor search_processor(m_mesh_data);
         search_processor.AddSelfAsNeighbor(m_part_names);
         search_processor.SyncFieldsToHost();  // Just needed for output
     }
 
     void CreateSmoothedCellDataProcessor() {
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar, m_timer_manager->AreAccurateTimersEnabled());
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar);
     }
 
     void LabelParts() {
@@ -118,9 +115,6 @@ class ElementSmoothedTetrahedron4 : public ElementBase {
 
     void BuildSmoothedCellData() {
         m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<TET4_NUM_NODES>(TET4_NUM_NODES, true);
-
-        // Add the strain smoothing timer manager to the timer manager
-        m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
     }
 
     void ComputeSmoothedQuadrature() {

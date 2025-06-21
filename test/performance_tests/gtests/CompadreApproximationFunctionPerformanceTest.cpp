@@ -94,9 +94,6 @@ class CompadreApproximationFunctionPerformanceTest : public CompadreApproximatio
                 json_file << R"(    "value": )" << runtime.second << std::endl;
             }
 
-            // Write the search processor CSV file
-            WriteNeighborSearchTimerCSV(json_prefix + "_neighbor_search_" + full_test_name + run_specs + "_elem_" + std::to_string(num_elem_x[i]) + "x" + std::to_string(num_elem_y[i]) + "x" + std::to_string(num_elem_z[i]) + ".csv");
-
             // Setup for the next refinement
             ResetCompadreApproximationFunction();
         }

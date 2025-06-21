@@ -15,9 +15,9 @@
 #include "TimerTypes.h"
 #include "git_commit.h"
 
-void RunApplication(const std::string& input_filename, MPI_Comm comm, bool dump_performance_data, const std::string& performance_data_runstring) {
+void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     // Create an application object
-    aperi::Application application(comm, dump_performance_data, performance_data_runstring);
+    aperi::Application application(comm);
 
     // Run the application
     application.CreateSolverAndRun(input_filename);
@@ -132,27 +132,26 @@ int main(int argc, char* argv[]) {
     // Get input filename from command-line argument
     std::string input_filename = argv[1];
 
+    // Create a name for the timer file: input_filename - extension + _timer.log
+    std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
+
+    // Replace spaces with underscores
+    std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
+
+    // Remove the file if it already exists
+    std::remove(timer_filename.c_str());
+
+    // Set the default log file for all timers created by this factory
+    aperi::SimpleTimerFactory::SetDefaultLogFile(timer_filename);
+
+    // Set whether all timers created should use accurate timing (Kokkos::fence())
+    aperi::SimpleTimerFactory::SetAccurateTimers(dump_performance_data);
     {
-        // Create a name for the timer file: input_filename - extension + _timer.log
-        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
-
-        // Replace spaces with underscores
-        std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
-
-        // Remove the file if it already exists
-        std::remove(timer_filename.c_str());
-
-        // Set the default log file for all timers created by this factory
-        aperi::SimpleTimerFactory::SetDefaultLogFile(timer_filename);
-
-        // Set whether all timers created should use accurate timing (Kokkos::fence())
-        aperi::SimpleTimerFactory::SetAccurateTimers(dump_performance_data);
-
         // Create a simple timer to measure the total time taken by the application
         auto timer = aperi::SimpleTimerFactory::Create(aperi::ApplicationTimerType::Total, aperi::application_timer_map);
 
         // Run the application
-        RunApplication(input_filename, p_comm, dump_performance_data, performance_data_runstring);
+        RunApplication(input_filename, p_comm);
     }
 
     // Print footer
@@ -164,6 +163,8 @@ int main(int argc, char* argv[]) {
     aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
     aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
     aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
+    aperi::CoutP0() << "For detailed performance data, check the timer log file: " << timer_filename << std::endl;
+    aperi::CoutP0() << "(use the print_timing_log.py script for a more readable output)" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;
 
     // Finalize Kokkos and MPI

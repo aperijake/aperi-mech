@@ -7,11 +7,9 @@ namespace aperi {
 FunctionCreationProcessor::FunctionCreationProcessor(
     std::shared_ptr<aperi::MeshData> mesh_data,
     const std::vector<std::string> &sets,
-    const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-    bool enable_accurate_timers)
+    const aperi::LagrangianFormulationType &lagrangian_formulation_type)
     : m_mesh_data(mesh_data),
       m_sets(sets),
-      m_timer_manager("Function Value Storage Processor", function_value_storage_processor_timer_map, enable_accurate_timers),
       m_ngp_mesh_data(mesh_data->GetUpdatedNgpMesh()),
       m_num_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"num_neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
       m_neighbors_field(mesh_data, FieldQueryData<Unsigned>{"neighbors", FieldQueryState::None, FieldDataTopologyRank::NODE}),
@@ -23,7 +21,6 @@ FunctionCreationProcessor::FunctionCreationProcessor(
     }
 
     // Start instantiation timer
-    auto timer = m_timer_manager.CreateScopedTimer(FunctionCreationProcessorTimerType::Instantiate);
     auto simple_timer = aperi::SimpleTimerFactory::Create(FunctionCreationProcessorTimerType::Instantiate, aperi::function_value_storage_processor_timer_map);
 
     // Initialize the selector based on the provided sets

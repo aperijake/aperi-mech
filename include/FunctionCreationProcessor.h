@@ -17,7 +17,6 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "SimpleTimerFactory.h"
-#include "Timer.h"
 #include "TimerTypes.h"
 #include "Types.h"
 
@@ -44,13 +43,11 @@ class FunctionCreationProcessor {
      * @param mesh_data Shared pointer to mesh data.
      * @param sets List of mesh sets to process.
      * @param lagrangian_formulation_type The Lagrangian formulation type.
-     * @param enable_accurate_timers Flag to enable accurate timing.
      */
     FunctionCreationProcessor(
         std::shared_ptr<aperi::MeshData> mesh_data,
         const std::vector<std::string> &sets,
-        const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        bool enable_accurate_timers);
+        const aperi::LagrangianFormulationType &lagrangian_formulation_type);
 
     /**
      * @brief Finalizes any preprocessing steps required before computation.
@@ -61,14 +58,6 @@ class FunctionCreationProcessor {
      * @brief Synchronizes all relevant fields from device to host.
      */
     void SyncFieldsToHost();
-
-    /**
-     * @brief Retrieves the TimerManager for this processor.
-     * @return Shared pointer to the TimerManager.
-     */
-    inline std::shared_ptr<aperi::TimerManager<FunctionCreationProcessorTimerType> > GetTimerManager() {
-        return std::make_shared<aperi::TimerManager<FunctionCreationProcessorTimerType> >(m_timer_manager);
-    }
 
     /**
      * @brief Computes and stores function values for each node.
@@ -82,9 +71,6 @@ class FunctionCreationProcessor {
      */
     template <size_t MaxNumNeighbors, typename FunctionFunctor, typename Bases>
     void compute_and_store_function_values(FunctionFunctor &function_functor, const Bases &bases, const bool use_evaluation_point_kernels = false) {
-        // Start timer for function value computation
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(FunctionCreationProcessorTimerType::ComputeFunctionValues, "Compute Function Values");
-
         // Update and get the device mesh
         m_ngp_mesh_data = m_mesh_data->GetUpdatedNgpMesh();
 
@@ -148,9 +134,8 @@ class FunctionCreationProcessor {
     }
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                             // The mesh data object.
-    std::vector<std::string> m_sets;                                          // The sets to process.
-    aperi::TimerManager<FunctionCreationProcessorTimerType> m_timer_manager;  // The timer manager.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    std::vector<std::string> m_sets;               // The sets to process.
 
     aperi::Selector m_selector;          // The selector
     aperi::NgpMeshData m_ngp_mesh_data;  // The ngp mesh data object

@@ -45,8 +45,7 @@ namespace aperi {
 
 class NeighborSearchProcessor {
    public:
-    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data,
-                            bool enable_accurate_timers);
+    NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data);
 
     void AddSelfAsNeighbor(const std::vector<std::string> &sets);
     void AddNeighborsWithinVariableSizedBall(const std::vector<std::string> &sets,
@@ -56,8 +55,6 @@ class NeighborSearchProcessor {
 
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
-    void WriteTimerCSV(const std::string &output_file);
-    std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> GetTimerManager();
 
     void SetKernelRadius(const std::string &set_name, double kernel_radius);
     void ComputeKernelRadius(const std::string &set_name, double scale_factor);
@@ -72,9 +69,8 @@ class NeighborSearchProcessor {
     void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                           // The mesh data object.
-    std::vector<std::string> m_sets;                                        // The sets to process.
-    aperi::TimerManager<NeighborSearchProcessorTimerType> m_timer_manager;  // The timer manager.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
+    std::vector<std::string> m_sets;               // The sets to process.
 
     stk::mesh::BulkData *m_bulk_data;                  // The bulk data object.
     stk::mesh::Selector m_selector;                    // The selector
@@ -103,7 +99,6 @@ class NeighborSearchProcessor {
 };
 
 inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Selector &selector) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodePoints, "Create Node Points");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CreateNodePoints, aperi::neighbor_search_processor_timer_names_map);
 
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
@@ -135,7 +130,6 @@ inline DomainViewType NeighborSearchProcessor::CreateNodePoints(const aperi::Sel
 }
 
 inline RangeViewType NeighborSearchProcessor::CreateNodeSpheres(const aperi::Selector &selector) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CreateNodeSpheres, "Create Node Spheres");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CreateNodeSpheres, aperi::neighbor_search_processor_timer_names_map);
     const unsigned num_local_nodes = stk::mesh::count_entities(*m_bulk_data, stk::topology::NODE_RANK, selector());
     RangeViewType node_spheres("node_spheres", num_local_nodes);

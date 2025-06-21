@@ -414,10 +414,6 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         return runtimes;
     }
 
-    void WriteNeighborSearchTimerCSV(const std::string &filename) {
-        m_search_processor->WriteTimerCSV(filename);
-    }
-
    protected:
     void SetUp() override {
         FunctionCreationProcessorTestFixture::SetUp();

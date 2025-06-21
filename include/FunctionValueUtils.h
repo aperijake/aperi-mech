@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iomanip>
 #include <memory>
 #include <string>
 
@@ -83,12 +84,30 @@ struct NeighborStats {
     double reserved_memory_utilization;
 
     void Print() const {
-        aperi::CoutP0() << "   - Neighbor Stats: " << std::endl;
-        aperi::CoutP0() << "     - Total Num Nodes: " << num_entities << std::endl;
-        aperi::CoutP0() << "     - Max Num Neighbors: " << max_num_neighbors << std::endl;
-        aperi::CoutP0() << "     - Min Num Neighbors: " << min_num_neighbors << std::endl;
-        aperi::CoutP0() << "     - Avg Num Neighbors: " << avg_num_neighbors << std::endl;
-        aperi::CoutP0() << "     - Reserved Memory Utilization: " << reserved_memory_utilization << "%" << std::endl;
+        using aperi::CoutP0;
+        std::stringstream ss;
+        int width = 12;
+        ss << "\n*** Neighbor Stats ********************************************\n";
+        ss << std::setw(width) << "Total"
+           << std::setw(width) << "Max"
+           << std::setw(width) << "Min"
+           << std::setw(width) << "Avg"
+           << std::setw(width) << "Memory"
+           << "\n";
+        ss << std::setw(width) << "Nodes"
+           << std::setw(width) << "Neighbors"
+           << std::setw(width) << "Neighbors"
+           << std::setw(width) << "Neighbors"
+           << std::setw(width) << "Utililzed"
+           << "\n";
+        ss << "---------------------------------------------------------------\n";
+        ss << std::setw(width) << num_entities
+           << std::setw(width) << max_num_neighbors
+           << std::setw(width) << min_num_neighbors
+           << std::setw(width) << avg_num_neighbors
+           << std::setw(width) << reserved_memory_utilization << "%\n";
+        ss << "***************************************************************\n";
+        CoutP0() << ss.str();
     }
 };
 
