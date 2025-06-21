@@ -133,6 +133,7 @@ jobs:
               if [ "$current_branch" != "gh-pages" ]; then
                 git checkout gh-pages
               fi
+              git stash --include-untracked
               git pull origin gh-pages
           EOF
 
