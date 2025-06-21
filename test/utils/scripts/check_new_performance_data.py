@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 # trunk-ignore(bandit/B404)
@@ -6,14 +7,17 @@ import subprocess
 
 import pandas as pd
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
 
 # Load data from data.js
-def load_data_js(filename):
+def load_data_js(filename: str):
     # Check if the file exists
     if not os.path.exists(filename):
-        raise FileNotFoundError(f"File {filename} does not exist")
+        logging.warning(f"File {filename} does not exist. Skipping this comparison.")
+        return None
     with open(filename, "r") as file:
-        print(f"Reading {filename}")
+        logging.info(f"Reading {filename}")
         data_js_content = file.read()
         data_js_content = data_js_content.replace("window.BENCHMARK_DATA = ", "")
         data_js = json.loads(data_js_content)
@@ -21,17 +25,19 @@ def load_data_js(filename):
 
 
 # Load new performance data
-def load_new_data(filename):
-    # Check if the file exists
+def load_new_data(filename: str):
     if not os.path.exists(filename):
-        raise FileNotFoundError(f"File {filename} does not exist")
+        logging.warning(f"File {filename} does not exist. Skipping this comparison.")
+        return None
     with open(filename, "r") as file:
-        print(f"Reading {filename}")
+        logging.info(f"Reading {filename}")
         new_data = json.load(file)
     return new_data
 
 
-def compare_new_data(data_js, new_data, new_data_file, print_results=False):
+def compare_new_data(
+    data_js: dict, new_data: list, new_data_file: str, print_results: bool = False
+) -> pd.DataFrame:
     # Extract the last benchmark data from data.js
     last_benchmark = data_js["entries"]["Benchmark"][-1]["benches"]
 
@@ -136,12 +142,12 @@ def compare_new_data(data_js, new_data, new_data_file, print_results=False):
 
 
 def label_good_bad(
-    merged_df,
-    weight_percent=0.0,
-    weight_percent_total=1.0,
-    exponent_percent=1.0,
-    exponent_percent_total=1.0,
-):
+    merged_df: pd.DataFrame,
+    weight_percent: float = 0.0,
+    weight_percent_total: float = 1.0,
+    exponent_percent: float = 1.0,
+    exponent_percent_total: float = 1.0,
+) -> pd.DataFrame:
     """
     Label the benchmarks as good or bad based on the metric (positive is good, negative is bad).
     - performance_quality = sign(percent_difference) * (weight_percent * abs(percent_difference) ** exponent_percent + weight_percent_total * abs(percent_total_difference) ** exponent_percent_total)
@@ -171,7 +177,11 @@ def label_good_bad(
 
 
 def print_best_and_worst(
-    merged_df, column, num_best=5, num_worst=5, smaller_is_better=True
+    merged_df: pd.DataFrame,
+    column: str,
+    num_best: int = 5,
+    num_worst: int = 5,
+    smaller_is_better: bool = True,
 ):
     """
     Find and print the best and worst performing benchmarks in the merged_df.
@@ -187,6 +197,10 @@ def print_best_and_worst(
     best_df (pd.DataFrame): The DataFrame containing the best performing benchmarks
     worst_df (pd.DataFrame): The DataFrame containing the worst performing benchmarks
     """
+
+    if merged_df.empty:
+        logging.info(f"No data to display for {column}.")
+        return None, None
 
     # Find the best and worst performing benchmarks, smallest difference is best
     best_df = merged_df.sort_values(column, ascending=smaller_is_better).head(num_best)
@@ -211,11 +225,11 @@ def print_best_and_worst(
 
 
 def check_new_performance_data(
-    data_file_pairs,
-    root_input_dir=None,
-    root_output_dir=None,
-    timing_output_file=None,
-    memory_output_file=None,
+    data_file_pairs: dict,
+    root_input_dir: str = None,
+    root_output_dir: str = None,
+    timing_output_file: str = None,
+    memory_output_file: str = None,
 ):
     """
     Compare the new performance data to the last data in data.js and print the best and worst performing benchmarks.
@@ -245,7 +259,13 @@ def check_new_performance_data(
     for new_data_file, data_file in data_file_pairs.items():
         # Load the data, prepending the project root to the file paths
         data_js = load_data_js(f"{project_root}/{data_file}")
+        if data_js is None:
+            logging.info(f"Skipping {new_data_file} because old data file is missing.")
+            continue
         new_data = load_new_data(f"{project_root}/{new_data_file}")
+        if new_data is None:
+            logging.info(f"Skipping {new_data_file} because new data file is missing.")
+            continue
 
         # Get the base name of the new data file, drop the 'performance_' and '.json'
         new_data_file_base = (
@@ -255,6 +275,10 @@ def check_new_performance_data(
         )
         merged_df = compare_new_data(data_js, new_data, new_data_file_base)
         full_df = pd.concat([full_df, merged_df], ignore_index=True)
+
+    if full_df.empty:
+        print("No comparisons were made because no old data files were found.")
+        return
 
     # Label the benchmarks as good or bad based on the metric (positive is good, negative is bad)
     full_df = label_good_bad(full_df)
@@ -291,8 +315,7 @@ def check_new_performance_data(
     )
 
 
-if __name__ == "__main__":
-    # data.js to new data file mapping, paths are relative to the project root
+def main():
     data_file_pairs = {
         "build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
         "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
@@ -301,5 +324,8 @@ if __name__ == "__main__":
         "build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
         "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
     }
-
     check_new_performance_data(data_file_pairs)
+
+
+if __name__ == "__main__":
+    main()
