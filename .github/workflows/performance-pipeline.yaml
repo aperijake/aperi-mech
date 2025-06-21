@@ -122,6 +122,20 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' }}
         run: echo "Skipping checkout code on VM. Assuming code is already checked out from CI/CD pipeline run."
 
+      - name: Checkout gh-pages branch on VM
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+              set -e # Exit on error
+              cd ~/aperi-mech/gh-pages
+              echo "Checking out gh-pages branch..."
+              git fetch origin gh-pages
+              current_branch=$(git rev-parse --abbrev-ref HEAD)
+              if [ "$current_branch" != "gh-pages" ]; then
+                git checkout gh-pages
+              fi
+              git pull origin gh-pages
+          EOF
+
       - name: Clean old JSON and CSV files
         shell: bash
         run: ./.github/workflows/clean_old_performance_results.sh ${{ secrets.VM_IP }} ${{ secrets.VM_USERNAME }}
@@ -331,10 +345,8 @@ jobs:
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
               set -e # Exit on error
 
-              cd ~/aperi-mech/gh-pages
-              git fetch origin gh-pages
-              git pull origin gh-pages
-              python3 ../test/utils/scripts/check_new_performance_data.py
+              cd ~/aperi-mech
+              python3 test/utils/scripts/check_new_performance_data.py
           EOF
 
       - name: Transfer benchmark data from VM to GitHub Actions runner (gh-pages summary)
