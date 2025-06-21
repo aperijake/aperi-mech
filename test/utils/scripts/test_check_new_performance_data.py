@@ -67,6 +67,29 @@ class TestCheckNewPerformanceData(unittest.TestCase):
         # Assert that the output matches the gold data
         self.assertEqual(output_data_memory, gold_data_memory)
 
+    def test_missing_old_data_file(self):
+        # Only new data file exists; old data file is missing
+        data_file_pairs = {"new_gh_pages_data.json": "does_not_exist.js"}
+        check_new_performance_data(
+            data_file_pairs, ".", ".", self.output_file_timing, self.output_file_memory
+        )
+        # Output should exist and all differences should be zero
+        with open(self.output_file_timing, "r") as f:
+            output_data_timing = json.load(f)
+        for row in output_data_timing:
+            self.assertEqual(row["percent_difference"], 0.0)
+            self.assertEqual(row["absolute_difference"], 0.0)
+            self.assertEqual(row["percent_total_difference"], 0.0)
+
+    def test_missing_new_data_file(self):
+        # New data file is missing; should skip and not create output
+        data_file_pairs = {"does_not_exist.json": "gh_pages_data.js"}
+        check_new_performance_data(
+            data_file_pairs, ".", ".", self.output_file_timing, self.output_file_memory
+        )
+        self.assertFalse(os.path.exists(self.output_file_timing))
+        self.assertFalse(os.path.exists(self.output_file_memory))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -10,8 +11,16 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-# Load data from data.js
 def load_data_js(filename: str):
+    """
+    Load benchmark data from a data.js file, stripping the JS assignment and parsing JSON.
+
+    Args:
+        filename (str): Path to the data.js file.
+
+    Returns:
+        dict or None: Parsed JSON data, or None if file does not exist.
+    """
     # Check if the file exists
     if not os.path.exists(filename):
         logging.warning(f"File {filename} does not exist. Skipping this comparison.")
@@ -19,13 +28,22 @@ def load_data_js(filename: str):
     with open(filename, "r") as file:
         logging.info(f"Reading {filename}")
         data_js_content = file.read()
+        # Remove JS variable assignment to get pure JSON
         data_js_content = data_js_content.replace("window.BENCHMARK_DATA = ", "")
         data_js = json.loads(data_js_content)
     return data_js
 
 
-# Load new performance data
 def load_new_data(filename: str):
+    """
+    Load new benchmark data from a JSON file.
+
+    Args:
+        filename (str): Path to the JSON file.
+
+    Returns:
+        list or None: Parsed JSON data, or None if file does not exist.
+    """
     if not os.path.exists(filename):
         logging.warning(f"File {filename} does not exist. Skipping this comparison.")
         return None
@@ -38,18 +56,33 @@ def load_new_data(filename: str):
 def compare_new_data(
     data_js: dict, new_data: list, new_data_file: str, print_results: bool = False
 ) -> pd.DataFrame:
-    # Extract the last benchmark data from data.js
-    last_benchmark = data_js["entries"]["Benchmark"][-1]["benches"]
+    """
+    Compare new benchmark data to previous data, normalizing units and computing differences.
 
-    # Convert the data to pandas DataFrames
+    Args:
+        data_js (dict or None): Previous benchmark data (from data.js), or None if missing.
+        new_data (list): New benchmark data.
+        new_data_file (str): Base name for the benchmark file (used for totals).
+        print_results (bool): If True, print the comparison DataFrame.
+
+    Returns:
+        pd.DataFrame: DataFrame with comparison results and computed differences.
+    """
+    if data_js is None:
+        # If old data is missing, use a deep copy of new_data as last_benchmark
+        last_benchmark = copy.deepcopy(new_data)
+    else:
+        last_benchmark = data_js["entries"]["Benchmark"][-1]["benches"]
+
+    # Convert both old and new data to DataFrames
     last_df = pd.DataFrame(last_benchmark)
     new_df = pd.DataFrame(new_data)
 
-    # Convert the 'unit' columns to be consistent. 's' and 'seconds' are equivalent
+    # Normalize units: treat 's' as 'seconds'
     last_df["unit"] = last_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
     new_df["unit"] = new_df["unit"].apply(lambda x: "seconds" if x == "s" else x)
 
-    # Convert any values with units of miliseconds to seconds
+    # Convert milliseconds to seconds for value columns
     last_df["value"] = last_df.apply(
         lambda x: (
             x["value"] / 1000.0
@@ -66,6 +99,7 @@ def compare_new_data(
         ),
         axis=1,
     )
+    # After conversion, set all ms/milliseconds units to 'seconds'
     last_df["unit"] = last_df["unit"].apply(
         lambda x: "seconds" if x == "ms" or x == "milliseconds" else x
     )
@@ -73,10 +107,10 @@ def compare_new_data(
         lambda x: "seconds" if x == "ms" or x == "milliseconds" else x
     )
 
-    # Find the rows that are in the last data but not in the new data and remove them
+    # Only keep rows in old data that are present in new data
     last_df = last_df[last_df["name"].isin(new_df["name"])]
 
-    # Find all the rows that have a 'unit' of 'seconds' and add a new_data_file_Total row
+    # Add a total row for timing (sum of all 'seconds' values)
     total_last_value = last_df[last_df["unit"].isin(["s", "seconds"])]["value"].sum()
     total_last = pd.DataFrame(
         [
@@ -101,42 +135,52 @@ def compare_new_data(
     )
     new_df = pd.concat([new_df, total_new], ignore_index=True)
 
-    # Merge the data on the 'name' column, the unit column should be the same
+    # Merge on 'name'; units should match
     merged_df = pd.merge(last_df, new_df, on="name", suffixes=("_last", "_new"))
 
-    # Verify that the units are the same
+    # Ensure units match between old and new
     if (merged_df["unit_last"] == merged_df["unit_new"]).all():
         merged_df["unit"] = merged_df["unit_last"]
         merged_df.drop(columns=["unit_last", "unit_new"], inplace=True)
     else:
         raise ValueError("Units do not match between last and new data")
 
-    # Calculate the percent difference between the new and last values
-    merged_df["percent_difference"] = (
-        (merged_df["value_new"] - merged_df["value_last"])
-        / merged_df["value_last"]
-        * 100.0
-    )
-    # Percent difference is not meaningful for values of 0, so set the percent difference to 0 if both values are 0
-    merged_df.loc[
-        (merged_df["value_new"] == 0) & (merged_df["value_last"] == 0),
-        "percent_difference",
-    ] = 0
+    # Compute differences and percent changes
+    if data_js is None:
+        # If old data is missing, all differences are zero
+        merged_df["percent_difference"] = 0.0
+        merged_df["absolute_difference"] = 0.0
+        merged_df["percent_total_difference"] = 0.0
+    else:
+        merged_df["percent_difference"] = (
+            (merged_df["value_new"] - merged_df["value_last"])
+            / merged_df["value_last"]
+            * 100.0
+        )
+        # If both values are zero, percent difference is not meaningful
+        merged_df.loc[
+            (merged_df["value_new"] == 0) & (merged_df["value_last"] == 0),
+            "percent_difference",
+        ] = 0
+        merged_df["absolute_difference"] = (
+            merged_df["value_new"] - merged_df["value_last"]
+        )
 
-    # Calculate the absolute difference between the new and last values
-    merged_df["absolute_difference"] = merged_df["value_new"] - merged_df["value_last"]
+        # Calculate percent_total_difference row-wise, using the total_last_value as denominator
+        total_last_value = last_df[last_df["name"] == new_data_file + "_Total"][
+            "value"
+        ].values[0]
+        merged_df["percent_total_difference"] = (
+            merged_df["absolute_difference"] / total_last_value * 100.0
+            if total_last_value != 0
+            else 0.0
+        )
 
-    # Calculate the percent difference of each row with respect to the total time (new_data_file_Total column)
-    # absolute_difference / total_last_value * 100.0
-    merged_df["percent_total_difference"] = (
-        merged_df["absolute_difference"] / total_last_value * 100.0
-    )
-
-    # Print the comparison, sorted by the percent difference
+    # Optionally print the comparison DataFrame
     if print_results:
-        print(f"{new_data_file} vs Previous Data")
-        print(merged_df.sort_values("percent_difference", ascending=False))
-        print("\n")
+        logging.info(
+            f"{new_data_file} vs Previous Data\n{merged_df.sort_values('percent_difference', ascending=False)}\n"
+        )
 
     return merged_df
 
@@ -149,22 +193,19 @@ def label_good_bad(
     exponent_percent_total: float = 1.0,
 ) -> pd.DataFrame:
     """
-    Label the benchmarks as good or bad based on the metric (positive is good, negative is bad).
-    - performance_quality = sign(percent_difference) * (weight_percent * abs(percent_difference) ** exponent_percent + weight_percent_total * abs(percent_total_difference) ** exponent_percent_total)
+    Label benchmarks as good or bad based on performance metrics.
 
-
-    Parameters:
-    merged_df (pd.DataFrame): The DataFrame containing the merged data
-    weight_percent (float): The weight to apply to the percent_difference
-    weight_percent_total (float): The weight to apply to the percent_total_difference
-    exponent_percent (float): The exponent to apply to the percent_difference
-    exponent_percent_total (float): The exponent to apply to the percent_total
+    Args:
+        merged_df (pd.DataFrame): DataFrame with comparison results.
+        weight_percent (float): Weight for percent_difference.
+        weight_percent_total (float): Weight for percent_total_difference.
+        exponent_percent (float): Exponent for percent_difference.
+        exponent_percent_total (float): Exponent for percent_total_difference.
 
     Returns:
-    merged_df (pd.DataFrame): The DataFrame containing the merged data with the 'performance_quality' column
+        pd.DataFrame: DataFrame with an added 'performance_quality' column.
     """
-
-    # Calculate the performance quality
+    # Calculate performance quality metric (negative is bad, positive is good)
     merged_df["performance_quality"] = merged_df["percent_difference"].apply(
         lambda x: -1.0 if x >= 0.0 else 1.0
     ) * (
@@ -184,42 +225,35 @@ def print_best_and_worst(
     smaller_is_better: bool = True,
 ):
     """
-    Find and print the best and worst performing benchmarks in the merged_df.
-    The best/worst performing benchmarks are determined by the column specified.
+    Print the best and worst performing benchmarks by a given metric.
 
-    Parameters:
-    merged_df (pd.DataFrame): The DataFrame containing the merged data
-    column (str): The column to check for the best and worst performing benchmarks
-    num_best (int): The number of best performing benchmarks to return
-    num_worst (int): The number of worst performing benchmarks to return
+    Args:
+        merged_df (pd.DataFrame): DataFrame with comparison results.
+        column (str): Column to sort by.
+        num_best (int): Number of best benchmarks to show.
+        num_worst (int): Number of worst benchmarks to show.
+        smaller_is_better (bool): If True, smaller values are better.
 
     Returns:
-    best_df (pd.DataFrame): The DataFrame containing the best performing benchmarks
-    worst_df (pd.DataFrame): The DataFrame containing the worst performing benchmarks
+        Tuple[pd.DataFrame, pd.DataFrame]: Best and worst performing benchmarks.
     """
-
     if merged_df.empty:
         logging.info(f"No data to display for {column}.")
         return None, None
 
-    # Find the best and worst performing benchmarks, smallest difference is best
+    # Sort and select best/worst
     best_df = merged_df.sort_values(column, ascending=smaller_is_better).head(num_best)
     worst_df = merged_df.sort_values(column, ascending=not smaller_is_better).head(
         num_worst
     )
 
-    # Set display options to avoid truncation
+    # Set pandas display options for clarity
     pd.set_option("display.max_columns", None)
     pd.set_option("display.max_colwidth", None)
 
-    # Print the best and worst performing benchmarks
-    print(f"Best {num_best} performing {column} benchmarks:")
-    print(best_df)
-    print("\n")
-
-    print(f"Worst {num_worst} performing {column} benchmarks:")
-    print(worst_df)
-    print("\n")
+    # Log the results
+    logging.info(f"Best {num_best} performing {column} benchmarks:\n{best_df}\n")
+    logging.info(f"Worst {num_worst} performing {column} benchmarks:\n{worst_df}\n")
 
     return best_df, worst_df
 
@@ -232,10 +266,17 @@ def check_new_performance_data(
     memory_output_file: str = None,
 ):
     """
-    Compare the new performance data to the last data in data.js and print the best and worst performing benchmarks.
+    Main routine to compare new performance data to previous data and report results.
+
+    Args:
+        data_file_pairs (dict): Mapping of new data files to old data.js files.
+        root_input_dir (str, optional): Root directory for input files.
+        root_output_dir (str, optional): Root directory for output files.
+        timing_output_file (str, optional): Output file for timing results.
+        memory_output_file (str, optional): Output file for memory results.
     """
-    print("Checking new performance data")
-    # Use git to find the project root
+    logging.info("Checking new performance data")
+    # Use git to find the project root if not provided
     if root_input_dir is None:
         project_root = (
             # trunk-ignore(bandit/B603)
@@ -250,18 +291,14 @@ def check_new_performance_data(
     if root_output_dir is None:
         root_output_dir = project_root
 
-    print(f"Project root: {project_root}")
-    print(f"Root output directory: {root_output_dir}")
+    logging.info(f"Project root: {project_root}")
+    logging.info(f"Root output directory: {root_output_dir}")
 
     full_df = pd.DataFrame()
 
-    # Compare the new data to the last data in data.js
+    # Iterate over all data file pairs and compare
     for new_data_file, data_file in data_file_pairs.items():
-        # Load the data, prepending the project root to the file paths
         data_js = load_data_js(f"{project_root}/{data_file}")
-        if data_js is None:
-            logging.info(f"Skipping {new_data_file} because old data file is missing.")
-            continue
         new_data = load_new_data(f"{project_root}/{new_data_file}")
         if new_data is None:
             logging.info(f"Skipping {new_data_file} because new data file is missing.")
@@ -277,7 +314,8 @@ def check_new_performance_data(
         full_df = pd.concat([full_df, merged_df], ignore_index=True)
 
     if full_df.empty:
-        print("No comparisons were made because no old data files were found.")
+        # No comparisons were made because no new data files were found.
+        logging.info("No comparisons were made because no new data files were found.")
         return
 
     # Label the benchmarks as good or bad based on the metric (positive is good, negative is bad)
@@ -287,13 +325,13 @@ def check_new_performance_data(
     seconds_df = full_df[full_df["unit"] == "seconds"]
     mb_df = full_df[full_df["unit"] == "MB"]
 
-    # Print the best and worst performing benchmarks
-    print("Best and worst performing benchmarks, timing:")
+    # Print the best and worst performing benchmarks for timing and memory
+    logging.info("Best and worst performing benchmarks, timing:")
     print_best_and_worst(seconds_df, "percent_total_difference")
-    print("Best and worst performing benchmarks, memory:")
+    logging.info("Best and worst performing benchmarks, memory:")
     print_best_and_worst(mb_df, "percent_difference")
 
-    # Check that the number of items in the full_df is the same as the sum of the seconds_df and mb_df
+    # Sanity check: ensure all rows are accounted for
     if len(full_df) != len(seconds_df) + len(mb_df):
         raise ValueError(
             "The sum of the seconds and mb DataFrames does not equal the full DataFrame"
@@ -316,6 +354,9 @@ def check_new_performance_data(
 
 
 def main():
+    """
+    Entry point for the script. Defines file pairs and runs the comparison.
+    """
     data_file_pairs = {
         "build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
         "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
