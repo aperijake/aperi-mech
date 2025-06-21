@@ -296,17 +296,9 @@ if __name__ == "__main__":
     data_file_pairs = {
         "build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
         "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
-        "build/performance_fem_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_element/data.js",
-        "build/performance_fem_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_solver/data.js",
         "build/performance_fem_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/solver/data.js",
-        "build/performance_fem_strain_smoothing_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_element/data.js",
-        "build/performance_fem_strain_smoothing_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_solver/data.js",
         "build/performance_fem_strain_smoothing_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/solver/data.js",
-        "build/performance_rkpm_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_element/data.js",
-        "build/performance_rkpm_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_solver/data.js",
         "build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
-        "build/performance_rkpm_nodal_create_element.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_element/data.js",
-        "build/performance_rkpm_nodal_create_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_solver/data.js",
         "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
     }
 

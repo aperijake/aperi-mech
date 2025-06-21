@@ -125,6 +125,7 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         RunMeshLabeling();
         CreateSearchProcessor();
         CreateMaxEdgeLengthProcessor();
+        Kokkos::fence();
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         return elapsed_seconds.count();

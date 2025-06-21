@@ -43,8 +43,8 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
     # Subdirs are [fem, fem_strain_smoothing, rkpm, rkpm_nodal rkpm_fbar]
     subdirs=(fem fem_strain_smoothing rkpm rkpm_nodal rkpm_fbar)
 
-    # Performance types are [create_solver, create_element, solver]
-    types=(create_solver create_element solver)
+    # Performance types are [solver]
+    types=(solver)
 
     cd ~/aperi-mech/test/performance_tests/aperi-mech/taylor_bar
     for subdir in "${subdirs[@]}"; do
@@ -60,5 +60,5 @@ ssh -T -o ConnectTimeout=10 "${VM_USERNAME}@${VM_IP}" <<'EOF'
         cd ..
     done
 
-  '  || { echo "Gtest results collection failed"; exit 1; }
+  '  || { echo "Performance results collection failed"; exit 1; }
 EOF
