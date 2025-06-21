@@ -133,9 +133,8 @@ int main(int argc, char* argv[]) {
     std::string input_filename = argv[1];
 
     {
-        // Create a name for the timer file: input_filename - extension + _ + performance_data_runstring + _timer.log
-        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) +
-                                     (dump_performance_data ? "_" + performance_data_runstring : "") + "_timer.log";
+        // Create a name for the timer file: input_filename - extension + _timer.log
+        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
 
         // Replace spaces with underscores
         std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');

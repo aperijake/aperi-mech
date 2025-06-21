@@ -3,7 +3,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "SimpleTimerFactory.h"  // Add this include
+#include "SimpleTimerFactory.h"
 
 class MPIKokkosEnvironment : public ::testing::Environment {
    public:

@@ -58,8 +58,10 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
     """
 
     # Set the inputs
+    hardware = f"{yaml_node['hardware']}_np_{yaml_node['num_processors']}"
+    test_name = f"{test_name_prefix}_{hardware}"
     inputs = {
-        "test_name": f"{test_name_prefix}_{yaml_node['hardware']}_np_{yaml_node['num_processors']}",
+        "test_name": test_name,
         "input_file": yaml_node["input_file"],
         "peak_memory": yaml_node.get("peak_memory_check", {}).get("value"),
         "peak_memory_percent_tolerance": yaml_node.get("peak_memory_check", {}).get(
@@ -72,6 +74,7 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
         "exodiff": [],
         "executable_path": None,
         "num_processors": yaml_node["num_processors"],
+        "timer_filename": f"{yaml_node['input_file'].split('.')[0]}_timer.log",
         "args": yaml_node.get("args", []),
     }
 
@@ -129,7 +132,9 @@ def should_run_test(
     return True
 
 
-def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
+def execute_test(
+    test_config, dirpath, build_dir, keep_results, write_json, parse_timings
+):
     """
     Executes a single test and returns whether it passed.
     """
@@ -144,6 +149,8 @@ def execute_test(test_config, dirpath, build_dir, keep_results, write_json):
         inputs["executable_path"],
         inputs["num_processors"],
         [inputs["input_file"]] + inputs["args"],
+        parse_timings=parse_timings,
+        timings_log_file=inputs["timer_filename"],
     )
     return_code, stats = regression_test.run()
 
@@ -220,6 +227,7 @@ def run_regression_tests_from_directory(
     debug_only=False,
     keep_results=False,
     write_json=False,
+    parse_timings=False,
 ):
     """
     Runs regression tests from the specified directory.
@@ -251,7 +259,12 @@ def run_regression_tests_from_directory(
                         continue
 
                     if execute_test(
-                        test_config, dirpath, build_dir, keep_results, write_json
+                        test_config,
+                        dirpath,
+                        build_dir,
+                        keep_results,
+                        write_json,
+                        parse_timings,
                     ):
                         passing_tests += 1
                     total_tests += 1
@@ -397,6 +410,11 @@ def parse_arguments():
     parser.add_argument(
         "--write-json", help="Write the results to a JSON file", action="store_true"
     )
+    parser.add_argument(
+        "--parse-timings",
+        help="Parse the timings from the test output and write them to a JSON file",
+        action="store_true",
+    )
     args = parser.parse_args()
     if args.directory is None and args.directory_file is None:
         args.directory = "regression_tests"
@@ -448,6 +466,7 @@ if __name__ == "__main__":
             args.debug,
             args.keep_results,
             args.write_json,
+            args.parse_timings,
         )
         passing_tests += passing_tests_dir
         total_tests += total_tests_dir

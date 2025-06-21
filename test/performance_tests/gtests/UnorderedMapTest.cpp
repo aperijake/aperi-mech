@@ -76,6 +76,7 @@ class UnorderedMapFixture : public ::testing::Test {
             m_random_indices_host_mirror(i) = random_value;
         }
         Kokkos::deep_copy(m_random_indices, m_random_indices_host_mirror);
+        Kokkos::fence();
     }
 
     double PopulateStdUnorderedMap() {
@@ -105,6 +106,7 @@ class UnorderedMapFixture : public ::testing::Test {
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_map_host_mirror.insert(m_random_indices_host_mirror(i), i);
         }
+        Kokkos::fence();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
@@ -116,6 +118,7 @@ class UnorderedMapFixture : public ::testing::Test {
         auto random_indices = m_random_indices;
         Kokkos::parallel_for(
             "populate_kokkos_unordered_map", random_indices.extent(0), KOKKOS_LAMBDA(const size_t i) { map.insert(random_indices(i), i); });
+        Kokkos::fence();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
@@ -126,6 +129,7 @@ class UnorderedMapFixture : public ::testing::Test {
         for (size_t i = 0; i < m_random_indices_host_mirror.extent(0); ++i) {
             m_set_host_mirror.insert(m_random_indices_host_mirror(i));
         }
+        Kokkos::fence();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();
@@ -137,6 +141,7 @@ class UnorderedMapFixture : public ::testing::Test {
         auto random_indices = m_random_indices;
         Kokkos::parallel_for(
             "populate_kokkos_unordered_set", random_indices.extent(0), KOKKOS_LAMBDA(const size_t i) { set.insert(random_indices(i)); });
+        Kokkos::fence();
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         return duration.count();

@@ -309,6 +309,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         } else {
             m_search_processor->AddNeighborsWithinConstantSizedBall(part_names, {m_kernel_factor});
         }
+        Kokkos::fence();
         auto search_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> search_runtime = search_end_time - search_start_time;
         runtimes.emplace("neighbor_search", search_runtime.count());
@@ -316,6 +317,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         auto field_to_view_start = std::chrono::high_resolution_clock::now();  // benchmark
         bool check_fields = false;                                             // Checked in test above
         SetupFieldToViewTransfer(check_fields);
+        Kokkos::fence();
         auto field_to_view_end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> field_to_view_runtime = field_to_view_end - field_to_view_start;
         runtimes.emplace("field_to_view_transfer", field_to_view_runtime.count());
@@ -326,6 +328,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         bool use_target_center_kernel = true;                            // Like Compadre, but search still uses source center kernel so this is not perfect
         auto rk_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases, use_target_center_kernel);
+        Kokkos::fence();
         auto rk_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> rk_runtime = rk_end_time - rk_start_time;
         runtimes.emplace("compute_reproducing_kernel", rk_runtime.count());
@@ -355,6 +358,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         bool keep_coefficients = false;
         auto compadre_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         gmls_problem.generateAlphas(number_of_batches, keep_coefficients);
+        Kokkos::fence();
         auto compadre_end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> compadre_runtime = compadre_end_time - compadre_start_time;
         runtimes.emplace("compute_compadre", compadre_runtime.count());
@@ -369,6 +373,7 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         TransferFieldToCompressedRowKokkosView(field_query_data, *m_mesh_data, {"block_1"}, m_num_neighbors_view_device, function_values_device);
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace>::HostMirror function_values_host = Kokkos::create_mirror_view(function_values_device);
         Kokkos::deep_copy(function_values_host, function_values_device);
+        Kokkos::fence();
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;

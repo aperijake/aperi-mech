@@ -412,40 +412,6 @@ jobs:
           fail-threshold: 5000%
 
       # Store detailed benchmark results for aperi-mech fem tests
-      - name: Store aperi-mech detailed benchmark result for fem create_solver
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_fem_create_solver.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_solver
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
-      - name: Store aperi-mech detailed benchmark result for fem create_element
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_fem_create_element.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/create_element
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
       - name: Store aperi-mech detailed benchmark result for fem solver
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -464,40 +430,6 @@ jobs:
           fail-threshold: 5000%
 
       # Store detailed benchmark results for aperi-mech sfem tests
-      - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing create_solver
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_fem_strain_smoothing_create_solver.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_solver
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
-      - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing create_element
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_fem_strain_smoothing_create_element.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/create_element
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
       - name: Store aperi-mech detailed benchmark result for fem_strain_smoothing solver
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -516,40 +448,6 @@ jobs:
           fail-threshold: 5000%
 
       # Store detailed benchmark results for aperi-mech rkpm tests
-      - name: Store aperi-mech detailed benchmark result for rkpm create_solver
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_create_solver.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_solver
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
-      - name: Store aperi-mech detailed benchmark result for rkpm create_element
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_create_element.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/create_element
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
       - name: Store aperi-mech detailed benchmark result for rkpm solver
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -568,40 +466,6 @@ jobs:
           fail-threshold: 5000%
 
       # Store detailed benchmark results for aperi-mech rkpm_nodal tests
-      - name: Store aperi-mech detailed benchmark result for rkpm_nodal create_solver
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_nodal_create_solver.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_solver
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
-      - name: Store aperi-mech detailed benchmark result for rkpm_nodal create_element
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_nodal_create_element.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/create_element
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
       - name: Store aperi-mech detailed benchmark result for rkpm_nodal solver
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -620,40 +484,6 @@ jobs:
           fail-threshold: 5000%
 
       # Store detailed benchmark results for aperi-mech rkpm_fbar tests
-      - name: Store aperi-mech detailed benchmark result for rkpm_fbar create_solver
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_fbar_create_solver.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_fbar/create_solver
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
-      - name: Store aperi-mech detailed benchmark result for rkpm_fbar create_element
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Benchmark
-          tool: customSmallerIsBetter
-          output-file-path: performance_rkpm_fbar_create_element.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_fbar/create_element
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: 500%
-          comment-on-alert: true
-          summary-always: true
-          alert-comment-cc-users: "@aperijake"
-          fail-on-alert: false
-          fail-threshold: 5000%
-
       - name: Store aperi-mech detailed benchmark result for rkpm_fbar solver
         uses: benchmark-action/github-action-benchmark@v1
         with:

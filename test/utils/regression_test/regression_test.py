@@ -164,7 +164,14 @@ def _print_pass_fail(test_name, return_code, executable_time, extra_message=None
 class RegressionTest:
 
     def __init__(
-        self, test_name, executable_path, num_procs, exe_args, write_json=False
+        self,
+        test_name,
+        executable_path,
+        num_procs,
+        exe_args,
+        write_json=False,
+        parse_timings=False,
+        timings_log_file=None,
     ):
         self.test_name = test_name
         self.log_file = "regression_test.log"
@@ -174,6 +181,14 @@ class RegressionTest:
         self.executable_time = 0
         self.peak_memory = 0
         self.write_json = write_json
+        self.parse_timings = parse_timings
+        self.timings_log_file = timings_log_file
+        if self.parse_timings:
+            # Error if the timings log file is not set
+            if self.timings_log_file is None:
+                raise ValueError(
+                    "Timings log file must be set if parse_timings is True."
+                )
 
     def _write_json(self, return_code):
         """Write the peak memory and run time to a JSON file
@@ -198,6 +213,29 @@ class RegressionTest:
         with open(json_file, "w") as f:
             json.dump(data, f, indent=2)
 
+    def _write_timings_csv(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        timing_script_path = os.path.join(script_dir, "../scripts/print_timing_log.py")
+        csv_file = "solver_" + self.test_name + ".csv"
+        command = [
+            "python3",
+            timing_script_path,
+            self.timings_log_file,
+            "--run_name",
+            self.test_name,
+            "--csv",
+            "--csv_filename",
+            csv_file,
+        ]
+        # Run the command to write the timings CSV
+        # trunk-ignore(bandit/B603)
+        return_code = subprocess.run(command, capture_output=True).returncode
+        if return_code != 0:
+            print(
+                f"Command to write timings CSV failed: {' '.join(command)}\n"
+                f"Failed to write timings CSV file {csv_file}. Please check the log file {self.log_file} for details."
+            )
+
     def run(self):
         _remove_file(self.log_file)
         return_code, stats = self._run()
@@ -206,6 +244,8 @@ class RegressionTest:
         stats["run_time"] = self.executable_time
         if self.write_json:
             self._write_json(return_code)
+        if self.parse_timings:
+            self._write_timings_csv()
         return return_code, stats
 
     def _run(self):
