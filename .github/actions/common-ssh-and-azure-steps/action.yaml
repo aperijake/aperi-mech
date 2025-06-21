@@ -7,6 +7,9 @@ inputs:
   SSH_PRIVATE_KEY:
     description: SSH private key
     required: true
+  VM_KNOWN_HOST:
+    description: Known hosts entry for the VM
+    required: true
 runs:
   using: composite
   steps:
@@ -14,9 +17,9 @@ runs:
       shell: bash
       run: mkdir -p ~/.ssh
 
-    - name: Add SSH key to known_hosts
+    - name: Write known_hosts file
       shell: bash
-      run: ssh-keyscan -H ${{ inputs.VM_IP }} >> ~/.ssh/known_hosts
+      run: echo "${{ inputs.VM_KNOWN_HOST }}" > ~/.ssh/known_hosts
 
     - name: Add SSH private key
       shell: bash

@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import paramiko
 
@@ -9,7 +10,8 @@ def str_to_bool(value):
 
 def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
     ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.load_host_keys(os.path.expanduser("~/.ssh/known_hosts"))
+    ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
     ssh.connect(vm_ip, username=vm_username)
 
     # Construct the compose file and service name

@@ -10,6 +10,9 @@ inputs:
   VM_USERNAME:
     description: Username for the VM
     required: true
+  VM_KNOWN_HOST:
+    description: Known hosts entry for the VM
+    required: true
   build-type:
     description: Build type (e.g., Release, Debug)
     required: true
@@ -31,6 +34,7 @@ runs:
       with:
         VM_IP: ${{ inputs.VM_IP }}
         SSH_PRIVATE_KEY: ${{ inputs.SSH_PRIVATE_KEY }}
+        VM_KNOWN_HOST: ${{ inputs.VM_KNOWN_HOST }}
 
     - name: Print inputs for debugging
       shell: bash

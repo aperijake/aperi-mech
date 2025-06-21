@@ -69,6 +69,7 @@ jobs:
         with:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
 
       - name: Checkout Code on VM
         run: |
@@ -165,6 +166,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
 
@@ -258,6 +260,7 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: false
           with-protego: false
           code-coverage: true
