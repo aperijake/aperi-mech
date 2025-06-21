@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750459960144,
+  "lastUpdate": 1750488066137,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -8418,6 +8418,178 @@ window.BENCHMARK_DATA = {
           {
             "name": "Explicit_Solver_Solver_WriteOutput_fem_taylor_bar_gpu_np_1",
             "value": 2.98097,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateShapeFunctions_fem_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "8d99364dd9699ae2fd1e3340e31cf6ffb1d01835",
+          "message": "stash changes first [skip ci]",
+          "timestamp": "2025-06-21T05:44:45Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/8d99364dd9699ae2fd1e3340e31cf6ffb1d01835"
+        },
+        "date": 1750488065617,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Explicit_Solver_Solver_Total_fem_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateFieldStates_fem_taylor_bar_cpu_np_1",
+            "value": 0.00043051,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ApplyBoundaryConditions_fem_taylor_bar_cpu_np_1",
+            "value": 0.00237573,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ComputeForce_fem_taylor_bar_cpu_np_1",
+            "value": 191.376,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeIntegrationNodalUpdates_fem_taylor_bar_cpu_np_1",
+            "value": 0.798833,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateDisplacements_fem_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateForce_fem_taylor_bar_cpu_np_1",
+            "value": 0.000045199,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeStepCompute_fem_taylor_bar_cpu_np_1",
+            "value": 0.000088907,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_WriteOutput_fem_taylor_bar_cpu_np_1",
+            "value": 2.80891,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateShapeFunctions_fem_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_Total_fem_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateFieldStates_fem_taylor_bar_cpu_np_4",
+            "value": 0.000878654,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ApplyBoundaryConditions_fem_taylor_bar_cpu_np_4",
+            "value": 0.00530076,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ComputeForce_fem_taylor_bar_cpu_np_4",
+            "value": 45.1192,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeIntegrationNodalUpdates_fem_taylor_bar_cpu_np_4",
+            "value": 0.482858,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateDisplacements_fem_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateForce_fem_taylor_bar_cpu_np_4",
+            "value": 0.107027,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeStepCompute_fem_taylor_bar_cpu_np_4",
+            "value": 0.000179633,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_WriteOutput_fem_taylor_bar_cpu_np_4",
+            "value": 9.9525,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateShapeFunctions_fem_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_Total_fem_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_UpdateFieldStates_fem_taylor_bar_gpu_np_1",
+            "value": 0.140566,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ApplyBoundaryConditions_fem_taylor_bar_gpu_np_1",
+            "value": 0.0138046,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_ComputeForce_fem_taylor_bar_gpu_np_1",
+            "value": 8.29332,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeIntegrationNodalUpdates_fem_taylor_bar_gpu_np_1",
+            "value": 0.0618522,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateDisplacements_fem_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_CommunicateForce_fem_taylor_bar_gpu_np_1",
+            "value": 0.000248186,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_TimeStepCompute_fem_taylor_bar_gpu_np_1",
+            "value": 0.000497753,
+            "unit": "seconds"
+          },
+          {
+            "name": "Explicit_Solver_Solver_WriteOutput_fem_taylor_bar_gpu_np_1",
+            "value": 2.94906,
             "unit": "seconds"
           },
           {
