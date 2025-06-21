@@ -25,7 +25,6 @@
 namespace aperi {
 
 void ExplicitSolver::UpdateFieldStates() {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateFieldStates);
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
 }
@@ -98,7 +97,6 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
 }
 
 void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) {
-    auto timer = m_timer_manager->CreateScopedTimer(timer_type);
     ComputeForce(time, time_increment);
 }
 
@@ -113,12 +111,10 @@ void ExplicitSolver::CommunicateForce() {
 }
 
 void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
-    auto timer = m_timer_manager->CreateScopedTimer(timer_type);
     CommunicateForce();
 }
 
 void ExplicitSolver::WriteOutput(double time) {
-    auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::WriteOutput);
     if (m_uses_generalized_fields) {
         UpdateFieldsFromGeneralizedFields();
     }
@@ -147,7 +143,6 @@ void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<Explic
     }
 
     if (update_shape_functions) {
-        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::UpdateShapeFunctions);
         explicit_time_integrator->UpdateReferenceConfiguration();
         for (const auto &internal_force_contribution : m_internal_force_contributions) {
             internal_force_contribution->UpdateShapeFunctions();
@@ -192,23 +187,17 @@ void LogEvent(const size_t n, const double time, const double time_increment, co
 
 void ExplicitSolver::BuildMassMatrix() {
     // Compute mass matrix
-    aperi::CoutP0() << "   - Computing mass matrix" << std::endl;
-    auto start_mass_matrix = std::chrono::high_resolution_clock::now();
+    aperi::CoutP0() << "  Computing mass matrix" << std::endl;
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         ComputeMassMatrixForPart(mp_mesh_data, internal_force_contribution->GetPartName(), internal_force_contribution->GetMaterial()->GetDensity());
     }
     double total_mass = FinishComputingMassMatrix(mp_mesh_data, m_uses_generalized_fields);
     aperi::CoutP0() << "     Total mass: " << total_mass << std::endl;
-    auto end_mass_matrix = std::chrono::high_resolution_clock::now();
-    aperi::CoutP0() << "     Finished Computing Mass Matrix. Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_mass_matrix - start_mass_matrix).count() << " ms" << std::endl;
 }
 
 double ExplicitSolver::Solve() {
     // Add the simple timer for the explicit solver
     auto explicit_solver_timer = aperi::SimpleTimerFactory::Create(aperi::SolverTimerType::Total, aperi::explicit_solver_timer_names_map);
-
-    // Print the number of nodes
-    mp_mesh_data->PrintNodeCounts();
 
     // Build the mass matrix
     BuildMassMatrix();
@@ -247,7 +236,6 @@ double ExplicitSolver::Solve() {
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
     {
-        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
         time_step_compute_timer->Start();
         time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
         time_step_compute_timer->Stop();
@@ -261,7 +249,6 @@ double ExplicitSolver::Solve() {
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     {
-        auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
         time_integration_nodal_updates_timer->Start();
         explicit_time_integrator->ComputeAcceleration();
         time_integration_nodal_updates_timer->Stop();
@@ -295,7 +282,6 @@ double ExplicitSolver::Solve() {
 
         // Get the next time step, Δt^{n+½}
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeStepCompute);
             time_step_compute_timer->Start();
             time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
             time_step_compute_timer->Stop();
@@ -312,7 +298,6 @@ double ExplicitSolver::Solve() {
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeFirstPartialUpdate();
             time_integration_nodal_updates_timer->Stop();
@@ -320,7 +305,6 @@ double ExplicitSolver::Solve() {
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
             apply_boundary_conditions_timer->Start();
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyVelocity(time_midstep);
@@ -330,7 +314,6 @@ double ExplicitSolver::Solve() {
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->UpdateDisplacements();
             time_integration_nodal_updates_timer->Stop();
@@ -348,7 +331,6 @@ double ExplicitSolver::Solve() {
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeAcceleration();
             time_integration_nodal_updates_timer->Stop();
@@ -356,7 +338,6 @@ double ExplicitSolver::Solve() {
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::ApplyBoundaryConditions);
             apply_boundary_conditions_timer->Start();
             for (const auto &boundary_condition : m_boundary_conditions) {
                 boundary_condition->ApplyAcceleration(time_next);
@@ -366,7 +347,6 @@ double ExplicitSolver::Solve() {
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
         {
-            auto timer = m_timer_manager->CreateScopedTimer(SolverTimerType::TimeIntegrationNodalUpdates);
             time_integration_nodal_updates_timer->Start();
             explicit_time_integrator->ComputeSecondPartialUpdate();
             time_integration_nodal_updates_timer->Stop();

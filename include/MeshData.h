@@ -212,42 +212,45 @@ class MeshData {
         // Print the number of nodes in a nice table, using setw to make it look nice
         // This is the summary so print total number of nodes, average number of nodes, min number of nodes, max number of nodes for each type
         std::stringstream ss;
-        int width = 12;
-        ss << "*** Node Counts ************************************\n";
-        ss << std::setw(width) << "Type" << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+        int width_1 = 7;
+        int width_2 = 12;
+        ss << "\n*** Node Counts ***********************************************\n";
+        ss << std::setw(width_1) << "Type" << std::setw(width_1) << "Total" << std::setw(width_2) << "Processor" << std::setw(width_2) << "Processor" << std::setw(width_2) << "Processor"
            << "\n";
-        ss << std::setw(width) << "" << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance%"
+        ss << std::setw(width_1) << "" << std::setw(width_1) << "" << std::setw(width_2) << "Average" << std::setw(width_2) << "Min" << std::setw(width_2) << "Max" << std::setw(width_2) << "Unbalance"
            << "\n";
-        ss << "----------------------------------------------------\n";
-        ss << std::setw(width) << "Owned" << std::setw(width) << total_num_active_owned_nodes << std::setw(width) << avg_num_active_owned_nodes << std::setw(width) << min_num_active_owned_nodes << std::setw(width) << max_num_active_owned_nodes << std::setw(width) << percent_unbalance_active_owned << "%\n";
-        ss << std::setw(width) << "Ghosted" << std::setw(width) << total_num_ghosted_active_nodes << std::setw(width) << avg_num_ghosted_active_nodes << std::setw(width) << min_num_ghosted_active_nodes << std::setw(width) << max_num_ghosted_active_nodes << "\n";
-        ss << "*** Vertex Counts *********************************\n";
-        ss << std::setw(width) << "Type" << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+        ss << "---------------------------------------------------------------\n";
+        ss << std::setw(width_1) << "Owned" << std::setw(width_1) << total_num_active_owned_nodes << std::setw(width_2) << avg_num_active_owned_nodes << std::setw(width_2) << min_num_active_owned_nodes << std::setw(width_2) << max_num_active_owned_nodes << std::setw(width_2) << percent_unbalance_active_owned << "%\n";
+        ss << std::setw(width_1) << "Ghosted" << std::setw(width_1) << total_num_ghosted_active_nodes << std::setw(width_2) << avg_num_ghosted_active_nodes << std::setw(width_2) << min_num_ghosted_active_nodes << std::setw(width_2) << max_num_ghosted_active_nodes << "\n";
+        ss << "***************************************************************\n";
+
+        ss << "\n*** Vertex Counts *********************************************\n";
+        ss << std::setw(width_1) << "Type" << std::setw(width_1) << "Total" << std::setw(width_2) << "Processor" << std::setw(width_2) << "Processor" << std::setw(width_2) << "Processor"
            << "\n";
-        ss << std::setw(width) << "" << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance%"
+        ss << std::setw(width_1) << "" << std::setw(width_1) << "" << std::setw(width_2) << "Average" << std::setw(width_2) << "Min" << std::setw(width_2) << "Max" << std::setw(width_2) << "Unbalance"
            << "\n";
-        ss << "----------------------------------------------------\n";
-        ss << std::setw(width) << "Owned" << std::setw(width) << total_num_owned_nodes << std::setw(width) << avg_num_owned_nodes << std::setw(width) << min_num_owned_nodes << std::setw(width) << max_num_owned_nodes << std::setw(width) << percent_unbalance_owned << "%\n";
-        ss << std::setw(width) << "Ghosted" << std::setw(width) << total_num_ghosted_nodes << std::setw(width) << avg_num_ghosted_nodes << std::setw(width) << min_num_ghosted_nodes << std::setw(width) << max_num_ghosted_nodes << "\n";
-        ss << "***************************************************\n";
+        ss << "---------------------------------------------------------------\n";
+        ss << std::setw(width_1) << "Owned" << std::setw(width_1) << total_num_owned_nodes << std::setw(width_2) << avg_num_owned_nodes << std::setw(width_2) << min_num_owned_nodes << std::setw(width_2) << max_num_owned_nodes << std::setw(width_2) << percent_unbalance_owned << "%\n";
+        ss << std::setw(width_1) << "Ghosted" << std::setw(width_1) << total_num_ghosted_nodes << std::setw(width_2) << avg_num_ghosted_nodes << std::setw(width_2) << min_num_ghosted_nodes << std::setw(width_2) << max_num_ghosted_nodes << "\n";
+        ss << "***************************************************************\n";
         aperi::CoutP0() << ss.str();
 
         if (print_each_processor) {
             // Print the number of nodes on each processor
             ss.str("");
-            ss << "*** Node Counts ************************************\n";
-            ss << std::setw(width) << "Processor" << std::setw(width) << "Owned" << std::setw(width) << "Ghosted\n";
-            ss << "----------------------------------------------------\n";
+            ss << "\n*** Node Counts ***********************************************\n";
+            ss << std::setw(width_1) << "Processor" << std::setw(width_1) << "Owned" << std::setw(width_2) << "Ghosted\n";
+            ss << "---------------------------------------------------------------\n";
             for (int i = 0; i < num_procs; ++i) {
-                ss << std::setw(width) << i << std::setw(width) << num_owned_nodes_per_proc[i] << std::setw(width) << num_ghosted_nodes_per_proc[i] << "\n";
+                ss << std::setw(width_1) << i << std::setw(width_1) << num_owned_nodes_per_proc[i] << std::setw(width_2) << num_ghosted_nodes_per_proc[i] << "\n";
             }
-            ss << "*** Vertex Counts *********************************\n";
-            ss << std::setw(width) << "Processor" << std::setw(width) << "Owned" << std::setw(width) << "Ghosted\n";
-            ss << "----------------------------------------------------\n";
+            ss << "\n*** Vertex Counts *********************************************\n";
+            ss << std::setw(width_1) << "Processor" << std::setw(width_1) << "Owned" << std::setw(width_2) << "Ghosted\n";
+            ss << "---------------------------------------------------------------\n";
             for (int i = 0; i < num_procs; ++i) {
-                ss << std::setw(width) << i << std::setw(width) << num_active_owned_nodes_per_proc[i] << std::setw(width) << num_ghosted_active_nodes_per_proc[i] << "\n";
+                ss << std::setw(width_1) << i << std::setw(width_1) << num_active_owned_nodes_per_proc[i] << std::setw(width_2) << num_ghosted_active_nodes_per_proc[i] << "\n";
             }
-            ss << "***************************************************\n";
+            ss << "***************************************************************\n";
             aperi::CoutP0() << ss.str();
         }
     }
@@ -281,15 +284,16 @@ class MeshData {
 
         // Print the cell counts
         std::stringstream ss;
-        int width = 12;
-        ss << "*** Cell Counts ************************************\n";
-        ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+        int width_1 = 9;
+        int width_2 = 12;
+        ss << "*** Cell Counts ***********************************************\n";
+        ss << std::setw(width_1) << "Total" << std::setw(width_1) << "Processor" << std::setw(width_2) << "Processor" << std::setw(width_2) << "Processor"
            << "\n";
-        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance%"
+        ss << std::setw(width_1) << "" << std::setw(width_1) << "Average" << std::setw(width_2) << "Min" << std::setw(width_2) << "Max" << std::setw(width_2) << "Unbalance"
            << "\n";
-        ss << "----------------------------------------------------\n";
-        ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
-        ss << "***************************************************\n";
+        ss << "---------------------------------------------------------------\n";
+        ss << std::setw(width_1) << total_num_cells << std::setw(width_1) << avg_num_cells << std::setw(width_2) << min_num_cells << std::setw(width_2) << max_num_cells << std::setw(width_2) << percent_unbalance << "%\n";
+        ss << "***************************************************************\n";
         aperi::CoutP0() << ss.str();
     }
 

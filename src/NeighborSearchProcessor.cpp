@@ -72,7 +72,6 @@ NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData
     if (mesh_data == nullptr) {
         throw std::runtime_error("Mesh data is null.");
     }
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::Instantiate, "Neighbor Search Processor Instantiation");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::Instantiate, aperi::neighbor_search_processor_timer_names_map);
     m_bulk_data = mesh_data->GetBulkData();
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -185,7 +184,6 @@ std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> NeighborS
 }
 
 void NeighborSearchProcessor::SetKernelRadius(const std::string &set, double kernel_radius) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Set Kernel Radius");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::ComputeKernelRadius, aperi::neighbor_search_processor_timer_names_map);
     m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
     auto ngp_mesh = m_ngp_mesh;
@@ -212,7 +210,6 @@ void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double
     if (scale_factor < 0.0) {
         throw std::runtime_error("Kernel radius scale factor must be non-negative.");
     }
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::ComputeKernelRadius, "Compute Kernel Radius");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::ComputeKernelRadius, aperi::neighbor_search_processor_timer_names_map);
     if (scale_factor == 1.0) {
         scale_factor += 1.0e-6;
@@ -239,7 +236,6 @@ void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double
 }
 
 void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::GhostNodeNeighbors, "Ghost Node Neighbors");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::GhostNodeNeighbors, aperi::neighbor_search_processor_timer_names_map);
     // Skip if the parallel size is 1 or if there are no search results
     if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {
@@ -264,7 +260,6 @@ void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirro
 }
 
 void NeighborSearchProcessor::UnpackSearchResultsIntoField(ResultViewType &search_results, size_t num_domain_nodes) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, "Unpack Search Results Into Field");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, aperi::neighbor_search_processor_timer_names_map);
     const int my_rank = m_bulk_data->parallel_rank();
     bool serial = (m_bulk_data->parallel_size() == 1);
@@ -361,7 +356,6 @@ void NeighborSearchProcessor::UnpackSearchResultsIntoField(ResultViewType &searc
 }
 
 void NeighborSearchProcessor::CalculateResultsDistances(ResultViewType &search_results) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CalculateResultsDistances, "Calculate Node-Neighbor Distances");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CalculateResultsDistances, aperi::neighbor_search_processor_timer_names_map);
 
     const int my_rank = m_bulk_data->parallel_rank();
@@ -409,7 +403,6 @@ void NeighborSearchProcessor::CalculateResultsDistances(ResultViewType &search_r
 }
 
 void NeighborSearchProcessor::SortSearchResults(ResultViewType &search_results) {
-    auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::SortSearchResults, "Sort Search Results");
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::SortSearchResults, aperi::neighbor_search_processor_timer_names_map);
     if (m_bulk_data->parallel_size() > 1) {
         const int my_rank = m_bulk_data->parallel_rank();
@@ -428,7 +421,6 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
     ResultViewType search_results;
 
     {
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::CoarseSearch, "Coarse Search");
         auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::CoarseSearch, aperi::neighbor_search_processor_timer_names_map);
         stk::search::SearchMethod search_method = stk::search::MORTON_LBVH;
         stk::ngp::ExecSpace exec_space = Kokkos::DefaultExecutionSpace{};
@@ -439,7 +431,6 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
     if (m_bulk_data->parallel_size() > 1) {
         ResultViewType::HostMirror host_search_results = Kokkos::create_mirror_view(search_results);
         {
-            auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(NeighborSearchProcessorTimerType::KokkosDeepCopy, "Kokkos DeepCopy");
             auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::KokkosDeepCopy, aperi::neighbor_search_processor_timer_names_map);
             Kokkos::deep_copy(host_search_results, search_results);
         }

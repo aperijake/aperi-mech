@@ -54,7 +54,6 @@ class SmoothedCellDataProcessor {
         if (mesh_data == nullptr) {
             throw std::runtime_error("Mesh data is null.");
         }
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::Instantiate, "Strain Smoothing Processor Instantiation");
         auto simple_timer = aperi::SimpleTimerFactory::Create(StrainSmoothingTimerType::Instantiate, strain_smoothing_timer_map);
         m_bulk_data = mesh_data->GetBulkData();
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
@@ -801,22 +800,24 @@ class SmoothedCellDataProcessor {
         // Print the cell counts
         std::stringstream ss;
         int width = 12;
-        ss << "*** Cell Counts ************************************\n";
+        ss << "\n*** Cell Counts ***********************************************\n";
         ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
            << "\n";
-        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance%"
+        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance"
            << "\n";
-        ss << "----------------------------------------------------\n";
+        ss << "---------------------------------------------------------------\n";
         ss << std::setw(width) << total_num_cells << std::setw(width) << avg_num_cells << std::setw(width) << min_num_cells << std::setw(width) << max_num_cells << std::setw(width) << percent_unbalance << "%\n";
-        ss << "*** Subcell Counts ************************************\n";
-        ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Unbalance%"
+        ss << "***************************************************************\n";
+
+        ss << "\n*** Subcell Counts ********************************************\n";
+        ss << std::setw(width) << "Total" << std::setw(width) << "Processor" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
            << "\n";
-        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Processor" << std::setw(width) << "Processor"
+        ss << std::setw(width) << "" << std::setw(width) << "Average" << std::setw(width) << "Min" << std::setw(width) << "Max" << std::setw(width) << "Unbalance"
            << "\n";
-        ss << "----------------------------------------------------\n";
+        ss << "---------------------------------------------------------------\n";
         ss << std::setw(width) << total_num_subcells << std::setw(width) << avg_num_subcells << std::setw(width) << min_num_subcells << std::setw(width) << max_num_subcells << std::setw(width) << percent_unbalance_subcells << "%\n";
-        ss << "***************************************************\n";
-        ss << "Number of resizes: " << num_resizes << std::endl;
+        ss << "  Number of view resizes: " << num_resizes << std::endl;
+        ss << "***************************************************************\n";
         aperi::CoutP0() << ss.str();
     }
 
@@ -829,7 +830,6 @@ class SmoothedCellDataProcessor {
         for (const auto &set : m_sets) {
             timer_name += set + " ";
         }
-        auto timer = m_timer_manager.CreateScopedTimerWithInlineLogging(StrainSmoothingTimerType::BuildSmoothedCellData, timer_name);
         auto simple_timer = aperi::SimpleTimerFactory::Create(StrainSmoothingTimerType::BuildSmoothedCellData, strain_smoothing_timer_map);
 
         // Update the ngp mesh
