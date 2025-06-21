@@ -111,7 +111,7 @@ std::string FindFileInDirectories(const std::string& file, const std::vector<std
     throw std::runtime_error("File '" + file + "' not found in directories: " + search_directories);
 }
 
-std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, bool add_faces, MPI_Comm& comm, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_file, const std::vector<std::string>& mesh_search_directories, const std::vector<std::string>& part_names, bool add_faces, MPI_Comm& comm) {
     // Find the mesh file in the search directories
     std::string mesh_file_path = aperi::FindFileInDirectories(mesh_file, mesh_search_directories);
 
@@ -130,7 +130,7 @@ std::shared_ptr<aperi::IoMesh> CreateIoMeshAndReadMesh(const std::string& mesh_f
     return io_mesh;
 }
 
-void CreateFieldResultsFile(std::shared_ptr<aperi::IoMesh> io_mesh, const std::string& output_file, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void CreateFieldResultsFile(std::shared_ptr<aperi::IoMesh> io_mesh, const std::string& output_file) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateFieldResultsFile, aperi::application_timer_map);
 
@@ -149,7 +149,7 @@ bool UsesGeneralizedFields(const std::vector<std::shared_ptr<aperi::InternalForc
     return uses_generalized_fields;
 }
 
-std::shared_ptr<aperi::TimeStepper> CreateTimeStepper(const YAML::Node& time_stepper_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::TimeStepper> CreateStepper(const YAML::Node& time_stepper_node) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateTimeStepper, aperi::application_timer_map);
 
@@ -157,7 +157,7 @@ std::shared_ptr<aperi::TimeStepper> CreateTimeStepper(const YAML::Node& time_ste
     return aperi::CreateTimeStepper(time_stepper_node);
 }
 
-std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalForceContribution(const std::vector<YAML::Node>& parts, const LagrangianFormulationType& lagrangian_formulation_type, std::shared_ptr<IoInputFile> io_input_file, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalForceContribution(const std::vector<YAML::Node>& parts, const LagrangianFormulationType& lagrangian_formulation_type, std::shared_ptr<IoInputFile> io_input_file, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateInternalForceContribution, aperi::application_timer_map);
 
@@ -170,7 +170,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
         // Create InternalForceContributionParameters
         std::string part_name = part["set"].as<std::string>();
         aperi::CoutP0() << "      " << part_name << std::endl;
-        InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData(), timer_manager->AreAccurateTimersEnabled());
+        InternalForceContributionParameters internal_force_contribution_parameters(part, io_input_file, io_mesh->GetMeshData());
         internal_force_contribution_parameters.lagrangian_formulation_type = lagrangian_formulation_type;
         internal_force_contributions.push_back(CreateInternalForceContribution(internal_force_contribution_parameters));
         std::vector<aperi::FieldData> part_field_data = internal_force_contribution_parameters.material->GetFieldData();
@@ -186,7 +186,7 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
     return internal_force_contributions;
 }
 
-void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::AddFieldsToMesh, aperi::application_timer_map);
 
@@ -208,7 +208,7 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
     io_mesh->CompleteInitialization();
 }
 
-std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalForceContribution(const std::vector<YAML::Node>& loads, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalForceContribution(const std::vector<YAML::Node>& loads, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateExternalForceContribution, aperi::application_timer_map);
 
@@ -224,7 +224,7 @@ std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalFor
     return external_force_contributions;
 }
 
-void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::AddInitialConditions, aperi::application_timer_map);
 
@@ -237,7 +237,7 @@ void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std
     }
 }
 
-std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateBoundaryConditions, aperi::application_timer_map);
 
@@ -253,7 +253,7 @@ std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(
     return boundary_conditions;
 }
 
-std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node& output_scheduler_node, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node& output_scheduler_node) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateOutputScheduler, aperi::application_timer_map);
 
@@ -261,7 +261,7 @@ std::shared_ptr<aperi::Scheduler<double>> CreateOutputScheduler(const YAML::Node
     return aperi::CreateTimeIncrementScheduler(output_scheduler_node);
 }
 
-std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateScheduler(int reference_configuration_update_interval, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateScheduler(int reference_configuration_update_interval) {
     // Create a scoped timer. just labeling it as CreateOutputScheduler for now
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateOutputScheduler, aperi::application_timer_map);
 
@@ -270,20 +270,17 @@ std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateSche
     return aperi::CreateStepScheduler(start_n, reference_configuration_update_interval);
 }
 
-void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type, std::shared_ptr<aperi::TimerManager<ApplicationTimerType>>& timer_manager) {
+void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::Preprocessing, aperi::application_timer_map);
 
     // Run pre-processing
-    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type, timer_manager);
+    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << "\n############################################" << std::endl;
     aperi::CoutP0() << " Creating Solver" << std::endl;
-
-    bool enable_accurate_timers = m_dump_performance_data;
-    auto timer_manager = std::make_shared<aperi::TimerManager<ApplicationTimerType>>("Application Setup", application_timer_map, enable_accurate_timers);
 
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
@@ -302,21 +299,21 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Create the IO mesh object and read the mesh
     add_faces = add_faces || NeedsFaces(parts);
-    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, add_faces, m_comm, timer_manager);
+    std::shared_ptr<aperi::IoMesh> io_mesh = CreateIoMeshAndReadMesh(mesh_file, mesh_search_directories, part_names, add_faces, m_comm);
 
     // Create the field results file
     std::string output_file = io_input_file->GetOutputFile(procedure_id);
-    CreateFieldResultsFile(io_mesh, output_file, timer_manager);
+    CreateFieldResultsFile(io_mesh, output_file);
 
     // Get the time stepper
     YAML::Node time_stepper_node = io_input_file->GetTimeStepper(procedure_id);
-    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateTimeStepper(time_stepper_node, timer_manager);
+    std::shared_ptr<aperi::TimeStepper> time_stepper = CreateStepper(time_stepper_node);
 
     // Get the formulation type
     LagrangianFormulationType formulation_type = io_input_file->GetLagrangianFormulationType(procedure_id);
 
     // Create internal force contributions
-    std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions = CreateInternalForceContribution(parts, formulation_type, io_input_file, io_mesh, timer_manager);
+    std::vector<std::shared_ptr<aperi::InternalForceContribution>> internal_force_contributions = CreateInternalForceContribution(parts, formulation_type, io_input_file, io_mesh);
 
     // Check if strain smoothing is used
     bool has_strain_smoothing = HasStrainSmoothing(parts);
@@ -332,35 +329,35 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Add fields to the mesh
-    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients, timer_manager);
+    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
 
     // Create external force contributions
     std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);
-    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions = CreateExternalForceContribution(loads, io_mesh, timer_manager);
+    std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions = CreateExternalForceContribution(loads, io_mesh);
 
     // Set initial conditions
     std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
-    AddInitialConditions(initial_conditions, io_mesh, timer_manager);
+    AddInitialConditions(initial_conditions, io_mesh);
 
     // Create boundary conditions
     std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh, timer_manager);
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh);
 
     // Get the output scheduler
-    std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateOutputScheduler(output_scheduler_node, timer_manager);
+    std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateOutputScheduler(output_scheduler_node);
 
     // Get the reference configuration update scheduler
     std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler = nullptr;
     if (formulation_type == LagrangianFormulationType::Semi) {
         int reference_configuration_update_interval = io_input_file->GetSemiLagrangianConfigurationUpdateInterval(procedure_id);
-        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval, timer_manager);
+        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval);
     } else if (formulation_type == LagrangianFormulationType::Updated) {
         int reference_configuration_update_interval = 1;
-        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval, timer_manager);
+        reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval);
     }
 
     // Pre-processing
-    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, formulation_type, timer_manager);
+    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, formulation_type);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {
@@ -371,7 +368,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     io_mesh->GetMeshData()->PrintNodeCounts();
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler, enable_accurate_timers);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;

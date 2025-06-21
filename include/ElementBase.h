@@ -8,7 +8,6 @@
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 #include "SimpleTimerFactory.h"
-#include "Timer.h"
 #include "TimerTypes.h"
 
 namespace aperi {
@@ -37,8 +36,7 @@ class ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool enable_accurate_timers)
+        const aperi::MeshLabelerParameters& mesh_labeler_parameters)
         : m_num_nodes(num_nodes),
           m_material(material),
           m_displacement_field_name(displacement_field_name),
@@ -46,7 +44,6 @@ class ElementBase {
           m_mesh_data(mesh_data),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_mesh_labeler_parameters(mesh_labeler_parameters) {
-        m_timer_manager = std::make_shared<aperi::TimerManager<ElementTimerType>>("Element", element_timer_map, enable_accurate_timers);
     }
 
     virtual ~ElementBase() = default;
@@ -93,15 +90,6 @@ class ElementBase {
         return nullptr;
     }
 
-    /**
-     * @brief Gets the timer manager for the element.
-     *
-     * @return A shared pointer to the timer manager for the element.
-     */
-    std::shared_ptr<aperi::TimerManager<ElementTimerType>> GetTimerManager() const {
-        return m_timer_manager;
-    }
-
     std::vector<std::string> GetPartNames() const {
         return m_part_names;
     }
@@ -117,9 +105,8 @@ class ElementBase {
     virtual void FinishPreprocessing() {}
 
    protected:
-    size_t m_num_nodes;                                                      ///< The number of nodes in the element.
-    std::shared_ptr<Material> m_material;                                    ///< The material of the element.
-    std::shared_ptr<aperi::TimerManager<ElementTimerType>> m_timer_manager;  ///< The timer manager for the element.
+    size_t m_num_nodes;                    ///< The number of nodes in the element.
+    std::shared_ptr<Material> m_material;  ///< The material of the element.
 
     // New protected members moved from derived classes
     std::string m_displacement_field_name;

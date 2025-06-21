@@ -96,10 +96,6 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
     }
 }
 
-void ExplicitSolver::ComputeForce(const SolverTimerType &timer_type, double time, double time_increment) {
-    ComputeForce(time, time_increment);
-}
-
 void ExplicitSolver::CommunicateForce() {
     // If there is more than one processor, communicate the field data that other processors need
     if (m_num_processors > 1) {
@@ -108,10 +104,6 @@ void ExplicitSolver::CommunicateForce() {
         m_node_processor_force->MarkFieldModifiedOnHost(0);
         m_node_processor_force->SyncFieldHostToDevice(0);
     }
-}
-
-void ExplicitSolver::CommunicateForce(const SolverTimerType &timer_type) {
-    CommunicateForce();
 }
 
 void ExplicitSolver::WriteOutput(double time) {
@@ -244,8 +236,8 @@ double ExplicitSolver::Solve() {
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
-    ComputeForce(aperi::SolverTimerType::ComputeForce, time, time_increment);
-    CommunicateForce(aperi::SolverTimerType::CommunicateForce);
+    ComputeForce(time, time_increment);
+    CommunicateForce();
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
     {
@@ -321,12 +313,12 @@ double ExplicitSolver::Solve() {
 
         // Compute the force, f^{n+1}
         compute_force_timer->Start();
-        ComputeForce(aperi::SolverTimerType::ComputeForce, time, time_increment);
+        ComputeForce(time, time_increment);
         compute_force_timer->Stop();
 
         // Communicate the force field data
         communicate_force_timer->Start();
-        CommunicateForce(aperi::SolverTimerType::CommunicateForce);
+        CommunicateForce();
         communicate_force_timer->Stop();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})

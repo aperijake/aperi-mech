@@ -15,9 +15,9 @@
 #include "TimerTypes.h"
 #include "git_commit.h"
 
-void RunApplication(const std::string& input_filename, MPI_Comm comm, bool dump_performance_data, const std::string& performance_data_runstring) {
+void RunApplication(const std::string& input_filename, MPI_Comm comm) {
     // Create an application object
-    aperi::Application application(comm, dump_performance_data, performance_data_runstring);
+    aperi::Application application(comm);
 
     // Run the application
     application.CreateSolverAndRun(input_filename);
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
         auto timer = aperi::SimpleTimerFactory::Create(aperi::ApplicationTimerType::Total, aperi::application_timer_map);
 
         // Run the application
-        RunApplication(input_filename, p_comm, dump_performance_data, performance_data_runstring);
+        RunApplication(input_filename, p_comm);
     }
 
     // Print footer

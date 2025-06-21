@@ -40,16 +40,14 @@ class ElementTetrahedron4 : public ElementBase {
         std::shared_ptr<MeshData> mesh_data,
         std::shared_ptr<Material> material,
         const aperi::LagrangianFormulationType &lagrangian_formulation_type,
-        const aperi::MeshLabelerParameters &mesh_labeler_parameters,
-        bool enable_accurate_timers)
+        const aperi::MeshLabelerParameters &mesh_labeler_parameters)
         : ElementBase(TET4_NUM_NODES,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters,
-                      enable_accurate_timers) {
+                      mesh_labeler_parameters) {
         CreateFunctors();
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
@@ -69,7 +67,6 @@ class ElementTetrahedron4 : public ElementBase {
      */
     void CreateElementForceProcessor() {
         // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         // Create the element processor
@@ -93,7 +90,7 @@ class ElementTetrahedron4 : public ElementBase {
     }
 
     void CreateSmoothedCellDataProcessor() {
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, false /* use_f_bar */, m_timer_manager->AreAccurateTimersEnabled());
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, false /* use_f_bar */);
     }
 
     void LabelParts() {
@@ -111,7 +108,6 @@ class ElementTetrahedron4 : public ElementBase {
     // Create and destroy functors. Must be public to run on device.
     void CreateFunctors() {
         // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::Other, aperi::element_timer_map);
 
         // Functor for computing shape function derivatives
@@ -162,7 +158,6 @@ class ElementTetrahedron4 : public ElementBase {
      */
     void ComputeElementVolume() {
         // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::Other);
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::Other, aperi::element_timer_map);
 
         // Check that the functors are created

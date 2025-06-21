@@ -38,23 +38,22 @@ inline std::shared_ptr<ElementBase> CreateElement(
     const MeshLabelerParameters& mesh_labeler_parameters,
     std::vector<std::string> part_names,
     std::shared_ptr<aperi::MeshData> mesh_data,
-    std::shared_ptr<Material> material,
-    bool enable_accurate_timers) {
+    std::shared_ptr<Material> material) {
     // TODO(jake): Clean up this function
     if (element_topology == ElementTopology::Tetrahedron4) {
         if (ApproximationSpaceType::FiniteElement == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 bool use_f_bar = integration_scheme_parameters->UsesFBar();
-                return std::make_shared<ElementSmoothedTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar, enable_accurate_timers);
+                return std::make_shared<ElementSmoothedTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar);
             } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
-                return std::make_shared<ElementTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters, enable_accurate_timers);
+                return std::make_shared<ElementTetrahedron4>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters);
             }
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 bool use_f_bar = integration_scheme_parameters->UsesFBar();
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
                 bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
-                return std::make_shared<ElementReproducingKernelTet4>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar, enable_accurate_timers);
+                return std::make_shared<ElementReproducingKernelTet4>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }
@@ -67,14 +66,14 @@ inline std::shared_ptr<ElementBase> CreateElement(
                 // Throw, not supported
                 throw std::runtime_error("Strain Smoothing is not supported for finite elements and Hexahedron8");
             } else {  // GaussQuadrature. TODO(jake) actually plumb in parameters for GaussQuadrature
-                return std::make_shared<ElementHexahedron8>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters, enable_accurate_timers);
+                return std::make_shared<ElementHexahedron8>(displacement_field_name, part_names, mesh_data, material, lagrangian_formulation_type, mesh_labeler_parameters);
             }
         } else if (ApproximationSpaceType::ReproducingKernel == approximation_space_parameters->GetApproximationSpaceType()) {
             if (integration_scheme_parameters->GetIntegrationSchemeType() == IntegrationSchemeType::StrainSmoothing) {
                 bool use_f_bar = integration_scheme_parameters->UsesFBar();
                 double kernel_radius_scale_factor = approximation_space_parameters->GetKernelRadiusScaleFactor();
                 bool use_one_pass_method = integration_scheme_parameters->UsesOnePassMethod();
-                return std::make_shared<ElementReproducingKernelHex8>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar, enable_accurate_timers);
+                return std::make_shared<ElementReproducingKernelHex8>(displacement_field_name, part_names, mesh_data, material, kernel_radius_scale_factor, use_one_pass_method, lagrangian_formulation_type, mesh_labeler_parameters, use_f_bar);
             } else {
                 throw std::runtime_error("Gauss Quadrature is not supported for Reproducing Kernel");
             }

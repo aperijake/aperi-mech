@@ -64,10 +64,8 @@ inline aperi::Selector GetDomainSelector(const std::vector<std::string> &sets, a
     return selector;
 }
 
-NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data,
-                                                 bool enable_accurate_timers)
-    : m_mesh_data(mesh_data),
-      m_timer_manager("Neighbor Search Processor", neighbor_search_processor_timer_names_map, enable_accurate_timers) {
+NeighborSearchProcessor::NeighborSearchProcessor(std::shared_ptr<aperi::MeshData> mesh_data)
+    : m_mesh_data(mesh_data) {
     // Throw an exception if the mesh data is null.
     if (mesh_data == nullptr) {
         throw std::runtime_error("Mesh data is null.");
@@ -173,14 +171,6 @@ void NeighborSearchProcessor::CommunicateAllFieldData() const {
     // This is because the neighbors field is a local offset and not a global id.
     // Throw an exception if this is called.
     throw std::runtime_error("NeighborSearchProcessor::CommunicateAllFieldData should not be called.");
-}
-
-void NeighborSearchProcessor::WriteTimerCSV(const std::string &output_file) {
-    m_timer_manager.WriteCSV(output_file);
-}
-
-std::shared_ptr<aperi::TimerManager<NeighborSearchProcessorTimerType>> NeighborSearchProcessor::GetTimerManager() {
-    return std::make_shared<aperi::TimerManager<NeighborSearchProcessorTimerType>>(m_timer_manager);
 }
 
 void NeighborSearchProcessor::SetKernelRadius(const std::string &set, double kernel_radius) {

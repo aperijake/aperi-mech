@@ -45,16 +45,14 @@ class ElementReproducingKernel : public ElementBase {
         bool use_one_pass_method,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
         const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool use_f_bar,
-        bool enable_accurate_timers)
+        bool use_f_bar)
         : ElementBase(NumCellNodes,
                       displacement_field_name,
                       part_names,
                       mesh_data,
                       material,
                       lagrangian_formulation_type,
-                      mesh_labeler_parameters,
-                      enable_accurate_timers),
+                      mesh_labeler_parameters),
           m_kernel_radius_scale_factor(kernel_radius_scale_factor),
           m_use_one_pass_method(use_one_pass_method),
           m_use_f_bar(use_f_bar) {
@@ -131,14 +129,10 @@ class ElementReproducingKernel : public ElementBase {
     void BuildSmoothedCellData() {
         // Build the smoothed cell data
         m_smoothed_cell_data = m_strain_smoothing_processor->BuildSmoothedCellData<NumCellNodes>(GetEstimatedTotalNumberOfNeighbors(), m_use_one_pass_method);
-
-        // Add the strain smoothing timer manager to the timer manager
-        m_timer_manager->AddChild(m_strain_smoothing_processor->GetTimerManager());
     }
 
     void CreateElementForceProcessor() {
         // Create a scoped timer
-        auto timer = m_timer_manager->CreateScopedTimer(ElementTimerType::CreateElementForceProcessor);
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::CreateElementForceProcessor, aperi::element_timer_map);
 
         if (!m_mesh_data) {
@@ -163,7 +157,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Create the function value storage processor
-        m_function_value_storage_processor = std::make_shared<aperi::FunctionCreationProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_timer_manager->AreAccurateTimersEnabled());
+        m_function_value_storage_processor = std::make_shared<aperi::FunctionCreationProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type);
     }
 
     void CreateSmoothedCellDataProcessor() {
@@ -174,7 +168,7 @@ class ElementReproducingKernel : public ElementBase {
         }
 
         // Make the strain smoothing processor
-        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar, m_timer_manager->AreAccurateTimersEnabled());
+        m_strain_smoothing_processor = std::make_shared<aperi::SmoothedCellDataProcessor>(m_mesh_data, m_part_names, m_lagrangian_formulation_type, m_mesh_labeler_parameters, m_use_f_bar);
     }
 
     void LabelParts() {
@@ -211,9 +205,6 @@ class ElementReproducingKernel : public ElementBase {
 #endif
         // Compute and store the function values
         m_function_value_storage_processor->compute_and_store_function_values<MAX_NODE_NUM_NEIGHBORS>(compute_node_functions_functor, bases);
-
-        // Add the timer manager
-        m_timer_manager->AddChild(m_function_value_storage_processor->GetTimerManager());
     }
 
     /**
@@ -276,17 +267,15 @@ class ElementReproducingKernelTet4 : public ElementReproducingKernel<aperi::TET4
         bool use_one_pass_method,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
         const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool use_f_bar,
-        bool enable_accurate_timers) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(displacement_field_name,
-                                                                                       part_names,
-                                                                                       mesh_data,
-                                                                                       material,
-                                                                                       kernel_radius_scale_factor,
-                                                                                       use_one_pass_method,
-                                                                                       lagrangian_formulation_type,
-                                                                                       mesh_labeler_parameters,
-                                                                                       use_f_bar,
-                                                                                       enable_accurate_timers) {
+        bool use_f_bar) : ElementReproducingKernel<aperi::TET4_NUM_NODES>(displacement_field_name,
+                                                                          part_names,
+                                                                          mesh_data,
+                                                                          material,
+                                                                          kernel_radius_scale_factor,
+                                                                          use_one_pass_method,
+                                                                          lagrangian_formulation_type,
+                                                                          mesh_labeler_parameters,
+                                                                          use_f_bar) {
         BuildQuadratureFunctor();
     }
 
@@ -344,17 +333,15 @@ class ElementReproducingKernelHex8 : public ElementReproducingKernel<aperi::HEX8
         bool use_one_pass_method,
         const aperi::LagrangianFormulationType& lagrangian_formulation_type,
         const aperi::MeshLabelerParameters& mesh_labeler_parameters,
-        bool use_f_bar,
-        bool enable_accurate_timers) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(displacement_field_name,
-                                                                                       part_names,
-                                                                                       mesh_data,
-                                                                                       material,
-                                                                                       kernel_radius_scale_factor,
-                                                                                       use_one_pass_method,
-                                                                                       lagrangian_formulation_type,
-                                                                                       mesh_labeler_parameters,
-                                                                                       use_f_bar,
-                                                                                       enable_accurate_timers) {
+        bool use_f_bar) : ElementReproducingKernel<aperi::HEX8_NUM_NODES>(displacement_field_name,
+                                                                          part_names,
+                                                                          mesh_data,
+                                                                          material,
+                                                                          kernel_radius_scale_factor,
+                                                                          use_one_pass_method,
+                                                                          lagrangian_formulation_type,
+                                                                          mesh_labeler_parameters,
+                                                                          use_f_bar) {
         BuildQuadratureFunctor();
     }
 
