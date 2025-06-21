@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750459961612,
+  "lastUpdate": 1750488067644,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -10486,6 +10486,208 @@ window.BENCHMARK_DATA = {
           {
             "name": "Application_Setup_Application_Preprocessing_sfem_taylor_bar_gpu_np_1",
             "value": 14.0623,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "committer": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "jake.koester@apericmc.com"
+          },
+          "id": "8d99364dd9699ae2fd1e3340e31cf6ffb1d01835",
+          "message": "stash changes first [skip ci]",
+          "timestamp": "2025-06-21T05:44:45Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/8d99364dd9699ae2fd1e3340e31cf6ffb1d01835"
+        },
+        "date": 1750488067313,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Application_Setup_Application_Total_sfem_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_sfem_taylor_bar_cpu_np_1",
+            "value": 0.00558242,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_sfem_taylor_bar_cpu_np_1",
+            "value": 0.00009823,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_sfem_taylor_bar_cpu_np_1",
+            "value": 0.000042451,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_sfem_taylor_bar_cpu_np_1",
+            "value": 0.000074173,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_sfem_taylor_bar_cpu_np_1",
+            "value": 24.2885,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_sfem_taylor_bar_cpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_sfem_taylor_bar_cpu_np_1",
+            "value": 0.000030198,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_sfem_taylor_bar_cpu_np_1",
+            "value": 0.00100239,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_sfem_taylor_bar_cpu_np_1",
+            "value": 0.000111495,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_sfem_taylor_bar_cpu_np_1",
+            "value": 0.000038193,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_sfem_taylor_bar_cpu_np_1",
+            "value": 23.1245,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Total_sfem_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_sfem_taylor_bar_cpu_np_4",
+            "value": 0.493508,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_sfem_taylor_bar_cpu_np_4",
+            "value": 0.259069,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000044436,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000071087,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_sfem_taylor_bar_cpu_np_4",
+            "value": 6.28037,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_sfem_taylor_bar_cpu_np_4",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000038625,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000558467,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000126383,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_sfem_taylor_bar_cpu_np_4",
+            "value": 0.000032933,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_sfem_taylor_bar_cpu_np_4",
+            "value": 5.94631,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Total_sfem_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_ReadInputMesh_sfem_taylor_bar_gpu_np_1",
+            "value": 0.00506842,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateFieldResultsFile_sfem_taylor_bar_gpu_np_1",
+            "value": 0.0361245,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateTimeStepper_sfem_taylor_bar_gpu_np_1",
+            "value": 0.000053303,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateInternalForceContribution_sfem_taylor_bar_gpu_np_1",
+            "value": 0.00127518,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddFieldsToMesh_sfem_taylor_bar_gpu_np_1",
+            "value": 25.0853,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_LabelMesh_sfem_taylor_bar_gpu_np_1",
+            "value": 0,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateExternalForceContribution_sfem_taylor_bar_gpu_np_1",
+            "value": 0.000043103,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_AddInitialConditions_sfem_taylor_bar_gpu_np_1",
+            "value": 1.30157,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateBoundaryConditions_sfem_taylor_bar_gpu_np_1",
+            "value": 0.00398739,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_CreateOutputScheduler_sfem_taylor_bar_gpu_np_1",
+            "value": 0.000043414,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Setup_Application_Preprocessing_sfem_taylor_bar_gpu_np_1",
+            "value": 14.2094,
             "unit": "seconds"
           }
         ]
