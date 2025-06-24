@@ -16,37 +16,23 @@
 #include "stk_util/environment/memory_util.hpp"
 #include "stk_util/environment/perf_util.hpp"
 
-// Helper to print a table row (optionally as markdown)
+// Helper to print a table row
 void PrintTableRow(
     const std::string& name,
     double reset_time, double reset_ratio,
     double populate_time, double populate_ratio,
     double access_time, double access_ratio,
-    double total_time, double total_ratio,
-    bool markdown = false) {
-    if (markdown) {
-        std::cout << "| " << std::setw(35) << name
-                  << " | " << std::setw(12) << std::scientific << std::setprecision(3) << 1e-6 * reset_time
-                  << " | " << std::setw(10) << std::fixed << std::setprecision(4) << reset_ratio
-                  << " | " << std::setw(12) << std::scientific << std::setprecision(3) << 1e-6 * populate_time
-                  << " | " << std::setw(10) << std::fixed << std::setprecision(4) << populate_ratio
-                  << " | " << std::setw(12) << std::scientific << std::setprecision(3) << 1e-6 * access_time
-                  << " | " << std::setw(10) << std::fixed << std::setprecision(4) << access_ratio
-                  << " | " << std::setw(12) << std::scientific << std::setprecision(3) << 1e-6 * total_time
-                  << " | " << std::setw(10) << std::fixed << std::setprecision(4) << total_ratio
-                  << " |" << std::endl;
-    } else {
-        std::cout << std::setw(35) << name
-                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * reset_time
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << reset_ratio
-                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * populate_time
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << populate_ratio
-                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * access_time
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << access_ratio
-                  << " | " << std::setw(15) << std::scientific << std::setprecision(3) << 1e-6 * total_time
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(4) << total_ratio
-                  << " | " << std::endl;
-    }
+    double total_time, double total_ratio) {
+    std::cout << "| " << std::setw(35) << name
+              << " | " << std::setw(14) << std::scientific << std::setprecision(3) << 1e-6 * reset_time
+              << " | " << std::setw(14) << std::fixed << std::setprecision(4) << reset_ratio
+              << " | " << std::setw(14) << std::scientific << std::setprecision(3) << 1e-6 * populate_time
+              << " | " << std::setw(14) << std::fixed << std::setprecision(4) << populate_ratio
+              << " | " << std::setw(14) << std::scientific << std::setprecision(3) << 1e-6 * access_time
+              << " | " << std::setw(14) << std::fixed << std::setprecision(4) << access_ratio
+              << " | " << std::setw(14) << std::scientific << std::setprecision(3) << 1e-6 * total_time
+              << " | " << std::setw(14) << std::fixed << std::setprecision(4) << total_ratio
+              << " |" << std::endl;
 }
 
 // UnorderedMapFixture
@@ -392,7 +378,7 @@ class UnorderedMapFixture : public ::testing::Test {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / 1000.0;  // Convert to microseconds
     }
 
-    void RunTest(size_t num_indices, size_t num_unique_indices, size_t num_iterations, bool markdown = true) {
+    void RunTest(size_t num_indices, size_t num_unique_indices, size_t num_iterations) {
         PopulateRandomView(num_indices, num_unique_indices);
 
         auto [std_unordered_map_reset_time, std_unordered_map_populate_time] = RunStdUnorderedMapNTimes(num_iterations);
@@ -419,105 +405,96 @@ class UnorderedMapFixture : public ::testing::Test {
         Kokkos::deep_copy(m_set_host_mirror, m_set);
         CheckKokkosVsStdSet();
 
-        if (markdown) {
-            std::cout << std::scientific << std::uppercase << std::setprecision(1);
-            std::cout << "### Parameters: " << static_cast<double>(num_iterations) << " iterations with " << static_cast<double>(num_indices) << " indices and " << static_cast<double>(num_unique_indices) << " unique indices" << std::endl
-                      << std::endl;
-            std::cout << "| " << std::setw(35) << "Test"
-                      << " | " << std::setw(12) << "Reset Time"
-                      << " | " << std::setw(10) << "Reset Ratio"
-                      << " | " << std::setw(12) << "Populate Time"
-                      << " | " << std::setw(10) << "Populate Ratio"
-                      << " | " << std::setw(12) << "Access Time"
-                      << " | " << std::setw(10) << "Access Ratio"
-                      << " | " << std::setw(12) << "Total Time"
-                      << " | " << std::setw(10) << "Total Ratio"
-                      << " |" << std::endl;
-            std::cout << "|-----------------------------------|--------------|------------|--------------|------------|--------------|------------|--------------|------------|" << std::endl;
-            std::cout << "|                                   | (seconds)    |            | (seconds)    |            | (seconds)    |            | (seconds)    |            |" << std::endl;
-            std::cout << std::fixed;
-        } else {
-            std::cout << std::scientific << std::uppercase << std::setprecision(1);
-            std::cout << "Parameters: " << static_cast<double>(num_iterations) << " iterations with " << static_cast<double>(num_indices) << " indices and " << static_cast<double>(num_unique_indices) << " unique indices." << std::endl;
-            std::cout << std::fixed;
-            std::cout << "-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
-            std::cout << std::setw(35) << "Test"
-                      << " | " << std::setw(15) << "Reset Time"
-                      << " | " << std::setw(15) << "Reset Ratio"
-                      << " | " << std::setw(15) << "Populate Time"
-                      << " | " << std::setw(15) << "Populate Ratio"
-                      << " | " << std::setw(15) << "Access Time"
-                      << " | " << std::setw(15) << "Access Ratio"
-                      << " | " << std::setw(15) << "Total Time"
-                      << " | " << std::setw(15) << "Total Ratio"
-                      << " | " << std::endl;
-            std::cout << std::setw(35) << ""
-                      << " | " << std::setw(15) << "(seconds)"
-                      << " | " << std::setw(15) << ""
-                      << " | " << std::setw(15) << "(seconds)"
-                      << " | " << std::setw(15) << ""
-                      << " | " << std::setw(15) << "(seconds)"
-                      << " | " << std::setw(15) << ""
-                      << " | " << std::setw(15) << "(seconds)"
-                      << " | " << std::setw(15) << ""
-                      << " | " << std::endl;
-            std::cout << "--------------------------------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
-        }
+        std::cout << std::scientific << std::uppercase << std::setprecision(1);
+        std::cout << "### Parameters: " << static_cast<double>(num_iterations) << " iterations with " << static_cast<double>(num_indices) << " indices and " << static_cast<double>(num_unique_indices) << " unique indices" << std::endl
+                  << std::endl;
+        std::cout << "| " << std::setw(35) << "Test"
+                  << " | " << std::setw(14) << "Reset Time"
+                  << " | " << std::setw(14) << "Reset Ratio"
+                  << " | " << std::setw(14) << "Populate Time"
+                  << " | " << std::setw(14) << "Populate Ratio"
+                  << " | " << std::setw(14) << "Access Time"
+                  << " | " << std::setw(14) << "Access Ratio"
+                  << " | " << std::setw(14) << "Total Time"
+                  << " | " << std::setw(14) << "Total Ratio"
+                  << " |" << std::endl;
+        // Print markdown separator line
+        std::cout << "|";
+        std::cout << std::string(37, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|";
+        std::cout << std::string(16, '-') << "|" << std::endl;
+
+        // Print markdown units line
+        std::cout << "|";
+        std::cout << std::setw(37) << " "
+                  << "|";
+        std::cout << std::setw(16) << "(seconds)"
+                  << "|";
+        std::cout << std::setw(16) << " "
+                  << "|";
+        std::cout << std::setw(16) << "(seconds)"
+                  << "|";
+        std::cout << std::setw(16) << " "
+                  << "|";
+        std::cout << std::setw(16) << "(seconds)"
+                  << "|";
+        std::cout << std::setw(16) << " "
+                  << "|";
+        std::cout << std::setw(16) << "(seconds)"
+                  << "|";
+        std::cout << std::setw(16) << " "
+                  << "|" << std::endl;
+        std::cout << std::fixed;
 
         PrintTableRow("Std unordered set",
                       std_unordered_set_reset_time, 1.0,
                       std_unordered_set_populate_time, 1.0,
                       std_unordered_set_access_time, 1.0,
-                      std_unordered_set_total_time, 1.0,
-                      markdown);
+                      std_unordered_set_total_time, 1.0);
 
         PrintTableRow("Std unordered map",
                       std_unordered_map_reset_time, std_unordered_map_reset_time / std_unordered_set_reset_time,
                       std_unordered_map_populate_time, std_unordered_map_populate_time / std_unordered_set_populate_time,
                       std_unordered_map_access_time, std_unordered_map_access_time / std_unordered_set_access_time,
-                      (std_unordered_map_reset_time + std_unordered_map_populate_time + std_unordered_map_access_time), (std_unordered_map_reset_time + std_unordered_map_populate_time + std_unordered_map_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (std_unordered_map_reset_time + std_unordered_map_populate_time + std_unordered_map_access_time), (std_unordered_map_reset_time + std_unordered_map_populate_time + std_unordered_map_access_time) / std_unordered_set_total_time);
 
         PrintTableRow("Std map",
                       std_map_reset_time, std_map_reset_time / std_unordered_set_reset_time,
                       std_map_populate_time, std_map_populate_time / std_unordered_set_populate_time,
                       std_map_access_time, std_map_access_time / std_unordered_set_access_time,
-                      (std_map_reset_time + std_map_populate_time + std_map_access_time), (std_map_reset_time + std_map_populate_time + std_map_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (std_map_reset_time + std_map_populate_time + std_map_access_time), (std_map_reset_time + std_map_populate_time + std_map_access_time) / std_unordered_set_total_time);
 
         PrintTableRow("Kokkos unordered map on host",
                       kokkos_map_host_size_time, kokkos_map_host_size_time / std_unordered_set_reset_time,
                       kokkos_map_host_populate_time, kokkos_map_host_populate_time / std_unordered_set_populate_time,
                       kokkos_map_host_access_time, kokkos_map_host_access_time / std_unordered_set_access_time,
-                      (kokkos_map_host_size_time + kokkos_map_host_populate_time + kokkos_map_host_access_time), (kokkos_map_host_size_time + kokkos_map_host_populate_time + kokkos_map_host_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (kokkos_map_host_size_time + kokkos_map_host_populate_time + kokkos_map_host_access_time), (kokkos_map_host_size_time + kokkos_map_host_populate_time + kokkos_map_host_access_time) / std_unordered_set_total_time);
 
         PrintTableRow("Kokkos unordered set on host",
                       kokkos_set_host_size_time, kokkos_set_host_size_time / std_unordered_set_reset_time,
                       kokkos_set_host_populate_time, kokkos_set_host_populate_time / std_unordered_set_populate_time,
                       kokkos_set_host_access_time, kokkos_set_host_access_time / std_unordered_set_access_time,
-                      (kokkos_set_host_size_time + kokkos_set_host_populate_time + kokkos_set_host_access_time), (kokkos_set_host_size_time + kokkos_set_host_populate_time + kokkos_set_host_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (kokkos_set_host_size_time + kokkos_set_host_populate_time + kokkos_set_host_access_time), (kokkos_set_host_size_time + kokkos_set_host_populate_time + kokkos_set_host_access_time) / std_unordered_set_total_time);
 
         PrintTableRow("Kokkos unordered map on device",
                       kokkos_map_device_size_time, kokkos_map_device_size_time / std_unordered_set_reset_time,
                       kokkos_map_device_populate_time, kokkos_map_device_populate_time / std_unordered_set_populate_time,
                       kokkos_map_device_access_time, kokkos_map_device_access_time / std_unordered_set_access_time,
-                      (kokkos_map_device_size_time + kokkos_map_device_populate_time + kokkos_map_device_access_time), (kokkos_map_device_size_time + kokkos_map_device_populate_time + kokkos_map_device_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (kokkos_map_device_size_time + kokkos_map_device_populate_time + kokkos_map_device_access_time), (kokkos_map_device_size_time + kokkos_map_device_populate_time + kokkos_map_device_access_time) / std_unordered_set_total_time);
 
         PrintTableRow("Kokkos unordered set on device",
                       kokkos_set_device_size_time, kokkos_set_device_size_time / std_unordered_set_reset_time,
                       kokkos_set_device_populate_time, kokkos_set_device_populate_time / std_unordered_set_populate_time,
                       kokkos_set_device_access_time, kokkos_set_device_access_time / std_unordered_set_access_time,
-                      (kokkos_set_device_size_time + kokkos_set_device_populate_time + kokkos_set_device_access_time), (kokkos_set_device_size_time + kokkos_set_device_populate_time + kokkos_set_device_access_time) / std_unordered_set_total_time,
-                      markdown);
+                      (kokkos_set_device_size_time + kokkos_set_device_populate_time + kokkos_set_device_access_time), (kokkos_set_device_size_time + kokkos_set_device_populate_time + kokkos_set_device_access_time) / std_unordered_set_total_time);
 
-        if (markdown) {
-            std::cout << std::endl;
-        } else {
-            std::cout << "--------------------------------------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
-        }
+        std::cout << std::endl;
     }
 
     Kokkos::View<uint64_t*> m_random_indices;
@@ -548,18 +525,11 @@ TEST_F(UnorderedMapFixture, UnorderedMapTest) {
     size_t max_num_iterations_times_num_indices = 1e7;
     size_t max_num_iterations = 1e4;
 
-    bool markdown = true;  // set to true for markdown output
-
-    if (markdown) {
-        std::cout << "# Unordered Map, Set, and Map Performance Tests" << std::endl;
-        std::cout << "This test measures the performance of unordered maps and sets in C++ using Kokkos and standard library implementations." << std::endl
-                  << std::endl;
-        std::cout << "## Test Results" << std::endl
-                  << std::endl;
-    } else {
-        std::cout << "Unordered Map, Set, and Map Performance Tests" << std::endl;
-        std::cout << "This test measures the performance of unordered maps and sets in C++ using Kokkos and standard library implementations." << std::endl;
-    }
+    std::cout << "# Unordered Map, Set, and Map Performance Tests" << std::endl;
+    std::cout << "This test measures the performance of unordered maps and sets in C++ using Kokkos and standard library implementations." << std::endl
+              << std::endl;
+    std::cout << "## Test Results" << std::endl
+              << std::endl;
 
     for (auto num_indices_d : num_indices_list) {
         auto num_indices = static_cast<size_t>(num_indices_d);
@@ -573,7 +543,7 @@ TEST_F(UnorderedMapFixture, UnorderedMapTest) {
                 // Change the number of iterations to keep the total number of operations under max_num_iterations_times_num_indices
                 num_iterations = static_cast<size_t>(max_num_iterations_times_num_indices / num_indices);
             }
-            RunTest(num_indices, num_unique_indices, num_iterations, markdown);
+            RunTest(num_indices, num_unique_indices, num_iterations);
         }
     }
 }
@@ -592,7 +562,6 @@ struct PerfTestParams {
     size_t num_indices;
     size_t num_unique_indices;
     size_t num_iterations;
-    bool markdown;
     ContainerScenario scenario;
     std::string name() const {
         std::ostringstream oss;
@@ -637,9 +606,7 @@ TEST_P(UnorderedMapPerfTest, RunPerfCase) {
     const auto& p = GetParam();
     PopulateRandomView(p.num_indices, p.num_unique_indices);
 
-    if (p.markdown) {
-        std::cout << "# Unordered Map, Set, and Map Performance Test: " << p.name() << std::endl;
-    }
+    std::cout << "# Unordered Map, Set, and Map Performance Test: " << p.name() << std::endl;
 
     // Only run the selected scenario
     std::pair<double, double> reset_populate_times;
@@ -716,7 +683,6 @@ std::vector<PerfTestParams> GeneratePerfParams() {
     std::vector<double> fill_ratios = {0.001, 0.01, 0.1, 1.0};
     size_t max_num_iterations_times_num_indices = 1e7;
     size_t max_num_iterations = 1e4;
-    bool markdown = true;
     std::vector<PerfTestParams> params;
     for (auto num_indices_d : num_indices_list) {
         auto num_indices = static_cast<size_t>(num_indices_d);
@@ -728,7 +694,7 @@ std::vector<PerfTestParams> GeneratePerfParams() {
                 num_iterations = static_cast<size_t>(max_num_iterations_times_num_indices / num_indices);
             }
             for (int scenario = 0; scenario < 7; ++scenario) {
-                params.push_back({num_indices, num_unique_indices, num_iterations, markdown, static_cast<ContainerScenario>(scenario)});
+                params.push_back({num_indices, num_unique_indices, num_iterations, static_cast<ContainerScenario>(scenario)});
             }
         }
     }
