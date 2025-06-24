@@ -35,6 +35,8 @@ class IoMesh {
 
     void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names);
 
+    void FillGeneratedMesh(const std::string &mesh_string);
+
     void CompleteInitialization();
 
     void AddFields(const std::vector<aperi::FieldData> &field_data, const std::vector<std::string> &part_names = {});

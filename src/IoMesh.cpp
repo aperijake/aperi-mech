@@ -8,6 +8,7 @@
 #include <iostream>                    // for opera...
 #include <memory>                      // for shared_ptr
 #include <stk_io/DatabasePurpose.hpp>  // for READ_...
+#include <stk_io/FillMesh.hpp>
 #include <stk_io/IossBridge.hpp>       // for get_f...
 #include <stk_io/StkMeshIoBroker.hpp>  // for StkMe...
 #include <stk_mesh/base/Bucket.hpp>    // for Bucket
@@ -65,7 +66,12 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
 // Destructor
 IoMesh::~IoMesh() {
     mp_io_broker->flush_output();
-    mp_io_broker->remove_mesh_database(m_input_index);
+    if (m_input_index != -1) {
+        mp_io_broker->remove_mesh_database(m_input_index);
+    }
+    if (m_results_index != -1) {
+        mp_io_broker->close_output_mesh(m_results_index);
+    }
     mp_io_broker->close_output_mesh(m_results_index);
 }
 
@@ -134,6 +140,14 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     }
 
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
+}
+
+void IoMesh::FillGeneratedMesh(const std::string &mesh_string) {
+    stk::io::fill_mesh(mesh_string, mp_io_broker->bulk_data());
+    // Create faces
+    if (m_add_faces) {
+        stk::mesh::create_faces(mp_io_broker->bulk_data());
+    }
 }
 
 void DeclareField(stk::mesh::MetaData &meta_data, const FieldData &field, const std::vector<std::string> &part_names) {

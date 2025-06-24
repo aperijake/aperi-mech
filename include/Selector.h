@@ -43,12 +43,7 @@ struct Selector {
     /**
      * @brief Default constructor that initializes the selector with a default value.
      */
-    Selector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data, SelectorOwnership ownership = SelectorOwnership::ALL) : m_ownership(ownership) {
-        m_meta_data = mesh_data->GetMetaData();
-        m_bulk_data = mesh_data->GetBulkData();
-        m_selector = StkGetSelector(sets, m_meta_data);
-        MaskUsingOwnership();
-    }
+    Selector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data, SelectorOwnership ownership = SelectorOwnership::ALL);
 
     /**
      * @brief Operator to access the encapsulated selector.

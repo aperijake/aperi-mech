@@ -199,6 +199,10 @@ size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& pa
     return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::NODE_RANK);
 }
 
+size_t GetNumFacesInPart(const aperi::MeshData& mesh_data, const std::string& part_name) {
+    return GetNumEntitiesInPart(mesh_data, part_name, stk::topology::FACE_RANK);
+}
+
 aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
     // Get the bulk data
     stk::mesh::BulkData& bulk = *mesh_data.GetBulkData();
