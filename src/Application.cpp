@@ -290,12 +290,12 @@ std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateSche
     return aperi::CreateStepScheduler(start_n, reference_configuration_update_interval);
 }
 
-void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type) {
+void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::ContactForceContribution>>& contact_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::Preprocessing, aperi::application_timer_map);
 
     // Run pre-processing
-    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, lagrangian_formulation_type);
+    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, lagrangian_formulation_type);
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
@@ -381,7 +381,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Pre-processing
-    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, formulation_type);
+    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, formulation_type);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {

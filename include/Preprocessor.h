@@ -5,6 +5,7 @@
 
 #include "BoundaryCondition.h"
 #include "Constants.h"
+#include "ContactForceContribution/Base.h"
 #include "ExternalForceContribution/Base.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -66,10 +67,11 @@ inline void SetFieldDataForLagrangianFormulation(std::shared_ptr<MeshData> mesh_
  * @param io_mesh The input/output mesh object.
  * @param force_contributions The vector of internal force contributions.
  * @param external_force_contributions The vector of external force contributions.
+ * @param contact_force_contributions The vector of contact force contributions.
  * @param boundary_conditions The vector of boundary conditions.
  * @return void
  */
-inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type) {
+inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, aperi::LagrangianFormulationType lagrangian_formulation_type) {
     // Get the mesh data
     std::shared_ptr<aperi::MeshData> mesh_data = io_mesh->GetMeshData();
 
@@ -78,7 +80,7 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
 
     // Run the other pre-processing steps
 #ifdef USE_PROTEGO_MECH
-    protego::DoPreprocessing(io_mesh, force_contributions, external_force_contributions, boundary_conditions);
+    protego::DoPreprocessing(io_mesh, force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions);
 #endif
     // Best to do neighbor search all together. Do preprocessing first pass, then find neighbors, then do second pass.
     aperi::ReproducingKernelInfo reproducing_kernel_info;
@@ -100,6 +102,9 @@ inline void DoPreprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<
     }
     for (const auto& boundary_condition : boundary_conditions) {
         boundary_condition->Preprocess();
+    }
+    for (const auto& contact_force_contribution : contact_force_contributions) {
+        contact_force_contribution->Preprocess();
     }
 }
 
