@@ -25,7 +25,9 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
         m_mesh_data = m_io_mesh->GetMeshData();
 
         size_t expected_num_nodes = (1U + m_num_elem_x) * (1U + m_num_elem_y) * (1U + m_num_elem_z);
-        size_t expected_num_faces = (2U * m_num_elem_x * m_num_elem_y) + (2U * m_num_elem_x * m_num_elem_z) + (2U * m_num_elem_y * m_num_elem_z);
+        size_t expected_num_faces = (m_num_elem_x * m_num_elem_y * (m_num_elem_z + 1)) +
+                                    (m_num_elem_x * m_num_elem_z * (m_num_elem_y + 1)) +
+                                    (m_num_elem_y * m_num_elem_z * (m_num_elem_x + 1));
         size_t expected_num_elements = m_num_elem_x * m_num_elem_y * m_num_elem_z;
         EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(*m_mesh_data, "block_1"));
         EXPECT_EQ(expected_num_faces, GetNumFacesInPart(*m_mesh_data, "block_1"));
@@ -41,10 +43,10 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
 
 TEST_F(SkinMeshTestFixture, SkinOneElement) {
     // Only run on one process
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank != 0) {
-        GTEST_SKIP_("Test only runs on process 0.");
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 1) {
+        GTEST_SKIP_("Test only runs with 1 or fewer processes.");
     }
 
     // Make a 1x1x1 mesh
@@ -58,4 +60,28 @@ TEST_F(SkinMeshTestFixture, SkinOneElement) {
 
     EXPECT_TRUE(m_mesh_data->CheckExposedBlockBoundarySides(all_entities, "skin"));
     EXPECT_EQ(6U, GetNumFacesInPart(*m_mesh_data, "skin"));
+}
+
+TEST_F(SkinMeshTestFixture, SkinManyElements) {
+    // Only run on four processes or fewer
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 4) {
+        GTEST_SKIP_("Test only runs with 4 or fewer processes.");
+    }
+
+    // Make a 2x2x4 mesh
+    m_num_elem_x = 2;
+    m_num_elem_y = 2;
+    m_num_elem_z = 4;
+    CreateGeneratedMesh();
+
+    aperi::Selector all_entities({"block_1"}, m_mesh_data.get());
+
+    m_mesh_data->DeclareFacePart("skin");
+    m_mesh_data->AddPartToOutput("skin");
+    m_mesh_data->CreateExposedBlockBoundarySides(all_entities, "skin");
+
+    EXPECT_TRUE(m_mesh_data->CheckExposedBlockBoundarySides(all_entities, "skin"));
+    EXPECT_EQ(40U, GetNumFacesInPart(*m_mesh_data, "skin"));
 }
