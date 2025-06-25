@@ -9,6 +9,7 @@
 #include "InternalForceContribution.h"
 #include "InternalForceContributionParameters.h"
 #include "IoMesh.h"
+#include "Materials/Factory.h"
 #include "MeshLabeler.h"
 #include "Preprocessor.h"
 #include "UnitTestUtils.h"

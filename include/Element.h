@@ -14,7 +14,7 @@
 #include "ElementTetrahedron4.h"
 #include "FieldData.h"
 #include "InternalForceContributionParameters.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MeshData.h"
 
 namespace aperi {

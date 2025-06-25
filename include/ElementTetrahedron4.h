@@ -14,7 +14,7 @@
 #include "FieldData.h"
 #include "Kokkos_Core.hpp"
 #include "LogUtils.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 #include "QuadratureGaussian.h"

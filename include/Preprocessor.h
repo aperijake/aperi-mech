@@ -5,7 +5,7 @@
 
 #include "BoundaryCondition.h"
 #include "Constants.h"
-#include "ExternalForceContribution.h"
+#include "ExternalForceContribution/Base.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
@@ -24,7 +24,6 @@ namespace aperi {
 class BoundaryCondition;
 class IoMesh;
 class InternalForceContribution;
-class ExternalForceContribution;
 
 inline void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelInfo& reproducing_kernel_info) {
     if (reproducing_kernel_info.part_names.empty()) {

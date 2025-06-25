@@ -7,7 +7,8 @@
 #include "Constants.h"
 #include "IoInputFile.h"
 #include "LogUtils.h"
-#include "Material.h"
+#include "Materials/Base.h"
+#include "Materials/Factory.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 

@@ -10,7 +10,8 @@
 #include <vector>
 
 #include "LogUtils.h"
-#include "Material.h"
+#include "Materials/Base.h"
+#include "Materials/Factory.h"
 #include "MathUtils.h"
 
 namespace aperi {

@@ -6,7 +6,8 @@
 #include <filesystem>
 
 #include "BoundaryCondition.h"
-#include "ExternalForceContribution.h"
+#include "ExternalForceContribution/Base.h"
+#include "ExternalForceContribution/Factory.h"
 #include "FieldData.h"
 #include "InitialConditionUtil.h"
 #include "InternalForceContribution.h"
