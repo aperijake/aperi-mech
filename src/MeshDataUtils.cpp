@@ -6,6 +6,10 @@
 #include <iomanip>
 #include <numeric>
 #include <sstream>
+#include <stk_mesh/base/GetEntities.hpp>
+
+#include "AperiStkUtils.h"
+#include "LogUtils.h"
 
 namespace aperi {
 
