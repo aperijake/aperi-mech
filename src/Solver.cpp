@@ -4,6 +4,7 @@
 #include <numeric>
 
 #include "BoundaryCondition.h"
+#include "ContactForceContribution/Base.h"
 #include "EntityProcessor.h"
 #include "ExternalForceContribution/Base.h"
 #include "Field.h"
@@ -93,6 +94,11 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
     // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce(time, time_increment);
+    }
+
+    // Compute contact force contributions
+    for (const auto &contact_force_contribution : m_contact_force_contributions) {
+        contact_force_contribution->ComputeForce(time, time_increment);
     }
 }
 

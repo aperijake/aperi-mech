@@ -20,6 +20,7 @@ namespace aperi {
 
 class BoundaryCondition;
 class IoMesh;
+class ContactForceContribution;
 class ExternalForceContribution;
 class TimeStepper;
 template <typename EventType>
@@ -42,8 +43,8 @@ class Solver {
      * @param external_force_contributions The vector of external force contributions.
      * @param time_stepper The time stepper object.
      */
-    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler)
-        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler), m_reference_configuration_update_scheduler(reference_configuration_update_scheduler) {
+    Solver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler)
+        : m_io_mesh(io_mesh), m_internal_force_contributions(force_contributions), m_external_force_contributions(external_force_contributions), m_contact_force_contributions(contact_force_contributions), m_boundary_conditions(boundary_conditions), m_time_stepper(time_stepper), m_output_scheduler(output_scheduler), m_reference_configuration_update_scheduler(reference_configuration_update_scheduler) {
         mp_mesh_data = m_io_mesh->GetMeshData();
         MPI_Comm_size(MPI_COMM_WORLD, &m_num_processors);
         m_uses_generalized_fields = false;
@@ -141,6 +142,7 @@ class Solver {
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                              ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;         ///< The vector of internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;         ///< The vector of external force contributions.
+    std::vector<std::shared_ptr<aperi::ContactForceContribution>> m_contact_force_contributions;           ///< The vector of contact force contributions.
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> m_boundary_conditions;                          ///< The vector of boundary conditions.
     std::shared_ptr<aperi::TimeStepper> m_time_stepper;                                                    ///< The time stepper object.
     std::shared_ptr<aperi::Scheduler<double>> m_output_scheduler;                                          ///< The output scheduler object.
@@ -170,12 +172,13 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * @param io_mesh The input/output mesh representing the mechanical system.
      * @param force_contributions A vector of internal force contributions applied to the mechanical system.
      * @param external_force_contributions A vector of external force contributions applied to the mechanical system.
+     * @param contact_force_contributions A vector of contact force contributions applied to the mechanical system.
      * @param time_stepper The time stepper used to advance the simulation over time.
      * @param output_scheduler The output scheduler used to control the output of the simulation.
      * @param reference_configuration_update_scheduler The reference configuration update scheduler used to update the reference configuration.
      */
-    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler)
-        : Solver(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler) {
+    ExplicitSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler)
+        : Solver(io_mesh, force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler) {
         // Set the force node processor for zeroing the force field
         m_node_processor_force = CreateNodeProcessorForce();
         if (m_uses_generalized_fields) {
@@ -284,8 +287,8 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
  * @param time_stepper The time stepper object.
  * @return A shared pointer to the created solver object.
  */
-inline std::shared_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler) {
-    return std::make_shared<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
+inline std::shared_ptr<Solver> CreateSolver(std::shared_ptr<aperi::IoMesh> io_mesh, std::vector<std::shared_ptr<aperi::InternalForceContribution>> force_contributions, std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions, std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions, std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions, std::shared_ptr<aperi::TimeStepper> time_stepper, std::shared_ptr<aperi::Scheduler<double>> output_scheduler, std::shared_ptr<aperi::Scheduler<size_t>> reference_configuration_update_scheduler) {
+    return std::make_shared<ExplicitSolver>(io_mesh, force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 }
 
 }  // namespace aperi

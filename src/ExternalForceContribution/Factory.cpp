@@ -1,5 +1,7 @@
 #include "ExternalForceContribution/Factory.h"
 
+#include <stdexcept>
+
 #include "IoInputFile.h"
 
 namespace aperi {
@@ -24,7 +26,9 @@ std::shared_ptr<ExternalForceContribution> CreateExternalForceContribution(YAML:
     } else if (type == "gravity_load") {
         return std::make_shared<ExternalForceContributionGravity>(mesh_data, sets, components_and_values, time_function);
     } else {
-        return nullptr;
+        std::string error_message = "Unrecognized external force contribution type: " + type;
+        // Throw, not supported
+        throw std::runtime_error(error_message);
     }
 }
 

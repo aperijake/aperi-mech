@@ -6,6 +6,8 @@
 #include <filesystem>
 
 #include "BoundaryCondition.h"
+#include "ContactForceContribution/Base.h"
+#include "ContactForceContribution/Factory.h"
 #include "ExternalForceContribution/Base.h"
 #include "ExternalForceContribution/Factory.h"
 #include "FieldData.h"
@@ -226,6 +228,22 @@ std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalFor
     return external_force_contributions;
 }
 
+std::vector<std::shared_ptr<aperi::ContactForceContribution>> CreateContactForceContribution(const std::vector<YAML::Node>& contact_specs, std::shared_ptr<aperi::IoMesh> io_mesh) {
+    // Create a scoped timer
+    auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateExternalForceContribution, aperi::application_timer_map);
+
+    // Loop over contact specs and add them to force contributions
+    std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions;
+    aperi::CoutP0() << "   Contact: " << std::endl;
+    for (auto contact_spec : contact_specs) {
+        auto name = contact_spec.begin()->first.as<std::string>();
+        aperi::CoutP0() << "      " << name << std::endl;
+        contact_force_contributions.push_back(CreateContactForceContribution(contact_spec, io_mesh->GetMeshData()));
+    }
+
+    return contact_force_contributions;
+}
+
 void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::AddInitialConditions, aperi::application_timer_map);
@@ -337,6 +355,10 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> external_force_contributions = CreateExternalForceContribution(loads, io_mesh);
 
+    // Create contact if needed
+    std::vector<YAML::Node> contact = io_input_file->GetContact(procedure_id);
+    std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions = CreateContactForceContribution(contact, io_mesh);
+
     // Set initial conditions
     std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
     AddInitialConditions(initial_conditions, io_mesh);
@@ -370,7 +392,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     PrintNodeCounts(io_mesh->GetMeshData());
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;
