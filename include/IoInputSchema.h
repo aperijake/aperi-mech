@@ -276,20 +276,20 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema all_exterior_surfaces_schema("all_exterior_surfaces", "map", "the all exterior surfaces condition");
     YAML::Node all_exterior_surfaces_node = all_exterior_surfaces_schema.GetInputSchema();
 
-    // Penalty parameter node
-    aperi::InputSchema penalty_parameter_schema("penalty_parameter", "float", "the penalty parameter");
-    YAML::Node penalty_parameter_node = penalty_parameter_schema.GetInputSchema();
+    // Penalty scale factor node
+    aperi::InputSchema penalty_scale_factor_schema("penalty_scale_factor", "float", "the penalty scale factor");
+    YAML::Node penalty_scale_factor_node = penalty_scale_factor_schema.GetInputSchema();
 
     // Pinball contact node
-    aperi::InputSchema pinball_contact_schema("pinball_contact", "map", "the pinball contact conditions");
-    pinball_contact_schema.AddOneOf(sets_node);
-    pinball_contact_schema.AddOneOf(all_exterior_surfaces_node);
-    pinball_contact_schema.AddAllOf(penalty_parameter_node);
-    YAML::Node pinball_contact_node = pinball_contact_schema.GetInputSchema();
+    aperi::InputSchema pinball_schema("pinball", "map", "the pinball contact conditions");
+    pinball_schema.AddOneOf(sets_node);
+    pinball_schema.AddOneOf(all_exterior_surfaces_node);
+    pinball_schema.AddOptional(penalty_scale_factor_node);
+    YAML::Node pinball_node = pinball_schema.GetInputSchema();
 
     // Contact node
-    aperi::InputSchema contact_schema("contact", "map", "the contact configuration");
-    contact_schema.AddOneOf(pinball_contact_node);
+    aperi::InputSchema contact_schema("contact", "sequence", "the contact configuration");
+    contact_schema.AddOneOf(pinball_node);
     YAML::Node contact_node = contact_schema.GetInputSchema();
 
     // Initial velocity node
