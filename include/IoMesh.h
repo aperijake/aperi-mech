@@ -35,7 +35,7 @@ class IoMesh {
 
     void ReadMesh(const std::string &filename, const std::vector<std::string> &part_names);
 
-    void FillGeneratedMesh(const std::string &mesh_string);
+    void FillGeneratedMesh(const std::string &mesh_string) const;
 
     void CompleteInitialization();
 

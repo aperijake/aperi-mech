@@ -142,7 +142,7 @@ void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
 }
 
-void IoMesh::FillGeneratedMesh(const std::string &mesh_string) {
+void IoMesh::FillGeneratedMesh(const std::string &mesh_string) const {
     stk::io::fill_mesh(mesh_string, mp_io_broker->bulk_data());
     // Create faces
     if (m_add_faces) {

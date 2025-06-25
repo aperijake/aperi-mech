@@ -32,7 +32,6 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
         EXPECT_EQ(expected_num_elements, GetNumElementsInPart(*m_mesh_data, "block_1"));
     }
 
-   protected:
     size_t m_num_elem_x = 1;
     size_t m_num_elem_y = 1;
     size_t m_num_elem_z = 1;
@@ -42,9 +41,8 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
 
 TEST_F(SkinMeshTestFixture, SkinOneElement) {
     // Only run on one process
-    MPI_Comm communicator = MPI_COMM_WORLD;
     int rank;
-    MPI_Comm_rank(communicator, &rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank != 0) {
         GTEST_SKIP_("Test only runs on process 0.");
     }

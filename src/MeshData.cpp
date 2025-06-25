@@ -24,11 +24,11 @@ NgpMeshData MeshData::GetUpdatedNgpMesh() { return NgpMeshData(stk::mesh::get_up
 std::string MeshData::GetCoordinatesFieldName() const { return m_bulk_data->mesh_meta_data().coordinate_field_name(); }
 
 aperi::ElementTopology MeshData::GetElementTopology(std::string part_name) const {
-    stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
-    if (part == nullptr) {
+    stk::mesh::Part *p_part = m_bulk_data->mesh_meta_data().get_part(part_name);
+    if (p_part == nullptr) {
         throw std::runtime_error("Part " + part_name + " not found.");
     }
-    return aperi::GetElementTopology(part->topology());
+    return aperi::GetElementTopology(p_part->topology());
 }
 
 std::vector<size_t> MeshData::GetCommMeshCounts() const {
@@ -77,37 +77,37 @@ void MeshData::ChangePartsHost(const std::string &part_name, const aperi::FieldD
 }
 
 void MeshData::AddPartToOutput(const std::string &part_name) {
-    stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
-    if (part == nullptr) {
+    stk::mesh::Part *p_part = m_bulk_data->mesh_meta_data().get_part(part_name);
+    if (p_part == nullptr) {
         throw std::runtime_error("Part " + part_name + " not found.");
     }
-    stk::io::put_io_part_attribute(*part);
+    stk::io::put_io_part_attribute(*p_part);
 }
 
 void MeshData::DeclareFacePart(const std::string &part_name) {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
-    stk::mesh::Part *part = &meta_data.declare_part(part_name, stk::topology::FACE_RANK);
-    if (part == nullptr) {
+    stk::mesh::Part *p_part = &meta_data.declare_part(part_name, stk::topology::FACE_RANK);
+    if (p_part == nullptr) {
         throw std::runtime_error("Part '" + part_name + "' could not be declared.");
     }
 }
 
 void MeshData::CreateExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name) {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
-    stk::mesh::Part *part = meta_data.get_part(part_name);
-    if (part == nullptr) {
+    stk::mesh::Part *p_part = meta_data.get_part(part_name);
+    if (p_part == nullptr) {
         throw std::runtime_error("Part " + part_name + " not found.");
     }
-    stk::mesh::create_exposed_block_boundary_sides(*m_bulk_data, selector(), {part});
+    stk::mesh::create_exposed_block_boundary_sides(*m_bulk_data, selector(), {p_part});
 }
 
 bool MeshData::CheckExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name) const {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
-    stk::mesh::Part *part = meta_data.get_part(part_name);
-    if (part == nullptr) {
+    stk::mesh::Part *p_part = meta_data.get_part(part_name);
+    if (p_part == nullptr) {
         throw std::runtime_error("Part " + part_name + " not found.");
     }
-    return stk::mesh::check_exposed_block_boundary_sides(*m_bulk_data, selector(), *part);
+    return stk::mesh::check_exposed_block_boundary_sides(*m_bulk_data, selector(), *p_part);
 }
 
 void MeshData::PrintNodeCounts(bool print_each_processor) const {
