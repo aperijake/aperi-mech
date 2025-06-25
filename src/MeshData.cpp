@@ -132,6 +132,15 @@ void MeshData::DeclareFacePart(const std::string &part_name) {
     }
 }
 
+// Declare a new element part in the mesh metadata
+void MeshData::DeclareElementPart(const std::string &part_name) {
+    stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+    stk::mesh::Part *p_part = &meta_data.declare_part(part_name, stk::topology::ELEMENT_RANK);
+    if (p_part == nullptr) {
+        throw std::runtime_error("Part '" + part_name + "' could not be declared.");
+    }
+}
+
 // Create exposed block boundary sides for a selector and part
 void MeshData::CreateExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name) {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
