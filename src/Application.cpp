@@ -13,6 +13,7 @@
 #include "IoInputFile.h"
 #include "IoMesh.h"
 #include "LogUtils.h"
+#include "MeshDataUtils.h"
 #include "MeshLabeler.h"
 #include "Preprocessor.h"
 #include "Scheduler.h"
@@ -361,11 +362,11 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {
-        io_mesh->GetMeshData()->PrintElementCounts();
+        PrintElementCounts(io_mesh->GetMeshData());
     }
 
     // Print the number of nodes
-    io_mesh->GetMeshData()->PrintNodeCounts();
+    PrintNodeCounts(io_mesh->GetMeshData());
 
     // Create solver
     std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);

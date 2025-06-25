@@ -75,8 +75,6 @@ class MeshData {
     void DeclareFacePart(const std::string &part_name);
     void CreateExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name);
     bool CheckExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name) const;
-    void PrintNodeCounts(bool print_each_processor = false) const;
-    void PrintElementCounts() const;
 
    private:
     stk::mesh::BulkData *m_bulk_data;
