@@ -228,7 +228,7 @@ std::vector<std::shared_ptr<aperi::ExternalForceContribution>> CreateExternalFor
     return external_force_contributions;
 }
 
-std::vector<std::shared_ptr<aperi::ContactForceContribution>> CreateContactForceContribution(const std::vector<YAML::Node>& contact_specs, std::shared_ptr<aperi::IoMesh> io_mesh) {
+std::vector<std::shared_ptr<aperi::ContactForceContribution>> CreateContactForceContribution(const std::vector<YAML::Node>& contact_specs, std::shared_ptr<aperi::IoMesh> io_mesh, bool use_generalized_fields, const LagrangianFormulationType& formulation_type) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateExternalForceContribution, aperi::application_timer_map);
 
@@ -238,7 +238,7 @@ std::vector<std::shared_ptr<aperi::ContactForceContribution>> CreateContactForce
     for (auto contact_spec : contact_specs) {
         auto name = contact_spec.begin()->first.as<std::string>();
         aperi::CoutP0() << "      " << name << std::endl;
-        contact_force_contributions.push_back(CreateContactForceContribution(contact_spec, io_mesh->GetMeshData()));
+        contact_force_contributions.push_back(CreateContactForceContribution(contact_spec, io_mesh->GetMeshData(), use_generalized_fields, formulation_type));
     }
 
     return contact_force_contributions;
@@ -357,7 +357,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Create contact if needed
     std::vector<YAML::Node> contact = io_input_file->GetContact(procedure_id);
-    std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions = CreateContactForceContribution(contact, io_mesh);
+    std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions = CreateContactForceContribution(contact, io_mesh, uses_generalized_fields, formulation_type);
 
     // Set initial conditions
     std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);

@@ -11,7 +11,7 @@ namespace aperi {
 /**
  * @brief Create an ContactForceContribution based on YAML node type.
  */
-std::shared_ptr<ContactForceContribution> CreateContactForceContribution(YAML::Node &node, std::shared_ptr<MeshData> mesh_data) {
+std::shared_ptr<ContactForceContribution> CreateContactForceContribution(YAML::Node &node, std::shared_ptr<MeshData> mesh_data, bool uses_generalized_fields, const aperi::LagrangianFormulationType &formulation_type) {
     std::string type = node.begin()->first.as<std::string>();
     YAML::Node contact_node = node.begin()->second;
 
@@ -31,7 +31,7 @@ std::shared_ptr<ContactForceContribution> CreateContactForceContribution(YAML::N
         if (contact_node["penalty_scale_factor"]) {
             penalty_scale_factor = contact_node["penalty_scale_factor"].as<double>();
         }
-        return std::make_shared<ContactForceContributionPinball>(mesh_data, sets, all_exterior_surfaces, penalty_scale_factor);
+        return std::make_shared<ContactForceContributionPinball>(mesh_data, sets, all_exterior_surfaces, penalty_scale_factor, uses_generalized_fields, formulation_type);
 #else
         std::string error_message = "Pinball contact force contribution is not implemented in aperi-mech. Please use protego-mech for this feature.";
         // Throw, not supported
