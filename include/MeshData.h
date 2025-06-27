@@ -184,6 +184,12 @@ class MeshData {
     void DeclareElementPart(const std::string &part_name);
 
     /**
+     * @brief Declare a node part in the mesh metadata.
+     * @param part_name The part name.
+     */
+    void DeclareNodePart(const std::string &part_name);
+
+    /**
      * @brief Create exposed block boundary sides for a selector and part.
      * @param selector The selector for entities to skin.
      * @param part_name The part to assign to the skinned sides.
