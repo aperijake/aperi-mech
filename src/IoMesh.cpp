@@ -26,36 +26,29 @@
 
 namespace aperi {
 
+/**
+ * @brief IoMesh constructor. Initializes mesh data and I/O broker.
+ */
 IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
-    : m_upward_connectivity(io_mesh_parameters.upward_connectivity),
-      m_aura_option(io_mesh_parameters.aura_option),
-      m_parallel_io(io_mesh_parameters.parallel_io),
-      m_decomp_method(io_mesh_parameters.decomp_method),
-      m_mesh_type(io_mesh_parameters.mesh_type),
-      m_compose_output(io_mesh_parameters.compose_output),
-      m_compression_level(io_mesh_parameters.compression_level),
-      m_compression_shuffle(io_mesh_parameters.compression_shuffle),
-      m_lower_case_variable_names(io_mesh_parameters.lower_case_variable_names),
-      m_minimize_open_files(io_mesh_parameters.minimize_open_files),
-      m_add_faces(io_mesh_parameters.add_faces),
-      m_integer_size(io_mesh_parameters.integer_size),
-      m_initial_bucket_capacity(io_mesh_parameters.initial_bucket_capacity),
-      m_maximum_bucket_capacity(io_mesh_parameters.maximum_bucket_capacity) {
-    if (!m_initial_bucket_capacity) {
-        m_initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
+    : m_params(io_mesh_parameters) {
+    // Set default bucket capacities if not provided
+    if (!m_params.initial_bucket_capacity) {
+        m_params.initial_bucket_capacity = stk::mesh::get_default_initial_bucket_capacity();
     }
-    if (!m_maximum_bucket_capacity) {
-        m_maximum_bucket_capacity = stk::mesh::get_default_maximum_bucket_capacity();
+    if (!m_params.maximum_bucket_capacity) {
+        m_params.maximum_bucket_capacity = stk::mesh::get_default_maximum_bucket_capacity();
     }
 
-    stk::mesh::BulkData::AutomaticAuraOption aura = m_aura_option ? stk::mesh::BulkData::AUTO_AURA : stk::mesh::BulkData::NO_AUTO_AURA;
+    // Configure mesh builder with parameters
+    stk::mesh::BulkData::AutomaticAuraOption aura = m_params.aura_option ? stk::mesh::BulkData::AUTO_AURA : stk::mesh::BulkData::NO_AUTO_AURA;
     stk::mesh::MeshBuilder builder(comm);
     builder.set_aura_option(aura);
-    builder.set_upward_connectivity(m_upward_connectivity);
-    builder.set_initial_bucket_capacity(m_initial_bucket_capacity);
-    builder.set_maximum_bucket_capacity(m_maximum_bucket_capacity);
+    builder.set_upward_connectivity(m_params.upward_connectivity);
+    builder.set_initial_bucket_capacity(m_params.initial_bucket_capacity);
+    builder.set_maximum_bucket_capacity(m_params.maximum_bucket_capacity);
     std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
 
+    // Initialize I/O broker and mesh data
     mp_io_broker = std::make_shared<stk::io::StkMeshIoBroker>(comm);
     mp_io_broker->use_simple_fields();
     SetIoProperties();
@@ -63,7 +56,9 @@ IoMesh::IoMesh(const MPI_Comm &comm, const IoMeshParameters &io_mesh_parameters)
     mp_mesh_data = std::make_shared<MeshData>(&mp_io_broker->bulk_data());
 }
 
-// Destructor
+/**
+ * @brief IoMesh destructor. Cleans up mesh I/O resources.
+ */
 IoMesh::~IoMesh() {
     mp_io_broker->flush_output();
     if (m_input_index != -1) {
@@ -75,29 +70,32 @@ IoMesh::~IoMesh() {
     mp_io_broker->close_output_mesh(m_results_index);
 }
 
+/**
+ * @brief Set properties for the mesh I/O broker based on parameters.
+ */
 void IoMesh::SetIoProperties() const {
-    mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", static_cast<int>(m_lower_case_variable_names)));
+    mp_io_broker->property_add(Ioss::Property("LOWER_CASE_VARIABLE_NAMES", static_cast<int>(m_params.lower_case_variable_names)));
 
-    if (!m_decomp_method.empty()) {
-        std::string decomp_method = m_decomp_method;
+    if (!m_params.decomp_method.empty()) {
+        std::string decomp_method = m_params.decomp_method;
         mp_io_broker->property_add(Ioss::Property("DECOMPOSITION_METHOD", decomp_method.c_str()));
     }
 
-    if (m_compose_output) {
+    if (m_params.compose_output) {
         mp_io_broker->property_add(Ioss::Property("COMPOSE_RESULTS", 1));
     }
 
-    if (!m_parallel_io.empty()) {
-        std::string parallel_io = m_parallel_io;
+    if (!m_params.parallel_io.empty()) {
+        std::string parallel_io = m_params.parallel_io;
         mp_io_broker->property_add(Ioss::Property("PARALLEL_IO_MODE", parallel_io.c_str()));
     }
 
     bool use_netcdf4 = false;
-    if (m_compression_level > 0) {
-        mp_io_broker->property_add(Ioss::Property("COMPRESSION_LEVEL", m_compression_level));
+    if (m_params.compression_level > 0) {
+        mp_io_broker->property_add(Ioss::Property("COMPRESSION_LEVEL", m_params.compression_level));
         use_netcdf4 = true;
     }
-    if (m_compression_shuffle) {
+    if (m_params.compression_shuffle) {
         mp_io_broker->property_add(Ioss::Property("COMPRESSION_SHUFFLE", 1));
         use_netcdf4 = true;
     }
@@ -105,88 +103,101 @@ void IoMesh::SetIoProperties() const {
         mp_io_broker->property_add(Ioss::Property("FILE_TYPE", "netcdf4"));
     }
 
-    if (m_integer_size == 8) {
-        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_DB", m_integer_size));
-        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_API", m_integer_size));
+    if (m_params.integer_size == 8) {
+        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_DB", m_params.integer_size));
+        mp_io_broker->property_add(Ioss::Property("INTEGER_SIZE_API", m_params.integer_size));
     }
 
-    // Close file after each timestep and then reopen on next output, allows for viewing results while simulation is running
-    if (m_minimize_open_files) {
+    if (m_params.minimize_open_files) {
         mp_io_broker->property_add(Ioss::Property("MINIMIZE_OPEN_FILES", 1));
     }
 }
 
+/**
+ * @brief Read mesh from file and declare parts.
+ */
 void IoMesh::ReadMesh(const std::string &filename, const std::vector<std::string> &part_names) {
-    // Make sure this is the first call to ReadMesh
+    // Ensure this is the first call to ReadMesh
     if (m_input_index != -1) {
         throw std::runtime_error("ReadMesh called twice");
     }
 
     mp_io_broker->use_simple_fields();
-    m_input_index = mp_io_broker->add_mesh_database(filename, m_mesh_type, stk::io::READ_MESH);
+    m_input_index = mp_io_broker->add_mesh_database(filename, m_params.mesh_type, stk::io::READ_MESH);
     mp_io_broker->set_active_mesh(m_input_index);
     mp_io_broker->create_input_mesh();
 
-    // Get the meta data
+    // Declare all parts in the meta data
     stk::mesh::MetaData &meta_data = mp_io_broker->meta_data();
-
-    // Add all parts to the meta data
     for (const std::string &part_name : part_names) {
         stk::mesh::Part *p_part = &meta_data.declare_part(part_name, stk::topology::ELEMENT_RANK);
-        // Make sure the part exists in the mesh file. If not, throw an exception
+        // Validate part existence
         if (p_part->id() == stk::mesh::Part::INVALID_ID) {
             throw std::runtime_error("Part '" + part_name + "' does not exist in the mesh file.");
         }
     }
-
     // mp_io_broker->add_all_mesh_fields_as_input_fields();
 }
 
+/**
+ * @brief Fill a generated mesh from a mesh string.
+ */
 void IoMesh::FillGeneratedMesh(const std::string &mesh_string) const {
     stk::io::fill_mesh(mesh_string, mp_io_broker->bulk_data());
-    // Create faces
-    if (m_add_faces) {
+    // Optionally create faces if requested
+    if (m_params.add_faces) {
         stk::mesh::create_faces(mp_io_broker->bulk_data());
     }
 }
 
+/**
+ * @brief Add fields to the mesh.
+ */
 void IoMesh::AddFields(const std::vector<aperi::FieldData> &field_data, const std::vector<std::string> &part_names) {
-    // Make sure ReadMesh has been called
+    // Ensure mesh has been read
     if (m_input_index == -1) {
         throw std::runtime_error("AddFields called before ReadMesh");
     }
 
-    // Create the fields
+    // Declare each field
     for (const FieldData &field : field_data) {
-        // Create the field
         mp_mesh_data->DeclareField(field, part_names);
     }
 }
 
+/**
+ * @brief Complete mesh initialization after reading mesh.
+ */
 void IoMesh::CompleteInitialization() {
-    // Make sure ReadMesh has been called
+    // Ensure mesh has been read
     if (m_input_index == -1) {
         throw std::runtime_error("CompleteInitialization called before ReadMesh");
     }
-    mp_io_broker->populate_bulk_data();  // committing here
+    mp_io_broker->populate_bulk_data();
 
-    // Create faces
-    if (m_add_faces) {
+    // Optionally create faces if requested
+    if (m_params.add_faces) {
         stk::mesh::create_faces(mp_io_broker->bulk_data());
     }
 }
 
+/**
+ * @brief Create a results file for field output.
+ */
 void IoMesh::CreateFieldResultsFile(const std::string &filename) {
     m_results_index = mp_io_broker->create_output_mesh(filename, stk::io::WRITE_RESULTS);
 }
 
+/**
+ * @brief Register fields for results output.
+ */
 void IoMesh::AddFieldResultsOutput(const std::vector<aperi::FieldData> &field_data) {
-    // Make sure CreateFieldResultsFile has been called
+    // Ensure results file has been created
     if (m_results_index == -1) {
         throw std::runtime_error("CreateFieldResultsFile called before AddFieldResultsOutput");
     }
 
-    // Iterate all fields and set them as results fields...
+    // Register each output field
     for (const auto &field : field_data) {
         if (!field.output) {
             continue;
@@ -204,15 +215,23 @@ void IoMesh::AddFieldResultsOutput(const std::vector<aperi::FieldData> &field_da
     }
 }
 
+/**
+ * @brief Write field results at a given time.
+ */
 void IoMesh::WriteFieldResults(double time) const {
     mp_io_broker->process_output_request(m_results_index, time);
 }
 
+/**
+ * @brief Close the field results file.
+ */
 void IoMesh::CloseFieldResultsFile() const {
     mp_io_broker->close_output_mesh(m_results_index);
 }
 
-// IoMesh factory function
+/**
+ * @brief Factory function to create IoMesh.
+ */
 std::unique_ptr<aperi::IoMesh> CreateIoMesh(const MPI_Comm &comm, const aperi::IoMeshParameters &io_mesh_parameters) {
     return std::make_unique<aperi::IoMesh>(comm, io_mesh_parameters);
 }
