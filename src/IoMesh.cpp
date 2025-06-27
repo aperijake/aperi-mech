@@ -150,54 +150,16 @@ void IoMesh::FillGeneratedMesh(const std::string &mesh_string) const {
     }
 }
 
-void DeclareField(stk::mesh::MetaData &meta_data, const FieldData &field, const std::vector<std::string> &part_names) {
-    std::visit([&](auto &&arg) {
-        // Get the topology rank
-        stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
-
-        // Get the field output type
-        stk::io::FieldOutputType field_output_type = aperi::GetFieldOutputType(field.data_rank);
-
-        using T = std::decay_t<decltype(arg)>;
-        stk::mesh::FieldBase &data_field = meta_data.declare_field<T>(topology_rank, field.name, field.number_of_states);
-
-        // Convert initial values to the appropriate type
-        std::vector<T> initial_values_converted;
-        initial_values_converted.reserve(field.initial_values.size());
-        for (const auto &value : field.initial_values) {
-            std::visit([&](auto &&val) {
-                initial_values_converted.push_back(static_cast<T>(val));
-            },
-                       value);
-        }
-
-        // Get selector for the parts
-        stk::mesh::Selector selector = aperi::StkGetSelector(part_names, &meta_data);
-
-        // Set the field properties
-        stk::mesh::put_field_on_mesh(data_field, selector, field.number_of_components, initial_values_converted.data());
-        if (field.data_rank != FieldDataRank::CUSTOM) {
-            stk::io::set_field_output_type(data_field, field_output_type);
-        }
-
-        // Set the field role to TRANSIENT
-        stk::io::set_field_role(data_field, Ioss::Field::TRANSIENT);
-    },
-               field.data_type);
-}
-
 void IoMesh::AddFields(const std::vector<aperi::FieldData> &field_data, const std::vector<std::string> &part_names) {
     // Make sure ReadMesh has been called
     if (m_input_index == -1) {
         throw std::runtime_error("AddFields called before ReadMesh");
     }
-    // Get the meta data
-    stk::mesh::MetaData &meta_data = mp_io_broker->meta_data();
 
     // Create the fields
     for (const FieldData &field : field_data) {
         // Create the field
-        DeclareField(meta_data, field, part_names);
+        mp_mesh_data->DeclareField(field, part_names);
     }
 }
 

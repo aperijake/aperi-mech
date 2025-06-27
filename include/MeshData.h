@@ -190,6 +190,34 @@ class MeshData {
     void DeclareNodePart(const std::string &part_name);
 
     /**
+     * @brief Declare a field in the mesh metadata.
+     * @param field The field data to declare.
+     * @param part_names List of part names to assign the field to.
+     */
+    void DeclareField(const aperi::FieldData &field, const std::vector<std::string> &part_names);
+
+    /**
+     * @brief Declare multiple fields in the mesh metadata.
+     * @param fields List of field data to declare.
+     * @param part_names List of part names to assign the fields to.
+     */
+    void DeclareFields(const std::vector<aperi::FieldData> &fields, const std::vector<std::string> &part_names);
+
+    /**
+     * @brief Declare a field in the mesh metadata after the meta data has been committed.
+     * @param field The field data to declare.
+     * @param part_names List of part names to assign the field to.
+     */
+    void DeclareLateField(const aperi::FieldData &field, const std::vector<std::string> &part_names);
+
+    /**
+     * @brief Declare multiple fields in the mesh metadata after the meta data has been committed.
+     * @param fields List of field data to declare.
+     * @param part_names List of part names to assign the fields to.
+     */
+    void DeclareLateFields(const std::vector<aperi::FieldData> &fields, const std::vector<std::string> &part_names);
+
+    /**
      * @brief Create exposed block boundary sides for a selector and part.
      * @param selector The selector for entities to skin.
      * @param part_name The part to assign to the skinned sides.

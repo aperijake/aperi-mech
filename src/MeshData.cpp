@@ -150,6 +150,66 @@ void MeshData::DeclareNodePart(const std::string &part_name) {
     }
 }
 
+void MeshData::DeclareField(const aperi::FieldData &field, const std::vector<std::string> &part_names) {
+    stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+
+    std::visit([&](auto &&arg) {
+        // Get the topology rank
+        stk::topology::rank_t topology_rank = aperi::GetTopologyRank(field.data_topology_rank);
+
+        // Get the field output type
+        stk::io::FieldOutputType field_output_type = aperi::GetFieldOutputType(field.data_rank);
+
+        using T = std::decay_t<decltype(arg)>;
+        stk::mesh::FieldBase &data_field = meta_data.declare_field<T>(topology_rank, field.name, field.number_of_states);
+
+        // Convert initial values to the appropriate type
+        std::vector<T> initial_values_converted;
+        initial_values_converted.reserve(field.initial_values.size());
+        for (const auto &value : field.initial_values) {
+            std::visit([&](auto &&val) {
+                initial_values_converted.push_back(static_cast<T>(val));
+            },
+                       value);
+        }
+
+        // Get selector for the parts
+        stk::mesh::Selector selector = aperi::StkGetSelector(part_names, &meta_data);
+
+        // Set the field properties
+        stk::mesh::put_field_on_mesh(data_field, selector, field.number_of_components, initial_values_converted.data());
+        if (field.data_rank != FieldDataRank::CUSTOM) {
+            stk::io::set_field_output_type(data_field, field_output_type);
+        }
+
+        // Set the field role to TRANSIENT
+        stk::io::set_field_role(data_field, Ioss::Field::TRANSIENT);
+    },
+               field.data_type);
+}
+
+void MeshData::DeclareFields(const std::vector<aperi::FieldData> &fields, const std::vector<std::string> &part_names) {
+    for (const auto &field : fields) {
+        DeclareField(field, part_names);
+    }
+}
+
+void MeshData::DeclareLateField(const aperi::FieldData &field, const std::vector<std::string> &part_names) {
+    stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+    meta_data.enable_late_fields();
+    DeclareField(field, part_names);
+    meta_data.disable_late_fields();
+}
+
+void MeshData::DeclareLateFields(const std::vector<aperi::FieldData> &fields, const std::vector<std::string> &part_names) {
+    stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+    meta_data.enable_late_fields();
+    for (const auto &field : fields) {
+        DeclareField(field, part_names);
+    }
+    meta_data.disable_late_fields();
+}
+
 // Create exposed block boundary sides for a selector and part
 void MeshData::CreateExposedBlockBoundarySides(const aperi::Selector &selector, const std::string &part_name) {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
