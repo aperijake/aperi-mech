@@ -163,7 +163,6 @@ class ElementTetrahedron4 : public ElementBase {
         auto simple_timer = aperi::SimpleTimerFactory::Create(ElementTimerType::Other, aperi::element_timer_map);
 
         // Check that the functors are created
-        assert(m_ngp_mesh_data != nullptr);
         assert(m_shape_functions_functor != nullptr);
         assert(m_integration_functor != nullptr);
 
