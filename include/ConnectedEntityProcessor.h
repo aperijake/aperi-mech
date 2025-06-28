@@ -22,7 +22,6 @@
 #include "MeshData.h"
 
 namespace aperi {
-using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
 
 class ConnectedEntityProcessor {
    public:

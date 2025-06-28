@@ -30,6 +30,8 @@ using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
 using ExecSpace = stk::ngp::ExecSpace;
 
+using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
+
 // Neighbor search-related type definitions
 // Node ID and processor ID. Global ID is stk::mesh::EntityId (uint64_t) and local ID is unsigned. Using uint64_t to be large enough for all cases.
 using NodeIdentProc = stk::search::IdentProc<uint64_t, int>;
