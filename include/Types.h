@@ -38,8 +38,29 @@ using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, Nod
 using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
 using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeAndDistanceIdentProc>;
 
-using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
-using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
-using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
+using RangeViewType = Kokkos::View<SphereIdentProc*, ExecSpace>;
+using DomainViewType = Kokkos::View<PointIdentProc*, ExecSpace>;
+using ResultViewType = Kokkos::View<Intersection*, ExecSpace>;
+
+// Traits for getting information from search results
+template <typename T>
+struct SearchResultTraits;
+
+// Specialization for Intersection
+template <>
+struct SearchResultTraits<aperi::Intersection> {
+    static int domain_proc(const aperi::Intersection& result) {
+        return result.domainIdentProc.proc();
+    }
+    static int range_proc(const aperi::Intersection& result) {
+        return result.rangeIdentProc.proc();
+    }
+    static auto domain_id(const aperi::Intersection& result) {
+        return result.domainIdentProc.id();
+    }
+    static auto range_id(const aperi::Intersection& result) {
+        return result.rangeIdentProc.id().first;
+    }
+};
 
 }  // namespace aperi
