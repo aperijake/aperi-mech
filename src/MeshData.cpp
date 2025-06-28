@@ -92,6 +92,13 @@ size_t MeshData::GetNumOwnedElements(const std::vector<std::string> &sets) {
     return stk::mesh::count_entities(*m_bulk_data, stk::topology::ELEMENT_RANK, owned_selector);
 }
 
+// Get the number of entities in a selector and topology rank
+size_t MeshData::GetNumEntities(const aperi::Selector &selector, const aperi::FieldDataTopologyRank &topo_rank) {
+    // Get the topology rank
+    stk::topology::rank_t rank = aperi::GetTopologyRank(topo_rank);
+    return stk::mesh::count_entities(*m_bulk_data, rank, selector());
+}
+
 // Change the parts of entities on the host
 void MeshData::ChangePartsHost(const std::string &part_name, const aperi::FieldDataTopologyRank &topo_rank, const Kokkos::View<aperi::Index *> &indices_to_change) {
     // Get the topology rank

@@ -57,6 +57,11 @@ class NgpMeshData {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
+    KOKKOS_INLINE_FUNCTION
+    Unsigned ElementIndexToLocalOffset(const aperi::Index &index) const {
+        return m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index()).local_offset();
+    }
+
    private:
     stk::mesh::NgpMesh m_ngp_mesh;  ///< Device mesh object.
 };
@@ -155,6 +160,14 @@ class MeshData {
      * @param sets List of part names.
      */
     size_t GetNumOwnedElements(const std::vector<std::string> &sets);
+
+    /**
+     * @brief Get the number of entities in a selector and topology rank.
+     * @param selector The selector to filter entities.
+     * @param topo_rank The topology rank to filter by.
+     * @return The number of entities matching the selector and topology rank.
+     */
+    size_t GetNumEntities(const aperi::Selector &selector, const aperi::FieldDataTopologyRank &topo_rank);
 
     /**
      * @brief Change the parts of entities on the host.
