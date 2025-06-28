@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include "ConnectedEntityProcessor.h"
 #include "Constants.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -119,14 +118,14 @@ struct GetElementCentroidFunctor {
     aperi::Field<double> coordinates_field;
     aperi::Index element_index;
     Kokkos::View<double*> coordinates_view;
-    aperi::ConnectedEntityProcessor processor;
+    aperi::NgpMeshData ngp_mesh_data;
 
     GetElementCentroidFunctor(const aperi::Field<double>& field, const aperi::Index& idx, Kokkos::View<double*> view)
-        : coordinates_field(field), element_index(idx), coordinates_view(view), processor(field.GetMeshData()) {}
+        : coordinates_field(field), element_index(idx), coordinates_view(view), ngp_mesh_data(field.GetMeshData()->GetUpdatedNgpMesh()) {}
 
     KOKKOS_FUNCTION void operator()(const int&) const {
         // Get the element nodes
-        Kokkos::Array<aperi::Index, 8> connected_nodes = processor.GetElementNodeIndices<8>(element_index);
+        Kokkos::Array<aperi::Index, 8> connected_nodes = ngp_mesh_data.GetElementNodeIndices<8>(element_index);
         // Compute the centroid
         Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
         for (size_t i = 0; i < 8; ++i) {

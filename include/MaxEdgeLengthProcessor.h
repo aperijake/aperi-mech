@@ -3,9 +3,9 @@
 #include <memory>
 #include <vector>
 
-#include "ConnectedEntityProcessor.h"
 #include "Field.h"
 #include "MeshData.h"
+#include "NgpMeshData.h"
 #include "Selector.h"
 #include "Types.h"
 
@@ -38,14 +38,14 @@ class MaxEdgeLengthProcessor {
     void ComputeMaxEdgeLength();
 
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;    ///< The mesh data object.
-    std::vector<std::string> m_sets;                 ///< The sets to process.
-    aperi::Selector m_selector;                      ///< Selector for the sets.
-    aperi::Selector m_active_selector;               ///< Selector for active sets.
-    aperi::Field<Real> m_coordinates_field;          ///< Coordinates field.
-    aperi::Field<Unsigned> m_node_active_field;      ///< Node activity field.
-    aperi::Field<Real> m_max_edge_length_field;      ///< Output field for max edge length.
-    aperi::ConnectedEntityProcessor m_connectivity;  ///< Connectivity processor.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;  ///< The mesh data object.
+    std::vector<std::string> m_sets;               ///< The sets to process.
+    aperi::Selector m_selector;                    ///< Selector for the sets.
+    aperi::Selector m_active_selector;             ///< Selector for active sets.
+    aperi::Field<Real> m_coordinates_field;        ///< Coordinates field.
+    aperi::Field<Unsigned> m_node_active_field;    ///< Node activity field.
+    aperi::Field<Real> m_max_edge_length_field;    ///< Output field for max edge length.
+    aperi::NgpMeshData m_ngp_mesh_data;            ///< Mesh connectivity utility.
 };
 
 }  // namespace aperi

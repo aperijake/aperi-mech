@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "NgpMeshData.h"
 #include "Selector.h"
 
 namespace aperi {

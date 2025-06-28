@@ -18,85 +18,13 @@ class Field;
 #include "Constants.h"
 #include "FieldData.h"
 #include "Index.h"
+#include "NgpMeshData.h"
 #include "Types.h"
 
 namespace aperi {
 
 // Forward declaration for Selector struct
 struct Selector;
-
-/**
- * @brief Lightweight wrapper for stk::mesh::NgpMesh providing index conversion utilities.
- */
-class NgpMeshData {
-   public:
-    /**
-     * @brief Construct from an stk::mesh::NgpMesh.
-     * @param ngp_mesh The input device mesh.
-     */
-    NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh) {}
-
-    KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
-        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
-    }
-
-    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType>
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const aperi::Index &entity_index) const {
-        // Get the entities of the element
-        return m_ngp_mesh.get_connected_entities(EntityType, entity_index(), ConnectedType);
-    }
-
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementNodes(const aperi::Index &element_index) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index);
-    }
-
-    template <size_t MaxEntities>
-    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, MaxEntities> ConnectedEntitiesToIndices(const aperi::ConnectedEntities &connected_entities) const {
-        KOKKOS_ASSERT(connected_entities.size() <= MaxEntities);
-        Kokkos::Array<aperi::Index, MaxEntities> indices;
-        for (size_t i = 0; i < connected_entities.size(); ++i) {
-            indices[i] = GetEntityIndex(connected_entities[i]);
-        }
-        return indices;
-    }
-
-    template <size_t N>
-    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> GetElementNodeIndices(const aperi::Index &element_index, size_t &num_nodes) const {
-        aperi::ConnectedEntities connected_entities = GetElementNodes(element_index);
-        num_nodes = connected_entities.size();
-        KOKKOS_ASSERT(num_nodes <= N);
-        return ConnectedEntitiesToIndices<N>(connected_entities);
-    }
-
-    /**
-     * @brief Convert a local offset to an Index using the device mesh.
-     * @param local_offset The local entity offset.
-     * @return The corresponding Index.
-     */
-    KOKKOS_INLINE_FUNCTION
-    aperi::Index LocalOffsetToIndex(Unsigned local_offset) const {
-        stk::mesh::Entity entity(local_offset);
-        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
-    }
-
-    /**
-     * @brief Convert an stk::mesh::Entity to an Index using the device mesh.
-     * @param entity The mesh entity.
-     * @return The corresponding Index.
-     */
-    KOKKOS_INLINE_FUNCTION
-    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) const {
-        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    Unsigned ElementIndexToLocalOffset(const aperi::Index &index) const {
-        return m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index()).local_offset();
-    }
-
-   private:
-    stk::mesh::NgpMesh m_ngp_mesh;  ///< Device mesh object.
-};
 
 /**
  * @brief Main mesh data wrapper for Aperi, providing access to mesh, metadata, and mesh operations.
