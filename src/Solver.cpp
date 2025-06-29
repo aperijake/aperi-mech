@@ -4,8 +4,9 @@
 #include <numeric>
 
 #include "BoundaryCondition.h"
+#include "ContactForceContribution/Base.h"
 #include "EntityProcessor.h"
-#include "ExternalForceContribution.h"
+#include "ExternalForceContribution/Base.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "FieldUtils.h"
@@ -15,7 +16,7 @@
 #include "LogUtils.h"
 #include "ManualScopeTimerFactory.h"
 #include "MassUtils.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "PowerMethodProcessor.h"
@@ -93,6 +94,11 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
     // Compute external force contributions
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce(time, time_increment);
+    }
+
+    // Compute contact force contributions
+    for (const auto &contact_force_contribution : m_contact_force_contributions) {
+        contact_force_contribution->ComputeForce(time, time_increment);
     }
 }
 
@@ -227,24 +233,26 @@ double ExplicitSolver::Solve() {
 
     // Compute first time step
     aperi::TimeStepperData time_increment_data;
-    {
-        time_step_compute_timer->Start();
-        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
-        time_step_compute_timer->Stop();
-    }
+    time_step_compute_timer->Start();
+    time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+    time_step_compute_timer->Stop();
+
     double time_increment = time_increment_data.time_increment;
     LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
+    compute_force_timer->Start();
     ComputeForce(time, time_increment);
+    compute_force_timer->Stop();
+
+    communicate_force_timer->Start();
     CommunicateForce();
+    communicate_force_timer->Stop();
 
     // Compute initial accelerations, done at state np1 as states will be swapped at the start of the time loop
-    {
-        time_integration_nodal_updates_timer->Start();
-        explicit_time_integrator->ComputeAcceleration();
-        time_integration_nodal_updates_timer->Stop();
-    }
+    time_integration_nodal_updates_timer->Start();
+    explicit_time_integrator->ComputeAcceleration();
+    time_integration_nodal_updates_timer->Stop();
 
     // Create a scheduler for logging, outputting every 2 seconds. TODO(jake): Make this configurable in input file
     aperi::TimeIncrementScheduler log_scheduler(0.0, 1e8, 2.0);
@@ -273,11 +281,10 @@ double ExplicitSolver::Solve() {
         update_field_states_timer->Stop();
 
         // Get the next time step, Δt^{n+½}
-        {
-            time_step_compute_timer->Start();
-            time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
-            time_step_compute_timer->Stop();
-        }
+        time_step_compute_timer->Start();
+        time_increment_data = m_time_stepper->GetTimeStepperData(time, n);
+        time_step_compute_timer->Stop();
+
         time_increment = time_increment_data.time_increment;
         if (time_increment_data.updated) {
             LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
@@ -289,27 +296,21 @@ double ExplicitSolver::Solve() {
         explicit_time_integrator->SetTimeIncrement(time_increment);
 
         // Compute the first partial update nodal velocities: v^{n+½} = v^n + (t^{n+½} − t^n)a^n
-        {
-            time_integration_nodal_updates_timer->Start();
-            explicit_time_integrator->ComputeFirstPartialUpdate();
-            time_integration_nodal_updates_timer->Stop();
-        }
+        time_integration_nodal_updates_timer->Start();
+        explicit_time_integrator->ComputeFirstPartialUpdate();
+        time_integration_nodal_updates_timer->Stop();
 
         // Enforce essential boundary conditions: node I on \gamma_v_i : v_{iI}^{n+½} = \overbar{v}_I(x_I,t^{n+½})
-        {
-            apply_boundary_conditions_timer->Start();
-            for (const auto &boundary_condition : m_boundary_conditions) {
-                boundary_condition->ApplyVelocity(time_midstep);
-            }
-            apply_boundary_conditions_timer->Stop();
+        apply_boundary_conditions_timer->Start();
+        for (const auto &boundary_condition : m_boundary_conditions) {
+            boundary_condition->ApplyVelocity(time_midstep);
         }
+        apply_boundary_conditions_timer->Stop();
 
         // Update nodal displacements: d^{n+1} = d^n+ Δt^{n+½}v^{n+½}
-        {
-            time_integration_nodal_updates_timer->Start();
-            explicit_time_integrator->UpdateDisplacements();
-            time_integration_nodal_updates_timer->Stop();
-        }
+        time_integration_nodal_updates_timer->Start();
+        explicit_time_integrator->UpdateDisplacements();
+        time_integration_nodal_updates_timer->Stop();
 
         // Compute the force, f^{n+1}
         compute_force_timer->Start();
@@ -322,27 +323,21 @@ double ExplicitSolver::Solve() {
         communicate_force_timer->Stop();
 
         // Compute acceleration: a^{n+1} = M^{–1}(f^{n+1})
-        {
-            time_integration_nodal_updates_timer->Start();
-            explicit_time_integrator->ComputeAcceleration();
-            time_integration_nodal_updates_timer->Stop();
-        }
+        time_integration_nodal_updates_timer->Start();
+        explicit_time_integrator->ComputeAcceleration();
+        time_integration_nodal_updates_timer->Stop();
 
         // Set acceleration on essential boundary conditions. Overwrites acceleration from ComputeAcceleration above so that the acceleration is consistent with the velocity boundary condition.
-        {
-            apply_boundary_conditions_timer->Start();
-            for (const auto &boundary_condition : m_boundary_conditions) {
-                boundary_condition->ApplyAcceleration(time_next);
-            }
-            apply_boundary_conditions_timer->Stop();
+        apply_boundary_conditions_timer->Start();
+        for (const auto &boundary_condition : m_boundary_conditions) {
+            boundary_condition->ApplyAcceleration(time_next);
         }
+        apply_boundary_conditions_timer->Stop();
 
         // Compute the second partial update nodal velocities: v^{n+1} = v^{n+½} + (t^{n+1} − t^{n+½})a^{n+1}
-        {
-            time_integration_nodal_updates_timer->Start();
-            explicit_time_integrator->ComputeSecondPartialUpdate();
-            time_integration_nodal_updates_timer->Stop();
-        }
+        time_integration_nodal_updates_timer->Start();
+        explicit_time_integrator->ComputeSecondPartialUpdate();
+        time_integration_nodal_updates_timer->Stop();
 
         // Compute the energy balance
         // TODO(jake): Compute energy balance

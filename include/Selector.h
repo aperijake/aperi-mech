@@ -1,125 +1,120 @@
 #pragma once
 
 #include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Comm.hpp>
-#include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <vector>
 
 #include "AperiStkUtils.h"
-#include "MeshData.h"
 
 namespace aperi {
 
-enum class SelectorOwnership { ALL,
-                               OWNED,
-                               SHARED,
-                               OWNED_OR_SHARED,
-                               OWNED_AND_SHARED };
+// Forward declaration for MeshData
+class MeshData;
+
+/**
+ * @brief Enum for specifying selector ownership filtering.
+ */
+enum class SelectorOwnership {
+    ALL,              ///< All entities (no ownership filtering)
+    OWNED,            ///< Only locally owned entities
+    SHARED,           ///< Only shared entities
+    OWNED_OR_SHARED,  ///< Locally owned or shared entities
+    OWNED_AND_SHARED  ///< Entities that are both owned and shared
+};
 
 /**
  * @brief A structure representing a selector in a mesh.
  *
  * This structure encapsulates a selector of type `stk::mesh::Selector` and provides
- * constructors and an operator to access the encapsulated selector.
+ * constructors and utility methods for mesh entity selection and counting.
  */
 struct Selector {
     /**
      * @brief Default constructor that initializes the selector with a default value.
      */
-    Selector() : m_selector() {}
+    Selector();
 
     /**
-     * @brief Constructor that initializes the selector with a given value.
-     *
+     * @brief Construct from an existing stk::mesh::Selector and optional ownership mask.
      * @param selector The selector to initialize with.
+     * @param ownership Ownership mask to apply (default: ALL).
      */
-    Selector(const stk::mesh::Selector &selector, SelectorOwnership ownership = SelectorOwnership::ALL) : m_selector(selector), m_ownership(ownership) {
-        SetBulkAndMetaDataFromStkSelector();
-        MaskUsingOwnership();
-    }
+    Selector(const stk::mesh::Selector &selector, SelectorOwnership ownership = SelectorOwnership::ALL);
 
     /**
-     * @brief Default constructor that initializes the selector with a default value.
+     * @brief Construct from a list of part names and a MeshData pointer.
+     * @param sets List of part names to select.
+     * @param mesh_data Pointer to MeshData for meta/bulk access.
+     * @param ownership Ownership mask to apply (default: ALL).
      */
-    Selector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data, SelectorOwnership ownership = SelectorOwnership::ALL) : m_ownership(ownership) {
-        m_meta_data = mesh_data->GetMetaData();
-        m_bulk_data = mesh_data->GetBulkData();
-        m_selector = StkGetSelector(sets, m_meta_data);
-        MaskUsingOwnership();
-    }
+    Selector(const std::vector<std::string> &sets, aperi::MeshData *mesh_data, SelectorOwnership ownership = SelectorOwnership::ALL);
 
     /**
-     * @brief Operator to access the encapsulated selector.
-     *
-     * @return The encapsulated `stk::mesh::Selector`.
+     * @brief Get the encapsulated stk::mesh::Selector.
+     * @return The encapsulated selector.
      */
-    stk::mesh::Selector operator()() const {
-        return m_selector;
-    }
+    stk::mesh::Selector operator()() const;
 
     /**
-     * @brief Get the ownership of the selector.
-     *
-     * @return The ownership of the selector.
+     * @brief Get the ownership mask used by this selector.
+     * @return The ownership mask.
      */
-    SelectorOwnership GetOwnership() const { return m_ownership; }
+    SelectorOwnership GetOwnership() const;
 
-    std::vector<size_t> GetCommMeshCounts() const {
-        std::vector<size_t> comm_mesh_counts;
-        stk::mesh::comm_mesh_counts(*m_bulk_data, comm_mesh_counts, &m_selector);
-        return comm_mesh_counts;
-    }
+    /**
+     * @brief Get mesh entity counts for all entity ranks using this selector.
+     * @return Vector of counts by rank.
+     */
+    std::vector<size_t> GetCommMeshCounts() const;
 
-    size_t GetNumNodes() const {
-        return GetCommMeshCounts()[stk::topology::NODE_RANK];
-    }
+    /**
+     * @brief Get the number of nodes selected (global count).
+     */
+    size_t GetNumNodes() const;
 
-    size_t GetNumLocalNodes() const {
-        return GetLocalEntityCount(stk::topology::NODE_RANK);
-    }
+    /**
+     * @brief Get the number of nodes selected (local to this rank).
+     */
+    size_t GetNumLocalNodes() const;
 
-    size_t GetNumElements() const {
-        return GetCommMeshCounts()[stk::topology::ELEMENT_RANK];
-    }
+    /**
+     * @brief Get the number of elements selected (global count).
+     */
+    size_t GetNumElements() const;
 
-    size_t GetNumLocalElements() const {
-        return GetLocalEntityCount(stk::topology::ELEMENT_RANK);
-    }
+    /**
+     * @brief Get the number of elements selected (local to this rank).
+     */
+    size_t GetNumLocalElements() const;
 
-    size_t GetNumFaces() const {
-        return GetCommMeshCounts()[stk::topology::FACE_RANK];
-    }
+    /**
+     * @brief Get the number of faces selected (global count).
+     */
+    size_t GetNumFaces() const;
 
-    size_t GetNumLocalFaces() const {
-        return GetLocalEntityCount(stk::topology::FACE_RANK);
-    }
+    /**
+     * @brief Get the number of faces selected (local to this rank).
+     */
+    size_t GetNumLocalFaces() const;
 
    private:
-    size_t GetLocalEntityCount(const stk::topology::rank_t rank) const {
-        return stk::mesh::count_entities(*m_bulk_data, rank, m_selector);
-    }
+    /**
+     * @brief Get the number of entities of a given rank selected (local to this rank).
+     * @param rank The entity rank.
+     * @return The local entity count.
+     */
+    size_t GetLocalEntityCount(const stk::topology::rank_t rank) const;
 
-    void MaskUsingOwnership() {
-        if (m_ownership == SelectorOwnership::OWNED) {
-            m_selector &= m_meta_data->locally_owned_part();
-        } else if (m_ownership == SelectorOwnership::SHARED) {
-            m_selector &= m_meta_data->globally_shared_part();
-        } else if (m_ownership == SelectorOwnership::OWNED_AND_SHARED) {
-            m_selector &= m_meta_data->globally_shared_part() & m_meta_data->locally_owned_part();
-        } else if (m_ownership == SelectorOwnership::OWNED_OR_SHARED) {
-            m_selector &= (m_meta_data->globally_shared_part() | m_meta_data->locally_owned_part());
-        }
-    }
+    /**
+     * @brief Apply the ownership mask to the selector.
+     */
+    void MaskUsingOwnership();
 
-    void SetBulkAndMetaDataFromStkSelector() {
-        stk::mesh::PartVector parts;
-        m_selector.get_parts(parts);
-        assert(parts.size() > 0);
-        m_meta_data = &parts[0]->mesh_meta_data();
-        m_bulk_data = &parts[0]->mesh_bulk_data();
-    }
+    /**
+     * @brief Set the meta and bulk data pointers from the selector's parts.
+     */
+    void SetBulkAndMetaDataFromStkSelector();
 
     stk::mesh::Selector m_selector;    ///< The encapsulated selector.
     SelectorOwnership m_ownership;     ///< The ownership of the selector.

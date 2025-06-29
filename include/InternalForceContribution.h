@@ -10,7 +10,7 @@
 #include "FunctionEvaluationProcessor.h"
 #include "InternalForceContributionParameters.h"
 #include "IoInputFile.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MeshData.h"
 
 namespace aperi {

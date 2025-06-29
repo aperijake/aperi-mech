@@ -7,7 +7,7 @@
 #include "Constants.h"
 #include "Field.h"
 #include "Index.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MeshData.h"
 
 namespace aperi {

@@ -30,6 +30,8 @@ using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
 using ExecSpace = stk::ngp::ExecSpace;
 
+using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
+
 // Neighbor search-related type definitions
 // Node ID and processor ID. Global ID is stk::mesh::EntityId (uint64_t) and local ID is unsigned. Using uint64_t to be large enough for all cases.
 using NodeIdentProc = stk::search::IdentProc<uint64_t, int>;
@@ -38,8 +40,29 @@ using SphereIdentProc = stk::search::BoxIdentProc<stk::search::Sphere<Real>, Nod
 using PointIdentProc = stk::search::BoxIdentProc<stk::search::Point<Real>, NodeIdentProc>;
 using Intersection = stk::search::IdentProcIntersection<NodeIdentProc, NodeAndDistanceIdentProc>;
 
-using RangeViewType = Kokkos::View<SphereIdentProc *, ExecSpace>;
-using DomainViewType = Kokkos::View<PointIdentProc *, ExecSpace>;
-using ResultViewType = Kokkos::View<Intersection *, ExecSpace>;
+using RangeViewType = Kokkos::View<SphereIdentProc*, ExecSpace>;
+using DomainViewType = Kokkos::View<PointIdentProc*, ExecSpace>;
+using ResultViewType = Kokkos::View<Intersection*, ExecSpace>;
+
+// Traits for getting information from search results
+template <typename T>
+struct SearchResultTraits;
+
+// Specialization for Intersection
+template <>
+struct SearchResultTraits<aperi::Intersection> {
+    static int domain_proc(const aperi::Intersection& result) {
+        return result.domainIdentProc.proc();
+    }
+    static int range_proc(const aperi::Intersection& result) {
+        return result.rangeIdentProc.proc();
+    }
+    static auto domain_id(const aperi::Intersection& result) {
+        return result.domainIdentProc.id();
+    }
+    static auto range_id(const aperi::Intersection& result) {
+        return result.rangeIdentProc.id().first;
+    }
+};
 
 }  // namespace aperi

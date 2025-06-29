@@ -4,7 +4,7 @@
 
 #include "Constants.h"
 #include "FieldData.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MeshData.h"
 #include "MeshLabelerParameters.h"
 #include "SimpleTimerFactory.h"

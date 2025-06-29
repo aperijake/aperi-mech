@@ -134,7 +134,7 @@
       "program": "${workspaceFolder}/protego-mech/build/Debug/aperi-mech",
       "args": ["input.yaml"],
       //"cwd": "${workspaceFolder}/protego-mech/test/regression_tests/column_collapse/crk_nodal_w_building_2d",
-      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/single_tet/crk_nodal",
+      "cwd": "${workspaceFolder}/protego-mech/test/regression_tests/pinball_contact/crk_nodal",
       "preLaunchTask": "make_debug_protego"
     },
     {

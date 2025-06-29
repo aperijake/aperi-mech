@@ -1,13 +1,14 @@
 #include "NeighborSearchProcessor.h"
 
 #include "Index.h"
+#include "SearchUtils.h"
 
 namespace aperi {
 
 struct ParallelRunComparator {
-    size_t m_rank;
+    const int m_rank;
 
-    ParallelRunComparator(size_t my_rank) : m_rank(my_rank) {}
+    ParallelRunComparator(int my_rank) : m_rank(my_rank) {}
 
     KOKKOS_INLINE_FUNCTION
     bool operator()(const ResultViewType::value_type &a, const ResultViewType::value_type &b) const {
@@ -225,30 +226,6 @@ void NeighborSearchProcessor::ComputeKernelRadius(const std::string &set, double
     ngp_kernel_radius_field.sync_to_host();
 }
 
-void NeighborSearchProcessor::GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results) {
-    auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::GhostNodeNeighbors, aperi::neighbor_search_processor_timer_names_map);
-    // Skip if the parallel size is 1 or if there are no search results
-    if (m_bulk_data->parallel_size() == 1 || host_search_results.size() == 0) {
-        return;
-    }
-    m_bulk_data->modification_begin();
-    stk::mesh::Ghosting &neighbor_ghosting = m_bulk_data->create_ghosting("neighbors");
-    std::vector<stk::mesh::EntityProc> nodes_to_ghost;
-
-    const int my_rank = m_bulk_data->parallel_rank();
-
-    for (size_t i = 0; i < host_search_results.size(); ++i) {
-        auto result = host_search_results(i);
-        if (result.domainIdentProc.proc() != my_rank && result.rangeIdentProc.proc() == my_rank) {
-            stk::mesh::Entity node = m_bulk_data->get_entity(stk::topology::NODE_RANK, result.rangeIdentProc.id().first);
-            nodes_to_ghost.emplace_back(node, result.domainIdentProc.proc());
-        }
-    }
-
-    m_bulk_data->change_ghosting(neighbor_ghosting, nodes_to_ghost);
-    m_bulk_data->modification_end();
-}
-
 void NeighborSearchProcessor::UnpackSearchResultsIntoField(ResultViewType &search_results, size_t num_domain_nodes) {
     auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::UnpackSearchResultsIntoField, aperi::neighbor_search_processor_timer_names_map);
     const int my_rank = m_bulk_data->parallel_rank();
@@ -424,7 +401,8 @@ void NeighborSearchProcessor::DoBallSearch(const std::vector<std::string> &sets)
             auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::KokkosDeepCopy, aperi::neighbor_search_processor_timer_names_map);
             Kokkos::deep_copy(host_search_results, search_results);
         }
-        GhostNodeNeighbors(host_search_results);
+        auto simple_timer = aperi::SimpleTimerFactory::Create(NeighborSearchProcessorTimerType::GhostNodeNeighbors, aperi::neighbor_search_processor_timer_names_map);
+        aperi::GhostSearchResults(m_mesh_data, host_search_results, stk::topology::NODE_RANK);
     }
 
     CalculateResultsDistances(search_results);

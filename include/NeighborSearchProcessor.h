@@ -66,7 +66,6 @@ class NeighborSearchProcessor {
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
-    void GhostNodeNeighbors(const ResultViewType::HostMirror &host_search_results);
     void DoBallSearch(const std::vector<std::string> &sets);
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.

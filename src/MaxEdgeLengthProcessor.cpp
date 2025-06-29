@@ -13,7 +13,7 @@ namespace aperi {
 
 // Constructor: initializes selectors and fields
 MaxEdgeLengthProcessor::MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::vector<std::string> &sets)
-    : m_mesh_data(mesh_data), m_sets(sets), m_connectivity(mesh_data) {
+    : m_mesh_data(mesh_data), m_sets(sets), m_ngp_mesh_data(mesh_data->GetUpdatedNgpMesh()) {
     if (!m_mesh_data) {
         throw std::runtime_error("Mesh data is null.");
     }
@@ -37,8 +37,8 @@ void MaxEdgeLengthProcessor::ComputeMaxEdgeLength() {
     m_coordinates_field.UpdateField();
     m_max_edge_length_field.UpdateField();
 
-    // Copy connectivity processor for device lambda capture
-    auto connectivity = m_connectivity;
+    // Copy mesh connectivity for device lambda capture
+    auto ngp_mesh_data = m_ngp_mesh_data;
 
     // Iterate over all nodes in the mesh using the active selector
     aperi::ForEachNode(
@@ -52,13 +52,13 @@ void MaxEdgeLengthProcessor::ComputeMaxEdgeLength() {
             Real max_edge_length = 0.0;
 
             // Loop over all elements connected to this node
-            auto connected_elements = connectivity.GetNodeElements(node_idx);
+            auto connected_elements = ngp_mesh_data.GetNodeElements(node_idx);
             for (size_t i = 0; i < connected_elements.size(); ++i) {
-                aperi::Index elem_idx = connectivity.GetEntityIndex(connected_elements[i]);
+                aperi::Index elem_idx = ngp_mesh_data.GetEntityIndex(connected_elements[i]);
                 // Loop over all nodes of the connected element
-                auto elem_nodes = connectivity.GetElementNodes(elem_idx);
+                auto elem_nodes = ngp_mesh_data.GetElementNodes(elem_idx);
                 for (size_t j = 0; j < elem_nodes.size(); ++j) {
-                    aperi::Index neighbor_idx = connectivity.GetEntityIndex(elem_nodes[j]);
+                    aperi::Index neighbor_idx = ngp_mesh_data.GetEntityIndex(elem_nodes[j]);
                     // Gather coordinates for the neighbor node
                     Eigen::Matrix<Real, 1, 3> neighbor_coordinates;
                     for (size_t k = 0; k < 3; ++k) {

@@ -1,47 +1,56 @@
 #pragma once
 
-#include <Eigen/Dense>
-#include <array>
-#include <chrono>
-#include <memory>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/FieldBLAS.hpp>
-#include <stk_mesh/base/GetNgpField.hpp>
+#include <Kokkos_Core.hpp>
 #include <stk_mesh/base/GetNgpMesh.hpp>
-#include <stk_mesh/base/MetaData.hpp>
-#include <stk_mesh/base/NgpField.hpp>
+#include <stk_mesh/base/Ngp.hpp>
 #include <stk_mesh/base/NgpForEachEntity.hpp>
-#include <stk_mesh/base/NgpMesh.hpp>
+#include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
 
-#include "AperiStkUtils.h"
-#include "Field.h"
-#include "FieldData.h"
-#include "LogUtils.h"
-#include "MeshData.h"
+#include "Index.h"
+#include "Selector.h"
+#include "Types.h"
 
 namespace aperi {
-using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
 
-class ConnectedEntityProcessor {
+/**
+ * @brief Lightweight wrapper for stk::mesh::NgpMesh providing index conversion utilities.
+ */
+class NgpMeshData {
    public:
-    /**
-     * @brief Constructs an ConnectedEntityProcessor object.
-     * @param mesh_data A shared pointer to the MeshData object.
-     * @param sets A vector of strings representing the sets to process.
-     */
-    ConnectedEntityProcessor(std::shared_ptr<aperi::MeshData> mesh_data) : m_mesh_data(mesh_data) {
-        // Throw an exception if the mesh data is null.
-        if (mesh_data == nullptr) {
-            throw std::runtime_error("Mesh data is null.");
-        }
-        m_bulk_data = mesh_data->GetBulkData();
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-    }
+    NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh), m_bulk_data(&ngp_mesh.get_bulk_on_host()) {}
 
     KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
+    }
+
+    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType>
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const aperi::Index &entity_index) const {
+        return m_ngp_mesh.get_connected_entities(EntityType, entity_index(), ConnectedType);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementNodes(const aperi::Index &element_index) const {
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementFaces(const aperi::Index &element_index) const {
+        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK>(element_index);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceNodes(const aperi::Index &face_index) const {
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK>(face_index);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceElements(const aperi::Index &face_index) const {
+        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK>(face_index);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeElements(const aperi::Index &node_index) const {
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK>(node_index);
+    }
+
+    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeFaces(const aperi::Index &node_index) const {
+        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK>(node_index);
     }
 
     template <size_t MaxEntities>
@@ -52,20 +61,6 @@ class ConnectedEntityProcessor {
             indices[i] = GetEntityIndex(connected_entities[i]);
         }
         return indices;
-    }
-
-    template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType>
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetConnectedEntities(const aperi::Index &entity_index) const {
-        // Get the entities of the element
-        return m_ngp_mesh.get_connected_entities(EntityType, entity_index(), ConnectedType);
-    }
-
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementFaces(const aperi::Index &element_index) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK>(element_index);
-    }
-
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetElementNodes(const aperi::Index &element_index) const {
-        return GetConnectedEntities<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK>(element_index);
     }
 
     template <size_t N>
@@ -81,48 +76,42 @@ class ConnectedEntityProcessor {
         return ConnectedEntitiesToIndices<N>(connected_entities);
     }
 
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceNodes(const aperi::Index &face_index) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::NODE_RANK>(face_index);
-    }
-
     template <size_t N>
     KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> GetFaceNodeIndices(const aperi::Index &face_index) const {
         return ConnectedEntitiesToIndices<N>(GetFaceNodes(face_index));
     }
 
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetFaceElements(const aperi::Index &face_index) const {
-        return GetConnectedEntities<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK>(face_index);
+    KOKKOS_INLINE_FUNCTION
+    aperi::Index LocalOffsetToIndex(Unsigned local_offset) const {
+        stk::mesh::Entity entity(local_offset);
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeElements(const aperi::Index &node_index) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::ELEMENT_RANK>(node_index);
+    KOKKOS_INLINE_FUNCTION
+    aperi::Index EntityToIndex(const stk::mesh::Entity &entity) const {
+        return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
 
-    KOKKOS_INLINE_FUNCTION ConnectedEntities GetNodeFaces(const aperi::Index &node_index) const {
-        return GetConnectedEntities<stk::topology::NODE_RANK, stk::topology::FACE_RANK>(node_index);
+    KOKKOS_INLINE_FUNCTION
+    Unsigned ElementIndexToLocalOffset(const aperi::Index &index) const {
+        return m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index()).local_offset();
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
     void ForEachEntityAndConnected(ActionFunc &action_func, const aperi::Selector &selector) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-
         auto func = action_func;
-
         stk::mesh::for_each_entity_run(
             m_ngp_mesh, EntityType, selector(),
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &entity_index) {
-                // Get the entities of the element
-                stk::mesh::NgpMesh::ConnectedEntities connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
+                auto connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
                 size_t num_connected_entities = connected_entities.size();
                 KOKKOS_ASSERT(num_connected_entities <= MaxNumConnectedEntities);
 
-                // Get the node indices
                 Kokkos::Array<aperi::Index, MaxNumConnectedEntities> connected_indices;
                 for (size_t i = 0; i < num_connected_entities; ++i) {
-                    connected_indices[i] = GetEntityIndex(connected_entities[i]);
+                    connected_indices[i] = aperi::Index(m_ngp_mesh.fast_mesh_index(connected_entities[i]));
                 }
-
-                // Call the action function
                 func(aperi::Index(entity_index), connected_indices, num_connected_entities);
             });
     }
@@ -142,14 +131,9 @@ class ConnectedEntityProcessor {
         ForEachEntityAndConnected<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK, 2>(action_func, selector);
     }
 
-    std::shared_ptr<aperi::MeshData> GetMeshData() {
-        return m_mesh_data;
-    }
-
    private:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
-    stk::mesh::BulkData *m_bulk_data;              // The bulk data object.
-    stk::mesh::NgpMesh m_ngp_mesh;                 // The ngp mesh object.
+    stk::mesh::NgpMesh m_ngp_mesh;
+    const stk::mesh::BulkData *m_bulk_data;
 };
 
 }  // namespace aperi

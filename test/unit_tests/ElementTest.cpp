@@ -12,7 +12,7 @@
 #include "EntityProcessor.h"
 #include "FieldData.h"
 #include "IoMesh.h"
-#include "Material.h"
+#include "Materials/Base.h"
 #include "MaxEdgeLengthProcessor.h"
 #include "MeshLabeler.h"
 #include "Preprocessor.h"

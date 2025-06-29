@@ -272,6 +272,26 @@ YAML::Node GetInputSchema() {
     loads_schema.AddOneOrMoreOf(gravity_load_node);
     YAML::Node loads_node = loads_schema.GetInputSchema();
 
+    // All exterior surfaces node
+    aperi::InputSchema all_exterior_surfaces_schema("all_exterior_surfaces", "map", "the all exterior surfaces condition");
+    YAML::Node all_exterior_surfaces_node = all_exterior_surfaces_schema.GetInputSchema();
+
+    // Penalty scale factor node
+    aperi::InputSchema penalty_scale_factor_schema("penalty_scale_factor", "float", "the penalty scale factor");
+    YAML::Node penalty_scale_factor_node = penalty_scale_factor_schema.GetInputSchema();
+
+    // Pinball contact node
+    aperi::InputSchema pinball_schema("pinball", "map", "the pinball contact conditions");
+    pinball_schema.AddOneOf(sets_node);
+    pinball_schema.AddOneOf(all_exterior_surfaces_node);
+    pinball_schema.AddOptional(penalty_scale_factor_node);
+    YAML::Node pinball_node = pinball_schema.GetInputSchema();
+
+    // Contact node
+    aperi::InputSchema contact_schema("contact", "sequence", "the contact configuration");
+    contact_schema.AddOneOf(pinball_node);
+    YAML::Node contact_node = contact_schema.GetInputSchema();
+
     // Initial velocity node
     aperi::InputSchema initial_velocity_schema("velocity", "map", "the initial velocity");
     initial_velocity_schema.AddAllOf(sets_node);
@@ -586,6 +606,7 @@ YAML::Node GetInputSchema() {
     explicit_dynamics_procedure_schema.AddOptional(initial_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(boundary_conditions_node);
     explicit_dynamics_procedure_schema.AddOptional(loads_node);
+    explicit_dynamics_procedure_schema.AddOptional(contact_node);
     explicit_dynamics_procedure_schema.AddOptional(lagrangian_node);
     YAML::Node explicit_dynamics_procedure_node = explicit_dynamics_procedure_schema.GetInputSchema();
 

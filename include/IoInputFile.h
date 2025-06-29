@@ -125,6 +125,22 @@ class IoInputFile {
         return node_pair.first;
     }
 
+    // Get contact specs for a specific procedure id
+    std::vector<YAML::Node> GetContact(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+
+        YAML::Node procedure_node = procedures_node_pair.first[procedure_id].begin()->second;
+        // Check if contact is defined, if not return empty vector
+        // TODO(jake): this is a hack, fix this. Should use schema to check if contact is optional
+        if (!procedure_node["contact"].IsDefined()) {
+            return std::vector<YAML::Node>();
+        }
+        std::pair<std::vector<YAML::Node>, int> node_pair = GetValueSequence<YAML::Node>(procedure_node, "contact");
+        if (exit_on_error && node_pair.second != 0) throw std::runtime_error("Error getting contact specs");
+        return node_pair.first;
+    }
+
     // Get boundary conditions for a specific procedure id
     std::vector<YAML::Node> GetBoundaryConditions(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");

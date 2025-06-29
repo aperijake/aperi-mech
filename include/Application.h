@@ -13,11 +13,7 @@ class Node;
 }
 
 namespace aperi {
-class BoundaryCondition;
 class IoInputFile;
-class IoMesh;
-class InternalForceContribution;
-class ExternalForceContribution;
 class Solver;
 
 /**

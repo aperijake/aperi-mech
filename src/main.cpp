@@ -64,112 +64,117 @@ void PrintUsage(const char* argv0) {
 }
 
 int main(int argc, char* argv[]) {
-    // Initialize Kokkos and MPI and get communicator for the current process
-    Kokkos::initialize(argc, argv);
     MPI_Init(&argc, &argv);
-    MPI_Comm p_comm = MPI_COMM_WORLD;
+    try {
+        // Initialize Kokkos and MPI and get communicator for the current process
+        Kokkos::initialize(argc, argv);
+        MPI_Comm p_comm = MPI_COMM_WORLD;
 
-    // Create csv files of timing data or not
-    bool dump_performance_data = false;
-    std::string performance_data_runstring = "";
+        // Create csv files of timing data or not
+        bool dump_performance_data = false;
+        std::string performance_data_runstring = "";
 
-    // Check if the first command-line argument is "--version"
-    if (argc > 1) {
-        if (std::string(argv[1]) == "--version") {
-            PrintVersion();
-            Kokkos::finalize();
-            MPI_Finalize();
-            return 0;
-        }
-        if (std::string(argv[1]) == "--help") {
-            PrintUsage(argv[0]);
-            return 0;
-        }
-    }
-    if (argc == 1) {
-        aperi::CerrP0() << "ERROR: No command-line arguments provided." << std::endl;
-        PrintUsage(argv[0]);
-        return 1;
-    }
-    if (argc > 2) {
-        if (std::string(argv[2]) == "--dump-performance-data") {
-            dump_performance_data = true;
-            if (argc > 3) {
-                performance_data_runstring = std::string(argv[3]);
+        // Check if the first command-line argument is "--version"
+        if (argc > 1) {
+            if (std::string(argv[1]) == "--version") {
+                PrintVersion();
+                Kokkos::finalize();
+                MPI_Finalize();
+                return 0;
             }
-        } else {
-            aperi::CerrP0() << "ERROR: Invalid command-line argument provided." << std::endl;
+            if (std::string(argv[1]) == "--help") {
+                PrintUsage(argv[0]);
+                return 0;
+            }
+        }
+        if (argc == 1) {
+            aperi::CerrP0() << "ERROR: No command-line arguments provided." << std::endl;
             PrintUsage(argv[0]);
             return 1;
         }
-    }
-    if (argc > 4) {
-        aperi::CerrP0() << "ERROR: Too many command-line arguments provided." << std::endl;
-        PrintUsage(argv[0]);
-        return 1;
-    }
+        if (argc > 2) {
+            if (std::string(argv[2]) == "--dump-performance-data") {
+                dump_performance_data = true;
+                if (argc > 3) {
+                    performance_data_runstring = std::string(argv[3]);
+                }
+            } else {
+                aperi::CerrP0() << "ERROR: Invalid command-line argument provided." << std::endl;
+                PrintUsage(argv[0]);
+                return 1;
+            }
+        }
+        if (argc > 4) {
+            aperi::CerrP0() << "ERROR: Too many command-line arguments provided." << std::endl;
+            PrintUsage(argv[0]);
+            return 1;
+        }
 
-    // Get size of the current process
-    int size;
-    MPI_Comm_size(p_comm, &size);
+        // Get size of the current process
+        int size;
+        MPI_Comm_size(p_comm, &size);
 
-    // Print header and number of processes
-    PrintHeader();
-    auto start_time = std::chrono::system_clock::now();
-    std::time_t start_time_t = std::chrono::system_clock::to_time_t(start_time);
-    std::tm start_tm = *std::localtime(&start_time_t);
+        // Print header and number of processes
+        PrintHeader();
+        auto start_time = std::chrono::system_clock::now();
+        std::time_t start_time_t = std::chrono::system_clock::to_time_t(start_time);
+        std::tm start_tm = *std::localtime(&start_time_t);
 
-    aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
-    aperi::CoutP0() << "Started at: " << std::put_time(&start_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
+        aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
+        aperi::CoutP0() << "Started at: " << std::put_time(&start_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
 
-    // Check if input filename is provided as a command-line argument
-    if (argc < 2) {
-        aperi::CerrP0() << "Usage: " << argv[0] << " <input_filename>" << std::endl;
+        // Check if input filename is provided as a command-line argument
+        if (argc < 2) {
+            aperi::CerrP0() << "Usage: " << argv[0] << " <input_filename>" << std::endl;
+            MPI_Finalize();
+            return 1;
+        }
+
+        // Get input filename from command-line argument
+        std::string input_filename = argv[1];
+
+        // Create a name for the timer file: input_filename - extension + _timer.log
+        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
+
+        // Replace spaces with underscores
+        std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
+
+        // Remove the file if it already exists
+        std::remove(timer_filename.c_str());
+
+        // Set the default log file for all timers created by this factory
+        aperi::SimpleTimerFactory::SetDefaultLogFile(timer_filename);
+
+        // Set whether all timers created should use accurate timing (Kokkos::fence())
+        aperi::SimpleTimerFactory::SetAccurateTimers(dump_performance_data);
+        {
+            // Create a simple timer to measure the total time taken by the application
+            auto timer = aperi::SimpleTimerFactory::Create(aperi::ApplicationTimerType::Total, aperi::application_timer_map);
+
+            // Run the application
+            RunApplication(input_filename, p_comm);
+        }
+
+        // Print footer
+        auto end_time = std::chrono::system_clock::now();
+        std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
+        std::tm end_tm = *std::localtime(&end_time_t);
+        std::chrono::duration<double> total_time = end_time - start_time;
+
+        aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
+        aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
+        aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
+        aperi::CoutP0() << "For detailed performance data, check the timer log file: " << timer_filename << std::endl;
+        aperi::CoutP0() << "(use the print_timing_log.py script for a more readable output)" << std::endl;
+        aperi::CoutP0() << "############################################" << std::endl;
+
+        // Finalize Kokkos and MPI
+        Kokkos::finalize();
         MPI_Finalize();
-        return 1;
+
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal error: " << e.what() << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
-
-    // Get input filename from command-line argument
-    std::string input_filename = argv[1];
-
-    // Create a name for the timer file: input_filename - extension + _timer.log
-    std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
-
-    // Replace spaces with underscores
-    std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
-
-    // Remove the file if it already exists
-    std::remove(timer_filename.c_str());
-
-    // Set the default log file for all timers created by this factory
-    aperi::SimpleTimerFactory::SetDefaultLogFile(timer_filename);
-
-    // Set whether all timers created should use accurate timing (Kokkos::fence())
-    aperi::SimpleTimerFactory::SetAccurateTimers(dump_performance_data);
-    {
-        // Create a simple timer to measure the total time taken by the application
-        auto timer = aperi::SimpleTimerFactory::Create(aperi::ApplicationTimerType::Total, aperi::application_timer_map);
-
-        // Run the application
-        RunApplication(input_filename, p_comm);
-    }
-
-    // Print footer
-    auto end_time = std::chrono::system_clock::now();
-    std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
-    std::tm end_tm = *std::localtime(&end_time_t);
-    std::chrono::duration<double> total_time = end_time - start_time;
-
-    aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
-    aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
-    aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
-    aperi::CoutP0() << "For detailed performance data, check the timer log file: " << timer_filename << std::endl;
-    aperi::CoutP0() << "(use the print_timing_log.py script for a more readable output)" << std::endl;
-    aperi::CoutP0() << "############################################" << std::endl;
-
-    // Finalize Kokkos and MPI
-    Kokkos::finalize();
-    MPI_Finalize();
-
-    return 0;
 }
