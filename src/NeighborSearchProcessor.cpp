@@ -6,9 +6,9 @@
 namespace aperi {
 
 struct ParallelRunComparator {
-    size_t m_rank;
+    const int m_rank;
 
-    ParallelRunComparator(size_t my_rank) : m_rank(my_rank) {}
+    ParallelRunComparator(int my_rank) : m_rank(my_rank) {}
 
     KOKKOS_INLINE_FUNCTION
     bool operator()(const ResultViewType::value_type &a, const ResultViewType::value_type &b) const {

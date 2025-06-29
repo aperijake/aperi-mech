@@ -1,12 +1,14 @@
 #pragma once
 
 #include <Kokkos_Core.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_mesh/base/Ngp.hpp>
 #include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/Types.hpp>
 #include <stk_topology/topology.hpp>
 
 #include "Index.h"
+#include "Selector.h"
 #include "Types.h"
 
 namespace aperi {
@@ -16,7 +18,7 @@ namespace aperi {
  */
 class NgpMeshData {
    public:
-    NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh) {}
+    NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh), m_bulk_data(&ngp_mesh.get_bulk_on_host()) {}
 
     KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
@@ -96,10 +98,11 @@ class NgpMeshData {
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachEntityAndConnected(ActionFunc &action_func, const stk::mesh::Selector &selector) {
+    void ForEachEntityAndConnected(ActionFunc &action_func, const aperi::Selector &selector) {
+        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
         auto func = action_func;
         stk::mesh::for_each_entity_run(
-            m_ngp_mesh, EntityType, selector,
+            m_ngp_mesh, EntityType, selector(),
             KOKKOS_CLASS_LAMBDA(const stk::mesh::FastMeshIndex &entity_index) {
                 auto connected_entities = m_ngp_mesh.get_connected_entities(EntityType, entity_index, ConnectedType);
                 size_t num_connected_entities = connected_entities.size();
@@ -114,22 +117,23 @@ class NgpMeshData {
     }
 
     template <size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachElementAndConnectedNodes(ActionFunc &action_func, const stk::mesh::Selector &selector) {
+    void ForEachElementAndConnectedNodes(ActionFunc &action_func, const aperi::Selector &selector) {
         ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::NODE_RANK, MaxNumConnectedEntities>(action_func, selector);
     }
 
     template <size_t MaxNumConnectedEntities, typename ActionFunc>
-    void ForEachElementAndConnectedFaces(ActionFunc &action_func, const stk::mesh::Selector &selector) {
+    void ForEachElementAndConnectedFaces(ActionFunc &action_func, const aperi::Selector &selector) {
         ForEachEntityAndConnected<stk::topology::ELEMENT_RANK, stk::topology::FACE_RANK, MaxNumConnectedEntities>(action_func, selector);
     }
 
     template <typename ActionFunc>
-    void ForEachFaceAndConnectedElements(ActionFunc &action_func, const stk::mesh::Selector &selector) {
+    void ForEachFaceAndConnectedElements(ActionFunc &action_func, const aperi::Selector &selector) {
         ForEachEntityAndConnected<stk::topology::FACE_RANK, stk::topology::ELEMENT_RANK, 2>(action_func, selector);
     }
 
    private:
     stk::mesh::NgpMesh m_ngp_mesh;
+    const stk::mesh::BulkData *m_bulk_data;
 };
 
 }  // namespace aperi

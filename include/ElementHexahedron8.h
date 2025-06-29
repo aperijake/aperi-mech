@@ -160,7 +160,7 @@ class ElementHexahedron8 : public ElementBase {
         auto compute_volume_functor = aperi::ComputeElementVolumeFunctor<HEX8_NUM_NODES, ShapeFunctionsFunctorHex8, Quadrature<8, HEX8_NUM_NODES>, Material::StressFunctor>(m_mesh_data, *m_shape_functions_functor, *m_integration_functor);
 
         // Loop over all elements and compute the volume
-        m_ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(compute_volume_functor, m_selector());
+        m_ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(compute_volume_functor, m_selector);
 
         auto element_volume_field = aperi::Field<double>(m_mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
         element_volume_field.MarkModifiedOnDevice();
@@ -176,7 +176,7 @@ class ElementHexahedron8 : public ElementBase {
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
         // Loop over all elements and compute the internal force
-        m_ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(*m_compute_force, m_selector());
+        m_ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(*m_compute_force, m_selector);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }
 

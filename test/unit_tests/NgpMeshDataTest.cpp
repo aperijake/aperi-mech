@@ -153,7 +153,7 @@ TEST_F(NgpMeshDataTestFixture, TestForEachElementAndConnectedNodes) {
 
     ElementNodeCounter counter;
 
-    m_ngp_mesh_data->ForEachElementAndConnectedNodes<8>(counter, selector());
+    m_ngp_mesh_data->ForEachElementAndConnectedNodes<8>(counter, selector);
 
     int global_element_count = 0;
     int global_node_count = 0;
@@ -175,7 +175,7 @@ TEST_F(NgpMeshDataTestFixture, TestForEachElementAndConnectedFaces) {
 
     ElementFaceCounter count_elements_and_faces(*m_ngp_mesh_data);
 
-    m_ngp_mesh_data->ForEachElementAndConnectedFaces<6>(count_elements_and_faces, selector());
+    m_ngp_mesh_data->ForEachElementAndConnectedFaces<6>(count_elements_and_faces, selector);
 
     int global_element_count = 0;
     int global_face_count = 0;

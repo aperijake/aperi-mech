@@ -57,7 +57,7 @@ void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data,
     ComputeMassFromElementVolumeKernel action_kernel(mesh_data, density);
 
     // Call the for_each_element_and_node function
-    ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel, selector());
+    ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel, selector);
 
     // Mark the mass_from_elements field as modified
     std::string mass_from_elements_name = "mass_from_elements";
