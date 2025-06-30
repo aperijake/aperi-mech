@@ -97,6 +97,18 @@ class NgpMeshData {
         return m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index()).local_offset();
     }
 
+    KOKKOS_INLINE_FUNCTION
+    uint64_t ElementIndexToGlobalId(const aperi::Index &index) const {
+        stk::mesh::Entity entity = m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index());
+        return m_ngp_mesh.identifier(entity);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    uint64_t ElementLocalOffsetToGlobalId(Unsigned local_offset) const {
+        stk::mesh::Entity entity(local_offset);
+        return m_ngp_mesh.identifier(entity);
+    }
+
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>
     void ForEachEntityAndConnected(ActionFunc &action_func, const aperi::Selector &selector) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
