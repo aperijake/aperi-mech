@@ -469,8 +469,11 @@ YAML::Node GetInputSchema() {
     // Drucker-Prager material properties node
     aperi::InputSchema drucker_prager_schema("drucker_prager", "map", "the Drucker-Prager material properties");
     drucker_prager_schema.AddAllOf(density_node);
-    drucker_prager_schema.AddAllOf(bulk_modulus_node);
-    drucker_prager_schema.AddAllOf(shear_modulus_node);
+    drucker_prager_schema.AddTwoOf(youngs_modulus_node);
+    drucker_prager_schema.AddTwoOf(poissons_ratio_node);
+    drucker_prager_schema.AddTwoOf(lambda_node);
+    drucker_prager_schema.AddTwoOf(bulk_modulus_node);
+    drucker_prager_schema.AddTwoOf(shear_modulus_node);
     drucker_prager_schema.AddAllOf(A1_node);
     drucker_prager_schema.AddAllOf(A2_node);
     drucker_prager_schema.AddAllOf(A2G_node);
@@ -479,8 +482,11 @@ YAML::Node GetInputSchema() {
     // Power law creep material properties node
     aperi::InputSchema power_law_creep_schema("power_law_creep", "map", "the power law creep material properties");
     power_law_creep_schema.AddAllOf(density_node);
-    power_law_creep_schema.AddAllOf(bulk_modulus_node);
-    power_law_creep_schema.AddAllOf(shear_modulus_node);
+    power_law_creep_schema.AddTwoOf(youngs_modulus_node);
+    power_law_creep_schema.AddTwoOf(poissons_ratio_node);
+    power_law_creep_schema.AddTwoOf(lambda_node);
+    power_law_creep_schema.AddTwoOf(bulk_modulus_node);
+    power_law_creep_schema.AddTwoOf(shear_modulus_node);
     power_law_creep_schema.AddAllOf(A_node);
     power_law_creep_schema.AddAllOf(n_node);
     power_law_creep_schema.AddAllOf(m_node);
