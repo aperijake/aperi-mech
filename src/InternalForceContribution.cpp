@@ -5,10 +5,13 @@
 #include <utility>
 
 #include "Element.h"
+#include "Field.h"
 #include "FieldData.h"
+#include "ForEachEntity.h"
 #include "FunctionEvaluationProcessor.h"
 #include "Materials/Base.h"
 #include "MeshData.h"
+#include "Selector.h"
 namespace aperi {
 
 void InternalForceContribution::Preprocess() {
@@ -45,6 +48,21 @@ void InternalForceContribution::Preprocess() {
 
 void InternalForceContribution::FinishPreprocessing() {
     m_element->FinishPreprocessing();
+
+    // Populate the the bulk_modulus element properties
+    aperi::Field bulk_modulus_field = aperi::Field(m_internal_force_contribution_parameters.mesh_data, aperi::FieldQueryData<double>{"bulk_modulus", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT});
+
+    const double bulk_modulus = m_internal_force_contribution_parameters.material->GetMaterialProperties()->linear_elastic_properties.bulk_modulus;
+
+    aperi::Selector selector({m_internal_force_contribution_parameters.part_name}, m_internal_force_contribution_parameters.mesh_data.get());
+
+    aperi::ForEachElement([&](const aperi::Index &index) {
+        // Populate the bulk_modulus field for the current element
+        bulk_modulus_field(index, 0) = bulk_modulus;
+    },
+                          *m_internal_force_contribution_parameters.mesh_data, selector);
+    // Mark the bulk_modulus field as modified on device
+    bulk_modulus_field.MarkModifiedOnDevice();
 }
 
 void InternalForceContribution::ComputeValuesFromGeneralizedFields() const {
