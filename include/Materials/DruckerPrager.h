@@ -47,8 +47,8 @@ class DruckerPragerMaterial : public Material {
      */
     void CreateStressFunctor() {
         StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(DruckerPragerGetStressFunctor));
-        double bulk_modulus = m_material_properties->properties.at("bulk_modulus");
-        double shear_modulus = m_material_properties->properties.at("shear_modulus");
+        double bulk_modulus = m_material_properties->linear_elastic_properties.bulk_modulus;
+        double shear_modulus = m_material_properties->linear_elastic_properties.shear_modulus;
         double A1 = m_material_properties->properties.at("A1");
         double A2 = m_material_properties->properties.at("A2");
         double A2G = m_material_properties->properties.at("A2G");

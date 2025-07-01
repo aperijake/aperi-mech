@@ -344,8 +344,8 @@ YAML::Node GetInputSchema() {
 
     // ****** Lame's parameters *******
     // Lame's first parameter node
-    aperi::InputSchema lame_first_parameter_schema("lame_first_parameter", "float", "the first Lame's parameter (lambda)");
-    YAML::Node lame_first_parameter_node = lame_first_parameter_schema.GetInputSchema();
+    aperi::InputSchema lambda_schema("lambda", "float", "Lame's first parameter");
+    YAML::Node lambda_node = lambda_schema.GetInputSchema();
 
     // Young's modulus node
     aperi::InputSchema youngs_modulus_schema("youngs_modulus", "float", "the youngs modulus");
@@ -418,7 +418,7 @@ YAML::Node GetInputSchema() {
     linear_elastic_schema.AddAllOf(density_node);
     linear_elastic_schema.AddTwoOf(youngs_modulus_node);
     linear_elastic_schema.AddTwoOf(poissons_ratio_node);
-    linear_elastic_schema.AddTwoOf(lame_first_parameter_node);
+    linear_elastic_schema.AddTwoOf(lambda_node);
     linear_elastic_schema.AddTwoOf(bulk_modulus_node);
     linear_elastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node linear_elastic_node = linear_elastic_schema.GetInputSchema();
@@ -428,7 +428,7 @@ YAML::Node GetInputSchema() {
     elastic_schema.AddAllOf(density_node);
     elastic_schema.AddTwoOf(youngs_modulus_node);
     elastic_schema.AddTwoOf(poissons_ratio_node);
-    elastic_schema.AddTwoOf(lame_first_parameter_node);
+    elastic_schema.AddTwoOf(lambda_node);
     elastic_schema.AddTwoOf(bulk_modulus_node);
     elastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node elastic_node = elastic_schema.GetInputSchema();
@@ -438,7 +438,7 @@ YAML::Node GetInputSchema() {
     neo_hookean_schema.AddAllOf(density_node);
     neo_hookean_schema.AddTwoOf(youngs_modulus_node);
     neo_hookean_schema.AddTwoOf(poissons_ratio_node);
-    neo_hookean_schema.AddTwoOf(lame_first_parameter_node);
+    neo_hookean_schema.AddTwoOf(lambda_node);
     neo_hookean_schema.AddTwoOf(bulk_modulus_node);
     neo_hookean_schema.AddTwoOf(shear_modulus_node);
     YAML::Node neo_hookean_node = neo_hookean_schema.GetInputSchema();
@@ -448,7 +448,7 @@ YAML::Node GetInputSchema() {
     neo_hookean_with_damage_schema.AddAllOf(density_node);
     neo_hookean_with_damage_schema.AddTwoOf(youngs_modulus_node);
     neo_hookean_with_damage_schema.AddTwoOf(poissons_ratio_node);
-    neo_hookean_with_damage_schema.AddTwoOf(lame_first_parameter_node);
+    neo_hookean_with_damage_schema.AddTwoOf(lambda_node);
     neo_hookean_with_damage_schema.AddTwoOf(bulk_modulus_node);
     neo_hookean_with_damage_schema.AddTwoOf(shear_modulus_node);
     neo_hookean_with_damage_schema.AddAllOf(I1_critical_node);
@@ -461,7 +461,7 @@ YAML::Node GetInputSchema() {
     plastic_schema.AddAllOf(density_node);
     plastic_schema.AddTwoOf(youngs_modulus_node);
     plastic_schema.AddTwoOf(poissons_ratio_node);
-    plastic_schema.AddTwoOf(lame_first_parameter_node);
+    plastic_schema.AddTwoOf(lambda_node);
     plastic_schema.AddTwoOf(bulk_modulus_node);
     plastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node plastic_node = plastic_schema.GetInputSchema();

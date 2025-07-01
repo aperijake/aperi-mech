@@ -58,8 +58,8 @@ class PowerLawCreepMaterial : public Material {
      */
     void CreateStressFunctor() {
         StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(PowerLawCreepGetStressFunctor));
-        double bulk_modulus = m_material_properties->properties.at("bulk_modulus");
-        double shear_modulus = m_material_properties->properties.at("shear_modulus");
+        double bulk_modulus = m_material_properties->linear_elastic_properties.bulk_modulus;
+        double shear_modulus = m_material_properties->linear_elastic_properties.shear_modulus;
         double A = m_material_properties->properties.at("A");
         double n = m_material_properties->properties.at("n");
         double m = m_material_properties->properties.at("m");

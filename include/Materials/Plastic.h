@@ -47,8 +47,8 @@ class PlasticMaterial : public Material {
      */
     void CreateStressFunctor() {
         StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(PlasticGetStressFunctor));
-        double lambda = m_material_properties->properties.at("lambda");
-        double two_mu = m_material_properties->properties.at("two_mu");
+        double lambda = m_material_properties->linear_elastic_properties.lambda;
+        double two_mu = m_material_properties->linear_elastic_properties.shear_modulus * 2.0;
         double yield_stress = m_material_properties->properties.at("yield_stress");
         double hardening_modulus = m_material_properties->properties.at("hardening_modulus");
         Kokkos::parallel_for(

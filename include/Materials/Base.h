@@ -1,7 +1,10 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <cmath>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "FieldData.h"
@@ -34,13 +37,135 @@ enum class MaterialSeparationState {
     JUST_FAILED
 };
 
+struct LinearElasticProperties {
+    double shear_modulus = std::numeric_limits<double>::quiet_NaN();   // μ or G
+    double lambda = std::numeric_limits<double>::quiet_NaN();          // λ (1st Lamé)
+    double youngs_modulus = std::numeric_limits<double>::quiet_NaN();  // E
+    double poisson_ratio = std::numeric_limits<double>::quiet_NaN();   // ν
+    double bulk_modulus = std::numeric_limits<double>::quiet_NaN();    // K
+
+    void CompleteProperties() {
+        const int defined_count = [&] {
+            int count = 0;
+            if (!std::isnan(shear_modulus)) count++;
+            if (!std::isnan(lambda)) count++;
+            if (!std::isnan(youngs_modulus)) count++;
+            if (!std::isnan(poisson_ratio)) count++;
+            if (!std::isnan(bulk_modulus)) count++;
+            return count;
+        }();
+
+        if (defined_count != 2) {
+            throw std::runtime_error("Exactly two properties must be defined. Defined: " + std::to_string(defined_count));
+        }
+
+        // Case 1: K and E
+        if (!std::isnan(bulk_modulus) && !std::isnan(youngs_modulus)) {
+            poisson_ratio = (3 * bulk_modulus - youngs_modulus) / (6 * bulk_modulus);
+            shear_modulus = youngs_modulus / (2 * (1 + poisson_ratio));
+            lambda = (youngs_modulus * poisson_ratio) / ((1 + poisson_ratio) * (1 - 2 * poisson_ratio));
+        }
+        // Case 2: K and λ
+        else if (!std::isnan(bulk_modulus) && !std::isnan(lambda)) {
+            shear_modulus = (3 * (bulk_modulus - lambda)) / 2;
+            poisson_ratio = lambda / (2 * (lambda + shear_modulus));
+            youngs_modulus = 2 * shear_modulus * (1 + poisson_ratio);
+        }
+        // Case 3: K and μ
+        else if (!std::isnan(bulk_modulus) && !std::isnan(shear_modulus)) {
+            lambda = bulk_modulus - (2.0 / 3.0) * shear_modulus;
+            poisson_ratio = lambda / (2 * (lambda + shear_modulus));
+            youngs_modulus = 2 * shear_modulus * (1 + poisson_ratio);
+        }
+        // Case 4: K and ν
+        else if (!std::isnan(bulk_modulus) && !std::isnan(poisson_ratio)) {
+            youngs_modulus = 3 * bulk_modulus * (1 - 2 * poisson_ratio);
+            shear_modulus = youngs_modulus / (2 * (1 + poisson_ratio));
+            lambda = (youngs_modulus * poisson_ratio) / ((1 + poisson_ratio) * (1 - 2 * poisson_ratio));
+        }
+        // Case 5: E and λ
+        else if (!std::isnan(youngs_modulus) && !std::isnan(lambda)) {
+            const double a = 2 * lambda;
+            const double b = lambda + youngs_modulus;
+            const double c = -lambda;
+            const double discriminant = b * b - 4 * a * c;
+            poisson_ratio = (-b + std::sqrt(discriminant)) / (2 * a);
+            shear_modulus = youngs_modulus / (2 * (1 + poisson_ratio));
+            bulk_modulus = lambda + (2.0 / 3.0) * shear_modulus;
+        }
+        // Case 6: E and μ
+        else if (!std::isnan(youngs_modulus) && !std::isnan(shear_modulus)) {
+            poisson_ratio = (youngs_modulus / (2 * shear_modulus)) - 1;
+            lambda = (youngs_modulus * poisson_ratio) / ((1 + poisson_ratio) * (1 - 2 * poisson_ratio));
+            bulk_modulus = lambda + (2.0 / 3.0) * shear_modulus;
+        }
+        // Case 7: E and ν
+        else if (!std::isnan(youngs_modulus) && !std::isnan(poisson_ratio)) {
+            shear_modulus = youngs_modulus / (2 * (1 + poisson_ratio));
+            lambda = (youngs_modulus * poisson_ratio) / ((1 + poisson_ratio) * (1 - 2 * poisson_ratio));
+            bulk_modulus = youngs_modulus / (3 * (1 - 2 * poisson_ratio));
+        }
+        // Case 8: λ and μ
+        else if (!std::isnan(lambda) && !std::isnan(shear_modulus)) {
+            bulk_modulus = lambda + (2.0 / 3.0) * shear_modulus;
+            poisson_ratio = lambda / (2 * (lambda + shear_modulus));
+            youngs_modulus = 2 * shear_modulus * (1 + poisson_ratio);
+        }
+        // Case 9: λ and ν
+        else if (!std::isnan(lambda) && !std::isnan(poisson_ratio)) {
+            youngs_modulus = (lambda * (1 + poisson_ratio) * (1 - 2 * poisson_ratio)) / poisson_ratio;
+            shear_modulus = youngs_modulus / (2 * (1 + poisson_ratio));
+            bulk_modulus = lambda + (2.0 / 3.0) * shear_modulus;
+        }
+        // Case 10: μ and ν
+        else if (!std::isnan(shear_modulus) && !std::isnan(poisson_ratio)) {
+            youngs_modulus = 2 * shear_modulus * (1 + poisson_ratio);
+            lambda = (2 * shear_modulus * poisson_ratio) / (1 - 2 * poisson_ratio);
+            bulk_modulus = (2 * shear_modulus * (1 + poisson_ratio)) / (3 * (1 - 2 * poisson_ratio));
+        } else {
+            throw std::runtime_error("Unsupported property pair combination");
+        }
+        CheckPhysicalBounds();
+    }
+
+   private:
+    void CheckPhysicalBounds() const {
+        // Validate Poisson's ratio bounds [-1, 0.5)
+        if (poisson_ratio < -1.0 || poisson_ratio >= 0.5) {
+            throw std::runtime_error(
+                "Poisson's ratio violation: " + std::to_string(poisson_ratio) +
+                " must be in [-1, 0.5)");
+        }
+
+        // Validate positive moduli
+        auto check_positive = [](double value, const std::string& name) {
+            if (value <= 0.0) {
+                throw std::runtime_error(
+                    name + " must be positive: " + std::to_string(value));
+            }
+        };
+
+        check_positive(youngs_modulus, "Young's modulus");
+        check_positive(shear_modulus, "Shear modulus");
+        check_positive(bulk_modulus, "Bulk modulus");
+
+        // Validate λ > -2G/3 (derived from K > 0)
+        if (lambda <= -(2.0 / 3.0) * shear_modulus) {
+            throw std::runtime_error(
+                "Lamé's parameter violation: λ=" + std::to_string(lambda) +
+                " must be > -2G/3=" + std::to_string(-(2.0 / 3.0) * shear_modulus));
+        }
+    }
+};
+
 /**
  * @brief Struct representing the properties of a material.
  */
 struct MaterialProperties {
-    MaterialType material_type = MaterialType::NONE; /**< The type of material */
-    double density;                                  /**< The density of the material */
-    std::map<std::string, double> properties;        /**< Additional properties of the material */
+    MaterialType material_type = MaterialType::NONE;   /**< The type of material */
+    double density;                                    /**< The density of the material */
+    LinearElasticProperties linear_elastic_properties; /**< The linear elastic properties of the material */
+    std::map<std::string, double> properties;          /**< Additional properties of the material */
 };
 
 /**
