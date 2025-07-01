@@ -1,14 +1,56 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <memory>
 #include <stk_mesh/base/NgpFieldBLAS.hpp>
 #include <vector>
 
 #include "Field.h"
 #include "ForEachEntity.h"
+#include "MeshData.h"
 #include "Selector.h"
+#include "Types.h"
 
 namespace aperi {
+
+/**
+ * @brief Compute the average of a field (e.g., coordinates or displacement) over the nodes of an element.
+ * @param ngp_mesh The mesh data.
+ * @param field The field to average (must support GetEigenVectorMap).
+ * @param connected_nodes The indices of the nodes connected to the element.
+ * @param num_nodes The number of connected nodes.
+ * @tparam dim The spatial dimension (e.g., 3).
+ * @return Eigen::Vector<T, 3> The average vector.
+ */
+template <typename FieldType, typename T, size_t dim>
+KOKKOS_INLINE_FUNCTION
+    Eigen::Vector<T, dim>
+    AverageFieldOverElementNodes(const NgpMeshData &ngp_mesh, const FieldType &field, const Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES> &connected_nodes, size_t num_nodes) {
+    Eigen::Vector<T, dim> avg = Eigen::Vector<T, dim>::Zero();
+    for (size_t i = 0; i < num_nodes; ++i) {
+        avg += field.GetEigenVectorMap(connected_nodes[i], dim);
+    }
+    avg /= static_cast<T>(num_nodes);
+    return avg;
+}
+
+/**
+ * @brief Compute the average of a field (e.g., coordinates or displacement) over the nodes of an element.
+ * @param ngp_mesh The mesh data.
+ * @param field The field to average (must support GetEigenVectorMap).
+ * @param element_index The index of the element.
+ * @tparam dim The spatial dimension (e.g., 3).
+ * @return Eigen::Vector<T, 3> The average vector.
+ */
+template <typename FieldType, typename T, size_t dim>
+KOKKOS_INLINE_FUNCTION
+    Eigen::Vector<T, dim>
+    AverageFieldOverElementNodes(const NgpMeshData &ngp_mesh, const FieldType &field, aperi::Index element_index) {
+    size_t num_nodes;
+    Kokkos::Array<aperi::Index, aperi::MAX_ELEMENT_NUM_NODES> connected_nodes = ngp_mesh.GetElementNodeIndices<aperi::MAX_ELEMENT_NUM_NODES>(element_index, num_nodes);
+    KOKKOS_ASSERT(num_nodes > 0 && num_nodes <= aperi::MAX_ELEMENT_NUM_NODES);
+    return AverageFieldOverElementNodes<FieldType, T, dim>(ngp_mesh, field, connected_nodes, num_nodes);
+}
 
 /**
  * @brief Copy a field from one field to another.
