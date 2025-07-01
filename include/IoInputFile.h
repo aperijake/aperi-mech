@@ -345,4 +345,7 @@ inline std::unique_ptr<IoInputFile> CreateIoInputFile(const YAML::Node& yaml_dat
     return std::make_unique<IoInputFile>(yaml_data);
 }
 
+// Recursive function to check subitems against a schema
+int RecursiveCheckSubitems(const std::vector<YAML::Node>& input_nodes, const YAML::Node& schema_sub_node, bool verbose);
+
 }  // namespace aperi

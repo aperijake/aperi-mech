@@ -74,13 +74,23 @@ class InputSchema {
     }
 
     /**
-     * @brief Adds an any_of condition to the input schema.
+     * @brief Adds an one_of condition to the input schema.
      *
      * @param any_of_node The YAML node representing the any_of condition.
      * @param index The index of the condition.
      */
     void AddOneOf(const YAML::Node& one_of_node, int index = 0) {
         AddCondition("one_of", one_of_node, index);
+    }
+
+    /**
+     * @brief Adds a two_of condition to the input schema.
+     *
+     * @param two_of_node The YAML node representing the two_of condition.
+     * @param index The index of the condition.
+     */
+    void AddTwoOf(const YAML::Node& two_of_node, int index = 0) {
+        AddCondition("two_of", two_of_node, index);
     }
 
     /**
@@ -332,6 +342,11 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema density_schema("density", "float", "the density");
     YAML::Node density_node = density_schema.GetInputSchema();
 
+    // ****** Lame's parameters *******
+    // Lame's first parameter node
+    aperi::InputSchema lame_first_parameter_schema("lame_first_parameter", "float", "the first Lame's parameter (lambda)");
+    YAML::Node lame_first_parameter_node = lame_first_parameter_schema.GetInputSchema();
+
     // Young's modulus node
     aperi::InputSchema youngs_modulus_schema("youngs_modulus", "float", "the youngs modulus");
     YAML::Node youngs_modulus_node = youngs_modulus_schema.GetInputSchema();
@@ -340,14 +355,6 @@ YAML::Node GetInputSchema() {
     aperi::InputSchema poissons_ratio_schema("poissons_ratio", "float", "the poissons ratio");
     YAML::Node poissons_ratio_node = poissons_ratio_schema.GetInputSchema();
 
-    // Yield stress node
-    aperi::InputSchema yield_stress_schema("yield_stress", "float", "the yield stress");
-    YAML::Node yield_stress_node = yield_stress_schema.GetInputSchema();
-
-    // Hardening modulus node
-    aperi::InputSchema hardening_modulus_schema("hardening_modulus", "float", "the hardening modulus");
-    YAML::Node hardening_modulus_node = hardening_modulus_schema.GetInputSchema();
-
     // Bulk modulus node
     aperi::InputSchema bulk_modulus_schema("bulk_modulus", "float", "the bulk modulus");
     YAML::Node bulk_modulus_node = bulk_modulus_schema.GetInputSchema();
@@ -355,6 +362,16 @@ YAML::Node GetInputSchema() {
     // Shear modulus node
     aperi::InputSchema shear_modulus_schema("shear_modulus", "float", "the shear modulus");
     YAML::Node shear_modulus_node = shear_modulus_schema.GetInputSchema();
+
+    // ****** End of Lame's parameters ******
+
+    // Yield stress node
+    aperi::InputSchema yield_stress_schema("yield_stress", "float", "the yield stress");
+    YAML::Node yield_stress_node = yield_stress_schema.GetInputSchema();
+
+    // Hardening modulus node
+    aperi::InputSchema hardening_modulus_schema("hardening_modulus", "float", "the hardening modulus");
+    YAML::Node hardening_modulus_node = hardening_modulus_schema.GetInputSchema();
 
     // A1 node
     aperi::InputSchema A1_schema("A1", "float", "the A1 parameter");
@@ -399,29 +416,41 @@ YAML::Node GetInputSchema() {
     // Linear elastic material properties node (small strain)
     aperi::InputSchema linear_elastic_schema("linear_elastic", "map", "the elastic material properties for the small strain model");
     linear_elastic_schema.AddAllOf(density_node);
-    linear_elastic_schema.AddAllOf(youngs_modulus_node);
-    linear_elastic_schema.AddAllOf(poissons_ratio_node);
+    linear_elastic_schema.AddTwoOf(youngs_modulus_node);
+    linear_elastic_schema.AddTwoOf(poissons_ratio_node);
+    linear_elastic_schema.AddTwoOf(lame_first_parameter_node);
+    linear_elastic_schema.AddTwoOf(bulk_modulus_node);
+    linear_elastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node linear_elastic_node = linear_elastic_schema.GetInputSchema();
 
     // Elastic material properties node (St. Venant-Kirchhoff)
     aperi::InputSchema elastic_schema("elastic", "map", "the elastic material properties for the St. Venant-Kirchhoff model");
     elastic_schema.AddAllOf(density_node);
-    elastic_schema.AddAllOf(youngs_modulus_node);
-    elastic_schema.AddAllOf(poissons_ratio_node);
+    elastic_schema.AddTwoOf(youngs_modulus_node);
+    elastic_schema.AddTwoOf(poissons_ratio_node);
+    elastic_schema.AddTwoOf(lame_first_parameter_node);
+    elastic_schema.AddTwoOf(bulk_modulus_node);
+    elastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node elastic_node = elastic_schema.GetInputSchema();
 
     // Neo-Hookean material properties node
     aperi::InputSchema neo_hookean_schema("neo_hookean", "map", "the neo-Hookean material properties");
     neo_hookean_schema.AddAllOf(density_node);
-    neo_hookean_schema.AddAllOf(youngs_modulus_node);
-    neo_hookean_schema.AddAllOf(poissons_ratio_node);
+    neo_hookean_schema.AddTwoOf(youngs_modulus_node);
+    neo_hookean_schema.AddTwoOf(poissons_ratio_node);
+    neo_hookean_schema.AddTwoOf(lame_first_parameter_node);
+    neo_hookean_schema.AddTwoOf(bulk_modulus_node);
+    neo_hookean_schema.AddTwoOf(shear_modulus_node);
     YAML::Node neo_hookean_node = neo_hookean_schema.GetInputSchema();
 
     // Neo-Hookean with damage material properties node
     aperi::InputSchema neo_hookean_with_damage_schema("neo_hookean_with_damage", "map", "the neo-Hookean material properties with damage");
     neo_hookean_with_damage_schema.AddAllOf(density_node);
-    neo_hookean_with_damage_schema.AddAllOf(youngs_modulus_node);
-    neo_hookean_with_damage_schema.AddAllOf(poissons_ratio_node);
+    neo_hookean_with_damage_schema.AddTwoOf(youngs_modulus_node);
+    neo_hookean_with_damage_schema.AddTwoOf(poissons_ratio_node);
+    neo_hookean_with_damage_schema.AddTwoOf(lame_first_parameter_node);
+    neo_hookean_with_damage_schema.AddTwoOf(bulk_modulus_node);
+    neo_hookean_with_damage_schema.AddTwoOf(shear_modulus_node);
     neo_hookean_with_damage_schema.AddAllOf(I1_critical_node);
     neo_hookean_with_damage_schema.AddAllOf(I1_failure_node);
     neo_hookean_with_damage_schema.AddAllOf(alpha_node);
@@ -430,8 +459,11 @@ YAML::Node GetInputSchema() {
     // Plastic material properties node
     aperi::InputSchema plastic_schema("plastic", "map", "the plastic material properties");
     plastic_schema.AddAllOf(density_node);
-    plastic_schema.AddAllOf(youngs_modulus_node);
-    plastic_schema.AddAllOf(poissons_ratio_node);
+    plastic_schema.AddTwoOf(youngs_modulus_node);
+    plastic_schema.AddTwoOf(poissons_ratio_node);
+    plastic_schema.AddTwoOf(lame_first_parameter_node);
+    plastic_schema.AddTwoOf(bulk_modulus_node);
+    plastic_schema.AddTwoOf(shear_modulus_node);
     YAML::Node plastic_node = plastic_schema.GetInputSchema();
 
     // Drucker-Prager material properties node

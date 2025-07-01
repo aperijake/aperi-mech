@@ -143,7 +143,7 @@ void AddFoundNodesToMap(const std::map<std::string, YAML::Node>& found_nodes, co
 }
 
 // Parse subitems, check input against schema, and return the found nodes and associated schema
-// This is where the subitems (one_of, one_or_more_of, all_of, optional) are defined and handled
+// This is where the subitems (one_of, one_or_more_of, all_of, optional, two_of) are defined and handled
 std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(const YAML::Node& input_node, const std::vector<YAML::Node>& schema_subitems, bool verbose = false) {
     std::vector<std::pair<YAML::Node, YAML::Node>> found_nodes_and_associated_schema;
     int return_code = 0;
@@ -242,6 +242,39 @@ std::pair<std::vector<std::pair<YAML::Node, YAML::Node>>, int> ParseSubitems(con
 
                 // Map found nodes to associated schema
                 AddFoundNodesToMap(found_optional_pair.first, schema_subitem_set["set"], found_nodes_and_associated_schema);
+            }
+        }
+
+        // Handle two_of
+        if (schema_subitem["two_of"].IsDefined()) {
+            for (const auto& schema_subitem_set : schema_subitem["two_of"]) {
+                // Map from schema_subitem name to type
+                std::map<std::string, std::string> two_of_names_types = ParseSubitemSchema(schema_subitem_set, "set", verbose);
+
+                // Check input_node for the correct subitems / type and return the ones that are nodes for recursive checking. Also return the number of found subitems
+                bool optional = true;
+                std::pair<std::map<std::string, YAML::Node>, int> found_two_of_pair = GetInputNodes(input_node, two_of_names_types, verbose, optional);
+
+                // Make sure exactly two schema_subitems are found
+                if (found_two_of_pair.second != 2) {
+                    aperi::CerrP0() << "Error: 'two_of' subitems must have exactly two schema_subitems." << std::endl;
+                    aperi::CerrP0() << "Expected two of: ";
+                    for (const auto& name_type : two_of_names_types) {
+                        aperi::CerrP0() << name_type.first << " ";
+                    }
+                    aperi::CerrP0() << std::endl;
+                    aperi::CerrP0() << "Found: ";
+                    for (const auto& found_name : found_two_of_pair.first) {
+                        aperi::CerrP0() << found_name.first << " ";
+                    }
+                    aperi::CerrP0() << std::endl;
+                    aperi::CerrP0() << "YAML input node:\n"
+                                    << input_node << std::endl;
+                    return_code = 1;
+                }
+
+                // Map found nodes to associated schema
+                AddFoundNodesToMap(found_two_of_pair.first, schema_subitem_set["set"], found_nodes_and_associated_schema);
             }
         }
     }

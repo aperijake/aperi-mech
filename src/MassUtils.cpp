@@ -17,6 +17,7 @@ namespace aperi {
 struct ComputeMassFromElementVolumeKernel {
     ComputeMassFromElementVolumeKernel(const std::shared_ptr<aperi::MeshData> &mesh_data, double density) : m_density("density", 1),
                                                                                                             m_element_volume(mesh_data, FieldQueryData<double>{"volume", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
+                                                                                                            m_element_mass(mesh_data, FieldQueryData<double>{"mass", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}),
                                                                                                             m_node_mass_from_elements(mesh_data, FieldQueryData<double>{"mass_from_elements", FieldQueryState::None, FieldDataTopologyRank::NODE}) {
         // Initialize the density
         Kokkos::deep_copy(m_density, density);
@@ -26,8 +27,12 @@ struct ComputeMassFromElementVolumeKernel {
         // Gather the element volume
         const double element_volume = m_element_volume(elem_index, 0);
 
+        // Set element mass
+        const double element_mass = element_volume * m_density(0);
+        m_element_mass(elem_index, 0) = element_mass;
+
         // Compute the mass of the element and scatter it to the nodes
-        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_volume * m_density(0) / num_nodes);
+        auto node_mass_from_elements = Eigen::Vector3d::Constant(element_mass / num_nodes);
         for (size_t i = 0; i < num_nodes; ++i) {
             m_node_mass_from_elements.AtomicAdd(nodes[i], node_mass_from_elements);
         }
@@ -36,6 +41,7 @@ struct ComputeMassFromElementVolumeKernel {
    private:
     Kokkos::View<double *> m_density;                        // The density of the material
     aperi::Field<double> m_element_volume;                   // The gather kernel for the element volume
+    mutable aperi::Field<double> m_element_mass;             // The gather kernel for the element mass
     mutable aperi::Field<double> m_node_mass_from_elements;  // The scatter kernel for the node mass from elements
 };
 
