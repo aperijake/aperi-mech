@@ -20,6 +20,9 @@ class NgpMeshData {
    public:
     NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh), m_bulk_data(&ngp_mesh.get_bulk_on_host()) {}
 
+    // Default constructor
+    NgpMeshData() : m_ngp_mesh(stk::mesh::NgpMesh()), m_bulk_data(nullptr) {}
+
     KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
