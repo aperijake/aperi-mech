@@ -75,6 +75,8 @@ std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strai
     field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
     field_data.push_back(FieldData("pk1_stress", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
     field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    field_data.push_back(FieldData("mass", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    field_data.push_back(FieldData("bulk_modulus", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
 
     if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
         field_data.push_back(FieldData("reference_displacement_gradient", "reference_disp_grad", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));

@@ -16,6 +16,7 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
         IoMeshTestFixture::SetUp();
         // Create an IoMesh object with default parameters
         CreateIoMeshGenerated();
+        m_mesh_data = m_io_mesh->GetMeshData();
     }
 
     void TearDown() override {
@@ -26,7 +27,6 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
     void CreateGeneratedMesh() {
         std::string mesh_string = "generated:" + std::to_string(m_num_elem_x) + "x" + std::to_string(m_num_elem_y) + "x" + std::to_string(m_num_elem_z);
         m_io_mesh->FillGeneratedMesh(mesh_string);
-        m_mesh_data = m_io_mesh->GetMeshData();
 
         size_t expected_num_nodes = (1U + m_num_elem_x) * (1U + m_num_elem_y) * (1U + m_num_elem_z);
         size_t expected_num_faces = (m_num_elem_x * m_num_elem_y * (m_num_elem_z + 1)) +

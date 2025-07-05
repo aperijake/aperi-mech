@@ -493,3 +493,147 @@ TEST_F(IoInputFileTest, WriteErrorCases) {
     int result = aperi::IoInputFile::Write(m_filename, m_yaml_data);
     EXPECT_EQ(result, 1);
 }
+
+// -------- Two Of --------
+TEST_F(IoInputFileTest, CheckInputTwoOfExactlyTwo) {
+    // Create a minimal schema with two_of: requires exactly two of "foo", "bar", "baz"
+    YAML::Node schema;
+    schema["test"]["type"] = "map";
+    YAML::Node set1;
+    set1["set"].push_back(YAML::Load("{foo: {type: int}}"));
+    set1["set"].push_back(YAML::Load("{bar: {type: int}}"));
+    set1["set"].push_back(YAML::Load("{baz: {type: int}}"));
+    schema["test"]["subitems"]["two_of"].push_back(set1);
+
+    // Input node with exactly two present
+    YAML::Node input;
+    input["test"]["foo"] = 1;
+    input["test"]["bar"] = 2;
+
+    // Should pass (returns 0)
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input["test"]}, schema["test"], true), 0);
+
+    // Input node with only one present
+    YAML::Node input_one;
+    input_one["test"]["foo"] = 1;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_one["test"]}, schema["test"], true), 1);
+
+    // Input node with all three present
+    YAML::Node input_three;
+    input_three["test"]["foo"] = 1;
+    input_three["test"]["bar"] = 2;
+    input_three["test"]["baz"] = 3;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_three["test"]}, schema["test"], true), 1);
+
+    // Input node with none present
+    YAML::Node input_none;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_none["test"]}, schema["test"], true), 1);
+}
+
+// -------- One Of --------
+TEST_F(IoInputFileTest, CheckInputOneOf) {
+    YAML::Node schema;
+    schema["test"]["type"] = "map";
+    YAML::Node set1;
+    set1["set"].push_back(YAML::Load("{foo: {type: int}}"));
+    set1["set"].push_back(YAML::Load("{bar: {type: int}}"));
+    schema["test"]["subitems"]["one_of"].push_back(set1);
+
+    // Only foo present (valid)
+    YAML::Node input_foo;
+    input_foo["test"]["foo"] = 1;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_foo["test"]}, schema["test"], true), 0);
+
+    // Only bar present (valid)
+    YAML::Node input_bar;
+    input_bar["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_bar["test"]}, schema["test"], true), 0);
+
+    // Both present (invalid)
+    YAML::Node input_both;
+    input_both["test"]["foo"] = 1;
+    input_both["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_both["test"]}, schema["test"], true), 1);
+
+    // None present (invalid)
+    YAML::Node input_none;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_none["test"]}, schema["test"], true), 1);
+}
+
+// -------- One Or More Of --------
+TEST_F(IoInputFileTest, CheckInputOneOrMoreOf) {
+    YAML::Node schema;
+    schema["test"]["type"] = "map";
+    YAML::Node set1;
+    set1["set"].push_back(YAML::Load("{foo: {type: int}}"));
+    set1["set"].push_back(YAML::Load("{bar: {type: int}}"));
+    schema["test"]["subitems"]["one_or_more_of"].push_back(set1);
+
+    // Only foo present (valid)
+    YAML::Node input_foo;
+    input_foo["test"]["foo"] = 1;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_foo["test"]}, schema["test"], true), 0);
+
+    // Only bar present (valid)
+    YAML::Node input_bar;
+    input_bar["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_bar["test"]}, schema["test"], true), 0);
+
+    // Both present (valid)
+    YAML::Node input_both;
+    input_both["test"]["foo"] = 1;
+    input_both["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_both["test"]}, schema["test"], true), 0);
+
+    // None present (invalid)
+    YAML::Node input_none;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_none["test"]}, schema["test"], true), 1);
+}
+
+// -------- All Of --------
+TEST_F(IoInputFileTest, CheckInputAllOf) {
+    YAML::Node schema;
+    schema["test"]["type"] = "map";
+    YAML::Node set1;
+    set1["set"].push_back(YAML::Load("{foo: {type: int}}"));
+    set1["set"].push_back(YAML::Load("{bar: {type: int}}"));
+    schema["test"]["subitems"]["all_of"].push_back(set1);
+
+    // Both present (valid)
+    YAML::Node input_both;
+    input_both["test"]["foo"] = 1;
+    input_both["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_both["test"]}, schema["test"], true), 0);
+
+    // Only foo present (invalid)
+    YAML::Node input_foo;
+    input_foo["test"]["foo"] = 1;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_foo["test"]}, schema["test"], true), 1);
+
+    // Only bar present (invalid)
+    YAML::Node input_bar;
+    input_bar["test"]["bar"] = 2;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_bar["test"]}, schema["test"], true), 1);
+
+    // None present (invalid)
+    YAML::Node input_none;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_none["test"]}, schema["test"], true), 1);
+}
+
+// -------- Optional --------
+TEST_F(IoInputFileTest, CheckInputOptional) {
+    YAML::Node schema;
+    schema["test"]["type"] = "map";
+    YAML::Node set1;
+    set1["set"].push_back(YAML::Load("{foo: {type: int}}"));
+    schema["test"]["subitems"]["optional"].push_back(set1);
+
+    // foo present (valid)
+    YAML::Node input_foo;
+    input_foo["test"]["foo"] = 1;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_foo["test"]}, schema["test"], true), 0);
+
+    // foo absent (also valid)
+    YAML::Node input_none;
+    EXPECT_EQ(aperi::RecursiveCheckSubitems({input_none["test"]}, schema["test"], true), 0);
+}

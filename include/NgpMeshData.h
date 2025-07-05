@@ -20,6 +20,9 @@ class NgpMeshData {
    public:
     NgpMeshData(const stk::mesh::NgpMesh &ngp_mesh) : m_ngp_mesh(ngp_mesh), m_bulk_data(&ngp_mesh.get_bulk_on_host()) {}
 
+    // Default constructor
+    NgpMeshData() : m_ngp_mesh(stk::mesh::NgpMesh()), m_bulk_data(nullptr) {}
+
     KOKKOS_INLINE_FUNCTION aperi::Index GetEntityIndex(const stk::mesh::Entity &entity) const {
         return aperi::Index(m_ngp_mesh.fast_mesh_index(entity));
     }
@@ -95,6 +98,26 @@ class NgpMeshData {
     KOKKOS_INLINE_FUNCTION
     Unsigned ElementIndexToLocalOffset(const aperi::Index &index) const {
         return m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index()).local_offset();
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    uint64_t ElementIndexToGlobalId(const aperi::Index &index) const {
+        stk::mesh::Entity entity = m_ngp_mesh.get_entity(stk::topology::ELEMENT_RANK, index());
+        return m_ngp_mesh.identifier(entity);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    uint64_t ElementLocalOffsetToGlobalId(Unsigned local_offset) const {
+        stk::mesh::Entity entity(local_offset);
+        return m_ngp_mesh.identifier(entity);
+    }
+
+    Unsigned ElementGlobalIdToLocalOffset(uint64_t identifier) const {
+        // Convert the global id to a local offset
+        // There is no "get_entity" on device, currently.
+        // TODO(jake): For multi-GPU support, we need to handle the case where the identifier is not a local offset.
+        stk::mesh::Entity entity = m_bulk_data->get_entity(stk::topology::ELEMENT_RANK, identifier);
+        return entity.local_offset();  // Convert the global id to a local offset
     }
 
     template <stk::mesh::EntityRank EntityType, stk::mesh::EntityRank ConnectedType, size_t MaxNumConnectedEntities, typename ActionFunc>

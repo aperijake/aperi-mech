@@ -26,8 +26,8 @@ class ElasticMaterial : public Material {
      */
     void CreateStressFunctor() {
         StressFunctor* stress_functor = (StressFunctor*)Kokkos::kokkos_malloc(sizeof(ElasticGetStressFunctor));
-        double lambda = m_material_properties->properties.at("lambda");
-        double two_mu = m_material_properties->properties.at("two_mu");
+        double lambda = m_material_properties->linear_elastic_properties.lambda;
+        double two_mu = m_material_properties->linear_elastic_properties.shear_modulus * 2.0;
         Kokkos::parallel_for(
             "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
                 new ((ElasticGetStressFunctor*)stress_functor) ElasticGetStressFunctor(lambda, two_mu);
