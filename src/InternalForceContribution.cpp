@@ -14,6 +14,21 @@
 #include "Selector.h"
 namespace aperi {
 
+// Functor to set bulk modulus field for an element
+struct SetBulkModulusField {
+    aperi::Field<aperi::Real> bulk_modulus_field;
+    double bulk_modulus;
+
+    SetBulkModulusField(aperi::Field<aperi::Real> field, double value)
+        : bulk_modulus_field(field), bulk_modulus(value) {}
+
+    // Must be host/device for CUDA compatibility if needed
+    KOKKOS_FUNCTION
+    void operator()(const aperi::Index &index) const {
+        bulk_modulus_field(index, 0) = bulk_modulus;
+    }
+};
+
 void InternalForceContribution::Preprocess() {
     // Get the field query data and part names
     const std::vector<std::string> part_names = {m_internal_force_contribution_parameters.part_name};
@@ -56,10 +71,8 @@ void InternalForceContribution::FinishPreprocessing() {
 
     aperi::Selector selector({m_internal_force_contribution_parameters.part_name}, m_internal_force_contribution_parameters.mesh_data.get());
 
-    aperi::ForEachElement([&](const aperi::Index &index) {
-        // Populate the bulk_modulus field for the current element
-        bulk_modulus_field(index, 0) = bulk_modulus;
-    },
+    SetBulkModulusField set_bulk_modulus_functor(bulk_modulus_field, bulk_modulus);
+    aperi::ForEachElement(set_bulk_modulus_functor,
                           *m_internal_force_contribution_parameters.mesh_data, selector);
     // Mark the bulk_modulus field as modified on device
     bulk_modulus_field.MarkModifiedOnDevice();

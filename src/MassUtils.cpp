@@ -65,10 +65,14 @@ void ComputeMassMatrixForPart(const std::shared_ptr<aperi::MeshData> &mesh_data,
     // Call the for_each_element_and_node function
     ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(action_kernel, selector);
 
-    // Mark the mass_from_elements field as modified
+    // Mark the mass_from_elements and element mass field as modified
     std::string mass_from_elements_name = "mass_from_elements";
     aperi::Field mass_from_elements = aperi::Field(mesh_data, FieldQueryData<double>{mass_from_elements_name, FieldQueryState::None, FieldDataTopologyRank::NODE});
     mass_from_elements.MarkModifiedOnDevice();
+
+    std::string mass_name = "mass";
+    aperi::Field mass = aperi::Field(mesh_data, FieldQueryData<double>{mass_name, FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+    mass.MarkModifiedOnDevice();
 }
 
 // Compute the diagonal mass matrix
