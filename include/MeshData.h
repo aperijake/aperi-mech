@@ -163,6 +163,12 @@ class MeshData {
     void DeclareNodePart(const std::string &part_name);
 
     /**
+     * @brief Declare a general part in the mesh metadata.
+     * @param part_name The part name.
+     */
+    void DeclarePart(const std::string &part_name);
+
+    /**
      * @brief Declare a field in the mesh metadata.
      * @param field The field data to declare.
      * @param part_names List of part names to assign the field to.

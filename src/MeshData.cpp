@@ -119,7 +119,7 @@ void MeshData::ChangePartsHost(const std::string &part_name, const aperi::FieldD
     Kokkos::deep_copy(host_entities_to_change, entities_to_change_view);
     stk::mesh::EntityVector entities_to_change(host_entities_to_change.data(), host_entities_to_change.data() + host_entities_to_change.size());
 
-    aperi::ChangePartsHost(part_name, rank, entities_to_change, *m_bulk_data);
+    aperi::ChangePartsHost(part_name, entities_to_change, *m_bulk_data);
 }
 
 // Mark a part for output in the results file
@@ -153,6 +153,15 @@ void MeshData::DeclareElementPart(const std::string &part_name) {
 void MeshData::DeclareNodePart(const std::string &part_name) {
     stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
     stk::mesh::Part *p_part = &meta_data.declare_part(part_name, stk::topology::NODE_RANK);
+    if (p_part == nullptr) {
+        throw std::runtime_error("Part '" + part_name + "' could not be declared.");
+    }
+}
+
+// Declare a new node part in the mesh metadata
+void MeshData::DeclarePart(const std::string &part_name) {
+    stk::mesh::MetaData &meta_data = m_bulk_data->mesh_meta_data();
+    stk::mesh::Part *p_part = &meta_data.declare_part(part_name);
     if (p_part == nullptr) {
         throw std::runtime_error("Part '" + part_name + "' could not be declared.");
     }

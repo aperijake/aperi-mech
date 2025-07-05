@@ -164,7 +164,7 @@ inline void IndexViewToEntityView(const Kokkos::View<aperi::Index *> &indices, c
         });
 }
 
-inline void ChangePartsHost(const std::string &part_name, const stk::topology::rank_t &rank, const stk::mesh::EntityVector &entities_to_change, stk::mesh::BulkData &bulk) {
+inline void ChangePartsHost(const std::string &part_name, const stk::mesh::EntityVector &entities_to_change, stk::mesh::BulkData &bulk) {
     // Get the MetaData from the bulk data
     stk::mesh::MetaData *meta_data = &bulk.mesh_meta_data();
 
@@ -174,7 +174,7 @@ inline void ChangePartsHost(const std::string &part_name, const stk::topology::r
     // Get or declare the new part
     stk::mesh::Part *new_part = meta_data->get_part(part_name);
     if (new_part == nullptr) {
-        new_part = &meta_data->declare_part(part_name, rank);
+        new_part = &meta_data->declare_part(part_name);
     }
 
     // Prepare the parts to add and remove

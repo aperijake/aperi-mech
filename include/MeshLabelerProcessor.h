@@ -327,8 +327,8 @@ class MeshLabelerProcessor {
         }
 
         //  Change the nodes to the active part
-        ChangePartsHost("universal_active_part", stk::topology::NODE_RANK, nodes_to_change, *m_bulk_data);
-        ChangePartsHost(m_set + "_active", stk::topology::NODE_RANK, nodes_to_change, *m_bulk_data);
+        ChangePartsHost("universal_active_part", nodes_to_change, *m_bulk_data);
+        ChangePartsHost(m_set + "_active", nodes_to_change, *m_bulk_data);
     }
 
     void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {
@@ -382,8 +382,8 @@ class MeshLabelerProcessor {
         }
 
         //  Change the elements to the cells part
-        ChangePartsHost("universal_cells_part", stk::topology::ELEMENT_RANK, elems_to_change, *m_bulk_data);
-        ChangePartsHost(m_set + "_cells", stk::topology::ELEMENT_RANK, elems_to_change, *m_bulk_data);
+        ChangePartsHost("universal_cells_part", elems_to_change, *m_bulk_data);
+        ChangePartsHost(m_set + "_cells", elems_to_change, *m_bulk_data);
     }
 
     void PutAllCellElementsOnTheSameProcessorHost(const std::unordered_map<Unsigned, int> &cell_id_to_processor_map) {
