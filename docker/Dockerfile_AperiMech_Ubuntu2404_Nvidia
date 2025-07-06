@@ -16,17 +16,6 @@ ARG CUDA_ARCH=75
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 
-# Validate PULL_APERI_MECH input
-RUN PULL_APERI_MECH_LOWER="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')" && \
-    if [ "${PULL_APERI_MECH_LOWER}" != "true" ] && [ "${PULL_APERI_MECH_LOWER}" != "false" ]; then \
-        echo "Error: PULL_APERI_MECH must be 'true' or 'false' (case insensitive), not '${PULL_APERI_MECH}'" && \
-        exit 1; \
-    fi && \
-    echo "PULL_APERI_MECH set to: ${PULL_APERI_MECH_LOWER}"
-
-# Store the lowercase version as an environment variable for later use
-ENV PULL_APERI_MECH_VALIDATED="$(echo ${PULL_APERI_MECH} | tr '[:upper:]' '[:lower:]')"
-
 # Validate CUDA_ARCH input
 RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
         echo "Error: CUDA_ARCH must be a number, not '${CUDA_ARCH}'" && \
@@ -162,49 +151,55 @@ WORKDIR /home/aperi-mech_docker
 # Set the HOME environment variable
 ENV HOME=/home/aperi-mech_docker
 
-# Create a virtual environment
-RUN python3 -m venv ${HOME}/venv
+# Set the default command to bash
+CMD ["/bin/bash"]
 
-# Use the virtual environment for pip installations
-RUN ${HOME}/venv/bin/pip install --no-input --no-cache-dir \
-    pytest==8.4.0 \
-    testbook==0.4.2 \
-    jupyter==1.0.0 \
-    jupyterlab==4.2.4 \
-    numpy==2.0.1 \
-    scipy==1.15.3 \
-    matplotlib==3.10.3 \
-    ipykernel==6.29.5 \
-    meshio==5.3.5 \
-    netCDF4==1.7.1.post1 \
-    pandas==2.2.3 \
-    && rm -rf ~/.cache/pip
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
 
-# Add environment to Jupyter from the virtual environment
-RUN ${HOME}/venv/bin/python -m ipykernel install --user --name aperi-mech --display-name "aperi-mech"
+# Change to the cloned repository directory
+WORKDIR ${HOME}/aperi-mech
 
-# Add virtual environment to the PATH
-ENV PATH="${HOME}/venv/bin:${HOME}/.local/bin:$PATH"
+# Set the aperi_mech environment variable globally
+ENV aperi_mech=${HOME}/aperi-mech
 
-#################### Spack Installation and Setup ####################
-# Clone Spack repo
-RUN git clone --depth=2 https://github.com/spack/spack.git ${HOME}/spack
+# Check out the specific branch for spack updates
+RUN git fetch --all && \
+    git checkout main
 
-RUN sed -i 's/kokkos@=4.6.00/kokkos@=4.6.01/' ${HOME}/spack/var/spack/repos/spack_repo/builtin/packages/trilinos/package.py && \
-    sed -i 's/kokkos-kernels@=4.6.00/kokkos-kernels@=4.6.01/' ${HOME}/spack/var/spack/repos/spack_repo/builtin/packages/trilinos/package.py
+# Set Fortran compiler environment variables globally
+ENV FC=/usr/bin/gfortran 
+ENV F77=/usr/bin/gfortran
 
-# Set up Spack environment
-ENV SPACK_ROOT=${HOME}/spack
-ENV PATH="$SPACK_ROOT/bin:$PATH"
-RUN . $SPACK_ROOT/share/spack/setup-env.sh
+# Set up Python virtual environment and install required tooling
+RUN python3 -m venv venv && \
+    . ./venv/bin/activate && \
+    echo "export aperi_mech=$aperi_mech" >> $aperi_mech/venv/bin/activate && \
+    cd $aperi_mech/tools/python/aperi-mech && \
+    python3 -m pip install -e . && \
+    cd $aperi_mech/tools/python/spackx && \
+    python3 -m pip install -e .
 
-# Find compilers and externals for Spack
-RUN spack compiler find && \
+# Install Spack and add it to the virtual environment
+RUN mkdir -p $aperi_mech/venv/src && \
+    cd $aperi_mech/venv/src && \
+    git clone https://github.com/spack/spack.git && \
+    git -C $aperi_mech/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
+    echo "source $aperi_mech/venv/src/spack/share/spack/setup-env.sh" >> $aperi_mech/venv/bin/activate
+
+# Configure the Spack environment
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack compiler find && \
     spack external find && \
     spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
 
+# Patch Spack for Trilinos support
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack patch-trilinos
+
 # Manually add CUDA to Spack packages.yaml
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+RUN . $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     CUDA_VER=$(nvcc --version | grep "release" | sed 's/.*release //' | awk '{print $1}' | cut -d',' -f1) && \
     mkdir -p ~/.spack && \
     echo "  cuda:" >> ~/.spack/packages.yaml && \
@@ -213,63 +208,59 @@ RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
     echo "      prefix: /usr/local/cuda" >> ~/.spack/packages.yaml && \
     echo "    buildable: false" >> ~/.spack/packages.yaml
 
-# Create a new Spack environment, cpu build
-RUN spack env create aperi-mech
-
-# Add packages to the Spack environment, aperi-mech
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech add compadre@master ~tests && \
-    spack -e aperi-mech add kokkos-kernels@4.6.01 +cuda ~shared cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add kokkos@4.6.01 +cuda +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm ~shared +wrapper cxxstd=17 cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add trilinos@develop ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +cuda +cuda_rdc +exodus +gtest +hdf5 +stk +zoltan +zoltan2 cxxstd=17 cuda_arch=${CUDA_ARCH} && \
-    spack -e aperi-mech add googletest@1.14.0 && \
-    spack -e aperi-mech add yaml-cpp@0.7.0 && \
-    spack -e aperi-mech add eigen
-
-# Explicitly concretize (saves the full dependency plan)
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+# Create a Spack environment for aperi-mech and install it
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack env create aperi-mech && \
+    spack -e aperi-mech develop --path $aperi_mech aperi-mech && \
+    spack -e aperi-mech add aperi-mech +cuda cuda_arch=${CUDA_ARCH} build_type=Release && \
     spack -e aperi-mech concretize -f
 
-# Install in logical groups (for better caching)
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install googletest && \
-    spack -e aperi-mech install yaml-cpp && \
-    spack -e aperi-mech install eigen
+# Just breaking up and installing the dependencies in a few steps to give a docker build cache
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack -e aperi-mech install eigen yaml-cpp googletest
 
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install kokkos
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack -e aperi-mech install kokkos kokkos-kernels compadre
 
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install kokkos-kernels
 
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
-    spack -e aperi-mech install compadre
-
-RUN . $SPACK_ROOT/share/spack/setup-env.sh && \
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack -e aperi-mech install trilinos
 
-# Add the spack source command to the bashrc
-RUN echo "source ${SPACK_ROOT}/share/spack/setup-env.sh" >> ${HOME}/.bashrc
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack -e aperi-mech install aperi-mech
 
+# Set environment variables for aperi-mech
 ENV APERI_MECH_ENV="aperi-mech"
 ENV APERI_MECH_GPU_ENV="aperi-mech"
 
-# Set the working directory to the aperi-mech project
-WORKDIR ${HOME}/aperi-mech
+# Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
+RUN . ./venv/bin/activate && \
+    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+    spack -e aperi-mech repo add $aperi_mech/tools/python/spackx/src/spackx/repos/aperi/
 
-# Download and install the aperi-mech project
-# Only clone the repository - don't build or run tests as this would require GPU access during build
-RUN if [ "${PULL_APERI_MECH_VALIDATED}" = "true" ]; then \
-        echo "Building aperi-mech project"; \
-        . $SPACK_ROOT/share/spack/setup-env.sh && \
-        spack env activate ${APERI_MECH_ENV} && \
-        git clone --depth=2 https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech; \
-    else \
-        echo "Skipping build of aperi-mech project"; \
-    fi
+# When running the container, first do: source $aperi_mech/venv/bin/activate
 
-# Set the default command to bash
-CMD ["/bin/bash"]
+# To get the build location of aperi-mech, you can run:
+#   spacktivate aperi-mech
+#   spack location -i aperi-mech build_type=Release
+# Then cd to the bin folder in that directory to run the unit tests
+# Same for the Debug build
 
-# HEALTHCHECK to verify Spack and Python availability
-HEALTHCHECK --interval=1m --timeout=10s --start-period=5s --retries=3 CMD /bin/bash -c "source ${SPACK_ROOT}/share/spack/setup-env.sh && python3 --version || exit 1"
+# To build aperi-mech with build_type=Debug in the same environment, in the container you can run:
+#   spacktivate aperi-mech && \
+#   spack config edit
+#    change concretizer:unify to false # enables multiple builds in the same environment
+#   spack add aperi-mech build_type=Debug 
+#   spack install build_type=Debug
+# May get some error about the environment view, but it seems to not be an issue
+
+# Or, you can use the do_configure script to build manually
+
+# Generic healthcheck to ensure the container is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD [ "bash", "-c", "echo 'Container is healthy'" ]

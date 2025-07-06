@@ -77,7 +77,7 @@ class AperiMech(CMakePackage, CudaPackage):
             )
             cuda_arch = self.spec["kokkos"].variants["cuda_arch"].value
             args.append(
-                self.define("CMAKE_CUDA_FLAGS", "-arch sm_{0}".format(cuda_arch[0]))
+                self.define("CMAKE_CUDA_FLAGS", "-arch sm_{0}".format(cuda_arch))
             )
 
         return args
