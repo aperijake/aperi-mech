@@ -225,14 +225,19 @@ RUN . ./venv/bin/activate && \
     source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack -e aperi-mech install kokkos kokkos-kernels compadre
 
-
 RUN . ./venv/bin/activate && \
     source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack -e aperi-mech install trilinos
 
-RUN . ./venv/bin/activate && \
-    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
-    spack -e aperi-mech install aperi-mech
+## This step is currently failing when it tries to test run an executable as part of the build process
+##  - tried to disable the test run, but could not find a way to do that
+##  - suggestion is to do this last step manually after the container is built. That is:
+##       - start the container, for example: docker run --gpus all -it aperi-mech:cuda-t4
+##       - source the virtual environment: source $aperi_mech/venv/bin/activate
+##       - install aperi-mech: spack -e aperi-mech install aperi-mech
+# RUN . ./venv/bin/activate && \
+#     source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
+#     spack -e aperi-mech install aperi-mech
 
 # Set environment variables for aperi-mech
 ENV APERI_MECH_ENV="aperi-mech"

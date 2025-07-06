@@ -16,6 +16,7 @@ services:
       #   context: .
       #   dockerfile: Dockerfile_AperiMech_Ubuntu2404_Nvidia
     volumes:
+# Need to disable some of these volumes if you are using an aperi-mech repository that is inside the docker container
       - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech
       - /home/azureuser/eigen:/home/aperi-mech_docker/eigen
       - /home/azureuser/eigen_install_gpu:/home/aperi-mech_docker/eigen_install

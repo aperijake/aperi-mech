@@ -31,6 +31,13 @@ docker run -it -v /folder/path/to/mount:/home/aperi-mech_docker/host_folder aper
 docker run -it aperi-mech
 ```
 
+```bash
+# If this is a gpu build, pass the flag to enable them
+docker run --gpus all -it -v /folder/path/to/mount:/home/aperi-mech_docker/host_folder aperi-mech
+# or
+docker run --gpus all -it aperi-mech
+```
+
 ### Working with the Private `protego-mech` Submodule
 
 For accessing private submodules, you'll need to set up GitHub authentication within the container. This assumes the host system has credentials set up to access GitHub. If not, follow the instructions on GitHub to do this. After that is done, proceed with:
