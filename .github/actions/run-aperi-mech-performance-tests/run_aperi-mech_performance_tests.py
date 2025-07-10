@@ -43,14 +43,14 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
 
     docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
         echo "Setting up Spack environment..."
-        . ~/spack/share/spack/setup-env.sh
+        source $aperi_mech/venv/bin/activate
         spack env activate aperi-mech
 
         echo "Running aperi-mech performance tests..."
-        cd ~/aperi-mech/test/
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ {test_flags} --write-json --no-preclean --parse-timings
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ {test_flags} --clean-logs
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech/build/ {test_flags} --clean-results
+        cd ~/aperi-mech_host/test/
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --write-json --no-preclean --parse-timings
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --clean-logs
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --clean-results
     ' || {{ echo "Performance test step failed"; exit 1; }}
     """
 

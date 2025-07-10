@@ -75,15 +75,15 @@ runs:
             echo "In container, test_flags: $test_flags"
 
             echo "Setting up Spack environment..."
-            . ~/spack/share/spack/setup-env.sh
+            source $aperi_mech/venv/bin/activate
             spack env activate aperi-mech
 
             echo "Running regression tests..."
-            cd ~/aperi-mech/test/
+            cd ~/aperi-mech_host/test/
             if [ ${{ inputs.with-protego }} == "true" ]; then
-              ./run_regression_tests.py --directory-file ~/aperi-mech/protego-mech/test/regression_tests/regression_test_paths.yaml --build-dir ~/aperi-mech/protego-mech/build/ $test_flags
+              ./run_regression_tests.py --directory-file ~/aperi-mech_host/protego-mech/test/regression_tests/regression_test_paths.yaml --build-dir ~/aperi-mech_host/protego-mech/build/ $test_flags
             else
-              ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech/build/ $test_flags
+              ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech_host/build/ $test_flags
             fi
 
           '  || { echo "Regression test step failed"; exit 1; }

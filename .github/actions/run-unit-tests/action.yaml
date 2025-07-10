@@ -56,9 +56,9 @@ runs:
             if [ "$build_type_lower" == "release" ]; then
               build_type="Release"
             fi
-            build_root=~/aperi-mech/build
+            build_root=~/aperi-mech_host/build
             if [ ${{ inputs.with-protego }} == "true" ]; then
-              build_root=~/aperi-mech/protego-mech/build
+              build_root=~/aperi-mech_host/protego-mech/build
             fi
             build_path="${build_root}/${build_type}"
             if [ ${{ inputs.gpu }} == "true" ]; then
@@ -72,7 +72,7 @@ runs:
 
             cd $build_path
             echo "Setting up Spack environment..."
-            . ~/spack/share/spack/setup-env.sh
+            source $aperi_mech/venv/bin/activate
             spack env activate aperi-mech
 
             echo "Running unit tests..."

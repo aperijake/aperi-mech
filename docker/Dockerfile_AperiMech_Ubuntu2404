@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.4
+
 # Dockerfile for building a CPU-only environment for the aperi-mech project on Ubuntu 24.04
 
 # Base image, Ubuntu 24.04
@@ -9,6 +11,9 @@ SHELL ["/bin/bash", "-c"]
 # Define the user and group id
 ARG USER_ID=1000
 ARG GROUP_ID=1000
+
+# Add build arg for protego (ssh submodules)
+ARG PROTEGO=0
 
 # Verify user and group IDs are numbers
 RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
@@ -92,9 +97,6 @@ USER root
 # Configure passwordless sudo for the user
 RUN echo "aperi-mech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Change to the new user
-USER aperi-mech_docker
-
 # Make the working directory
 WORKDIR /home/aperi-mech_docker
 
@@ -104,58 +106,99 @@ ENV HOME=/home/aperi-mech_docker
 # Set the default command to bash
 CMD ["/bin/bash"]
 
+# Clone the public repo by default (for open source users)
 RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+
+# Fail early if PROTEGO is enabled but no SSH agent is detected
+RUN --mount=type=ssh \
+    if [ "$PROTEGO" = "1" ]; then \
+      if [ ! -S "$SSH_AUTH_SOCK" ]; then \
+        echo "PROTEGO enabled but no SSH agent detected. Failing build."; \
+        exit 1; \
+      fi; \
+    fi
+
+# Add GitHub to known_hosts to avoid host key verification errors
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+# Optionally update submodules if SSH agent is available and PROTEGO is set
+RUN --mount=type=ssh \
+    if [ "$PROTEGO" = "1" ]; then \
+      cd ${HOME}/aperi-mech && \
+      echo "PROTEGO enabled and SSH agent detected. Updating submodules with SSH..."; \
+      git submodule update --init --recursive; \
+    else \
+      echo "PROTEGO not enabled. Skipping submodule update."; \
+    fi
+
+# Ensure the aperi-mech directory is owned by the aperi-mech user
+RUN chown -R aperi-mech_docker:aperi-mech_docker ${HOME}/aperi-mech
+
+# Change to the new user
+USER aperi-mech_docker
 
 # Change to the cloned repository directory
 WORKDIR ${HOME}/aperi-mech
-
-# Set the aperi_mech environment variable globally
-ENV aperi_mech=${HOME}/aperi-mech
 
 # Check out the specific branch for spack updates
 RUN git fetch --all && \
     git checkout main
 
-# Set Fortran compiler environment variables globally
+# Set Fortran compiler and aperi-mech environment variables globally
+ENV APERI_MECH_ROOT=${HOME}/aperi-mech
 ENV FC=/usr/bin/gfortran 
 ENV F77=/usr/bin/gfortran
 
 # Set up Python virtual environment and install required tooling
 RUN python3 -m venv venv && \
     . ./venv/bin/activate && \
-    echo "export aperi_mech=$aperi_mech" >> $aperi_mech/venv/bin/activate && \
-    cd $aperi_mech/tools/python/aperi-mech && \
+    echo "export APERI_MECH_ROOT=$APERI_MECH_ROOT" >> $APERI_MECH_ROOT/venv/bin/activate && \
+    cd $APERI_MECH_ROOT/tools/python/aperi-mech && \
     python3 -m pip install -e . && \
-    cd $aperi_mech/tools/python/spackx && \
+    cd $APERI_MECH_ROOT/tools/python/spackx && \
     python3 -m pip install -e .
 
 # Install Spack and add it to the virtual environment
-RUN mkdir -p $aperi_mech/venv/src && \
-    cd $aperi_mech/venv/src && \
+RUN mkdir -p $APERI_MECH_ROOT/venv/src && \
+    cd $APERI_MECH_ROOT/venv/src && \
     git clone https://github.com/spack/spack.git && \
-    git -C $aperi_mech/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
-    echo "source $aperi_mech/venv/src/spack/share/spack/setup-env.sh" >> $aperi_mech/venv/bin/activate
+    git -C $APERI_MECH_ROOT/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
+    echo "source $APERI_MECH_ROOT/venv/src/spack/share/spack/setup-env.sh" >> $APERI_MECH_ROOT/venv/bin/activate
 
 # Configure the Spack environment
 RUN . ./venv/bin/activate && \
-    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack compiler find && \
     spack external find && \
     spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
 
 # Patch Spack for Trilinos support
 RUN . ./venv/bin/activate && \
-    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack patch-trilinos
 
 # Create a Spack environment for aperi-mech and install it
 RUN . ./venv/bin/activate && \
-    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
     spack env create aperi-mech && \
-    spack -e aperi-mech develop --path $aperi_mech aperi-mech && \
-    spack -e aperi-mech add aperi-mech build_type=Release && \
-    spack -e aperi-mech concretize -f && \
-    spack -e aperi-mech install
+    spack -e aperi-mech develop --path $APERI_MECH_ROOT aperi-mech && \
+    if [ "$PROTEGO" = "1" ]; then \
+      spack -e aperi-mech add aperi-mech +protego build_type=Release; \
+    else \
+      spack -e aperi-mech add aperi-mech build_type=Release; \
+    fi && \
+    spack -e aperi-mech concretize -f
+
+# Just breaking up and installing the dependencies in a few steps to give a docker build cache
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install eigen yaml-cpp googletest
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install kokkos kokkos-kernels compadre
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install trilinos
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install aperi-mech
 
 # Set environment variables for aperi-mech
 ENV APERI_MECH_ENV="aperi-mech"
@@ -163,10 +206,9 @@ ENV APERI_MECH_CPU_ENV="aperi-mech"
 
 # Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
 RUN . ./venv/bin/activate && \
-    source $aperi_mech/venv/src/spack/share/spack/setup-env.sh && \
-    spack -e aperi-mech repo add $aperi_mech/tools/python/spackx/src/spackx/repos/aperi/
+    spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
 
-# When running the container, first do: source $aperi_mech/venv/bin/activate
+# When running the container, first do: source $APERI_MECH_ROOT/venv/bin/activate
 
 # To get the build location of aperi-mech, you can run:
 #   spacktivate aperi-mech
