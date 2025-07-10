@@ -75,7 +75,7 @@ runs:
             echo "In container, test_flags: $test_flags"
 
             echo "Setting up Spack environment..."
-            . ~/spack/share/spack/setup-env.sh
+            source $aperi_mech/venv/bin/activate
             spack env activate aperi-mech
 
             echo "Running regression tests..."
