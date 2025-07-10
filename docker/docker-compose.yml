@@ -16,6 +16,6 @@ services:
       #   context: .
       #   dockerfile: Dockerfile_AperiMech_Ubuntu2204
     volumes:
-      # - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech
-      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
-    working_dir: /home/aperi-mech_docker/aperi-mech
+      - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech_host # for using the host's aperi-mech directory in CI/CD
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1 # for some performance test files
+    working_dir: /home/aperi-mech_docker/aperi-mech_host

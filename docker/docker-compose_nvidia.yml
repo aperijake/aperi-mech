@@ -16,12 +16,9 @@ services:
       #   context: .
       #   dockerfile: Dockerfile_AperiMech_Ubuntu2404_Nvidia
     volumes:
-      # Need to disable some of these volumes if you are using an aperi-mech repository that is inside the docker container
-      # - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech
-      # - /home/azureuser/eigen:/home/aperi-mech_docker/eigen
-      # - /home/azureuser/eigen_install_gpu:/home/aperi-mech_docker/eigen_install
-      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1
-    working_dir: /home/aperi-mech_docker/aperi-mech
+      - /home/azureuser/aperi-mech:/home/aperi-mech_docker/aperi-mech_host # for using the host's aperi-mech directory in CI/CD
+      - /home/azureuser/aperifileshare1:/home/aperi-mech_docker/aperifileshare1 # for some performance test files
+    working_dir: /home/aperi-mech_docker/aperi-mech_host
     runtime: nvidia
     deploy:
       resources:

@@ -22,7 +22,7 @@ def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
         service_name = "aperi-mech-gpu-development"
 
     # Construct the build path
-    build_path = f"~/aperi-mech/build/{build_type}"
+    build_path = f"~/aperi-mech_host/build/{build_type}"
     if gpu:
         build_path += "_gpu"
 

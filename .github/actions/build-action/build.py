@@ -57,7 +57,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     cd ~/aperi-mech
 
     docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
-        cd ~/aperi-mech
+        cd ~/aperi-mech_host
         source $aperi_mech/venv/bin/activate
         spack env activate aperi-mech
 
