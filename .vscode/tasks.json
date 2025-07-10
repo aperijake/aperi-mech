@@ -7,7 +7,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -15,6 +15,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
           "BUILD_TYPE": "Release",
@@ -31,7 +32,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -39,6 +40,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "Release",
@@ -55,7 +57,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -63,6 +65,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
           "BUILD_TYPE": "Debug",
@@ -77,7 +80,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -85,7 +88,7 @@
       },
       "options": {
         "env": {
-          "SPACK_ROOT": "${env:SPACK_ROOT}",
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
           "BUILD_TYPE": "Debug",
           "PROTEGO_FLAG": "-p",
@@ -101,7 +104,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -109,6 +112,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "Debug",
@@ -125,7 +129,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -133,6 +137,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "Debug",
@@ -149,7 +154,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -157,6 +162,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "Release",
@@ -173,7 +179,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -181,6 +187,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_DEBUG_ENV}",
           "BUILD_TYPE": "Debug",
@@ -197,7 +204,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -205,6 +212,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
           "BUILD_TYPE": "RelWithDebInfo",
@@ -221,7 +229,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -229,6 +237,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "RelWithDebInfo",
@@ -245,7 +254,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -253,6 +262,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_GPU_ENV}",
           "BUILD_TYPE": "RelWithDebInfo",
@@ -269,7 +279,7 @@
       "command": "${SHELL:-sh}",
       "args": [
         "-c",
-        "echo SPACK_ROOT=$SPACK_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && . $SPACK_ROOT/share/spack/setup-env.sh && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
       ],
       "group": {
         "kind": "build",
@@ -277,6 +287,7 @@
       },
       "options": {
         "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
           "SPACK_ROOT": "${env:SPACK_ROOT}",
           "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
           "BUILD_TYPE": "Debug",

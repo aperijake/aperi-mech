@@ -8,9 +8,6 @@ FROM nvidia/cuda:12.6.3-devel-ubuntu24.04
 # Set the default shell to bash
 SHELL ["/bin/bash", "-c"]
 
-# Whether to pull the aperi-mech project or not
-ARG PULL_APERI_MECH=false
-
 # Define a build argument for the CUDA architecture, defaulting to 75 (T4)
 ARG CUDA_ARCH=75
 
@@ -196,25 +193,25 @@ RUN git fetch --all && \
     git checkout main
 
 # Set Fortran compiler and aperi-mech environment variables globally
-ENV aperi_mech=${HOME}/aperi-mech
+ENV APERI_MECH_ROOT=${HOME}/aperi-mech
 ENV FC=/usr/bin/gfortran 
 ENV F77=/usr/bin/gfortran
 
 # Set up Python virtual environment and install required tooling
 RUN python3 -m venv venv && \
     . ./venv/bin/activate && \
-    echo "export aperi_mech=$aperi_mech" >> $aperi_mech/venv/bin/activate && \
-    cd $aperi_mech/tools/python/aperi-mech && \
+    echo "export APERI_MECH_ROOT=$APERI_MECH_ROOT" >> $APERI_MECH_ROOT/venv/bin/activate && \
+    cd $APERI_MECH_ROOT/tools/python/aperi-mech && \
     python3 -m pip install -e . && \
-    cd $aperi_mech/tools/python/spackx && \
+    cd $APERI_MECH_ROOT/tools/python/spackx && \
     python3 -m pip install -e .
 
 # Install Spack and add it to the virtual environment
-RUN mkdir -p $aperi_mech/venv/src && \
-    cd $aperi_mech/venv/src && \
+RUN mkdir -p $APERI_MECH_ROOT/venv/src && \
+    cd $APERI_MECH_ROOT/venv/src && \
     git clone https://github.com/spack/spack.git && \
-    git -C $aperi_mech/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
-    echo "source $aperi_mech/venv/src/spack/share/spack/setup-env.sh" >> $aperi_mech/venv/bin/activate
+    git -C $APERI_MECH_ROOT/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
+    echo "source $APERI_MECH_ROOT/venv/src/spack/share/spack/setup-env.sh" >> $APERI_MECH_ROOT/venv/bin/activate
 
 # Configure the Spack environment
 RUN . ./venv/bin/activate && \
@@ -239,7 +236,7 @@ RUN . ./venv/bin/activate && \
 # Create a Spack environment for aperi-mech and install it
 RUN . ./venv/bin/activate && \
     spack env create aperi-mech && \
-    spack -e aperi-mech develop --path $aperi_mech aperi-mech && \
+    spack -e aperi-mech develop --path $APERI_MECH_ROOT aperi-mech && \
     if [ "$PROTEGO" = "1" ]; then \
       spack -e aperi-mech add aperi-mech +protego +cuda cuda_arch=${CUDA_ARCH} build_type=Release; \
     else \
@@ -261,7 +258,7 @@ RUN . ./venv/bin/activate && \
 ##  - tried to disable the test run, but could not find a way to do that
 ##  - suggestion is to do this last step manually after the container is built. That is:
 ##       - start the container, for example: docker run --gpus all -it aperi-mech:cuda-t4
-##       - source the virtual environment: source $aperi_mech/venv/bin/activate
+##       - source the virtual environment: source $APERI_MECH_ROOT/venv/bin/activate
 ##       - install aperi-mech: spack -e aperi-mech install aperi-mech
 # RUN . ./venv/bin/activate && \
 #     spack -e aperi-mech install aperi-mech
@@ -272,9 +269,9 @@ ENV APERI_MECH_GPU_ENV="aperi-mech"
 
 # Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
 RUN . ./venv/bin/activate && \
-    spack -e aperi-mech repo add $aperi_mech/tools/python/spackx/src/spackx/repos/aperi/
+    spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
 
-# When running the container, first do: source $aperi_mech/venv/bin/activate
+# When running the container, first do: source $APERI_MECH_ROOT/venv/bin/activate
 
 # To get the build location of aperi-mech, you can run:
 #   spacktivate aperi-mech
