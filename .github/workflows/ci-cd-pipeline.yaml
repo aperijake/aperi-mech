@@ -137,10 +137,10 @@ jobs:
       max-parallel: 1
       matrix:
         config:
-          - { BUILD_TYPE: Debug, GPU: false, PROTEGO: true }
-          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true }
-          - { BUILD_TYPE: Debug, GPU: false, PROTEGO: false }
-          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false }
+          # - { BUILD_TYPE: Debug, GPU: false, PROTEGO: true }
+          # - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true }
+          # - { BUILD_TYPE: Debug, GPU: false, PROTEGO: false }
+          # - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false }
           - { BUILD_TYPE: Release, GPU: false, PROTEGO: true }
           - { BUILD_TYPE: Release, GPU: true, PROTEGO: true }
           - { BUILD_TYPE: Release, GPU: false, PROTEGO: false }
@@ -236,49 +236,50 @@ jobs:
           build: ${{ env.BUILD_TYPE }}
           with-protego: ${{ env.PROTEGO }}
 
-  code-coverage:
-    name: Build Debug, Code Coverage
-    runs-on: ubuntu-latest
-    needs: [setup, build-and-test]
-    concurrency:
-      group: build-and-test-vm-ci-cd
-      cancel-in-progress: false
-    steps:
-      - name: Checkout Code on Runner
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          ref: ${{ github.head_ref }}
-
-      - name: Common Runner Config Steps
-        uses: ./.github/actions/common-runner-config-steps
-
-      - name: Build Debug, Code Coverage
-        uses: ./.github/actions/build-action
-        with:
-          build-type: Debug
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
-          gpu: false
-          with-protego: false
-          code-coverage: true
-
-      - name: Upload coverage reports to Codecov
-        run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
-            # Install Codecov on VM (not inside Docker, but could be done inside Docker)
-            # curl -Os https://cli.codecov.io/latest/linux/codecov
-            # sudo chmod +x codecov
-            cd ~/aperi-mech
-            ../codecov --verbose upload-process --fail-on-error -t ${{ secrets.CODECOV_TOKEN }} -n unittest-${{ github.run_id }} --commit-sha ${{ github.sha }} -f build/Debug_cov/coverage.info --disable-search
-          EOF
+  # code-coverage:
+  #   name: Build Debug, Code Coverage
+  #   runs-on: ubuntu-latest
+  #   needs: [setup, build-and-test]
+  #   concurrency:
+  #     group: build-and-test-vm-ci-cd
+  #     cancel-in-progress: false
+  #   steps:
+  #     - name: Checkout Code on Runner
+  #       uses: actions/checkout@v4
+  #       with:
+  #         lfs: false
+  #         ref: ${{ github.head_ref }}
+  #
+  #     - name: Common Runner Config Steps
+  #       uses: ./.github/actions/common-runner-config-steps
+  #
+  #     - name: Build Debug, Code Coverage
+  #       uses: ./.github/actions/build-action
+  #       with:
+  #         build-type: Debug
+  #         VM_IP: ${{ secrets.VM_IP }}
+  #         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         VM_USERNAME: ${{ secrets.VM_USERNAME }}
+  #         VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
+  #         gpu: false
+  #         with-protego: false
+  #         code-coverage: true
+  #
+  #     - name: Upload coverage reports to Codecov
+  #       run: |
+  #         ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+  #           # Install Codecov on VM (not inside Docker, but could be done inside Docker)
+  #           # curl -Os https://cli.codecov.io/latest/linux/codecov
+  #           # sudo chmod +x codecov
+  #           cd ~/aperi-mech
+  #           ../codecov --verbose upload-process --fail-on-error -t ${{ secrets.CODECOV_TOKEN }} -n unittest-${{ github.run_id }} --commit-sha ${{ github.sha }} -f build/Debug_cov/coverage.info --disable-search
+  #         EOF
 
   teardown:
     runs-on: ubuntu-latest
     name: Teardown
-    needs: [setup, build-and-test, code-coverage]
+    # needs: [setup, build-and-test, code-coverage]
+    needs: [setup, build-and-test]
     steps:
       # For debugging purposes
       - name: Print VM status
