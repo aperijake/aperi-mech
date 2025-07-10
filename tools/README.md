@@ -14,7 +14,7 @@ export F77=/usr/bin/gfortran
 
    ```shell
    export aperi_mech=$(pwd)
-   python -m venv venv
+   python3 -m venv venv
    source ./venv/bin/activate
    echo "export aperi_mech=$aperi_mech" >> $aperi_mech/venv/bin/activate
    cd $aperi_mech/tools/python/aperi-mech

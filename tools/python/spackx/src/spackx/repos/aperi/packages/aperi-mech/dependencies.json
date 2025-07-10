@@ -35,7 +35,7 @@
     },
     {
       "name": "trilinos",
-      "spec": "trilinos@master commit=e7e7e2b34ce295bf5e5f6ada193e5b88482b7fa9 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
+      "spec": "trilinos@develop commit=ab2f5763da1079863092a2de9750bf8ea62fc7b1 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu ~sacado ~shared +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
     }
   ]
 }

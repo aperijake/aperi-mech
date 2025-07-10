@@ -10,8 +10,6 @@ namespace stk {
 namespace mesh {
 class BulkData;
 class MetaData;
-template <typename T>
-class Field;
 }  // namespace mesh
 }  // namespace stk
 
