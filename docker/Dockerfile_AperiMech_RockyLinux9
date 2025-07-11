@@ -1,0 +1,228 @@
+# syntax=docker/dockerfile:1.4
+
+# Dockerfile for building a CPU-only environment for the aperi-mech project on Rocky Linux 9
+
+# Base image, Rocky Linux 9
+FROM rockylinux:9
+
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Define the user and group id
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+# Add build arg for protego (ssh submodules)
+ARG PROTEGO=0
+
+# Verify user and group IDs are numbers
+RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
+        echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
+        exit 1; \
+    fi && \
+    echo "USER_ID set to: ${USER_ID}" && \
+    echo "GROUP_ID set to: ${GROUP_ID}"
+
+#################### System Packages from dnf ####################
+# Add EPEL for extra packages
+RUN dnf -y update && \
+    dnf -y install epel-release && \
+    dnf -y install dnf-plugins-core && \
+    dnf config-manager --set-enabled crb && \
+    dnf -y install --allowerasing \
+    python3.11 \
+    python3.11-devel \
+    python3.11-pip \
+    autoconf \
+    automake \
+    make \
+    gcc \
+    gcc-c++ \
+    gcc-gfortran \
+    ca-certificates \
+    cmake \
+    coreutils \
+    curl \
+    environment-modules \
+    file \
+    git \
+    git-lfs \
+    gnupg2 \
+    htop \
+    bzip2-devel \
+    mesa-libGL \
+    mesa-libGLU \
+    hwloc-devel \
+    ncurses-devel \
+    snappy-devel \
+    openssl-devel \
+    patch \
+    libcurl-devel \
+    libtool \
+    libxml2-devel \
+    libzstd-devel \
+    lz4-devel \
+    openssh-clients \
+    openssl \
+    pkgconf \
+    sudo \
+    unzip \
+    vim \
+    xorg-x11-server-Xorg \
+    xorg-x11-utils \
+    zip \
+    && dnf clean all
+
+#################### User Setup ####################
+# Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
+RUN if getent passwd ${USER_ID} > /dev/null; then \
+      echo "UID ${USER_ID} already exists, modifying existing user" && \
+      existing_user=$(getent passwd ${USER_ID} | cut -d: -f1) && \
+      usermod -l aperi-mech_docker $existing_user && \
+      groupmod -n aperi-mech_docker $(id -gn $USER_ID) && \
+      usermod -d /home/aperi-mech_docker -m aperi-mech_docker; \
+    else \
+      # Create the group first if it doesn't exist
+      if ! getent group ${GROUP_ID}; then \
+        groupadd -g ${GROUP_ID} aperi-mech_docker; \
+      fi && \
+      useradd -u ${USER_ID} -g ${GROUP_ID} -m aperi-mech_docker; \
+    fi
+
+# Switch back to root user
+USER root
+
+# Configure passwordless sudo for the user
+RUN echo "aperi-mech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Make the working directory
+WORKDIR /home/aperi-mech_docker
+
+# Set the HOME environment variable
+ENV HOME=/home/aperi-mech_docker
+
+# Set the default command to bash
+CMD ["/bin/bash"]
+
+# Clone the public repo by default (for open source users)
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+
+# Fail early if PROTEGO is enabled but no SSH agent is detected
+RUN --mount=type=ssh \
+    if [ "$PROTEGO" = "1" ]; then \
+      if [ ! -S "$SSH_AUTH_SOCK" ]; then \
+        echo "PROTEGO enabled but no SSH agent detected. Failing build."; \
+        exit 1; \
+      fi; \
+    fi
+
+# Add GitHub to known_hosts to avoid host key verification errors
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+# Optionally update submodules if SSH agent is available and PROTEGO is set
+RUN --mount=type=ssh \
+    if [ "$PROTEGO" = "1" ]; then \
+      cd ${HOME}/aperi-mech && \
+      echo "PROTEGO enabled and SSH agent detected. Updating submodules with SSH..."; \
+      git submodule update --init --recursive; \
+    else \
+      echo "PROTEGO not enabled. Skipping submodule update."; \
+    fi
+
+# Ensure the aperi-mech directory is owned by the aperi-mech user
+RUN chown -R aperi-mech_docker:aperi-mech_docker ${HOME}/aperi-mech
+
+# Change to the new user
+USER aperi-mech_docker
+
+# Change to the cloned repository directory
+WORKDIR ${HOME}/aperi-mech
+
+# Check out the specific branch for spack updates
+RUN git fetch --all && \
+    git checkout main
+
+# Set and aperi-mech environment variable globally
+ENV APERI_MECH_ROOT=${HOME}/aperi-mech
+
+# Set up Python 3.11 virtual environment and install required tooling
+RUN python3.11 -m venv venv && \
+    . ./venv/bin/activate && \
+    ./venv/bin/python3.11 -m pip install --upgrade pip setuptools wheel && \
+    echo "export APERI_MECH_ROOT=$APERI_MECH_ROOT" >> $APERI_MECH_ROOT/venv/bin/activate && \
+    cd $APERI_MECH_ROOT/tools/python/aperi-mech && \
+    python3.11 -m pip install -e . && \
+    cd $APERI_MECH_ROOT/tools/python/spackx && \
+    python3.11 -m pip install -e .
+
+# Install Spack and add it to the virtual environment
+RUN mkdir -p $APERI_MECH_ROOT/venv/src && \
+    cd $APERI_MECH_ROOT/venv/src && \
+    git clone https://github.com/spack/spack.git && \
+    git -C $APERI_MECH_ROOT/venv/src/spack checkout prereleases/v1.0.0-alpha.4 && \
+    echo "source $APERI_MECH_ROOT/venv/src/spack/share/spack/setup-env.sh" >> $APERI_MECH_ROOT/venv/bin/activate
+
+# Configure the Spack environment
+RUN . ./venv/bin/activate && \
+    spack compiler find && \
+    spack external find && \
+    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool util-macros
+
+# Patch Spack for Trilinos support
+RUN . ./venv/bin/activate && \
+    spack patch-trilinos
+
+# Create a Spack environment for aperi-mech and install it
+RUN . ./venv/bin/activate && \
+    spack env create aperi-mech && \
+    spack -e aperi-mech develop --path $APERI_MECH_ROOT aperi-mech && \
+    if [ "$PROTEGO" = "1" ]; then \
+      spack -e aperi-mech add aperi-mech +protego build_type=Release; \
+    else \
+      spack -e aperi-mech add aperi-mech build_type=Release; \
+    fi && \
+    spack -e aperi-mech concretize -f
+
+# Just breaking up and installing the dependencies in a few steps to give a docker build cache
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install eigen yaml-cpp googletest
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install kokkos kokkos-kernels compadre
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install trilinos
+
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech install aperi-mech
+
+# Set environment variables for aperi-mech
+ENV APERI_MECH_ENV="aperi-mech"
+ENV APERI_MECH_CPU_ENV="aperi-mech"
+
+# Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
+RUN . ./venv/bin/activate && \
+    spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
+
+# When running the container, first do: source $APERI_MECH_ROOT/venv/bin/activate
+
+# To get the build location of aperi-mech, you can run:
+#   spacktivate aperi-mech
+#   spack location -i aperi-mech build_type=Release
+# Then cd to the bin folder in that directory to run the unit tests
+# Same for the Debug build
+
+# To build aperi-mech with build_type=Debug in the same environment, in the container you can run:
+#   spacktivate aperi-mech && \
+#   spack config edit
+#    change concretizer:unify to false # enables multiple builds in the same environment
+#   spack add aperi-mech build_type=Debug 
+#   spack install build_type=Debug
+# May get some error about the environment view, but it seems to not be an issue
+
+# Or, you can use the do_configure script to build manually
+
+# Generic healthcheck to ensure the container is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD [ "bash", "-c", "echo 'Container is healthy'" ]
