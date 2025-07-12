@@ -18,6 +18,9 @@ ARG GROUP_ID=1000
 # Add build arg for protego (ssh submodules)
 ARG PROTEGO=0
 
+# Branch for the source code
+ARG SRC_BRANCH=main
+
 # Validate CUDA_ARCH input
 RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
         echo "Error: CUDA_ARCH must be a number, not '${CUDA_ARCH}'" && \
@@ -153,8 +156,9 @@ ENV HOME=/home/aperi-mech_docker
 # Set the default command to bash
 CMD ["/bin/bash"]
 
-# Clone the public repo by default (for open source users)
-RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+# Clone the repo from GitHub, using the specified branch
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+    cd ${HOME}/aperi-mech && git checkout "$SRC_BRANCH"
 
 # Fail early if PROTEGO is enabled but no SSH agent is detected
 RUN --mount=type=ssh \
