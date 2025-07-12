@@ -71,6 +71,7 @@ RUN dnf -y update && \
     xorg-x11-server-Xorg \
     xorg-x11-utils \
     zip \
+    lbzip2 \
     && dnf clean all
 
 #################### User Setup ####################
