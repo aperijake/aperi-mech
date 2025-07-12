@@ -16,6 +16,7 @@ index d346b5e0a1..3292a8af1c 100644
          depends_on("kokkos-kernels@4.3.01", when="@16")
          depends_on("kokkos-kernels@4.2.01", when="@15.1:15")
          depends_on("kokkos+openmp", when="+openmp")
+
 diff --git a/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp b/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp
 index 5538709b240..3dec0b44992 100644
 --- a/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp
