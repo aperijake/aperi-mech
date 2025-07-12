@@ -192,9 +192,8 @@ USER aperi-mech_docker
 # Change to the cloned repository directory
 WORKDIR ${HOME}/aperi-mech
 
-# Check out the specific branch for spack updates
-RUN git fetch --all && \
-    git checkout main
+# Automatically activate the venv for interactive shells
+RUN echo "source ${HOME}/aperi-mech/venv/bin/activate" >> ${HOME}/.bashrc
 
 # Set Fortran compiler and aperi-mech environment variables globally
 ENV APERI_MECH_ROOT=${HOME}/aperi-mech

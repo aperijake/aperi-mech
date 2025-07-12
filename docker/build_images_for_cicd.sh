@@ -4,6 +4,7 @@ WITH_PROTEGO=false
 USE_CACHE=true
 USE_GPU=false
 SRC_BRANCH="main"
+PLATFORM="amd64"
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -22,6 +23,20 @@ while [[ $# -gt 0 ]]; do
 	--branch)
 		SRC_BRANCH="$2"
 		shift 2
+		;;
+	--platform)
+		PLATFORM="$2"
+		shift 2
+		;;
+	--help | -h)
+		echo "Usage: build_images_for_cicd.sh [OPTIONS]"
+		echo "Options:"
+		echo "  --protego           Enable Protego support"
+		echo "  --no-cache          Disable build cache"
+		echo "  --gpu               Build GPU-enabled image"
+		echo "  --branch BRANCH     Specify the source branch (default: main)"
+		echo "  --platform PLATFORM Specify the platform (default: amd64)"
+		exit 0
 		;;
 	*)
 		shift
@@ -63,7 +78,7 @@ cmd=(
 	${CACHE_FLAG:+${CACHE_FLAG}}
 	${PROTEGO_ARG:+${PROTEGO_ARG}}
 	"${BUILD_ARGS[@]}"
-	--platform linux/amd64
+	--platform "linux/${PLATFORM}"
 	--load
 	-t "${IMAGE_TAG}"
 	-f "${DOCKERFILE}"
@@ -72,6 +87,6 @@ cmd=(
 )
 
 printf '%q ' "${cmd[@]}"
-# echo "| tee ${LOG_FILE}"
-#
-# "${cmd[@]}" 2>&1 | tee "${LOG_FILE}"
+echo "| tee ${LOG_FILE}"
+
+"${cmd[@]}" 2>&1 | tee "${LOG_FILE}"

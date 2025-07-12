@@ -24,7 +24,7 @@ std::string PrintMeshDimensions(const ::testing::TestParamInfo<MeshParam> &p) {
 class CellDisconnectTestFixture : public ::testing::Test, public ::testing::WithParamInterface<MeshParam> {
    protected:
     CellDisconnectTestFixture()
-        : num_elems_x(std::get<0>(GetParam())), num_elems_y(std::get<1>(GetParam())), num_elems_z(std::get<2>(GetParam())) {
+        : m_num_elems_x(std::get<0>(GetParam())), m_num_elems_y(std::get<1>(GetParam())), m_num_elems_z(std::get<2>(GetParam())) {
     }
 
     // Function to get interior and exterior faces
@@ -37,8 +37,8 @@ class CellDisconnectTestFixture : public ::testing::Test, public ::testing::With
         exterior_faces.clear();
 
         // Loop over all the faces and check if they are connected to two elements
-        for (stk::mesh::Bucket *bucket : selector.get_buckets(stk::topology::FACE_RANK)) {
-            for (stk::mesh::Entity face : *bucket) {
+        for (stk::mesh::Bucket *p_bucket : selector.get_buckets(stk::topology::FACE_RANK)) {
+            for (stk::mesh::Entity face : *p_bucket) {
                 if (bulk->get_connected_entities(face, stk::topology::ELEMENT_RANK).size() == 2U) {
                     interior_faces.push_back(face);
                 } else {
@@ -89,12 +89,9 @@ class CellDisconnectTestFixture : public ::testing::Test, public ::testing::With
                                                           // exterior faces for each original interior face
     }
 
-    int rank;
-    int num_procs;
-
-    unsigned num_elems_x;
-    unsigned num_elems_y;
-    unsigned num_elems_z;
+    unsigned m_num_elems_x;
+    unsigned m_num_elems_y;
+    unsigned m_num_elems_z;
 };
 
 auto GenerateMeshes() {
@@ -108,5 +105,5 @@ TEST_P(CellDisconnectTestFixture, CellDisconnectTest) {
     if (stk::parallel_machine_size(MPI_COMM_WORLD) > 1) {
         GTEST_SKIP_("Test only runs in serial");
     }
-    RunDisconnectTest(num_elems_x, num_elems_y, num_elems_z);
+    RunDisconnectTest(m_num_elems_x, m_num_elems_y, m_num_elems_z);
 }
