@@ -70,6 +70,7 @@ RUN dnf -y update && \
     vim \
     xorg-x11-server-Xorg \
     xorg-x11-utils \
+    xz \
     zip \
     lbzip2 \
     && dnf clean all
