@@ -72,7 +72,6 @@ runs:
 
             cd $build_path
             echo "Setting up Spack environment..."
-            source $aperi_mech/venv/bin/activate
             spack env activate aperi-mech
 
             echo "Running unit tests..."

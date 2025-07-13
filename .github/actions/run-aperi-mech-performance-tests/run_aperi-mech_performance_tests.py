@@ -43,7 +43,6 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
 
     docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
         echo "Setting up Spack environment..."
-        source $aperi_mech/venv/bin/activate
         spack env activate aperi-mech
 
         echo "Running aperi-mech performance tests..."

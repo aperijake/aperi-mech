@@ -211,8 +211,7 @@ ENV APERI_MECH_CPU_ENV="aperi-mech"
 RUN . ./venv/bin/activate && \
     spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
 
-# When running the container, first do: source $APERI_MECH_ROOT/venv/bin/activate
-
+# When running the container:
 # To get the build location of aperi-mech, you can run:
 #   spacktivate aperi-mech
 #   spack location -i aperi-mech build_type=Release
