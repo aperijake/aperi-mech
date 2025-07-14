@@ -15,9 +15,6 @@ ARG GROUP_ID=1000
 # Add build arg for protego (ssh submodules)
 ARG PROTEGO=0
 
-# Branch for the source code
-ARG SRC_BRANCH=main
-
 # Verify user and group IDs are numbers
 RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
         echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
@@ -43,11 +40,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     environment-modules \
     file \
-    gfortran \
     git \
     git-lfs \
     gpg \
     htop \
+    lbzip2 \
     lcov \
     libaec-dev \
     libbz2-dev \
@@ -75,8 +72,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     vim \
     xorg \
+    xutils-dev \
+    xz-utils \
     zip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install gcc-12 and g++-12, set them as the default compilers
+RUN apt-get update && \
+    apt-get install -y gcc-12 g++-12 gfortran-12 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 120 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 120 && \
+    update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-12 120 && \
+    update-alternatives --set gcc /usr/bin/gcc-12 && \
+    update-alternatives --set g++ /usr/bin/g++-12 && \
+    update-alternatives --set gfortran /usr/bin/gfortran-12
+
+# Remove GCC 13 to prevent Spack from finding it
+RUN apt-get purge -y gcc-13 g++-13 && \
+    apt-get autoremove -y && \
+    rm -rf /usr/bin/gcc-13 /usr/bin/g++-13
 
 #################### User Setup ####################
 # Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
@@ -109,9 +123,8 @@ ENV HOME=/home/aperi-mech_docker
 # Set the default command to bash
 CMD ["/bin/bash"]
 
-# Clone the repo from GitHub, using the specified branch
-RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
-    cd ${HOME}/aperi-mech && git checkout "$SRC_BRANCH"
+# Clone the public repo by default (for open source users)
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
 
 # Fail early if PROTEGO is enabled but no SSH agent is detected
 RUN --mount=type=ssh \
@@ -148,10 +161,12 @@ WORKDIR ${HOME}/aperi-mech
 # Automatically activate the venv for interactive shells
 RUN echo "source ${HOME}/aperi-mech/venv/bin/activate" >> ${HOME}/.bashrc
 
-# Set Fortran compiler and aperi-mech environment variables globally
+# Check out the specific branch for spack updates
+RUN git fetch --all && \
+    git checkout main
+
+# Set aperi-mech environment variable globally
 ENV APERI_MECH_ROOT=${HOME}/aperi-mech
-ENV FC=/usr/bin/gfortran 
-ENV F77=/usr/bin/gfortran
 
 # Set up Python virtual environment and install required tooling
 RUN python3 -m venv venv && \
@@ -173,7 +188,7 @@ RUN mkdir -p $APERI_MECH_ROOT/venv/src && \
 RUN . ./venv/bin/activate && \
     spack compiler find && \
     spack external find && \
-    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
+    spack external find cmake hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool util-macros xz-utils xz
 
 # Patch Spack for Trilinos support
 RUN . ./venv/bin/activate && \
@@ -201,6 +216,8 @@ RUN . ./venv/bin/activate && \
     spack -e aperi-mech install trilinos
 
 RUN . ./venv/bin/activate && \
+    ln -s /usr/bin/gcc-12 /usr/bin/gcc && \
+    ln -s /usr/bin/g++-12 /usr/bin/g++ && \
     spack -e aperi-mech install aperi-mech
 
 # Set environment variables for aperi-mech

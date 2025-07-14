@@ -34,7 +34,7 @@ def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
     docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
         cd {build_path}
         echo "Setting up Spack environment..."
-        source $aperi_mech/venv/bin/activate
+        source $APERI_MECH_ROOT/venv/bin/activate
         spack env activate aperi-mech
 
         echo "Running gtest performance tests..."

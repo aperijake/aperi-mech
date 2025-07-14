@@ -18,6 +18,9 @@ ARG GROUP_ID=1000
 # Add build arg for protego (ssh submodules)
 ARG PROTEGO=0
 
+# Branch for the source code
+ARG SRC_BRANCH=main
+
 # Validate CUDA_ARCH input
 RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
         echo "Error: CUDA_ARCH must be a number, not '${CUDA_ARCH}'" && \
@@ -153,8 +156,9 @@ ENV HOME=/home/aperi-mech_docker
 # Set the default command to bash
 CMD ["/bin/bash"]
 
-# Clone the public repo by default (for open source users)
-RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+# Clone the repo from GitHub, using the specified branch
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+    cd ${HOME}/aperi-mech && git checkout "$SRC_BRANCH"
 
 # Fail early if PROTEGO is enabled but no SSH agent is detected
 RUN --mount=type=ssh \
@@ -188,9 +192,8 @@ USER aperi-mech_docker
 # Change to the cloned repository directory
 WORKDIR ${HOME}/aperi-mech
 
-# Check out the specific branch for spack updates
-RUN git fetch --all && \
-    git checkout main
+# Automatically activate the venv for interactive shells
+RUN echo "source ${HOME}/aperi-mech/venv/bin/activate" >> ${HOME}/.bashrc
 
 # Set Fortran compiler and aperi-mech environment variables globally
 ENV APERI_MECH_ROOT=${HOME}/aperi-mech
@@ -271,8 +274,7 @@ ENV APERI_MECH_GPU_ENV="aperi-mech"
 RUN . ./venv/bin/activate && \
     spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
 
-# When running the container, first do: source $APERI_MECH_ROOT/venv/bin/activate
-
+# When running the container:
 # To get the build location of aperi-mech, you can run:
 #   spacktivate aperi-mech
 #   spack location -i aperi-mech build_type=Release

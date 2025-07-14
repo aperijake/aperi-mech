@@ -1,0 +1,21 @@
+diff --git a/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp b/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp
+index 5538709b240..3dec0b44992 100644
+--- a/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp
++++ b/packages/stk/stk_tools/stk_tools/mesh_tools/EntityDisconnectTool.cpp
+@@ -97,8 +97,14 @@ bool EntityDisconnectTool::is_element_connected(const stk::mesh::Entity& face) c
+ void EntityDisconnectTool::identify_adjacent_elements()
+ {
+   m_adjacentElements.clear();
+-  m_adjacentElements.reserve(m_adjacentFaces.size() * 2U);
+-  for (const auto& dcFace : m_adjacentFaces) {
++  m_adjacentElements.reserve(m_adjacentFaces.size() * 2U + m_disconnectFaces.size() * 2U);
++  for (const auto& adjFace : m_adjacentFaces) {
++    const auto dcElems = mesh().get_connected_entities(adjFace, stk::topology::ELEMENT_RANK);
++    for (auto e = 0U; e < dcElems.size(); ++e) {
++      m_adjacentElements.push_back(dcElems[e]);
++    }
++  }
++  for (const auto& dcFace : m_disconnectFaces) {
+     const auto dcElems = mesh().get_connected_entities(dcFace, stk::topology::ELEMENT_RANK);
+     for (auto e = 0U; e < dcElems.size(); ++e) {
+       m_adjacentElements.push_back(dcElems[e]);
