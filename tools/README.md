@@ -71,7 +71,9 @@ export F77=/usr/bin/gfortran
    ```shell
    spack env create aperi-mech
    spacktivate aperi-mech
-   spack develop --path $aperi_mech --build-directory $aperi_mech/build aperi-mech
+   spack develop --path $aperi_mech aperi-mech
+   # Or, optionally specify build directory:
+   # spack develop --path $aperi_mech --build-directory $aperi_mech/build aperi-mech
    spack add aperi-mech
    spack concretize
    spack install

@@ -25,17 +25,7 @@ class SkinMeshTestFixture : public IoMeshTestFixture {
     }
 
     void CreateGeneratedMesh() {
-        std::string mesh_string = "generated:" + std::to_string(m_num_elem_x) + "x" + std::to_string(m_num_elem_y) + "x" + std::to_string(m_num_elem_z);
-        m_io_mesh->FillGeneratedMesh(mesh_string);
-
-        size_t expected_num_nodes = (1U + m_num_elem_x) * (1U + m_num_elem_y) * (1U + m_num_elem_z);
-        size_t expected_num_faces = (m_num_elem_x * m_num_elem_y * (m_num_elem_z + 1)) +
-                                    (m_num_elem_x * m_num_elem_z * (m_num_elem_y + 1)) +
-                                    (m_num_elem_y * m_num_elem_z * (m_num_elem_x + 1));
-        size_t expected_num_elements = m_num_elem_x * m_num_elem_y * m_num_elem_z;
-        EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(*m_mesh_data, "block_1"));
-        EXPECT_EQ(expected_num_faces, GetNumFacesInPart(*m_mesh_data, "block_1"));
-        EXPECT_EQ(expected_num_elements, GetNumElementsInPart(*m_mesh_data, "block_1"));
+        GenerateMesh(*m_io_mesh, *m_mesh_data, m_num_elem_x, m_num_elem_y, m_num_elem_z);
     }
 
     void SplitMesh() {

@@ -73,6 +73,11 @@ class IoMeshTestFixture : public CaptureOutputTest {
         CaptureOutputTest::TearDown();
     }
 
+    void ResetIoMeshTestFixture() {
+        m_io_mesh.reset();
+        m_field_data.clear();
+    }
+
     MPI_Comm m_comm;
     int m_num_procs;
     std::shared_ptr<aperi::IoMesh> m_io_mesh;

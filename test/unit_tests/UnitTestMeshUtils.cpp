@@ -23,6 +23,7 @@
 #include "Index.h"
 #include "IoMesh.h"
 #include "MeshData.h"
+#include "Selector.h"
 #include "gtest/gtest.h"
 
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data) {
@@ -45,6 +46,20 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     io_mesh.WriteFieldResults(0);
     std::ifstream after_write_file(filename);
     EXPECT_TRUE(after_write_file.good());
+}
+
+void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z) {
+    std::string mesh_string = "generated:" + std::to_string(num_elem_x) + "x" + std::to_string(num_elem_y) + "x" + std::to_string(num_elem_z);
+    io_mesh.FillGeneratedMesh(mesh_string);
+
+    size_t expected_num_nodes = (1U + num_elem_x) * (1U + num_elem_y) * (1U + num_elem_z);
+    size_t expected_num_faces = (num_elem_x * num_elem_y * (num_elem_z + 1)) +
+                                (num_elem_x * num_elem_z * (num_elem_y + 1)) +
+                                (num_elem_y * num_elem_z * (num_elem_x + 1));
+    size_t expected_num_elements = num_elem_x * num_elem_y * num_elem_z;
+    EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(mesh_data, "block_1"));
+    EXPECT_EQ(expected_num_faces, GetNumFacesInPart(mesh_data, "block_1"));
+    EXPECT_EQ(expected_num_elements, GetNumElementsInPart(mesh_data, "block_1"));
 }
 
 void CleanUp(const std::filesystem::path& filePath) {
@@ -327,4 +342,64 @@ void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::str
     stk::mesh::Entity entity_to_delete = GetElementAtCoordinates(mesh_data, part_name, coordinates, check_found);
     stk::mesh::EntityVector elements_to_delete = {entity_to_delete};
     stk::mesh::destroy_elements(bulk, elements_to_delete);
+}
+
+// Function to get interior and exterior faces
+void GetInteriorAndExteriorFaces(const aperi::MeshData& mesh_data,
+                                 const aperi::Selector& selector,
+                                 aperi::EntityVector& interior_faces,
+                                 aperi::EntityVector& exterior_faces) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    // Get the interior and exterior faces
+    interior_faces.clear();
+    exterior_faces.clear();
+
+    // Loop over all the faces and check if they are connected to two elements
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::FACE_RANK)) {
+        for (stk::mesh::Entity face : *p_bucket) {
+            if (p_bulk->get_connected_entities(face, stk::topology::ELEMENT_RANK).size() == 2U) {
+                interior_faces.push_back(face);
+            } else {
+                exterior_faces.push_back(face);
+            }
+        }
+    }
+}
+
+// Function to get interior and exterior faces
+void GetInteriorAndExteriorCellFaces(const aperi::MeshData& mesh_data,
+                                     const aperi::Selector& selector,
+                                     aperi::EntityVector& interior_faces,
+                                     aperi::EntityVector& exterior_faces) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    // Get the interior and exterior faces
+    interior_faces.clear();
+    exterior_faces.clear();
+
+    // Make sure the cell_id field exists
+    aperi::FieldQueryData<aperi::Unsigned> cell_id_query_data({"cell_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT});
+    ASSERT_TRUE(aperi::StkFieldExists(cell_id_query_data, mesh_data.GetMetaData())) << "The cell_id field must exist for this test to run.";
+
+    // Get the cell_id field
+    stk::mesh::Field<aperi::Unsigned>* p_cell_id_field = aperi::StkGetField(cell_id_query_data, mesh_data.GetMetaData());
+    ASSERT_TRUE(p_cell_id_field != nullptr) << "The cell_id field must exist for this test to run.";
+
+    // Loop over all the faces and check if they are connected to two elements
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::FACE_RANK)) {
+        for (stk::mesh::Entity face : *p_bucket) {
+            stk::mesh::ConnectedEntities connected_faces = p_bulk->get_connected_entities(face, stk::topology::ELEMENT_RANK);
+            EXPECT_TRUE(connected_faces.size() <= 2U) << "Face " << face << " is connected to more than two elements.";
+            if (connected_faces.size() == 2U) {
+                // Check if the two elements have different cell_ids
+                aperi::Unsigned cell_id_1 = stk::mesh::field_data(*p_cell_id_field, connected_faces[0])[0];
+                aperi::Unsigned cell_id_2 = stk::mesh::field_data(*p_cell_id_field, connected_faces[1])[0];
+                if (cell_id_1 != cell_id_2) {
+                    // If the cell_ids are different, add the face to the interior_faces
+                    interior_faces.push_back(face);
+                }
+            } else {
+                exterior_faces.push_back(face);
+            }
+        }
+    }
 }
