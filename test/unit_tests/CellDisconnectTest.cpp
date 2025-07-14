@@ -4,6 +4,7 @@
 #include <memory>
 #include <stk_tools/mesh_tools/EntityDisconnectTool.hpp>
 
+#include "CellDisconnectUtils.h"
 #include "GenerateNodalDomainTestFixture.h"
 
 class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
@@ -49,10 +50,7 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
             2 * (m_num_elements_x * m_num_elements_y + m_num_elements_x * m_num_elements_z + m_num_elements_y * m_num_elements_z);
         EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces) << " for mesh: " << mesh_spec;
 
-        auto *p_bulk = m_mesh_data->GetBulkData();
-        stk::experimental::EntityDisconnectTool disconnecter(*p_bulk, interior_faces);
-        disconnecter.determine_new_nodes();
-        disconnecter.modify_mesh();
+        aperi::DisconnectCells(m_mesh_data, {});
 
         GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
         EXPECT_EQ(interior_faces.size(), 0U) << " for mesh: " << mesh_spec;
