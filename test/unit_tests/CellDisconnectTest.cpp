@@ -133,3 +133,18 @@ TEST_F(CellDisconnectTestFixture, CellDisconnectTest) {
         }
     }
 }
+
+TEST_F(CellDisconnectTestFixture, MakeDisconnectedView) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 1) {
+        GTEST_SKIP_("Test only runs in serial");
+    }
+    RunCellDisconnectTest(3, 3, 3);
+    aperi::MakeDisconnectedViewForDebugging(m_mesh_data, {}, 0.5);
+
+    // Write the mesh to a file for debugging
+    // m_io_mesh->CreateFieldResultsFile("disconnected_view.exo");
+    // m_io_mesh->WriteFieldResults(0.0);
+    // m_io_mesh->CloseFieldResultsFile();
+}
