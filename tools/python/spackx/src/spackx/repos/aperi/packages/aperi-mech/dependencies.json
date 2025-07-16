@@ -27,11 +27,11 @@
     },
     {
       "name": "kokkos",
-      "spec": "kokkos@4.6.01 ~shared cxxstd=17"
+      "spec": "kokkos@4.6.02 ~shared cxxstd=17"
     },
     {
       "name": "kokkos-kernels",
-      "spec": "kokkos-kernels@4.6.01 ~shared"
+      "spec": "kokkos-kernels@4.6.02 ~shared"
     },
     {
       "name": "trilinos",
