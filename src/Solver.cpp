@@ -172,12 +172,12 @@ void LogHeader() {
     LogLine();
 }
 
-void LogEvent(const size_t n, const double time, const double time_increment, const double average_runtime, const std::string &event = "") {
+void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") {
     aperi::CoutP0() << std::left
                     << std::setw(12) << n
                     << std::setw(16) << time
                     << std::setw(16) << time_increment
-                    << std::setw(16) << average_runtime
+                    << std::setw(16) << this_runtime
                     << std::setw(30) << event
                     << std::endl
                     << std::right;
@@ -215,6 +215,7 @@ double ExplicitSolver::Solve() {
     // Initialize total runtime, average runtime, for benchmarking
     double total_runtime = 0.0;
     double average_runtime = 0.0;
+    double this_runtime = 0.0;
 
     // Print the table header before the loop
     aperi::CoutP0() << std::endl
@@ -238,7 +239,7 @@ double ExplicitSolver::Solve() {
     time_step_compute_timer->Stop();
 
     double time_increment = time_increment_data.time_increment;
-    LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
+    LogEvent(n, time, time_increment, this_runtime, time_increment_data.message);
 
     // Compute initial forces, done at state np1 as states will be swapped at the start of the time loop
     compute_force_timer->Start();
@@ -260,7 +261,7 @@ double ExplicitSolver::Solve() {
     // Output initial state
     aperi::CoutP0() << std::scientific << std::setprecision(6);  // Set output to scientific notation and 6 digits of precision
     if (m_output_scheduler->AtNextEvent(time)) {
-        LogEvent(n, time, 0.0, average_runtime, "Write Field Output");
+        LogEvent(n, time, 0.0, this_runtime, "Write Field Output");
         write_output_timer->Start();
         WriteOutput(time);
         write_output_timer->Stop();
@@ -269,7 +270,7 @@ double ExplicitSolver::Solve() {
     // Loop over time steps
     while (!m_time_stepper->AtEnd(time)) {
         if (log_scheduler.AtNextEvent(total_runtime) && n > 0) {
-            LogEvent(n, time, time_increment, average_runtime, "");
+            LogEvent(n, time, time_increment, this_runtime, "");
         }
 
         // Benchmarking
@@ -287,7 +288,7 @@ double ExplicitSolver::Solve() {
 
         time_increment = time_increment_data.time_increment;
         if (time_increment_data.updated) {
-            LogEvent(n, time, time_increment, average_runtime, time_increment_data.message);
+            LogEvent(n, time, time_increment, this_runtime, time_increment_data.message);
         }
 
         // Compute the time increment, time midstep, and time next
@@ -353,10 +354,11 @@ double ExplicitSolver::Solve() {
         std::chrono::duration<double> runtime = end_time - start_time;
         total_runtime += runtime.count();
         average_runtime = total_runtime / n;
+        this_runtime = runtime.count();
 
         // Output
         if (m_output_scheduler->AtNextEvent(time)) {
-            LogEvent(n, time, time_increment, average_runtime, "Write Field Output");
+            LogEvent(n, time, time_increment, this_runtime, "Write Field Output");
             write_output_timer->Start();
             WriteOutput(time);
             write_output_timer->Stop();
@@ -367,7 +369,7 @@ double ExplicitSolver::Solve() {
         UpdateShapeFunctions(n, explicit_time_integrator);
         update_shape_functions_timer->Stop();
     }
-    LogEvent(n, time, time_increment, average_runtime, "End of Simulation");
+    LogEvent(n, time, time_increment, this_runtime, "End of Simulation");
     LogLine();
 
     // After the loop, dump the accumulated timing results
