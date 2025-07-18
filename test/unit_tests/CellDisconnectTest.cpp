@@ -1,109 +1,150 @@
+#include <gtest/gtest.h>
 #include <mpi.h>
 
 #include <memory>
-#include <stk_io/FillMesh.hpp>
-#include <stk_io/StkMeshIoBroker.hpp>
-#include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/MeshBuilder.hpp>
-#include <stk_topology/topology.hpp>
+#include <stk_tools/mesh_tools/EntityDisconnectTool.hpp>
 
-#include "gtest/gtest.h"
-#include "stk_mesh/base/CreateFaces.hpp"
-#include "stk_tools/mesh_tools/DisjointSet.hpp"
-#include "stk_tools/mesh_tools/EntityDisconnectTool.hpp"
+#include "CellDisconnectUtils.h"
+#include "GenerateNodalDomainTestFixture.h"
 
-using MeshParam = std::tuple<unsigned, unsigned, unsigned>;
-
-std::string PrintMeshDimensions(const ::testing::TestParamInfo<MeshParam> &p) {
-    std::stringstream ss;
-    const auto &[num_x, num_y, num_z] = p.param;
-    ss << num_x << "x" << num_y << "x" << num_z;
-    return ss.str();
-}
-
-class CellDisconnectTestFixture : public ::testing::Test, public ::testing::WithParamInterface<MeshParam> {
+class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
    protected:
-    CellDisconnectTestFixture()
-        : m_num_elems_x(std::get<0>(GetParam())), m_num_elems_y(std::get<1>(GetParam())), m_num_elems_z(std::get<2>(GetParam())) {
+    void ResetCellDisconnectTestFixture() {
+        ResetGenerateNodalDomainTestFixture();
     }
 
-    // Function to get interior and exterior faces
-    void GetInteriorAndExteriorFaces(stk::mesh::BulkData *bulk,
-                                     const stk::mesh::Selector &selector,
-                                     stk::mesh::EntityVector &interior_faces,
-                                     stk::mesh::EntityVector &exterior_faces) {
-        // Get the interior and exterior faces
-        interior_faces.clear();
-        exterior_faces.clear();
+    void RunCellDisconnectTest(int num_nodes_x, int num_nodes_y, int num_nodes_z) {
+        ResetCellDisconnectTestFixture();
+        m_num_nodes_x = num_nodes_x;
+        m_num_nodes_y = num_nodes_y;
+        m_num_nodes_z = num_nodes_z;
+        CreateAndReadNodalMesh();
+        AddFieldsAndCreateMeshLabeler();
+        m_mesh_data = m_io_mesh->GetMeshData();
+        LabelGeneratedNodalMesh(m_mesh_data, m_num_subcells, m_activate_center_node);
+        ASSERT_TRUE(m_mesh_data != nullptr);
 
-        // Loop over all the faces and check if they are connected to two elements
-        for (stk::mesh::Bucket *p_bucket : selector.get_buckets(stk::topology::FACE_RANK)) {
-            for (stk::mesh::Entity face : *p_bucket) {
-                if (bulk->get_connected_entities(face, stk::topology::ELEMENT_RANK).size() == 2U) {
-                    interior_faces.push_back(face);
-                } else {
-                    exterior_faces.push_back(face);
-                }
-            }
-        }
-    }
-
-    void RunDisconnectTest(int num_elems_x, int num_elems_y, int num_elems_z) {
-        stk::mesh::MeshBuilder builder(MPI_COMM_WORLD);
-        std::shared_ptr<stk::mesh::BulkData> bulk = builder.create();
-        stk::mesh::MetaData &meta_data = bulk->mesh_meta_data();
-
-        std::string mesh_spec = "generated:" + std::to_string(num_elems_x) + "x" + std::to_string(num_elems_y) + "x" +
-                                std::to_string(num_elems_z);
-
-        std::cout << "Running disconnect test with mesh spec: " << mesh_spec << std::endl;
-
-        stk::io::fill_mesh(mesh_spec, *bulk);
-        stk::mesh::create_faces(*bulk);
+        // Expected total number of elements
+        unsigned expected_num_elements = m_num_elements_x * m_num_elements_y * m_num_elements_z;
+        EXPECT_EQ(m_mesh_data->GetNumElements(), expected_num_elements);
 
         // Universal part selector
-        stk::mesh::Selector selector = meta_data.universal_part() & meta_data.locally_owned_part();
+        aperi::Selector selector({}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
-        stk::mesh::EntityVector interior_faces;
-        stk::mesh::EntityVector exterior_faces;
-        GetInteriorAndExteriorFaces(bulk.get(), selector, interior_faces, exterior_faces);
+        aperi::EntityVector interior_faces;
+        aperi::EntityVector exterior_faces;
+
+        GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
+
+        std::string mesh_spec = std::to_string(num_nodes_x) + "x" + std::to_string(num_nodes_y) + "x" + std::to_string(num_nodes_z);
+
+        unsigned expected_num_interior_faces = m_num_elements_x * m_num_elements_y * (m_num_elements_z - 1) +
+                                               m_num_elements_x * (m_num_elements_y - 1) * m_num_elements_z +
+                                               (m_num_elements_x - 1) * m_num_elements_y * m_num_elements_z;
+
+        unsigned expected_num_interior_cell_faces = expected_num_interior_faces - (num_nodes_x - 2) * m_num_elements_y * m_num_elements_z - (num_nodes_y - 2) * m_num_elements_x * m_num_elements_z - (num_nodes_z - 2) * m_num_elements_x * m_num_elements_y;
+
+        EXPECT_EQ(interior_faces.size(), expected_num_interior_cell_faces) << " for mesh: " << mesh_spec;
+
+        unsigned expected_num_exterior_faces =
+            2 * (m_num_elements_x * m_num_elements_y + m_num_elements_x * m_num_elements_z + m_num_elements_y * m_num_elements_z);
+        EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces) << " for mesh: " << mesh_spec;
+
+        aperi::DisconnectCells(m_mesh_data, {});
+
+        GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
+        EXPECT_EQ(interior_faces.size(), 0U) << " for mesh: " << mesh_spec;
+        // Each interior face should have been disconnected, creating two new exterior faces for each original interior face
+        EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces + expected_num_interior_cell_faces * 2U) << " for mesh: " << mesh_spec;
+    }
+
+    void RunElementDisconnectTest(int num_elems_x, int num_elems_y, int num_elems_z) {
+        ResetCellDisconnectTestFixture();
+        m_num_elements_x = num_elems_x;
+        m_num_elements_y = num_elems_y;
+        m_num_elements_z = num_elems_z;
+        CreateIoMeshGenerated();
+        m_mesh_data = m_io_mesh->GetMeshData();
+        ASSERT_TRUE(m_mesh_data != nullptr);
+
+        GenerateMesh(*m_io_mesh, *m_mesh_data, num_elems_x, num_elems_y, num_elems_z);
+
+        // Universal part selector
+        aperi::Selector selector({}, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+
+        aperi::EntityVector interior_faces;
+        aperi::EntityVector exterior_faces;
+        GetInteriorAndExteriorFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
+
+        std::string mesh_spec = std::to_string(num_elems_x) + "x" + std::to_string(num_elems_y) + "x" + std::to_string(num_elems_z);
 
         unsigned expected_num_interior_faces = num_elems_x * num_elems_y * (num_elems_z - 1) +
                                                num_elems_x * (num_elems_y - 1) * num_elems_z +
                                                (num_elems_x - 1) * num_elems_y * num_elems_z;
-        EXPECT_EQ(interior_faces.size(), expected_num_interior_faces);
+        EXPECT_EQ(interior_faces.size(), expected_num_interior_faces) << " for mesh: " << mesh_spec;
 
         unsigned expected_num_exterior_faces =
             2 * (num_elems_x * num_elems_y + num_elems_x * num_elems_z + num_elems_y * num_elems_z);
-        EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces);
+        EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces) << " for mesh: " << mesh_spec;
 
-        stk::experimental::EntityDisconnectTool disconnecter(*bulk, interior_faces);
+        auto *p_bulk = m_mesh_data->GetBulkData();
+        stk::experimental::EntityDisconnectTool disconnecter(*p_bulk, interior_faces);
         disconnecter.determine_new_nodes();
         disconnecter.modify_mesh();
 
-        GetInteriorAndExteriorFaces(bulk.get(), selector, interior_faces, exterior_faces);
-        EXPECT_EQ(interior_faces.size(), 0U);
+        GetInteriorAndExteriorFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
+        EXPECT_EQ(interior_faces.size(), 0U) << " for mesh: " << mesh_spec;
+        // Each interior face should have been disconnected, creating two new exterior faces for each original interior face
         EXPECT_EQ(exterior_faces.size(),
                   expected_num_exterior_faces +
-                      expected_num_interior_faces * 2U);  // Each interior face should have been disconnected, creating two new
-                                                          // exterior faces for each original interior face
+                      expected_num_interior_faces * 2U)
+            << " for mesh: " << mesh_spec;
     }
-
-    unsigned m_num_elems_x;
-    unsigned m_num_elems_y;
-    unsigned m_num_elems_z;
 };
 
-auto GenerateMeshes() {
-    auto dimensions = ::testing::Values(1U, 2U, 3U, 4U, 5U);
-    return ::testing::Combine(dimensions, dimensions, dimensions);
-}
-
-INSTANTIATE_TEST_SUITE_P(TestDisconnectSuite, CellDisconnectTestFixture, GenerateMeshes(), PrintMeshDimensions);
-
-TEST_P(CellDisconnectTestFixture, CellDisconnectTest) {
-    if (stk::parallel_machine_size(MPI_COMM_WORLD) > 1) {
+TEST_F(CellDisconnectTestFixture, ElementDisconnectTest) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 1) {
         GTEST_SKIP_("Test only runs in serial");
     }
-    RunDisconnectTest(m_num_elems_x, m_num_elems_y, m_num_elems_z);
+    unsigned mesh_dims[] = {1U, 2U, 3U, 4U, 5U};
+    for (unsigned x : mesh_dims) {
+        for (unsigned y : mesh_dims) {
+            for (unsigned z : mesh_dims) {
+                RunElementDisconnectTest(x, y, z);
+            }
+        }
+    }
+}
+
+TEST_F(CellDisconnectTestFixture, CellDisconnectTest) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 1) {
+        GTEST_SKIP_("Test only runs in serial");
+    }
+    unsigned mesh_dims[] = {2U, 3U, 4U};
+    for (unsigned x : mesh_dims) {
+        for (unsigned y : mesh_dims) {
+            for (unsigned z : mesh_dims) {
+                RunCellDisconnectTest(x, y, z);
+            }
+        }
+    }
+}
+
+TEST_F(CellDisconnectTestFixture, MakeDisconnectedView) {
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    if (num_procs > 1) {
+        GTEST_SKIP_("Test only runs in serial");
+    }
+    RunCellDisconnectTest(3, 3, 3);
+    aperi::MakeDisconnectedViewForDebugging(m_mesh_data, {}, 0.5);
+
+    // Write the mesh to a file for debugging
+    // m_io_mesh->CreateFieldResultsFile("disconnected_view.exo");
+    // m_io_mesh->WriteFieldResults(0.0);
+    // m_io_mesh->CloseFieldResultsFile();
 }

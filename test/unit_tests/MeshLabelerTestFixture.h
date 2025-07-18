@@ -22,6 +22,12 @@ class MeshLabelerTestFixture : public IoMeshTestFixture {
         IoMeshTestFixture::TearDown();
     }
 
+    void ResetMeshLabelerTestFixture() {
+        m_mesh_labeler.reset();
+        m_mesh_data.reset();
+        ResetIoMeshTestFixture();
+    }
+
     void AddFieldsAndCreateMeshLabeler(const std::vector<aperi::FieldData>& additional_field_data = {}) {
         std::vector<aperi::FieldData> field_data = m_mesh_labeler->GetFieldData();
         field_data.insert(field_data.end(), additional_field_data.begin(), additional_field_data.end());

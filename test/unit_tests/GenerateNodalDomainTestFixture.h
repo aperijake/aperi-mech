@@ -19,6 +19,10 @@ class GenerateNodalDomainTestFixture : public MeshLabelerTestFixture {
         MeshLabelerTestFixture::TearDown();
     }
 
+    void ResetGenerateNodalDomainTestFixture() {
+        ResetMeshLabelerTestFixture();
+    }
+
     void CreateAndReadNodalMesh() {
         std::vector<size_t> num_elements = GetNumElementForNodalMesh(m_num_nodes_x, m_num_nodes_y, m_num_nodes_z);
         m_num_elements_x = num_elements[0];

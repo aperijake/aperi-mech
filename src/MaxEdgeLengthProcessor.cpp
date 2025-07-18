@@ -72,6 +72,10 @@ MaxEdgeLengthProcessor::MaxEdgeLengthProcessor(std::shared_ptr<aperi::MeshData> 
     for (const std::string &set : sets) {
         active_sets.push_back(set + "_active");
     }
+    // If sets are not named, get the universal active part.
+    if (active_sets.empty()) {
+        active_sets.emplace_back("universal_active_part");
+    }
     m_active_selector = aperi::Selector(active_sets, mesh_data.get());
 
     // Initialize fields for node activity, coordinates, and output

@@ -5,11 +5,14 @@
 #include <string>
 #include <vector>
 
+#include "Types.h"
+
 namespace aperi {
 struct FieldData;
 struct Index;
 class IoMesh;
 class MeshData;
+struct Selector;
 }  // namespace aperi
 
 namespace stk {
@@ -20,6 +23,7 @@ class Entity;
 
 // Mesh Utils
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
+void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z);
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);
 void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value = -0.5, double max_value = 0.5);
@@ -31,3 +35,5 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
 aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
+void GetInteriorAndExteriorFaces(const aperi::MeshData& mesh_data, const aperi::Selector& selector, aperi::EntityVector& interior_faces, aperi::EntityVector& exterior_faces);
+void GetInteriorAndExteriorCellFaces(const aperi::MeshData& mesh_data, const aperi::Selector& selector, aperi::EntityVector& interior_faces, aperi::EntityVector& exterior_faces);
