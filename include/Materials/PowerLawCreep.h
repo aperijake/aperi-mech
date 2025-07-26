@@ -139,52 +139,53 @@ class PowerLawCreepMaterial : public Material {
             Eigen::Matrix<double, 3, 3> creep_strain = dedev + stress_deviator / 2.0 / m_shear_modulus;
 
             const auto amult = 0.98;
-
             const int max_steps = 100;
             double min_stepsize = timestep / max_steps;
 
             auto temp_n = m_use_constant_temperature ? m_constant_temperature : 0.0;
-            auto a1 = (temp_n == 0.0) ? 0.0 : m_A * Kokkos::exp(-m_m / temp_n);
+            auto an = (temp_n == 0.0) ? m_A * Kokkos::exp(-m_m) : m_A * Kokkos::exp(-m_m / temp_n);
 
             auto temp_np1 = m_use_constant_temperature ? m_constant_temperature : 0.0;
-            auto da = (temp_np1 == 0.0) ? -a1 : m_A * Kokkos::exp(-m_m / temp_np1) - a1;
+            auto anp1 = (temp_np1 == 0.0) ? m_A * Kokkos::exp(-m_m) : m_A * Kokkos::exp(-m_m / temp_np1);
 
             // time step estimate
             double sqrtThreeOverTwo = Kokkos::sqrt(3.0 / 2.0);
             auto effective_stress = tensor::magnitude(stress_deviator) * sqrtThreeOverTwo;
-            auto edotvm = a1 * Kokkos::pow(effective_stress, m_n - 1.0);
+            auto edotvm = an * Kokkos::pow(effective_stress, m_n - 1.0);
 
-            auto critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
-            auto dt = Kokkos::min(critical_timestep, timestep);
+            auto critt = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
+            auto delt = Kokkos::min(critt, timestep);
 
-            auto tn = 0.0;
-            auto tp = dt;
+            auto tm0 = 0.0;
+            auto tm1 = delt;
             size_t step_count = 0;
             while (true) {
-                auto dp = 3.0 / 2.0 * stress_deviator * edotvm;
+                auto deltn = timestep;
+
+                // strain rate
+                auto dp = 1.5 * stress_deviator * edotvm;
+
+                // subincrement stress rate
                 auto sdot = 2.0 * m_shear_modulus * (dedev / timestep - dp);
 
-                stress_deviator += sdot * dt;
+                // update subincrement stress
+                stress_deviator += sdot * delt;
+
+                // time step estimate for next subincrement
                 effective_stress = tensor::magnitude(stress_deviator) * sqrtThreeOverTwo;
-
-                auto a = (timestep <= 0.0) ? a1 : a1 + tp * da / timestep;
+                auto a = (timestep <= 0.0) ? an : an + tm1 * (anp1 - an) / timestep;
+                critt = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
                 edotvm = a * Kokkos::pow(effective_stress, m_n - 1.0);
+                deltn = Kokkos::min(critt, deltn);
 
-                // printf("PowerLawCreep: Step %zu, tn = %.4e, tp = %.4e, dt = %.4e, edotvm = %.4e, critical_timestep = %.4e, timestep = %.4e\n",
-                //        step_count, tn, tp, dt, edotvm, critical_timestep, timestep);
-                if (tp >= timestep) {
+                if (tm1 <= timestep) {
                     break;
                 } else if (step_count++ > max_steps) {
                     Kokkos::abort("PowerLawCreep: Maximum number of steps exceeded without reaching the timestep.");
                 }
-
-                critical_timestep = (edotvm == 0.0) ? 1.1 * timestep : 4.0 * amult / (6.0 * m_shear_modulus * m_n * edotvm);
-
-                auto dt_n = Kokkos::max(Kokkos::min(critical_timestep, timestep), min_stepsize);
-
-                tn = tp;
-                tp = Kokkos::min(timestep, tp + dt_n);
-                dt = tp - tn;
+                tm0 = tm1;
+                tm1 = Kokkos::min(timestep, tm1 + deltn);
+                delt = tm1 - tm0;
             }
 
             auto trde = de.trace();
@@ -194,7 +195,7 @@ class PowerLawCreepMaterial : public Material {
             // Update the state
             creep_strain -= stress_deviator / 2.0 / m_shear_modulus;
             auto eff_creep_strain = Kokkos::sqrt(2.0 / 3.0) * tensor::magnitude(creep_strain);
-            state_np1->coeffRef(EFFECTIVE_CREEP_STRAIN) = eff_creep_strain + state_n->coeff(EFFECTIVE_CREEP_STRAIN);
+            state_np1->coeffRef(EFFECTIVE_CREEP_STRAIN) = state_n->coeff(EFFECTIVE_CREEP_STRAIN) + eff_creep_strain;
 
             // effective stress rate
             auto ds = 2.0 * m_shear_modulus * (dedev / timestep - 3.0 * edotvm * stress_deviator / 2.0);
