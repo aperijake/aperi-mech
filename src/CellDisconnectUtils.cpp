@@ -8,6 +8,7 @@
 
 #include "AperiStkUtils.h"
 #include "FieldData.h"
+#include "LogUtils.h"
 #include "MeshData.h"
 #include "Selector.h"
 
@@ -24,6 +25,29 @@ void DisconnectCells(const std::shared_ptr<aperi::MeshData>& mesh_data, const st
     stk::experimental::EntityDisconnectTool disconnecter(*p_bulk, interior_faces);
     disconnecter.determine_new_nodes();
     disconnecter.modify_mesh();
+
+    // Label the disconnected faces with their paired face
+    aperi::FieldQueryData<aperi::Unsigned> paired_face_query_data({"paired_face_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::FACE});
+    // Warn if the paired_face_id field does not exist and exit
+    if (!aperi::StkFieldExists(paired_face_query_data, mesh_data->GetMetaData())) {
+        aperi::CoutP0() << "Warning: The paired_face_id field does not exist. Skipping labeling of paired faces." << std::endl;
+        return;
+    }
+    // Get the paired_face_id field
+    stk::mesh::Field<aperi::Unsigned>* p_paired_face_id_field = aperi::StkGetField(paired_face_query_data, mesh_data->GetMetaData());
+
+    // Loop over the face pairs and set the paired face id
+    const std::vector<stk::experimental::FacePair>& face_pairs = disconnecter.get_elem_side_pairs();
+    for (const auto& pair : face_pairs) {
+        stk::mesh::Entity face = pair.faceOrig.face;
+        stk::mesh::Entity paired_face = pair.faceNew.face;
+
+        // Set the paired face id on both faces to the local offset of the paired face
+        aperi::Unsigned face_id = face.local_offset();
+        aperi::Unsigned paired_face_id = paired_face.local_offset();
+        stk::mesh::field_data(*p_paired_face_id_field, face)[0] = paired_face_id;
+        stk::mesh::field_data(*p_paired_face_id_field, paired_face)[0] = face_id;
+    }
 }
 
 aperi::EntityVector GetCellBoundaryFaces(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names) {

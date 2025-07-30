@@ -140,7 +140,6 @@ class PowerLawCreepMaterial : public Material {
 
             const auto amult = 0.98;
             const int max_steps = 100;
-            double min_stepsize = timestep / max_steps;
 
             auto temp_n = m_use_constant_temperature ? m_constant_temperature : 0.0;
             auto an = (temp_n == 0.0) ? m_A * Kokkos::exp(-m_m) : m_A * Kokkos::exp(-m_m / temp_n);
