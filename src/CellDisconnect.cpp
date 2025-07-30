@@ -1,4 +1,4 @@
-#include "CellDisconnectUtils.h"
+#include "CellDisconnect.h"
 
 #include <Eigen/Dense>
 #include <stdexcept>
@@ -14,12 +14,15 @@
 
 namespace aperi {
 
-void DisconnectCells(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names) {
-    auto* p_bulk = mesh_data->GetBulkData();
-    aperi::Selector selector(part_names, mesh_data.get(), aperi::SelectorOwnership::OWNED);
+CellDisconnect::CellDisconnect(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names)
+    : m_mesh_data(mesh_data), m_part_names(part_names) {}
+
+void CellDisconnect::DisconnectCells() {
+    auto* p_bulk = m_mesh_data->GetBulkData();
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
     // Get the cell boundary faces
-    aperi::EntityVector interior_faces = GetCellBoundaryFaces(mesh_data, part_names);
+    aperi::EntityVector interior_faces = GetCellBoundaryFaces();
 
     // Create the disconnect tool
     stk::experimental::EntityDisconnectTool disconnecter(*p_bulk, interior_faces);
@@ -29,12 +32,12 @@ void DisconnectCells(const std::shared_ptr<aperi::MeshData>& mesh_data, const st
     // Label the disconnected faces with their paired face
     aperi::FieldQueryData<aperi::Unsigned> paired_face_query_data({"paired_face_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::FACE});
     // Warn if the paired_face_id field does not exist and exit
-    if (!aperi::StkFieldExists(paired_face_query_data, mesh_data->GetMetaData())) {
+    if (!aperi::StkFieldExists(paired_face_query_data, m_mesh_data->GetMetaData())) {
         aperi::CoutP0() << "Warning: The paired_face_id field does not exist. Skipping labeling of paired faces." << std::endl;
         return;
     }
     // Get the paired_face_id field
-    stk::mesh::Field<aperi::Unsigned>* p_paired_face_id_field = aperi::StkGetField(paired_face_query_data, mesh_data->GetMetaData());
+    stk::mesh::Field<aperi::Unsigned>* p_paired_face_id_field = aperi::StkGetField(paired_face_query_data, m_mesh_data->GetMetaData());
 
     // Loop over the face pairs and set the paired face id
     const std::vector<stk::experimental::FacePair>& face_pairs = disconnecter.get_elem_side_pairs();
@@ -50,21 +53,21 @@ void DisconnectCells(const std::shared_ptr<aperi::MeshData>& mesh_data, const st
     }
 }
 
-aperi::EntityVector GetCellBoundaryFaces(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names) {
-    auto* p_bulk = mesh_data->GetBulkData();
+aperi::EntityVector CellDisconnect::GetCellBoundaryFaces() {
+    auto* p_bulk = m_mesh_data->GetBulkData();
     aperi::EntityVector boundary_faces;
 
     aperi::FieldQueryData<aperi::Unsigned> cell_id_query_data({"cell_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT});
     // Throw an error if the cell_id field does not exist
-    if (!aperi::StkFieldExists(cell_id_query_data, mesh_data->GetMetaData())) {
+    if (!aperi::StkFieldExists(cell_id_query_data, m_mesh_data->GetMetaData())) {
         throw std::runtime_error("The cell_id field must exist for this test to run.");
     }
 
     // Get the cell_id field
-    stk::mesh::Field<aperi::Unsigned>* p_cell_id_field = aperi::StkGetField(cell_id_query_data, mesh_data->GetMetaData());
+    stk::mesh::Field<aperi::Unsigned>* p_cell_id_field = aperi::StkGetField(cell_id_query_data, m_mesh_data->GetMetaData());
 
     // Get the selector for the parts
-    aperi::Selector selector(part_names, mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
     // Loop over all the faces and check if they are connected to two elements
     for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::FACE_RANK)) {
@@ -85,32 +88,32 @@ aperi::EntityVector GetCellBoundaryFaces(const std::shared_ptr<aperi::MeshData>&
     return boundary_faces;
 }
 
-void MakeDisconnectedViewForDebugging(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, double shrink_factor) {
-    auto* p_bulk = mesh_data->GetBulkData();
+void CellDisconnect::MakeDisconnectedViewForDebugging(double shrink_factor) {
+    auto* p_bulk = m_mesh_data->GetBulkData();
 
     // Query for the coordinates field
-    aperi::FieldQueryData<double> coordinates_query_data({mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    aperi::FieldQueryData<double> coordinates_query_data({m_mesh_data->GetCoordinatesFieldName(), aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
 
     // Check if the coordinates field exists
-    if (!aperi::StkFieldExists(coordinates_query_data, mesh_data->GetMetaData())) {
+    if (!aperi::StkFieldExists(coordinates_query_data, m_mesh_data->GetMetaData())) {
         throw std::runtime_error("The coordinates field must exist for this test to run.");
     }
 
     // Get the coordinates field
-    stk::mesh::Field<double>* p_coordinates_field = aperi::StkGetField(coordinates_query_data, mesh_data->GetMetaData());
+    stk::mesh::Field<double>* p_coordinates_field = aperi::StkGetField(coordinates_query_data, m_mesh_data->GetMetaData());
 
     // Add a late field for displacement
     std::vector<double> initial_displacement = {0.0, 0.0, 0.0};
     aperi::FieldData displacement_field_data({"disconnect_displacement", aperi::FieldDataRank::VECTOR, aperi::FieldDataTopologyRank::NODE, 1, initial_displacement, true});
-    mesh_data->DeclareLateField(displacement_field_data, part_names);  // Declare the field for the specified parts
+    m_mesh_data->DeclareLateField(displacement_field_data, m_part_names);  // Declare the field for the specified parts
 
     // Query for the displacement field
     aperi::FieldQueryData<double> displacement_query_data({"disconnect_displacement", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
     // Get the displacement field
-    stk::mesh::Field<double>* p_displacement_field = aperi::StkGetField(displacement_query_data, mesh_data->GetMetaData());
+    stk::mesh::Field<double>* p_displacement_field = aperi::StkGetField(displacement_query_data, m_mesh_data->GetMetaData());
 
     // Get the selector for the parts
-    aperi::Selector selector(part_names, mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
     // Loop over all the nodes in the selected parts
     for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {

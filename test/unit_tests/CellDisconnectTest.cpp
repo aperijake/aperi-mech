@@ -4,7 +4,7 @@
 #include <memory>
 #include <stk_tools/mesh_tools/EntityDisconnectTool.hpp>
 
-#include "CellDisconnectUtils.h"
+#include "CellDisconnect.h"
 #include "GenerateNodalDomainTestFixture.h"
 
 class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
@@ -54,7 +54,9 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
             2 * (m_num_elements_x * m_num_elements_y + m_num_elements_x * m_num_elements_z + m_num_elements_y * m_num_elements_z);
         EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces) << " for mesh: " << mesh_spec;
 
-        aperi::DisconnectCells(m_mesh_data, {});
+        // Disconnect the mesh
+        aperi::CellDisconnect cell_disconnect(m_mesh_data, {});
+        cell_disconnect.DisconnectCells();
 
         GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
 
@@ -187,7 +189,8 @@ TEST_F(CellDisconnectTestFixture, MakeDisconnectedView) {
         GTEST_SKIP_("Test only runs in serial");
     }
     RunCellDisconnectTest(3, 3, 3);
-    aperi::MakeDisconnectedViewForDebugging(m_mesh_data, {}, 0.5);
+    aperi::CellDisconnect cell_disconnect(m_mesh_data, {"block_1"});
+    cell_disconnect.MakeDisconnectedViewForDebugging(0.5);
 
     // Write the mesh to a file for debugging
     // m_io_mesh->CreateFieldResultsFile("disconnected_view.exo");
