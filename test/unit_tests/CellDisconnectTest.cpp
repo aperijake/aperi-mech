@@ -36,6 +36,10 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
 
         GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
 
+        std::vector<std::pair<aperi::Index, Eigen::Vector3d>> elements_and_centroids = GetElementIndicesAndCentroids(*m_mesh_data, selector);
+        std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> nodes_and_coordinates = GetNodeLocalOffsetsAndCoordinates(*m_mesh_data, selector);
+        std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> faces_and_centroids = GetFaceLocalOffsetsAndCentroids(*m_mesh_data, selector);
+
         std::string mesh_spec = std::to_string(num_nodes_x) + "x" + std::to_string(num_nodes_y) + "x" + std::to_string(num_nodes_z);
 
         unsigned expected_num_interior_faces = m_num_elements_x * m_num_elements_y * (m_num_elements_z - 1) +
@@ -53,9 +57,51 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
         aperi::DisconnectCells(m_mesh_data, {});
 
         GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
+
+        std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> new_nodes_and_coordinates = GetNodeLocalOffsetsAndCoordinates(*m_mesh_data, selector);
+        std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> new_faces_and_centroids = GetFaceLocalOffsetsAndCentroids(*m_mesh_data, selector);
+
         EXPECT_EQ(interior_faces.size(), 0U) << " for mesh: " << mesh_spec;
         // Each interior face should have been disconnected, creating two new exterior faces for each original interior face
         EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces + expected_num_interior_cell_faces * 2U) << " for mesh: " << mesh_spec;
+
+        // Check that the element indices are the same after disconnection
+        for (const auto& [index, centroid] : elements_and_centroids) {
+            EXPECT_EQ(GetElementIndexAtCoordinates(*m_mesh_data, "block_1", centroid, true), index)
+                << "Element index at centroid " << centroid.transpose() << " does not match expected index.";
+        }
+
+        // Check that the node local offsets are the same after disconnection, but more nodes may have been created (Index may change)
+        EXPECT_GT(new_nodes_and_coordinates.size(), nodes_and_coordinates.size());
+        // The original nodes should still be present
+        for (const auto& [index, coord] : nodes_and_coordinates) {
+            bool found = false;
+            for (const auto& [new_index, new_coord] : new_nodes_and_coordinates) {
+                if (index == new_index) {
+                    EXPECT_TRUE(coord.isApprox(new_coord, 1e-6))
+                        << "Node coordinates at index " << index << " do not match expected coordinates.";
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found) << "Node index " << index << " not found after disconnection.";
+        }
+
+        // Check that the face local offsets are the same after disconnection, but more faces will have been created (Index may change)
+        // The original faces should still be present
+        EXPECT_GT(new_faces_and_centroids.size(), faces_and_centroids.size());
+        for (const auto& [index, coord] : faces_and_centroids) {
+            bool found = false;
+            for (const auto& [new_index, new_coord] : new_faces_and_centroids) {
+                if (index == new_index) {
+                    EXPECT_TRUE(coord.isApprox(new_coord, 1e-6))
+                        << "Face coordinates at index " << index << " do not match expected coordinates.";
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found) << "Face index " << index << " not found after disconnection.";
+        }
     }
 
     void RunElementDisconnectTest(int num_elems_x, int num_elems_y, int num_elems_z) {
@@ -87,7 +133,7 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
             2 * (num_elems_x * num_elems_y + num_elems_x * num_elems_z + num_elems_y * num_elems_z);
         EXPECT_EQ(exterior_faces.size(), expected_num_exterior_faces) << " for mesh: " << mesh_spec;
 
-        auto *p_bulk = m_mesh_data->GetBulkData();
+        auto* p_bulk = m_mesh_data->GetBulkData();
         stk::experimental::EntityDisconnectTool disconnecter(*p_bulk, interior_faces);
         disconnecter.determine_new_nodes();
         disconnecter.modify_mesh();
