@@ -60,7 +60,7 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
         LabelParts();
-        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
+        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()), m_part_names);
         CreateFunctionCreationProcessor();
     }
 

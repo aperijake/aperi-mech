@@ -62,7 +62,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
     /**
      * @brief Preprocessing steps that have mesh modification.
      */
-    virtual void PreprocessingWithMeshModification(const SmoothedCellDataSizes &smoothed_cell_data_sizes) {
+    virtual void PreprocessingWithMeshModification(const SmoothedCellDataSizes &smoothed_cell_data_sizes, const std::vector<std::string> &parts) {
         // Preprocessing logic here
     }
 
