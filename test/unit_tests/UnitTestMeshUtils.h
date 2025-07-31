@@ -36,6 +36,7 @@ aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, cons
 stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 std::vector<std::pair<aperi::Index, Eigen::Vector3d>> GetElementIndicesAndCentroids(const aperi::MeshData& mesh_data, const aperi::Selector& selector);
+std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> GetNodeIndicesAndElements(const aperi::MeshData& mesh_data, const aperi::Selector& selector);
 std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> GetNodeLocalOffsetsAndCoordinates(const aperi::MeshData& mesh_data, const aperi::Selector& selector);
 std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> GetFaceLocalOffsetsAndCentroids(const aperi::MeshData& mesh_data, const aperi::Selector& selector);
 void GetInteriorAndExteriorFaces(const aperi::MeshData& mesh_data, const aperi::Selector& selector, aperi::EntityVector& interior_faces, aperi::EntityVector& exterior_faces);

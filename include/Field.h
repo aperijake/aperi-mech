@@ -50,6 +50,10 @@ class Field {
         m_ngp_field = stk::mesh::get_updated_ngp_field<T>(*m_field);
     }
 
+    bool IsValid() const {
+        return m_field != nullptr && m_mesh_data != nullptr;
+    }
+
     /**
      * @brief Gather the field data for the entity and store it in an array.
      * @param index The index of the entity.

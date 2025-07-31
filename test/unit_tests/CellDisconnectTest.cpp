@@ -19,7 +19,12 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
         m_num_nodes_y = num_nodes_y;
         m_num_nodes_z = num_nodes_z;
         CreateAndReadNodalMesh();
-        AddFieldsAndCreateMeshLabeler();
+
+        std::vector<aperi::FieldData> field_data;
+        std::vector<aperi::Unsigned> initial_values(1, aperi::UNSIGNED_MAX);
+        field_data.push_back(aperi::FieldData("node_disconnect_id", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, initial_values));
+
+        AddFieldsAndCreateMeshLabeler(field_data);
         m_mesh_data = m_io_mesh->GetMeshData();
         LabelGeneratedNodalMesh(m_mesh_data, m_num_subcells, m_activate_center_node);
         ASSERT_TRUE(m_mesh_data != nullptr);
@@ -36,6 +41,7 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
 
         GetInteriorAndExteriorCellFaces(*m_mesh_data, selector, interior_faces, exterior_faces);
 
+        std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> node_elements = GetNodeIndicesAndElements(*m_mesh_data, selector);
         std::vector<std::pair<aperi::Index, Eigen::Vector3d>> elements_and_centroids = GetElementIndicesAndCentroids(*m_mesh_data, selector);
         std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> nodes_and_coordinates = GetNodeLocalOffsetsAndCoordinates(*m_mesh_data, selector);
         std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> faces_and_centroids = GetFaceLocalOffsetsAndCentroids(*m_mesh_data, selector);
@@ -103,6 +109,35 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
                 }
             }
             EXPECT_TRUE(found) << "Face index " << index << " not found after disconnection.";
+        }
+
+        aperi::FieldQueryData<aperi::Unsigned> node_disconnect_id_query_data({"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+        EXPECT_TRUE(aperi::StkFieldExists(node_disconnect_id_query_data, m_mesh_data->GetMetaData()));
+        // Get the node_disconnect_id field
+        aperi::Field<aperi::Unsigned> node_disconnect_id_field(m_mesh_data, node_disconnect_id_query_data);
+
+        // Check the node-element data.
+        stk::mesh::BulkData* p_bulk = m_mesh_data->GetBulkData();
+        // Loop through each node and check the connected elements
+        for (stk::mesh::Bucket* bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+            for (const stk::mesh::Entity& node : *bucket) {
+                const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(node);
+                aperi::Index node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+                aperi::Unsigned node_id = node_disconnect_id_field(node_index, 0);
+                // Get the connected elements for this node
+                Kokkos::View<aperi::Unsigned*>::HostMirror connected_elements_host = cell_disconnect.GetNodeElementsHost(node_index);
+                for (size_t i = 0; i < node_elements.size(); ++i) {
+                    aperi::Unsigned new_node_id = node_disconnect_id_field(node_elements[i].first, 0);
+                    if (new_node_id == node_id) {
+                        // Check that the connected elements match the original elements
+                        EXPECT_EQ(connected_elements_host.extent(0), node_elements[i].second.size());
+                        for (size_t j = 0; j < connected_elements_host.extent(0); ++j) {
+                            EXPECT_EQ(connected_elements_host(j), node_elements[i].second[j]);
+                        }
+                        break;
+                    }
+                }
+            }
         }
     }
 

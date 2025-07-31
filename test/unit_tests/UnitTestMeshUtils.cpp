@@ -378,6 +378,30 @@ std::vector<std::pair<aperi::Index, Eigen::Vector3d>> GetElementIndicesAndCentro
     return elements_and_centroids;
 }
 
+// Function to get node indices and elements
+std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> GetNodeIndicesAndElements(const aperi::MeshData& mesh_data,
+                                                                                             const aperi::Selector& selector) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> nodes_and_elements;
+
+    // Loop over all the nodes in the selected parts
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Entity node : *p_bucket) {
+            const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(node);
+            auto node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+
+            // Get the connected elements for the node
+            stk::mesh::ConnectedEntities elems = p_bulk->get_connected_entities(node, stk::topology::ELEMENT_RANK);
+            std::vector<aperi::Unsigned> element_local_offsets;
+            for (const stk::mesh::Entity& elem : elems) {
+                element_local_offsets.push_back(elem.local_offset());
+            }
+            nodes_and_elements.emplace_back(node_index, element_local_offsets);
+        }
+    }
+    return nodes_and_elements;
+}
+
 std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> GetNodeLocalOffsetsAndCoordinates(const aperi::MeshData& mesh_data, const aperi::Selector& selector) {
     std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> nodes_and_coordinates;
 

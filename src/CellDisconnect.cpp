@@ -7,9 +7,10 @@
 #include <stk_tools/mesh_tools/EntityDisconnectTool.hpp>
 
 #include "AperiStkUtils.h"
-#include "FieldData.h"
+#include "Constants.h"
+#include "ForEachEntity.h"
 #include "LogUtils.h"
-#include "MeshData.h"
+#include "NgpMeshData.h"
 #include "Selector.h"
 
 namespace aperi {
@@ -17,9 +18,51 @@ namespace aperi {
 CellDisconnect::CellDisconnect(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names)
     : m_mesh_data(mesh_data), m_part_names(part_names) {}
 
+void CellDisconnect::BuildOriginalNodeElements() {
+    // Initialize the flattened ragged array data for node elements
+    size_t num_owned_nodes = m_mesh_data->GetNumOwnedNodes(m_part_names);
+    m_node_elements = aperi::FlattenedRaggedArrayData<aperi::Unsigned>(num_owned_nodes, aperi::UNSIGNED_MAX);
+
+    // Build the original node-elements list
+    auto add_num_items_functor = m_node_elements.GetAddNumItemsFunctor();
+    aperi::SetNumConnectedElementsForNodeFunctor set_num_connected_elements_functor(m_mesh_data, add_num_items_functor);
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    aperi::ForEachNode(set_num_connected_elements_functor, *m_mesh_data, selector);
+    m_node_elements.CompleteAddingNumItems();
+
+    // Add the connected elements for each node
+    aperi::FlattenedRaggedArray::AddItemsFunctor<aperi::Unsigned> add_items_functor = m_node_elements.GetAddItemsFunctor();
+    aperi::AddConnectedElementsForNodeFunctor add_connected_elements_functor(m_mesh_data, add_items_functor);
+    aperi::ForEachNode(add_connected_elements_functor, *m_mesh_data, selector);
+    m_node_elements.CompleteAddingItems();  // Copy the flattened data to the host
+}
+
+void CellDisconnect::SetNodeDisconnectIds() {
+    // Set the node disconnect ids for each node
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    SetNodeDisconnectIdsFunctor set_node_disconnect_ids_functor(m_mesh_data);
+    aperi::ForEachNode(set_node_disconnect_ids_functor, *m_mesh_data, selector);
+}
+
 void CellDisconnect::DisconnectCells() {
     auto* p_bulk = m_mesh_data->GetBulkData();
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+
+    // Get the cell disconnect ids
+    aperi::FieldQueryData<aperi::Unsigned> node_disconnect_id_query_data({"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    // Warn if the node_disconnect_id field does not exist and exit
+    if (aperi::StkFieldExists(node_disconnect_id_query_data, m_mesh_data->GetMetaData())) {
+        // Get the node_disconnect_id field
+        m_node_disconnect_id = aperi::Field<aperi::Unsigned>(m_mesh_data, node_disconnect_id_query_data);
+
+        // Set the node disconnect ids for each node
+        SetNodeDisconnectIds();
+
+        // Build the original node-elements list
+        BuildOriginalNodeElements();
+    } else {
+        aperi::CoutP0() << "Warning: The node_disconnect_id field does not exist. Skipping disconnecting cells." << std::endl;
+    }
 
     // Get the cell boundary faces
     aperi::EntityVector interior_faces = GetCellBoundaryFaces();
