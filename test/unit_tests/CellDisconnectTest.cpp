@@ -22,7 +22,7 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
 
         std::vector<aperi::FieldData> field_data;
         std::vector<aperi::Unsigned> initial_values(1, aperi::UNSIGNED_MAX);
-        field_data.push_back(aperi::FieldData("node_disconnect_id", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, initial_values));
+        field_data.emplace_back("node_disconnect_id", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, initial_values);
 
         AddFieldsAndCreateMeshLabeler(field_data);
         m_mesh_data = m_io_mesh->GetMeshData();
@@ -119,20 +119,20 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
         // Check the node-element data.
         stk::mesh::BulkData* p_bulk = m_mesh_data->GetBulkData();
         // Loop through each node and check the connected elements
-        for (stk::mesh::Bucket* bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
-            for (const stk::mesh::Entity& node : *bucket) {
+        for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+            for (const stk::mesh::Entity& node : *p_bucket) {
                 const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(node);
                 aperi::Index node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
                 aperi::Unsigned node_id = node_disconnect_id_field(node_index, 0);
                 // Get the connected elements for this node
                 Kokkos::View<aperi::Unsigned*>::HostMirror connected_elements_host = cell_disconnect.GetNodeElementsHost(node_index);
-                for (size_t i = 0; i < node_elements.size(); ++i) {
-                    aperi::Unsigned new_node_id = node_disconnect_id_field(node_elements[i].first, 0);
+                for (auto& node_element : node_elements) {
+                    aperi::Unsigned new_node_id = node_disconnect_id_field(node_element.first, 0);
                     if (new_node_id == node_id) {
                         // Check that the connected elements match the original elements
-                        EXPECT_EQ(connected_elements_host.extent(0), node_elements[i].second.size());
+                        EXPECT_EQ(connected_elements_host.extent(0), node_element.second.size());
                         for (size_t j = 0; j < connected_elements_host.extent(0); ++j) {
-                            EXPECT_EQ(connected_elements_host(j), node_elements[i].second[j]);
+                            EXPECT_EQ(connected_elements_host(j), node_element.second[j]);
                         }
                         break;
                     }

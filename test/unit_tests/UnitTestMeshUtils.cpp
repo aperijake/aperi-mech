@@ -271,13 +271,13 @@ Eigen::Vector3d ComputeEntityCentroid(const stk::mesh::BulkData& bulk, stk::mesh
     assert(bulk.is_valid(entity));
 
     // Get the nodes of the element
-    const stk::mesh::Entity* nodes = bulk.begin_nodes(entity);
+    const stk::mesh::Entity* p_nodes = bulk.begin_nodes(entity);
     size_t num_nodes = bulk.num_nodes(entity);
 
     // Compute the centroid
     Eigen::Vector3d centroid(0.0, 0.0, 0.0);
     for (size_t i = 0; i < num_nodes; ++i) {
-        double* p_node_coords = stk::mesh::field_data(coordinates_field, nodes[i]);
+        double* p_node_coords = stk::mesh::field_data(coordinates_field, p_nodes[i]);
         centroid += Eigen::Vector3d(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
     }
     centroid /= static_cast<double>(num_nodes);
@@ -301,10 +301,8 @@ stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, cons
     // Loop over the elements in the part
     for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::ELEM_RANK)) {
         // Loop over each entity in the bucket
-        for (size_t i_entity = 0; i_entity < p_bucket->size(); i_entity++) {
+        for (auto element : *p_bucket) {
             // Get the nodes of the element
-            stk::mesh::Entity element = (*p_bucket)[i_entity];
-
             // Get the element centroid
             Eigen::Vector3d element_centroid = ComputeEntityCentroid(*mesh_data.GetBulkData(), coordinates_field, element);
 
