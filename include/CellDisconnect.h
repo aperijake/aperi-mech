@@ -106,14 +106,24 @@ class CellDisconnect {
 
     KOKKOS_INLINE_FUNCTION
     Kokkos::View<aperi::Unsigned *> GetNodeElements(const aperi::Index &node_index) const {
+        KOKKOS_ASSERT(m_node_elements_built);
         aperi::Unsigned node_id = m_node_disconnect_id(node_index, 0);
         return m_node_elements.GetData(node_id);
     }
 
     Kokkos::View<aperi::Unsigned *>::HostMirror GetNodeElementsHost(const aperi::Index &node_index) const {
         assert(m_node_disconnect_id.IsValid());
+        assert(m_node_elements_built);
         aperi::Unsigned node_id = m_node_disconnect_id(node_index, 0);
         return m_node_elements.GetDataHost(node_id);
+    }
+
+    /**
+     * @brief Check if the node elements have been built.
+     * @return True if the node elements have been built, false otherwise.
+     */
+    bool NodeElementsHaveBeenBuilt() const {
+        return m_node_elements_built;
     }
 
    private:
@@ -133,6 +143,7 @@ class CellDisconnect {
     std::vector<std::string> m_part_names;
     aperi::FlattenedRaggedArrayData<aperi::Unsigned> m_node_elements;  // The original elements connected to nodes
     aperi::Field<aperi::Unsigned> m_node_disconnect_id;                ///< The node disconnect id field
+    bool m_node_elements_built;                                        ///< Flag to indicate if node elements have been built
 };
 
 }  // namespace aperi

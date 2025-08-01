@@ -35,6 +35,9 @@ void CellDisconnect::BuildOriginalNodeElements() {
     aperi::AddConnectedElementsForNodeFunctor add_connected_elements_functor(m_mesh_data, add_items_functor);
     aperi::ForEachNode(add_connected_elements_functor, *m_mesh_data, selector);
     m_node_elements.CompleteAddingItems();  // Copy the flattened data to the host
+
+    // Set the node elements built flag
+    m_node_elements_built = true;
 }
 
 void CellDisconnect::SetNodeDisconnectIds() {
