@@ -99,6 +99,11 @@ class MeshLabelerProcessor {
             CreateActivePartFromActiveFieldHost(2);
         }
 
+        if (true) {
+            // Add the center node to the active part
+            AddActiveNodesAtElementCentersHost();
+        }
+
         // Copy the temporary active field to the active field
         CopyTemporaryActiveFieldToActiveField();
 
@@ -329,6 +334,109 @@ class MeshLabelerProcessor {
         //  Change the nodes to the active part
         ChangePartsHost("universal_active_part", nodes_to_change, *m_bulk_data);
         ChangePartsHost(m_set + "_active", nodes_to_change, *m_bulk_data);
+    }
+
+    void AddActiveNodesAtElementCentersHost() {
+        m_bulk_data->modification_begin();
+        m_mesh_data->DeclareNodePart(m_set + "_extra_nodes");
+        m_mesh_data->AddPartToOutput(m_set + "_extra_nodes");
+        stk::mesh::PartVector parts;
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_active"));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part("universal_active_part"));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_extra_nodes"));
+
+        // Declare the late field for the owning_element of the extra nodes
+        aperi::FieldData owning_element_field_data("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, 1, std::vector<aperi::Unsigned>{});
+        m_mesh_data->DeclareLateField(owning_element_field_data, {m_set + "_extra_nodes"});
+
+        // Get the number of elements
+        unsigned num_requested = m_mesh_data->GetNumOwnedElements({m_set});
+        std::vector<stk::mesh::EntityId> requested_ids;
+        m_bulk_data->generate_new_ids(stk::topology::NODE_RANK, num_requested, requested_ids);
+
+        // Counter for the new nodes
+        unsigned new_node_counter = 0;
+
+        // Get the node_sets, max_edge_length, and owning_element fields
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+        stk::mesh::Field<aperi::Unsigned> *node_sets_field = StkGetField(FieldQueryData<aperi::Unsigned>{"node_sets", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        stk::mesh::Field<aperi::Unsigned> *m_owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+
+        // Get the various coordinate fields
+        stk::mesh::Field<aperi::Real> *current_coordinates_n_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_n", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        stk::mesh::Field<aperi::Real> *current_coordinates_np1_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        stk::mesh::Field<aperi::Real> *reference_coordinates_field = StkGetField(FieldQueryData<aperi::Real>{"reference_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+
+        // Create a new node for each element center
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                // Get the element
+                stk::mesh::Entity element = (*bucket)[i_elem];
+
+                // Get the nodes of the element
+                const stk::mesh::Entity *p_connected_nodes = m_bulk_data->begin_nodes(element);
+                size_t num_connected_nodes = m_bulk_data->num_nodes(element);
+
+                // Calculate the centroid of the element
+                Eigen::Vector3d centroid(0.0, 0.0, 0.0);
+                for (size_t i = 0; i < num_connected_nodes; ++i) {
+                    double *p_this_node_coords = stk::mesh::field_data(*m_coordinates_field, p_connected_nodes[i]);
+                    centroid += Eigen::Vector3d(p_this_node_coords[0], p_this_node_coords[1], p_this_node_coords[2]);
+                }
+                centroid /= num_connected_nodes;  // Average the coordinates to get the centroid
+
+                // Compute the max distance from the centroid to the nodes
+                double max_distance = 0.0;
+                for (size_t i = 0; i < num_connected_nodes; ++i) {
+                    double *p_this_node_coords = stk::mesh::field_data(*m_coordinates_field, p_connected_nodes[i]);
+                    Eigen::Vector3d node_coords(p_this_node_coords[0], p_this_node_coords[1], p_this_node_coords[2]);
+                    double distance = (node_coords - centroid).norm();
+                    if (distance > max_distance) {
+                        max_distance = distance;
+                    }
+                }
+
+                stk::mesh::Entity node = m_bulk_data->declare_node(requested_ids[new_node_counter++], parts);
+                double *p_node_coords = stk::mesh::field_data(*m_coordinates_field, node);
+                double *p_current_coords_n = stk::mesh::field_data(*current_coordinates_n_field, node);
+                double *p_current_coords_np1 = stk::mesh::field_data(*current_coordinates_np1_field, node);
+                double *p_reference_coords = stk::mesh::field_data(*reference_coordinates_field, node);
+                p_node_coords[0] = centroid[0];
+                p_node_coords[1] = centroid[1];
+                p_node_coords[2] = centroid[2];
+                p_current_coords_n[0] = centroid[0];
+                p_current_coords_n[1] = centroid[1];
+                p_current_coords_n[2] = centroid[2];
+                p_current_coords_np1[0] = centroid[0];
+                p_current_coords_np1[1] = centroid[1];
+                p_current_coords_np1[2] = centroid[2];
+                p_reference_coords[0] = centroid[0];
+                p_reference_coords[1] = centroid[1];
+                p_reference_coords[2] = centroid[2];
+                std::cout << "Created node " << requested_ids[new_node_counter - 1] << " at centroid ("
+                          << p_node_coords[0] << ", " << p_node_coords[1] << ", " << p_node_coords[2] << ")" << std::endl;
+
+                // Set the active field for the new node
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, node);
+                active_field_data[0] = 1;  // Set to active
+
+                // Set the node_sets field for the new node
+                // TODO(jake): This should be moved to the preprocessor
+                aperi::Unsigned *node_sets_data = stk::mesh::field_data(*node_sets_field, node);
+                node_sets_data[0] = 1;  // Set to the set of the mesh
+
+                // Set the max_edge_length field for the new node
+                aperi::Real *max_edge_length_data = stk::mesh::field_data(*max_edge_length_field, node);
+                max_edge_length_data[0] = max_distance;
+
+                // Set the owning_element field for the new node
+                aperi::Unsigned *owning_element_data = stk::mesh::field_data(*m_owning_element_field, node);
+                owning_element_data[0] = element.local_offset();
+            }
+        }
+        m_bulk_data->modification_end();
     }
 
     void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {

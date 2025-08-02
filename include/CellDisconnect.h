@@ -40,7 +40,11 @@ struct SetNumConnectedElementsForNodeFunctor {
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const aperi::Index &node_index) const {
-        const size_t num_connected = m_ngp_mesh.GetNodeElements(node_index).size();
+        size_t num_connected = m_ngp_mesh.GetNodeElements(node_index).size();
+        // If no connected elements, set to 1 as this is an extra node
+        if (num_connected == 0) {
+            num_connected = 1;
+        }
         const aperi::Unsigned node_disconnect_id = m_node_disconnect_id(node_index, 0);
         m_add_num_connected_element_functor(node_disconnect_id, num_connected);
     }
@@ -53,9 +57,7 @@ struct SetNumConnectedElementsForNodeFunctor {
 
 struct AddConnectedElementsForNodeFunctor {
     AddConnectedElementsForNodeFunctor(const std::shared_ptr<aperi::MeshData> &mesh_data, aperi::FlattenedRaggedArray::AddItemsFunctor<aperi::Unsigned> &add_items_functor)
-        : m_ngp_mesh(mesh_data->GetUpdatedNgpMesh()),
-          m_node_disconnect_id(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}),
-          m_add_items_functor(add_items_functor) {
+        : m_ngp_mesh(mesh_data->GetUpdatedNgpMesh()), m_node_disconnect_id(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}), m_owning_element(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"owning_element", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}), m_add_items_functor(add_items_functor) {
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const aperi::Index &node_index) const {
@@ -64,11 +66,17 @@ struct AddConnectedElementsForNodeFunctor {
         for (size_t i = 0; i < connected_entities.size(); ++i) {
             m_add_items_functor(node_disconnect_id, connected_entities[i].local_offset());
         }
+        if (connected_entities.size() == 0) {
+            // If no connected elements, add the owning element as a connected element
+            const aperi::Unsigned owning_element_id = m_owning_element(node_index, 0);
+            m_add_items_functor(node_disconnect_id, owning_element_id);
+        }
     }
 
    private:
     aperi::NgpMeshData m_ngp_mesh;
     const aperi::Field<aperi::Unsigned> m_node_disconnect_id;  ///< The node disconnect id field
+    const aperi::Field<aperi::Unsigned> m_owning_element;      ///< The owning element field
     aperi::FlattenedRaggedArray::AddItemsFunctor<aperi::Unsigned> m_add_items_functor;
 };
 
