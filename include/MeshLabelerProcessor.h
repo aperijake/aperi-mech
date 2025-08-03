@@ -387,7 +387,7 @@ class MeshLabelerProcessor {
                 }
                 centroid /= num_connected_nodes;  // Average the coordinates to get the centroid
 
-                // Compute the max distance from the centroid to the nodes
+                // Compute the max distance from the centroid to the nodes, times 3
                 double max_distance = 0.0;
                 for (size_t i = 0; i < num_connected_nodes; ++i) {
                     double *p_this_node_coords = stk::mesh::field_data(*m_coordinates_field, p_connected_nodes[i]);
@@ -397,6 +397,7 @@ class MeshLabelerProcessor {
                         max_distance = distance;
                     }
                 }
+                max_distance *= 3.0;  // Triple the distance for the max edge length
 
                 stk::mesh::Entity node = m_bulk_data->declare_node(requested_ids[new_node_counter++], parts);
                 double *p_node_coords = stk::mesh::field_data(*m_coordinates_field, node);
