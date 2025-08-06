@@ -177,7 +177,8 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
     KOKKOS_INLINE_FUNCTION void ComputeStressAndHandleMaterialSeparation(const aperi::Index &elem_index,
                                                                          const size_t &subcell_id,
                                                                          MaterialSeparationFunctor material_separation_functor,
-                                                                         const bool &use_f_bar) const {
+                                                                         const bool &use_f_bar,
+                                                                         const double &time) const {
         // Default stride for a 3x3 matrix
         const Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> mat3_stride(3, 1);
 
@@ -346,6 +347,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         size_t num_subcells = scd.NumSubcells();
 
         bool use_f_bar = true;
+        double time = m_time_device(0);
 
         // Loop over all the subcells
         Kokkos::parallel_for(
@@ -375,7 +377,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
                 const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
                 const aperi::Index elem_index = element_indices(0);
                 // Compute the stress and handle material separation
-                ComputeStressAndHandleMaterialSeparation(elem_index, subcell_id, material_separation_functor, use_f_bar);
+                ComputeStressAndHandleMaterialSeparation(elem_index, subcell_id, material_separation_functor, use_f_bar, time);
             });
 
         // Unbar the stress
@@ -407,6 +409,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         size_t num_subcells = scd.NumSubcells();
 
         bool use_f_bar = false;
+        double time = m_time_device(0);
 
         // Loop over all the subcells
         Kokkos::parallel_for(
@@ -424,7 +427,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
                 ComputeDisplacementGradientAndJ(scd, elem_index, subcell_id, num_nodes, node_indicies, node_function_derivatives, use_f_bar);
 
                 // Compute the stress and handle material separation
-                ComputeStressAndHandleMaterialSeparation(elem_index, subcell_id, material_separation_functor, use_f_bar);
+                ComputeStressAndHandleMaterialSeparation(elem_index, subcell_id, material_separation_functor, use_f_bar, time);
 
                 // Compute the internal force
                 ComputeInternalForce(scd, elem_index, subcell_id, num_nodes, node_indicies, node_function_derivatives, use_f_bar);

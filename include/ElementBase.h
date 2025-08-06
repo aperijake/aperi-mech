@@ -72,7 +72,7 @@ class ElementBase {
      * @brief Computes the internal force of the element.
      *
      */
-    virtual void ComputeInternalForceAllElements(double time_increment) = 0;
+    virtual void ComputeInternalForceAllElements(double time_increment, double time) = 0;
 
     /**
      * @brief Populates the element outputs.

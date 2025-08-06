@@ -32,6 +32,44 @@ struct SetNodeDisconnectIdsFunctor {
     Kokkos::View<size_t *> m_id_counter;                 ///< Counter for unique IDs
 };
 
+struct SetParentCellFunctor {
+    SetParentCellFunctor(const std::shared_ptr<aperi::MeshData> &mesh_data)
+        : m_ngp_mesh(mesh_data->GetUpdatedNgpMesh()),
+          m_parent_cell_id(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"parent_cell", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}),
+          m_cell_id(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"cell_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT}) {
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(const aperi::Index &node_index) const {
+        // Get the connected elements for the node
+        const auto connected_elements = m_ngp_mesh.GetNodeElements(node_index);
+        if (connected_elements.size() == 0) {
+            // If no connected elements, we cannot set a parent cell ID. Must be an extra node and should be set elsewhere.
+            return;
+        }
+
+        // Get the first connected element ID
+        aperi::Index first_element_index = m_ngp_mesh.GetEntityIndex(connected_elements[0]);
+        aperi::Unsigned cell_id = m_cell_id(first_element_index, 0);
+
+        // Loop through all connected elements to ensure the cell ID is consistent
+        for (const auto &element : connected_elements) {
+            aperi::Index element_index = m_ngp_mesh.GetEntityIndex(element);
+            aperi::Unsigned current_cell_id = m_cell_id(element_index, 0);
+            if (current_cell_id != cell_id) {
+                Kokkos::abort("Inconsistent cell IDs found for connected elements.");
+            }
+        }
+
+        // Set the parent cell ID
+        m_parent_cell_id(node_index, 0) = cell_id;
+    }
+
+   private:
+    aperi::NgpMeshData m_ngp_mesh;
+    aperi::Field<aperi::Unsigned> m_parent_cell_id;  ///< The parent cell id field
+    aperi::Field<aperi::Unsigned> m_cell_id;         ///< The cell id field
+};
+
 struct SetNumConnectedElementsForNodeFunctor {
     SetNumConnectedElementsForNodeFunctor(const std::shared_ptr<aperi::MeshData> &mesh_data, aperi::FlattenedRaggedArray::AddNumItemsFunctor &add_num_items_functor)
         : m_ngp_mesh(mesh_data->GetUpdatedNgpMesh()),
@@ -146,6 +184,12 @@ class CellDisconnect {
      * This is used to keep track of which elements are connected to which nodes.
      */
     void BuildOriginalNodeElements();
+
+    /**
+     * @brief Set the parent cell field for each node.
+     * This is used to keep track of which cell a node belongs to.
+     */
+    void SetParentCellField();
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::vector<std::string> m_part_names;

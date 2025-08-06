@@ -359,10 +359,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<YAML::Node> contact = io_input_file->GetContact(procedure_id);
     std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions = CreateContactForceContribution(contact, io_mesh, uses_generalized_fields, formulation_type);
 
-    // Set initial conditions
-    std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
-    AddInitialConditions(initial_conditions, io_mesh);
-
     // Create boundary conditions
     std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh);
@@ -382,6 +378,10 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Pre-processing
     Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, formulation_type);
+
+    // Set initial conditions
+    std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
+    AddInitialConditions(initial_conditions, io_mesh);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {

@@ -346,7 +346,7 @@ class MeshLabelerProcessor {
         parts.push_back(m_bulk_data->mesh_meta_data().get_part("universal_active_part"));
         parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_extra_nodes"));
 
-        // Declare the late field for the owning_element of the extra nodes
+        // Declare the late field for the owning element of the extra nodes
         aperi::FieldData owning_element_field_data("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, 1, std::vector<aperi::Unsigned>{});
         m_mesh_data->DeclareLateField(owning_element_field_data, {m_set + "_extra_nodes"});
 
@@ -358,16 +358,34 @@ class MeshLabelerProcessor {
         // Counter for the new nodes
         unsigned new_node_counter = 0;
 
-        // Get the node_sets, max_edge_length, and owning_element fields
+        // Get the node_sets, max_edge_length, and parent_cell fields
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         stk::mesh::Field<aperi::Unsigned> *node_sets_field = StkGetField(FieldQueryData<aperi::Unsigned>{"node_sets", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        stk::mesh::Field<aperi::Unsigned> *m_owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        aperi::FieldQueryData<aperi::Unsigned> parent_cell_query = aperi::FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE};
+        stk::mesh::Field<aperi::Unsigned> *parent_cell_field;
+        bool parent_cell_field_exists = aperi::StkFieldExists(parent_cell_query, meta_data);
+        if (parent_cell_field_exists) {
+            parent_cell_field = StkGetField(FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        }
+        stk::mesh::Field<aperi::Unsigned> *owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        stk::mesh::Field<aperi::Unsigned> *cell_id_field = StkGetField(FieldQueryData<aperi::Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
 
         // Get the various coordinate fields
-        stk::mesh::Field<aperi::Real> *current_coordinates_n_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_n", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        stk::mesh::Field<aperi::Real> *current_coordinates_np1_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        stk::mesh::Field<aperi::Real> *reference_coordinates_field = StkGetField(FieldQueryData<aperi::Real>{"reference_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        aperi::FieldQueryData<aperi::Real> current_coordinates_n_query_data{"current_coordinates_n", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        aperi::FieldQueryData<aperi::Real> current_coordinates_np1_query_data{"current_coordinates_np1", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        aperi::FieldQueryData<aperi::Real> reference_coordinates_query_data{"reference_coordinates", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        stk::mesh::Field<aperi::Real> *current_coordinates_n_field;
+        stk::mesh::Field<aperi::Real> *current_coordinates_np1_field;
+        stk::mesh::Field<aperi::Real> *reference_coordinates_field;
+        bool extra_coordinates_fields_exist = aperi::StkFieldExists(current_coordinates_n_query_data, meta_data) &&
+                                              aperi::StkFieldExists(current_coordinates_np1_query_data, meta_data) &&
+                                              aperi::StkFieldExists(reference_coordinates_query_data, meta_data);
+        if (extra_coordinates_fields_exist) {
+            current_coordinates_n_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_n", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            current_coordinates_np1_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            reference_coordinates_field = StkGetField(FieldQueryData<aperi::Real>{"reference_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        }
 
         // Create a new node for each element center
         for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
@@ -401,23 +419,23 @@ class MeshLabelerProcessor {
 
                 stk::mesh::Entity node = m_bulk_data->declare_node(requested_ids[new_node_counter++], parts);
                 double *p_node_coords = stk::mesh::field_data(*m_coordinates_field, node);
-                double *p_current_coords_n = stk::mesh::field_data(*current_coordinates_n_field, node);
-                double *p_current_coords_np1 = stk::mesh::field_data(*current_coordinates_np1_field, node);
-                double *p_reference_coords = stk::mesh::field_data(*reference_coordinates_field, node);
                 p_node_coords[0] = centroid[0];
                 p_node_coords[1] = centroid[1];
                 p_node_coords[2] = centroid[2];
-                p_current_coords_n[0] = centroid[0];
-                p_current_coords_n[1] = centroid[1];
-                p_current_coords_n[2] = centroid[2];
-                p_current_coords_np1[0] = centroid[0];
-                p_current_coords_np1[1] = centroid[1];
-                p_current_coords_np1[2] = centroid[2];
-                p_reference_coords[0] = centroid[0];
-                p_reference_coords[1] = centroid[1];
-                p_reference_coords[2] = centroid[2];
-                std::cout << "Created node " << requested_ids[new_node_counter - 1] << " at centroid ("
-                          << p_node_coords[0] << ", " << p_node_coords[1] << ", " << p_node_coords[2] << ")" << std::endl;
+                if (extra_coordinates_fields_exist) {
+                    double *p_current_coords_n = stk::mesh::field_data(*current_coordinates_n_field, node);
+                    double *p_current_coords_np1 = stk::mesh::field_data(*current_coordinates_np1_field, node);
+                    double *p_reference_coords = stk::mesh::field_data(*reference_coordinates_field, node);
+                    p_current_coords_n[0] = centroid[0];
+                    p_current_coords_n[1] = centroid[1];
+                    p_current_coords_n[2] = centroid[2];
+                    p_current_coords_np1[0] = centroid[0];
+                    p_current_coords_np1[1] = centroid[1];
+                    p_current_coords_np1[2] = centroid[2];
+                    p_reference_coords[0] = centroid[0];
+                    p_reference_coords[1] = centroid[1];
+                    p_reference_coords[2] = centroid[2];
+                }
 
                 // Set the active field for the new node
                 UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, node);
@@ -433,8 +451,15 @@ class MeshLabelerProcessor {
                 max_edge_length_data[0] = max_distance;
 
                 // Set the owning_element field for the new node
-                aperi::Unsigned *owning_element_data = stk::mesh::field_data(*m_owning_element_field, node);
+                aperi::Unsigned *owning_element_data = stk::mesh::field_data(*owning_element_field, node);
                 owning_element_data[0] = element.local_offset();
+
+                // Set the parent_cell field for the new node
+                if (parent_cell_field_exists) {
+                    aperi::Unsigned *parent_cell_data = stk::mesh::field_data(*parent_cell_field, node);
+                    aperi::Unsigned *cell_id_data = stk::mesh::field_data(*cell_id_field, element);
+                    parent_cell_data[0] = cell_id_data[0];
+                }
             }
         }
         m_bulk_data->modification_end();

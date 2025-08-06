@@ -46,9 +46,11 @@ class ComputeInternalForceBase {
           m_has_damage(material.HasDamage()),
           m_lagrangian_formulation_type(lagrangian_formulation_type),
           m_time_increment_device("TimeIncrementDevice"),
+          m_time_device("TimeDevice"),
           m_stress_functor(*material.GetStressFunctor()) {
         // Set the initial time increment on the device to 0
         Kokkos::deep_copy(m_time_increment_device, 0.0);
+        Kokkos::deep_copy(m_time_device, 0.0);
 
         // Throw an exception if the mesh data is null.
         if (m_mesh_data == nullptr) {
@@ -92,6 +94,14 @@ class ComputeInternalForceBase {
      */
     void SetTimeIncrement(double time_increment) {
         Kokkos::deep_copy(m_time_increment_device, time_increment);
+    }
+
+    /**
+     * @brief Sets the time.
+     * @param time The time.
+     */
+    void SetTime(double time) {
+        Kokkos::deep_copy(m_time_device, time);
     }
 
     /**
@@ -223,6 +233,7 @@ class ComputeInternalForceBase {
     const aperi::LagrangianFormulationType m_lagrangian_formulation_type;  // The Lagrangian formulation type.
 
     Kokkos::View<double *> m_time_increment_device;  // The time increment on the device.
+    Kokkos::View<double *> m_time_device;            // The time on the device.
 
     aperi::Field<double> m_displacement_np1_field;                       // The field for the node displacements.
     mutable aperi::Field<double> m_force_field;                          // The field for the node mass from elements.

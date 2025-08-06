@@ -40,6 +40,19 @@ void CellDisconnect::BuildOriginalNodeElements() {
     m_node_elements_built = true;
 }
 
+void CellDisconnect::SetParentCellField() {
+    // Declare the parent_cell field if it does not exist
+    aperi::FieldQueryData<aperi::Unsigned> parent_cell_query_data({"parent_cell", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
+    if (!aperi::StkFieldExists(parent_cell_query_data, m_mesh_data->GetMetaData())) {
+        aperi::CoutP0() << "Warning: The parent_cell field does not exist. Skipping setting parent_cell field." << std::endl;
+        return;
+    }
+
+    aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    SetParentCellFunctor set_parent_cell_functor(m_mesh_data);
+    aperi::ForEachNode(set_parent_cell_functor, *m_mesh_data, selector);
+}
+
 void CellDisconnect::SetNodeDisconnectIds() {
     // Set the node disconnect ids for each node
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
@@ -97,6 +110,9 @@ void CellDisconnect::DisconnectCells() {
         stk::mesh::field_data(*p_paired_face_id_field, face)[0] = paired_face_id;
         stk::mesh::field_data(*p_paired_face_id_field, paired_face)[0] = face_id;
     }
+
+    // Set the parent cell field
+    SetParentCellField();
 }
 
 aperi::EntityVector CellDisconnect::GetCellBoundaryFaces() {
