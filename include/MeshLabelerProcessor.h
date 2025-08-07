@@ -99,7 +99,7 @@ class MeshLabelerProcessor {
             CreateActivePartFromActiveFieldHost(2);
         }
 
-        if (true) {
+        if (false) {
             // Add the center node to the active part
             AddActiveNodesAtElementCentersHost();
         }

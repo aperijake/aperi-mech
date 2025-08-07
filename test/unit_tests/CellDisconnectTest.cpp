@@ -23,6 +23,7 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
         std::vector<aperi::FieldData> field_data;
         std::vector<aperi::Unsigned> initial_values(1, aperi::UNSIGNED_MAX);
         field_data.emplace_back("node_disconnect_id", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, initial_values);
+        field_data.emplace_back("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, initial_values);
 
         AddFieldsAndCreateMeshLabeler(field_data);
         m_mesh_data = m_io_mesh->GetMeshData();
