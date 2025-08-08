@@ -56,6 +56,7 @@ struct SetParentCellFunctor {
             aperi::Index element_index = m_ngp_mesh.GetEntityIndex(element);
             aperi::Unsigned current_cell_id = m_cell_id(element_index, 0);
             if (current_cell_id != cell_id) {
+                printf("Inconsistent cell IDs found: %u (expected %u). Aborting.\n", static_cast<unsigned>(current_cell_id), static_cast<unsigned>(cell_id));
                 Kokkos::abort("Inconsistent cell IDs found for connected elements.");
             }
         }
@@ -177,6 +178,12 @@ class CellDisconnect {
         return m_node_elements_built;
     }
 
+    /**
+     * @brief Set the parent cell field for each node.
+     * This is used to keep track of which cell a node belongs to.
+     */
+    void SetParentCellField();
+
    private:
     /**
      * @brief Set the node disconnect ids for each node.
@@ -189,12 +196,6 @@ class CellDisconnect {
      * This is used to keep track of which elements are connected to which nodes.
      */
     void BuildOriginalNodeElements();
-
-    /**
-     * @brief Set the parent cell field for each node.
-     * This is used to keep track of which cell a node belongs to.
-     */
-    void SetParentCellField();
 
     std::shared_ptr<aperi::MeshData> m_mesh_data;
     std::vector<std::string> m_part_names;
