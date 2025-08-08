@@ -68,10 +68,10 @@ void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, 
     std::string set = "block_1";
 
     // Create the mesh labeler parameters
-    aperi::MeshLabelerProcessor mesh_labeler_processor(mesh_data, set, num_subcells, activate_center_node);
+    aperi::MeshLabelerProcessor mesh_labeler_processor(mesh_data, set);
 
     // After setting the active field, check that the nodal integration mesh is correct
-    mesh_labeler_processor.CheckNodalIntegrationOnRefinedMeshHost();
+    mesh_labeler_processor.CheckNodalIntegrationOnRefinedMeshHost(activate_center_node);
 
     // Create the active part from the active field, host operation
     mesh_labeler_processor.CreateActivePartFromActiveFieldHost();
@@ -91,12 +91,12 @@ void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, 
     mesh_labeler_processor.CopyTemporaryActiveFieldToActiveField();
 }
 
-void LabelGeneratedElementMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node) {
+void LabelGeneratedElementMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells) {
     std::string set = "block_1";
 
     // Create the mesh labeler parameters
-    aperi::MeshLabelerProcessor mesh_labeler_processor(mesh_data, set, num_subcells, activate_center_node);
+    aperi::MeshLabelerProcessor mesh_labeler_processor(mesh_data, set);
 
     // Label the cell and subcell ids for element integration
-    mesh_labeler_processor.LabelForElementIntegration();
+    mesh_labeler_processor.LabelForElementIntegration(num_subcells);
 }

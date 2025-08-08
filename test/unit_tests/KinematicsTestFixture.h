@@ -112,7 +112,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         AddFieldsAndCreateMeshLabeler(extra_fields);
         if (element_integration) {
-            LabelGeneratedElementMesh(m_mesh_data, num_subcells, activate_center_node);
+            LabelGeneratedElementMesh(m_mesh_data, num_subcells);
         } else {
             LabelGeneratedNodalMesh(m_mesh_data, num_subcells, activate_center_node);
         }

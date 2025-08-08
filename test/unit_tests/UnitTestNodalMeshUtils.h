@@ -38,4 +38,4 @@ void LabelGeneratedNodalMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, 
  * @param num_subcells Number of subcells
  * @param activate_center_node Whether to activate the center node
  */
-void LabelGeneratedElementMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells, bool activate_center_node);
+void LabelGeneratedElementMesh(const std::shared_ptr<aperi::MeshData> &mesh_data, size_t num_subcells);

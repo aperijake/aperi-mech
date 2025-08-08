@@ -32,13 +32,14 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "Types.h"
 
 namespace aperi {
 
 class MeshLabelerProcessor {
    public:
-    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells, bool activate_center_node) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells), m_activate_center_node(activate_center_node) {
+    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set) : m_mesh_data(mesh_data), m_set(set) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -75,31 +76,41 @@ class MeshLabelerProcessor {
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
     }
 
-    void LabelForThexNodalIntegration(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
+    void LabelPart(const MeshLabelerParameters &mesh_labeler_parameters) {
+        if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
+            LabelForThexNodalIntegration(mesh_labeler_parameters.num_subcells, mesh_labeler_parameters.activate_center_node, mesh_labeler_parameters.activate_subcell_center_node, mesh_labeler_parameters.deactivate_small_subcells, mesh_labeler_parameters.deactivate_subcells_smaller_than);
+        } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
+            LabelForElementIntegration(mesh_labeler_parameters.num_subcells);
+        } else {
+            LabelForGaussianIntegration(mesh_labeler_parameters.num_subcells);
+        }
+    }
+
+    void LabelForThexNodalIntegration(size_t num_subcells, bool activate_center_node, bool activate_subcell_center_node, bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field for nodal integration
-        SetActiveFieldForNodalIntegrationHost(deactivate_small_subcells, deactivate_subcells_smaller_than);
+        SetActiveFieldForNodalIntegrationHost(activate_center_node, deactivate_small_subcells, deactivate_subcells_smaller_than);
 
         // Parallel sum the active field
         ParallelMaxActiveField();
 
         // After setting the active field, check that the nodal integration mesh is correct
-        CheckNodalIntegrationOnRefinedMeshHost();
+        CheckNodalIntegrationOnRefinedMeshHost(activate_center_node);
 
         // Create the active part from the active field, host operation
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for nodal integration
-        LabelCellAndSubcellIdsForNodalIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForNodalIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(true);
 
         // Add the center node part to the active part, if the center node is to be activated
-        if (m_activate_center_node) {
+        if (activate_center_node) {
             CreateActivePartFromActiveFieldHost(2);
         }
 
-        if (false) {
+        if (activate_subcell_center_node) {
             // Add the center node to the active part
             AddActiveNodesAtElementCentersHost();
         }
@@ -111,13 +122,13 @@ class MeshLabelerProcessor {
         SyncFieldsToDevice();
     }
 
-    void LabelForElementIntegration() {
+    void LabelForElementIntegration(size_t num_subcells) {
         // Create the active part from the active field, host operation
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for element integration, host operation
-        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForElementIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -129,13 +140,13 @@ class MeshLabelerProcessor {
         SyncFieldsToDevice();
     }
 
-    void LabelForGaussianIntegration() {
+    void LabelForGaussianIntegration(size_t num_subcells) {
         // Create the active part from the active field, host operation
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for element integration, host operation
-        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForElementIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -214,7 +225,7 @@ class MeshLabelerProcessor {
     }
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
-    void SetActiveFieldForNodalIntegrationHost(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
+    void SetActiveFieldForNodalIntegrationHost(bool activate_center_node, bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field to 0 for all nodes
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
@@ -257,7 +268,7 @@ class MeshLabelerProcessor {
                 active_field_data[0] = 1;
 
                 // If the center node is to be activated, set the active value to 1 for the center node
-                if (m_activate_center_node) {
+                if (activate_center_node) {
                     active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[GetCenterNodeIndex(minimum_index)]);
                     active_field_data[0] = 2;
                 }
@@ -270,7 +281,7 @@ class MeshLabelerProcessor {
     }
 
     // This is to check if a proper 'thex' or refined hex mesh was used to create the nodal integration mesh.
-    bool CheckNodalIntegrationOnRefinedMeshHost() {
+    bool CheckNodalIntegrationOnRefinedMeshHost(bool activate_center_node) {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
@@ -304,7 +315,7 @@ class MeshLabelerProcessor {
                         message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
                     }
                     throw std::runtime_error(message);
-                } else if (num_center_nodes != 1 && m_activate_center_node) {
+                } else if (num_center_nodes != 1 && activate_center_node) {
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one center node per element. Found " + std::to_string(num_center_nodes) + " center nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
@@ -788,8 +799,6 @@ class MeshLabelerProcessor {
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;   // The mesh data object.
     std::string m_set;                              // The set to process.
-    size_t m_num_subcells;                          // The number of subcells.
-    bool m_activate_center_node;                    // Whether to activate the center node
     stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
     stk::mesh::Selector m_selector;                 // The selector
     stk::mesh::Selector m_owned_selector;           // The local selector
