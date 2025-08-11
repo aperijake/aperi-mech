@@ -71,6 +71,8 @@ void CellDisconnect::DisconnectCells() {
         // Get the node_disconnect_id field
         m_node_disconnect_id = aperi::Field<aperi::Unsigned>(m_mesh_data, node_disconnect_id_query_data);
 
+        m_node_disconnect_id_stk = aperi::StkGetField(aperi::FieldQueryData<aperi::Unsigned>{"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}, m_mesh_data->GetMetaData());
+
         // Set the node disconnect ids for each node
         SetNodeDisconnectIds();
 

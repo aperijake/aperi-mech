@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "AperiStkUtils.h"
 #include "Field.h"
 #include "FieldData.h"
 #include "FlattenedRaggedArrayData.h"
@@ -163,10 +164,9 @@ class CellDisconnect {
         return m_node_elements.GetData(node_id);
     }
 
-    Kokkos::View<aperi::Unsigned *>::HostMirror GetNodeElementsHost(const aperi::Index &node_index) const {
-        assert(m_node_disconnect_id.IsValid());
+    Kokkos::View<aperi::Unsigned *>::HostMirror GetNodeElementsHost(const aperi::Entity &node) const {
         assert(m_node_elements_built);
-        aperi::Unsigned node_id = m_node_disconnect_id(node_index, 0);
+        aperi::Unsigned node_id = stk::mesh::field_data(*m_node_disconnect_id_stk, node)[0];
         return m_node_elements.GetDataHost(node_id);
     }
 
@@ -197,10 +197,11 @@ class CellDisconnect {
      */
     void BuildOriginalNodeElements();
 
-    std::shared_ptr<aperi::MeshData> m_mesh_data;
-    std::vector<std::string> m_part_names;
-    aperi::FlattenedRaggedArrayData<aperi::Unsigned> m_node_elements;  // The original elements connected to nodes
+    std::shared_ptr<aperi::MeshData> m_mesh_data;                      ///< The mesh data
+    std::vector<std::string> m_part_names;                             ///< The names of the parts to disconnect
+    aperi::FlattenedRaggedArrayData<aperi::Unsigned> m_node_elements;  ///< The original elements connected to nodes
     aperi::Field<aperi::Unsigned> m_node_disconnect_id;                ///< The node disconnect id field
+    aperi::UnsignedField *m_node_disconnect_id_stk;                    ///< The node disconnect id field (STK)
     bool m_node_elements_built;                                        ///< Flag to indicate if node elements have been built
 };
 

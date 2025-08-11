@@ -30,6 +30,7 @@ using NgpUnsignedLongField = stk::mesh::NgpField<UnsignedLong>;
 
 using ExecSpace = stk::ngp::ExecSpace;
 
+using Entity = stk::mesh::Entity;
 using ConnectedEntities = stk::mesh::NgpMesh::ConnectedEntities;
 using EntityVector = stk::mesh::EntityVector;
 

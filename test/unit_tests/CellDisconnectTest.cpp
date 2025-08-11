@@ -114,21 +114,20 @@ class CellDisconnectTestFixture : public GenerateNodalDomainTestFixture {
 
         aperi::FieldQueryData<aperi::Unsigned> node_disconnect_id_query_data({"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
         EXPECT_TRUE(aperi::StkFieldExists(node_disconnect_id_query_data, m_mesh_data->GetMetaData()));
-        // Get the node_disconnect_id field
-        aperi::Field<aperi::Unsigned> node_disconnect_id_field(m_mesh_data, node_disconnect_id_query_data);
+        // Get the node_disconnect_id stk field
+        aperi::UnsignedField* node_disconnect_id_field = aperi::StkGetField<aperi::Unsigned>(node_disconnect_id_query_data, m_mesh_data->GetMetaData());
 
         // Check the node-element data.
         stk::mesh::BulkData* p_bulk = m_mesh_data->GetBulkData();
         // Loop through each node and check the connected elements
         for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
             for (const stk::mesh::Entity& node : *p_bucket) {
-                const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(node);
-                aperi::Index node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
-                aperi::Unsigned node_id = node_disconnect_id_field(node_index, 0);
+                aperi::Unsigned node_id = stk::mesh::field_data(*node_disconnect_id_field, node)[0];
                 // Get the connected elements for this node
-                Kokkos::View<aperi::Unsigned*>::HostMirror connected_elements_host = cell_disconnect.GetNodeElementsHost(node_index);
+                Kokkos::View<aperi::Unsigned*>::HostMirror connected_elements_host = cell_disconnect.GetNodeElementsHost(node);
                 for (auto& node_element : node_elements) {
-                    aperi::Unsigned new_node_id = node_disconnect_id_field(node_element.first, 0);
+                    const stk::mesh::Entity this_node = (*p_bulk->buckets(stk::topology::NODE_RANK)[node_element.first.bucket_id()])[node_element.first.bucket_ord()];
+                    aperi::Unsigned new_node_id = stk::mesh::field_data(*node_disconnect_id_field, this_node)[0];
                     if (new_node_id == node_id) {
                         // Check that the connected elements match the original elements
                         EXPECT_EQ(connected_elements_host.extent(0), node_element.second.size());
