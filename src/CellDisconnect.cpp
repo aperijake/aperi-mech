@@ -58,6 +58,8 @@ void CellDisconnect::SetNodeDisconnectIds() {
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     SetNodeDisconnectIdsFunctor set_node_disconnect_ids_functor(m_mesh_data);
     aperi::ForEachNode(set_node_disconnect_ids_functor, *m_mesh_data, selector);
+    m_node_disconnect_id.MarkModifiedOnDevice();
+    m_node_disconnect_id.SyncDeviceToHost();
 }
 
 void CellDisconnect::DisconnectCells() {
@@ -114,6 +116,7 @@ void CellDisconnect::DisconnectCells() {
     }
 
     // Set the parent cell field
+    Kokkos::fence();
     SetParentCellField();
 }
 
@@ -124,11 +127,14 @@ aperi::EntityVector CellDisconnect::GetCellBoundaryFaces() {
     aperi::FieldQueryData<aperi::Unsigned> cell_id_query_data({"cell_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::ELEMENT});
     // Throw an error if the cell_id field does not exist
     if (!aperi::StkFieldExists(cell_id_query_data, m_mesh_data->GetMetaData())) {
-        throw std::runtime_error("The cell_id field must exist for this test to run.");
+        throw std::runtime_error("The cell_id field must exist for this to run.");
     }
 
     // Get the cell_id field
     stk::mesh::Field<aperi::Unsigned>* p_cell_id_field = aperi::StkGetField(cell_id_query_data, m_mesh_data->GetMetaData());
+
+    // Sync from device to host
+    p_cell_id_field->sync_to_host();
 
     // Get the selector for the parts
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);

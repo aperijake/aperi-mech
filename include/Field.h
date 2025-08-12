@@ -60,6 +60,7 @@ class Field {
      * @return An array of the field data.
      */
     KOKKOS_FUNCTION T *data(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return &m_ngp_field(index(), 0);
     }
 
@@ -68,6 +69,7 @@ class Field {
      * @return The stride of the field data.
      */
     KOKKOS_FUNCTION unsigned GetStride(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return m_ngp_field.get_component_stride(index());
     }
 
@@ -78,6 +80,8 @@ class Field {
      * @return Reference to the value of the field data at the given index
      */
     KOKKOS_FUNCTION T &operator()(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(index.IsValid());
+        KOKKOS_ASSERT(m_ngp_field.get_num_components_per_entity(index()) > 0);
         KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
@@ -89,6 +93,8 @@ class Field {
      * @return The value of the field data at the given index
      */
     KOKKOS_FUNCTION T GetValue(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(index.IsValid());
+        KOKKOS_ASSERT(m_ngp_field.get_num_components_per_entity(index()) > 0);
         KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
@@ -99,6 +105,7 @@ class Field {
      * @return The number of components per entity.
      */
     KOKKOS_FUNCTION size_t GetNumComponentsPerEntity(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return m_ngp_field.get_num_components_per_entity(index());
     }
 
@@ -109,6 +116,7 @@ class Field {
      */
     template <size_t N, size_t M>
     KOKKOS_FUNCTION Eigen::Matrix<T, N, M> GetEigenMatrix(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         stk::mesh::FastMeshIndex fast_index = index();
         Eigen::Matrix<T, N, M> data;
         for (size_t i = 0; i < N; ++i) {
@@ -128,6 +136,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -142,6 +151,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -156,6 +166,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetConstEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -169,6 +180,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -182,6 +194,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -195,6 +208,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -208,6 +222,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void AtomicAdd(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -226,6 +241,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void Add(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -244,6 +260,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void AtomicAssign(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -262,6 +279,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void Assign(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();

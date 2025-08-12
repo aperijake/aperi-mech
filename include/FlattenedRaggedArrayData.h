@@ -67,6 +67,11 @@ class FlattenedRaggedArrayData {
         return Kokkos::subview(m_flattened_data, Kokkos::make_pair(start, start + length));
     }
 
+    // Get the full data view
+    Kokkos::View<T *> GetData() const {
+        return m_flattened_data;
+    }
+
     // Get the data for an item in the flattened array on the host
     typename Kokkos::View<T *>::HostMirror GetDataHost(size_t item) const {
         size_t start = m_flattened_array_indices.start_host(item);
@@ -76,6 +81,11 @@ class FlattenedRaggedArrayData {
 
     // Get a reference to the flattened array indices
     aperi::FlattenedRaggedArray &GetFlattenedArrayIndices() {
+        return m_flattened_array_indices;
+    }
+
+    // Get a const reference to the flattened array indices
+    const aperi::FlattenedRaggedArray &GetFlattenedArrayIndices() const {
         return m_flattened_array_indices;
     }
 

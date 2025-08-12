@@ -57,7 +57,7 @@ struct SetParentCellFunctor {
             aperi::Index element_index = m_ngp_mesh.GetEntityIndex(element);
             aperi::Unsigned current_cell_id = m_cell_id(element_index, 0);
             if (current_cell_id != cell_id) {
-                printf("Inconsistent cell IDs found: %u (expected %u). Aborting.\n", static_cast<unsigned>(current_cell_id), static_cast<unsigned>(cell_id));
+                Kokkos::printf("Inconsistent cell IDs found: %u (expected %u). Aborting.\n", static_cast<unsigned>(current_cell_id), static_cast<unsigned>(cell_id));
                 Kokkos::abort("Inconsistent cell IDs found for connected elements.");
             }
         }
@@ -141,6 +141,11 @@ class CellDisconnect {
                    const std::vector<std::string> &part_names);
 
     /**
+     * @brief Default constructor for CellDisconnect.
+     */
+    CellDisconnect() = default;
+
+    /**
      * @brief Disconnect cells at their boundary faces.
      */
     void DisconnectCells();
@@ -183,6 +188,44 @@ class CellDisconnect {
      * This is used to keep track of which cell a node belongs to.
      */
     void SetParentCellField();
+
+    // Device functor for node-element access
+    struct GetNodeElementsFunctor {
+        aperi::Field<aperi::Unsigned> node_disconnect_id;
+        aperi::FlattenedRaggedArray flattened_array_indices;
+        Kokkos::View<aperi::Unsigned *> flattened_data;
+
+        /**
+         * @brief Default constructor for GetNodeElementsFunctor
+         */
+        GetNodeElementsFunctor() = default;
+
+        /**
+         * @brief Constructor for GetNodeElementsFunctor
+         */
+        GetNodeElementsFunctor(const std::shared_ptr<aperi::MeshData> &mesh_data,
+                               const aperi::FlattenedRaggedArray &flattened_array_indices,
+                               Kokkos::View<aperi::Unsigned *> flattened_data)
+            : node_disconnect_id(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"node_disconnect_id", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}),
+              flattened_array_indices(flattened_array_indices),
+              flattened_data(flattened_data) {
+            KOKKOS_ASSERT(node_disconnect_id.IsValid());
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        Kokkos::View<aperi::Unsigned *> operator()(const aperi::Index &node_index) const {
+            KOKKOS_ASSERT(node_index.IsValid());
+            aperi::Unsigned node_id = node_disconnect_id(node_index, 0);
+            size_t start = flattened_array_indices.start(node_id);
+            size_t length = flattened_array_indices.length(node_id);
+            return Kokkos::subview(flattened_data, Kokkos::make_pair(start, start + length));
+        }
+    };
+
+    // Returns a device functor for node-element access
+    struct GetNodeElementsFunctor NodeElementsFunctor() const {
+        return GetNodeElementsFunctor(m_mesh_data, m_node_elements.GetFlattenedArrayIndices(), m_node_elements.GetData());
+    }
 
    private:
     /**

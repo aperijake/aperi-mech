@@ -155,7 +155,7 @@ KOKKOS_INLINE_FUNCTION void ExtractElementFaceNodesAndCoordinates(const int face
     } else if (actual_element_num_nodes == 4) {
         ExtractTetFaceNodesAndCoordinates(face_id, nodes, coordinates, face_nodes, face_coordinates);
     } else {
-        printf("Invalid number of nodes for element. Number of nodes: %zu\n", actual_element_num_nodes);
+        Kokkos::printf("Invalid number of nodes for element. Number of nodes: %u\n", static_cast<unsigned int>(actual_element_num_nodes));
         Kokkos::abort("Invalid number of nodes for element. Only hex and tet elements are supported.");
     }
 }
@@ -205,7 +205,7 @@ KOKKOS_INLINE_FUNCTION Kokkos::Array<Eigen::Hyperplane<double, 3>, aperi::MAX_EL
     } else if (actual_element_num_nodes == 4) {
         return GetTetFacePlanes(coordinates);
     } else {
-        printf("Invalid number of nodes for element. Number of nodes: %zu\n", actual_element_num_nodes);
+        Kokkos::printf("Invalid number of nodes for element. Number of nodes: %u\n", static_cast<unsigned int>(actual_element_num_nodes));
         Kokkos::abort("Invalid number of nodes for element. Only hex and tet elements are supported.");
     }
 }
