@@ -51,6 +51,11 @@ void CellDisconnect::SetParentCellField() {
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     SetParentCellFunctor set_parent_cell_functor(m_mesh_data);
     aperi::ForEachNode(set_parent_cell_functor, *m_mesh_data, selector);
+
+    // Sync the parent_cell field
+    aperi::Field<aperi::Unsigned> parent_cell_field(m_mesh_data, parent_cell_query_data);
+    parent_cell_field.MarkModifiedOnDevice();
+    parent_cell_field.SyncDeviceToHost();
 }
 
 void CellDisconnect::SetNodeDisconnectIds() {
@@ -58,6 +63,8 @@ void CellDisconnect::SetNodeDisconnectIds() {
     aperi::Selector selector(m_part_names, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
     SetNodeDisconnectIdsFunctor set_node_disconnect_ids_functor(m_mesh_data);
     aperi::ForEachNode(set_node_disconnect_ids_functor, *m_mesh_data, selector);
+
+    // Sync the node_disconnect_id field
     m_node_disconnect_id.MarkModifiedOnDevice();
     m_node_disconnect_id.SyncDeviceToHost();
 }

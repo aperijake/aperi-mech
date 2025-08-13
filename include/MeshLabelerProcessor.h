@@ -371,16 +371,25 @@ class MeshLabelerProcessor {
 
         // Get the node_sets, max_edge_length, and parent_cell fields
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+
         stk::mesh::Field<aperi::Unsigned> *node_sets_field = StkGetField(FieldQueryData<aperi::Unsigned>{"node_sets", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        node_sets_field->sync_to_host();
+
         stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        max_edge_length_field->sync_to_host();
+
         aperi::FieldQueryData<aperi::Unsigned> parent_cell_query = aperi::FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE};
         stk::mesh::Field<aperi::Unsigned> *parent_cell_field;
         bool parent_cell_field_exists = aperi::StkFieldExists(parent_cell_query, meta_data);
         if (parent_cell_field_exists) {
             parent_cell_field = StkGetField(FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            parent_cell_field->sync_to_host();
         }
+
         stk::mesh::Field<aperi::Unsigned> *owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+
         stk::mesh::Field<aperi::Unsigned> *cell_id_field = StkGetField(FieldQueryData<aperi::Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        cell_id_field->sync_to_host();
 
         // Get the various coordinate fields
         aperi::FieldQueryData<aperi::Real> current_coordinates_n_query_data{"current_coordinates_n", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
@@ -396,6 +405,9 @@ class MeshLabelerProcessor {
             current_coordinates_n_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_n", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
             current_coordinates_np1_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
             reference_coordinates_field = StkGetField(FieldQueryData<aperi::Real>{"reference_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            current_coordinates_n_field->sync_to_host();
+            current_coordinates_np1_field->sync_to_host();
+            reference_coordinates_field->sync_to_host();
         }
 
         // Create a new node for each element center
@@ -474,6 +486,39 @@ class MeshLabelerProcessor {
             }
         }
         m_bulk_data->modification_end();
+
+        // Mark modified on host and sync to device
+        m_active_temp_field->modify_on_host();
+        m_active_temp_field->sync_to_device();
+
+        m_coordinates_field->modify_on_host();
+        m_coordinates_field->sync_to_device();
+
+        node_sets_field->modify_on_host();
+        node_sets_field->sync_to_device();
+
+        max_edge_length_field->modify_on_host();
+        max_edge_length_field->sync_to_device();
+
+        owning_element_field->modify_on_host();
+        owning_element_field->sync_to_device();
+
+        cell_id_field->modify_on_host();
+        cell_id_field->sync_to_device();
+
+        if (parent_cell_field_exists) {
+            parent_cell_field->modify_on_host();
+            parent_cell_field->sync_to_device();
+        }
+
+        if (extra_coordinates_fields_exist) {
+            current_coordinates_n_field->modify_on_host();
+            current_coordinates_n_field->sync_to_device();
+            current_coordinates_np1_field->modify_on_host();
+            current_coordinates_np1_field->sync_to_device();
+            reference_coordinates_field->modify_on_host();
+            reference_coordinates_field->sync_to_device();
+        }
     }
 
     void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {
