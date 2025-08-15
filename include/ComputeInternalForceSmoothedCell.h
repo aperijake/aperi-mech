@@ -12,6 +12,7 @@
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "SmoothedCellData.h"
+#include "Types.h"
 
 namespace aperi {
 
@@ -123,9 +124,6 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         // Cell J value
         double cell_j_bar = 0.0;
 
-        // Get the cell volume
-        const double cell_volume = scd.GetCellVolume(cell_id);
-
         // Loop over all the subcells to compute J-bar
         for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
             const size_t subcell_id = subcell_indices(i);
@@ -140,6 +138,9 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
             cell_j_bar = cell_j_bar + subcell_j * subcell_volume;
         }
 
+        // Get the cell volume
+        const double cell_volume = scd.GetCellVolume(cell_id);
+
         // Scale the cell J-bar value by the cell volume
         cell_j_bar = cell_j_bar / cell_volume;
 
@@ -150,12 +151,6 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         for (size_t i = 0, e = subcell_indices.extent(0); i < e; ++i) {
             const size_t subcell_id = subcell_indices(i);
 
-            // Get the subcell J-bar value
-            const double subcell_j = scd.GetSubcellJ(subcell_id);
-
-            // Compute the scale factor
-            const double j_scale = Kokkos::cbrt(cell_j_bar / subcell_j);
-
             // Get the subcell element indices
             const auto element_indices = scd.GetSubcellElementIndices(subcell_id);
             const auto element_index = element_indices(0);
@@ -163,6 +158,20 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
             // Get the displacement gradient maps
             const auto displacement_gradient_np1_map = m_displacement_gradient_np1_field.GetConstEigenMatrixMap<3, 3>(element_index());
             auto displacement_gradient_bar_np1_map = m_displacement_gradient_bar_np1_field.GetEigenMatrixMap<3, 3>(element_index());
+
+            // Get the subcell J-bar value
+            const double subcell_j = scd.GetSubcellJ(subcell_id);
+
+            // Compute the ratio
+            const double j_ratio = cell_j_bar / subcell_j;
+
+            if (Kokkos::abs(j_ratio - 1.0) < 3.0 * REAL_EPSILON) {
+                displacement_gradient_bar_np1_map = displacement_gradient_np1_map;
+                continue;
+            }
+
+            // Compute the scale factor
+            const double j_scale = Kokkos::cbrt(j_ratio);
 
             // Scale the displacement gradient
             // F_bar = F * j_scale
@@ -222,9 +231,6 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         // Get the cell J value reference
         const double cell_j_bar = scd.GetCellJBar(cell_id);
 
-        // Get the cell volume
-        const double cell_volume = scd.GetCellVolume(cell_id);
-
         // Dual pressure
         double dual_pressure = 0.0;
 
@@ -257,6 +263,9 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
             // Add to the dual pressure
             dual_pressure += d_jscale_d_jbar * subcell_volume * (pk1_stress_bar_map.cwiseProduct(displacement_gradient_np1_map).sum() + pk1_stress_bar_map.trace());
         }
+
+        // Get the cell volume
+        const double cell_volume = scd.GetCellVolume(cell_id);
 
         // Scale the dual pressure by the cell volume
         dual_pressure = dual_pressure / cell_volume;

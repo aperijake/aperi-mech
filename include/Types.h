@@ -19,6 +19,7 @@ using Unsigned = uint64_t;
 using UnsignedLong = unsigned long;
 
 #define REAL_MAX 1.7976931348623157e+308
+#define REAL_EPSILON 2.2204460492503131e-16
 
 using UnsignedField = stk::mesh::Field<Unsigned>;
 using NgpUnsignedField = stk::mesh::NgpField<Unsigned>;

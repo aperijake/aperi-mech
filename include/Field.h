@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <chrono>
+#include <iomanip>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -38,12 +39,14 @@ template <typename T>
 class Field {
    public:
     // Default constructor
-    Field() : m_mesh_data(nullptr), m_field(nullptr) {}
+    Field() : m_mesh_data(nullptr), m_field(nullptr), m_topology_rank(aperi::FieldDataTopologyRank::NONE), m_name("") {}
 
     Field(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
         : m_mesh_data(mesh_data),
           m_field(StkGetField(field_query_data, mesh_data->GetMetaData())),
-          m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)) {}
+          m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)),
+          m_topology_rank(field_query_data.topology_rank),
+          m_name(field_query_data.name) {}
 
     void UpdateField() {
         assert(m_field != nullptr);
@@ -52,6 +55,14 @@ class Field {
 
     bool IsValid() const {
         return m_field != nullptr && m_mesh_data != nullptr;
+    }
+
+    aperi::FieldDataTopologyRank GetTopologyRank() const {
+        return m_topology_rank;
+    }
+
+    std::string GetName() const {
+        return m_name;
     }
 
     /**
@@ -293,10 +304,34 @@ class Field {
     /**
      * @brief Fill the field with a value.
      * @param value The value to fill the field with.
+     * @param component The component to fill.
+     * @param selector The selector for the field.
+     */
+    void Fill(const T &value, const int &component, const aperi::Selector &selector) {
+        stk::mesh::field_fill(value, *m_field, component, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
      * @param selector The selector for the field.
      */
     void Fill(const T &value, const aperi::Selector &selector) {
         stk::mesh::field_fill(value, *m_field, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
+     * @param component The component to fill.
+     * @param sets The sets used to get the selector.
+     */
+    void Fill(const T &value, const int &component, std::vector<std::string> sets = {}) {
+        // Get the selector
+        aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+        // Fill the field
+        stk::mesh::field_fill(value, *m_field, component, selector(), stk::ngp::ExecSpace());
     }
 
     /**
@@ -323,10 +358,9 @@ class Field {
 
     /**
      * @brief Zero a field.
-     * @param field The field to zero.
      * @param sets The sets used to get the selector.
      */
-    void Zero(Field<T> &field, std::vector<std::string> sets = {}) {
+    void Zero(std::vector<std::string> sets = {}) {
         Fill(0, sets);
     }
 
@@ -416,6 +450,34 @@ class Field {
         }
     }
 
+    // Debug print data on host
+    void DebugPrintHost(const aperi::Selector &selector) {
+        assert(m_field != nullptr);
+        SyncDeviceToHost();
+
+        stk::topology::rank_t rank = aperi::GetTopologyRank(m_topology_rank);
+
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : selector().get_buckets(rank)) {
+            // Get the number of components
+            size_t num_components = stk::mesh::field_scalars_per_entity(*m_field, *bucket);
+
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                // Get the entity
+                stk::mesh::Entity entity = bucket->operator[](i_entity);
+                // Get the field data
+                T *field_data = stk::mesh::field_data(*m_field, entity);
+                // Print the field data
+                aperi::CoutP0() << "Local Offset: " << std::setw(10) << entity.local_offset() << ", " << m_name << ":";
+                for (size_t i = 0; i < num_components; i++) {
+                    aperi::CoutP0() << " " << std::setw(10) << field_data[i];
+                }
+                aperi::CoutP0() << std::endl;
+            }
+        }
+    }
+
     /**
      * @brief Get the mesh data object.
      * @return The mesh data object.
@@ -454,6 +516,8 @@ class Field {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     stk::mesh::Field<T> *m_field;                  // The field object.
     mutable stk::mesh::NgpField<T> m_ngp_field;    // The ngp field object.
+    aperi::FieldDataTopologyRank m_topology_rank;  // The rank of the field.
+    std::string m_name;                            // The name of the field.
 };
 
 // Check if a field exists

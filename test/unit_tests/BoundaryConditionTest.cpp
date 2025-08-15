@@ -7,7 +7,6 @@
 #include "BoundaryCondition.h"
 #include "EntityProcessor.h"
 #include "FieldData.h"
-#include "InitialConditionUtil.h"
 #include "MathUtils.h"
 #include "MeshData.h"
 #include "Types.h"
