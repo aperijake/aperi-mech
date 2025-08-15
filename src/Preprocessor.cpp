@@ -10,6 +10,7 @@
 #include "FunctionValueUtils.h"
 #include "InitialCondition/Base.h"
 #include "InternalForceContribution.h"
+#include "IoMesh.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessor.h"
 #include "Selector.h"
