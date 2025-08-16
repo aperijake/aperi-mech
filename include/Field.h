@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <chrono>
+#include <iomanip>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
@@ -38,16 +39,30 @@ template <typename T>
 class Field {
    public:
     // Default constructor
-    Field() : m_mesh_data(nullptr), m_field(nullptr) {}
+    Field() : m_mesh_data(nullptr), m_field(nullptr), m_topology_rank(aperi::FieldDataTopologyRank::NONE), m_name("") {}
 
     Field(const std::shared_ptr<aperi::MeshData> &mesh_data, const aperi::FieldQueryData<T> &field_query_data)
         : m_mesh_data(mesh_data),
           m_field(StkGetField(field_query_data, mesh_data->GetMetaData())),
-          m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)) {}
+          m_ngp_field(stk::mesh::get_updated_ngp_field<T>(*m_field)),
+          m_topology_rank(field_query_data.topology_rank),
+          m_name(field_query_data.name) {}
 
     void UpdateField() {
         assert(m_field != nullptr);
         m_ngp_field = stk::mesh::get_updated_ngp_field<T>(*m_field);
+    }
+
+    bool IsValid() const {
+        return m_field != nullptr && m_mesh_data != nullptr;
+    }
+
+    aperi::FieldDataTopologyRank GetTopologyRank() const {
+        return m_topology_rank;
+    }
+
+    std::string GetName() const {
+        return m_name;
     }
 
     /**
@@ -56,6 +71,7 @@ class Field {
      * @return An array of the field data.
      */
     KOKKOS_FUNCTION T *data(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return &m_ngp_field(index(), 0);
     }
 
@@ -64,6 +80,7 @@ class Field {
      * @return The stride of the field data.
      */
     KOKKOS_FUNCTION unsigned GetStride(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return m_ngp_field.get_component_stride(index());
     }
 
@@ -74,6 +91,8 @@ class Field {
      * @return Reference to the value of the field data at the given index
      */
     KOKKOS_FUNCTION T &operator()(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(index.IsValid());
+        KOKKOS_ASSERT(m_ngp_field.get_num_components_per_entity(index()) > 0);
         KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
@@ -85,6 +104,8 @@ class Field {
      * @return The value of the field data at the given index
      */
     KOKKOS_FUNCTION T GetValue(const aperi::Index &index, size_t i) const {
+        KOKKOS_ASSERT(index.IsValid());
+        KOKKOS_ASSERT(m_ngp_field.get_num_components_per_entity(index()) > 0);
         KOKKOS_ASSERT(i < m_ngp_field.get_num_components_per_entity(index()));
         return m_ngp_field(index(), i);
     }
@@ -95,6 +116,7 @@ class Field {
      * @return The number of components per entity.
      */
     KOKKOS_FUNCTION size_t GetNumComponentsPerEntity(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         return m_ngp_field.get_num_components_per_entity(index());
     }
 
@@ -105,6 +127,7 @@ class Field {
      */
     template <size_t N, size_t M>
     KOKKOS_FUNCTION Eigen::Matrix<T, N, M> GetEigenMatrix(const aperi::Index &index) const {
+        KOKKOS_ASSERT(index.IsValid());
         stk::mesh::FastMeshIndex fast_index = index();
         Eigen::Matrix<T, N, M> data;
         for (size_t i = 0; i < N; ++i) {
@@ -124,6 +147,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -138,6 +162,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -152,6 +177,7 @@ class Field {
      */
     template <int Rows = Eigen::Dynamic, int Cols = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> GetConstEigenMatrixMap(const aperi::Index &index, size_t num_rows = Rows, size_t num_cols = Cols) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride(component_stride, component_stride * num_cols);
         return Eigen::Map<const Eigen::Matrix<T, Rows, Cols>, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(&m_ngp_field(index(), 0), num_rows, num_cols, stride);
@@ -165,6 +191,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -178,6 +205,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -191,6 +219,7 @@ class Field {
      */
     template <int Size = Eigen::Dynamic>
     KOKKOS_FUNCTION Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>> GetConstEigenVectorMap(const aperi::Index &index, size_t size = Size) const {
+        KOKKOS_ASSERT(index.IsValid());
         const unsigned component_stride = m_ngp_field.get_component_stride(index());
         Eigen::InnerStride<Eigen::Dynamic> stride(component_stride);
         return Eigen::Map<const Eigen::Vector<T, Size>, 0, Eigen::InnerStride<Eigen::Dynamic>>(&m_ngp_field(index(), 0), size, stride);
@@ -204,6 +233,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void AtomicAdd(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -222,6 +252,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void Add(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -240,6 +271,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void AtomicAssign(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -258,6 +290,7 @@ class Field {
      */
     template <typename Derived>
     KOKKOS_FUNCTION void Assign(const aperi::Index &index, const Eigen::MatrixBase<Derived> &data) {
+        KOKKOS_ASSERT(index.IsValid());
         constexpr size_t N = Eigen::MatrixBase<Derived>::RowsAtCompileTime;
         constexpr size_t M = Eigen::MatrixBase<Derived>::ColsAtCompileTime;
         stk::mesh::FastMeshIndex fast_index = index();
@@ -271,10 +304,34 @@ class Field {
     /**
      * @brief Fill the field with a value.
      * @param value The value to fill the field with.
+     * @param component The component to fill.
+     * @param selector The selector for the field.
+     */
+    void Fill(const T &value, const int &component, const aperi::Selector &selector) {
+        stk::mesh::field_fill(value, *m_field, component, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
      * @param selector The selector for the field.
      */
     void Fill(const T &value, const aperi::Selector &selector) {
         stk::mesh::field_fill(value, *m_field, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Fill the field with a value.
+     * @param value The value to fill the field with.
+     * @param component The component to fill.
+     * @param sets The sets used to get the selector.
+     */
+    void Fill(const T &value, const int &component, std::vector<std::string> sets = {}) {
+        // Get the selector
+        aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+        // Fill the field
+        stk::mesh::field_fill(value, *m_field, component, selector(), stk::ngp::ExecSpace());
     }
 
     /**
@@ -301,10 +358,9 @@ class Field {
 
     /**
      * @brief Zero a field.
-     * @param field The field to zero.
      * @param sets The sets used to get the selector.
      */
-    void Zero(Field<T> &field, std::vector<std::string> sets = {}) {
+    void Zero(std::vector<std::string> sets = {}) {
         Fill(0, sets);
     }
 
@@ -394,6 +450,34 @@ class Field {
         }
     }
 
+    // Debug print data on host
+    void DebugPrintHost(const aperi::Selector &selector) {
+        assert(m_field != nullptr);
+        SyncDeviceToHost();
+
+        stk::topology::rank_t rank = aperi::GetTopologyRank(m_topology_rank);
+
+        // Loop over all the buckets
+        for (stk::mesh::Bucket *bucket : selector().get_buckets(rank)) {
+            // Get the number of components
+            size_t num_components = stk::mesh::field_scalars_per_entity(*m_field, *bucket);
+
+            // Loop over each entity in the bucket
+            for (size_t i_entity = 0; i_entity < bucket->size(); i_entity++) {
+                // Get the entity
+                stk::mesh::Entity entity = bucket->operator[](i_entity);
+                // Get the field data
+                T *field_data = stk::mesh::field_data(*m_field, entity);
+                // Print the field data
+                aperi::CoutP0() << "Local Offset: " << std::setw(10) << entity.local_offset() << ", " << m_name << ":";
+                for (size_t i = 0; i < num_components; i++) {
+                    aperi::CoutP0() << " " << std::setw(10) << field_data[i];
+                }
+                aperi::CoutP0() << std::endl;
+            }
+        }
+    }
+
     /**
      * @brief Get the mesh data object.
      * @return The mesh data object.
@@ -432,6 +516,8 @@ class Field {
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     stk::mesh::Field<T> *m_field;                  // The field object.
     mutable stk::mesh::NgpField<T> m_ngp_field;    // The ngp field object.
+    aperi::FieldDataTopologyRank m_topology_rank;  // The rank of the field.
+    std::string m_name;                            // The name of the field.
 };
 
 // Check if a field exists

@@ -11,7 +11,8 @@
 #include "ExternalForceContribution/Base.h"
 #include "ExternalForceContribution/Factory.h"
 #include "FieldData.h"
-#include "InitialConditionUtil.h"
+#include "InitialCondition/Base.h"
+#include "InitialCondition/Factory.h"
 #include "InternalForceContribution.h"
 #include "IoInputFile.h"
 #include "IoMesh.h"
@@ -244,17 +245,19 @@ std::vector<std::shared_ptr<aperi::ContactForceContribution>> CreateContactForce
     return contact_force_contributions;
 }
 
-void AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh) {
+std::vector<std::unique_ptr<aperi::InitialCondition>> AddInitialConditions(const std::vector<YAML::Node>& initial_conditions, std::shared_ptr<aperi::IoMesh> io_mesh) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::AddInitialConditions, aperi::application_timer_map);
 
     // Loop over initial conditions and add them to the mesh
+    std::vector<std::unique_ptr<aperi::InitialCondition>> initial_conditions_vector;
     aperi::CoutP0() << "   Initial Conditions: " << std::endl;
     for (auto initial_condition : initial_conditions) {
         auto name = initial_condition.begin()->first.as<std::string>();
         aperi::CoutP0() << "      " << name << std::endl;
-        aperi::AddInitialConditions(initial_condition, io_mesh->GetMeshData());
+        initial_conditions_vector.push_back(aperi::CreateInitialCondition(initial_condition, io_mesh->GetMeshData()));
     }
+    return initial_conditions_vector;
 }
 
 std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh) {
@@ -290,12 +293,12 @@ std::shared_ptr<aperi::Scheduler<size_t>> CreateReferenceConfigurationUpdateSche
     return aperi::CreateStepScheduler(start_n, reference_configuration_update_interval);
 }
 
-void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::ContactForceContribution>>& contact_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const LagrangianFormulationType& lagrangian_formulation_type) {
+void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std::shared_ptr<aperi::InternalForceContribution>>& internal_force_contributions, const std::vector<std::shared_ptr<aperi::ExternalForceContribution>>& external_force_contributions, const std::vector<std::shared_ptr<aperi::ContactForceContribution>>& contact_force_contributions, const std::vector<std::shared_ptr<aperi::BoundaryCondition>>& boundary_conditions, const std::vector<std::unique_ptr<aperi::InitialCondition>>& initial_conditions, const LagrangianFormulationType& lagrangian_formulation_type) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::Preprocessing, aperi::application_timer_map);
 
     // Run pre-processing
-    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, lagrangian_formulation_type);
+    aperi::DoPreprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, initial_conditions, lagrangian_formulation_type);
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
@@ -359,10 +362,6 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     std::vector<YAML::Node> contact = io_input_file->GetContact(procedure_id);
     std::vector<std::shared_ptr<aperi::ContactForceContribution>> contact_force_contributions = CreateContactForceContribution(contact, io_mesh, uses_generalized_fields, formulation_type);
 
-    // Set initial conditions
-    std::vector<YAML::Node> initial_conditions = io_input_file->GetInitialConditions(procedure_id);
-    AddInitialConditions(initial_conditions, io_mesh);
-
     // Create boundary conditions
     std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
     std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh);
@@ -380,8 +379,12 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
         reference_configuration_update_scheduler = CreateReferenceConfigurationUpdateScheduler(reference_configuration_update_interval);
     }
 
+    // Set initial conditions
+    std::vector<YAML::Node> initial_condition_nodes = io_input_file->GetInitialConditions(procedure_id);
+    std::vector<std::unique_ptr<aperi::InitialCondition>> initial_conditions = AddInitialConditions(initial_condition_nodes, io_mesh);
+
     // Pre-processing
-    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, formulation_type);
+    Preprocessing(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, initial_conditions, formulation_type);
 
     // Print element data, if not using strain smoothing (strain smoothing prints its own data)
     if (!has_strain_smoothing) {

@@ -84,6 +84,14 @@ class NgpMeshData {
         return ConnectedEntitiesToIndices<N>(GetFaceNodes(face_index));
     }
 
+    template <size_t N>
+    KOKKOS_INLINE_FUNCTION Kokkos::Array<aperi::Index, N> GetFaceNodeIndices(const aperi::Index &face_index, size_t &num_nodes) const {
+        aperi::ConnectedEntities connected_entities = GetFaceNodes(face_index);
+        num_nodes = connected_entities.size();
+        KOKKOS_ASSERT(num_nodes <= N);
+        return ConnectedEntitiesToIndices<N>(connected_entities);
+    }
+
     KOKKOS_INLINE_FUNCTION
     aperi::Index LocalOffsetToIndex(Unsigned local_offset) const {
         stk::mesh::Entity entity(local_offset);

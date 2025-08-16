@@ -32,13 +32,14 @@
 #include "LogUtils.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "MeshLabelerParameters.h"
 #include "Types.h"
 
 namespace aperi {
 
 class MeshLabelerProcessor {
    public:
-    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set, const size_t &num_subcells, bool activate_center_node) : m_mesh_data(mesh_data), m_set(set), m_num_subcells(num_subcells), m_activate_center_node(activate_center_node) {
+    MeshLabelerProcessor(std::shared_ptr<aperi::MeshData> mesh_data, const std::string &set) : m_mesh_data(mesh_data), m_set(set) {
         assert(mesh_data != nullptr);
 
         m_bulk_data = mesh_data->GetBulkData();
@@ -75,28 +76,43 @@ class MeshLabelerProcessor {
         m_ngp_coordinates_field = &stk::mesh::get_updated_ngp_field<double>(*m_coordinates_field);
     }
 
-    void LabelForThexNodalIntegration(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
+    void LabelPart(const MeshLabelerParameters &mesh_labeler_parameters) {
+        if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Nodal) {
+            LabelForThexNodalIntegration(mesh_labeler_parameters.num_subcells, mesh_labeler_parameters.activate_center_node, mesh_labeler_parameters.activate_subcell_center_node, mesh_labeler_parameters.deactivate_small_subcells, mesh_labeler_parameters.deactivate_subcells_smaller_than);
+        } else if (mesh_labeler_parameters.smoothing_cell_type == SmoothingCellType::Element) {
+            LabelForElementIntegration(mesh_labeler_parameters.num_subcells);
+        } else {
+            LabelForGaussianIntegration(mesh_labeler_parameters.num_subcells);
+        }
+    }
+
+    void LabelForThexNodalIntegration(size_t num_subcells, bool activate_center_node, bool activate_subcell_center_node, bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field for nodal integration
-        SetActiveFieldForNodalIntegrationHost(deactivate_small_subcells, deactivate_subcells_smaller_than);
+        SetActiveFieldForNodalIntegrationHost(activate_center_node, deactivate_small_subcells, deactivate_subcells_smaller_than);
 
         // Parallel sum the active field
         ParallelMaxActiveField();
 
         // After setting the active field, check that the nodal integration mesh is correct
-        CheckNodalIntegrationOnRefinedMeshHost();
+        CheckNodalIntegrationOnRefinedMeshHost(activate_center_node);
 
         // Create the active part from the active field, host operation
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for nodal integration
-        LabelCellAndSubcellIdsForNodalIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForNodalIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(true);
 
         // Add the center node part to the active part, if the center node is to be activated
-        if (m_activate_center_node) {
+        if (activate_center_node) {
             CreateActivePartFromActiveFieldHost(2);
+        }
+
+        if (activate_subcell_center_node) {
+            // Add the center node to the active part
+            AddActiveNodesAtElementCentersHost();
         }
 
         // Copy the temporary active field to the active field
@@ -106,13 +122,13 @@ class MeshLabelerProcessor {
         SyncFieldsToDevice();
     }
 
-    void LabelForElementIntegration() {
+    void LabelForElementIntegration(size_t num_subcells) {
         // Create the active part from the active field, host operation
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for element integration, host operation
-        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForElementIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -124,13 +140,13 @@ class MeshLabelerProcessor {
         SyncFieldsToDevice();
     }
 
-    void LabelForGaussianIntegration() {
+    void LabelForGaussianIntegration(size_t num_subcells) {
         // Create the active part from the active field, host operation
         // Active field should be set to 1 for all nodes in the element already
         CreateActivePartFromActiveFieldHost();
 
         // Label the cell and subcell ids for element integration, host operation
-        LabelCellAndSubcellIdsForElementIntegrationHost(m_num_subcells);
+        LabelCellAndSubcellIdsForElementIntegrationHost(num_subcells);
 
         // Create the cells part from the cell id field, host operation
         CreateCellsPartFromCellIdFieldHost(false);
@@ -209,7 +225,7 @@ class MeshLabelerProcessor {
     }
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
-    void SetActiveFieldForNodalIntegrationHost(bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
+    void SetActiveFieldForNodalIntegrationHost(bool activate_center_node, bool deactivate_small_subcells, double deactivate_subcells_smaller_than) {
         // Set the active field to 0 for all nodes
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::NODE_RANK)) {
             for (size_t i_node = 0; i_node < bucket->size(); ++i_node) {
@@ -252,7 +268,7 @@ class MeshLabelerProcessor {
                 active_field_data[0] = 1;
 
                 // If the center node is to be activated, set the active value to 1 for the center node
-                if (m_activate_center_node) {
+                if (activate_center_node) {
                     active_field_data = stk::mesh::field_data(*m_active_temp_field, nodes[GetCenterNodeIndex(minimum_index)]);
                     active_field_data[0] = 2;
                 }
@@ -265,7 +281,7 @@ class MeshLabelerProcessor {
     }
 
     // This is to check if a proper 'thex' or refined hex mesh was used to create the nodal integration mesh.
-    bool CheckNodalIntegrationOnRefinedMeshHost() {
+    bool CheckNodalIntegrationOnRefinedMeshHost(bool activate_center_node) {
         for (stk::mesh::Bucket *bucket : m_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
             for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
                 stk::mesh::Entity element = (*bucket)[i_elem];
@@ -299,7 +315,7 @@ class MeshLabelerProcessor {
                         message += " ID: " + std::to_string(m_bulk_data->identifier(nodes[i])) + ", active value: " + std::to_string(active_field_data[0]) + "\n";
                     }
                     throw std::runtime_error(message);
-                } else if (num_center_nodes != 1 && m_activate_center_node) {
+                } else if (num_center_nodes != 1 && activate_center_node) {
                     size_t element_id = m_bulk_data->identifier(element);
                     std::string message = "Nodal integration requires exactly one center node per element. Found " + std::to_string(num_center_nodes) + " center nodes in element " + std::to_string(element_id) + ". Nodes: \n";
                     for (size_t i = 0; i < num_nodes; ++i) {
@@ -329,6 +345,180 @@ class MeshLabelerProcessor {
         //  Change the nodes to the active part
         ChangePartsHost("universal_active_part", nodes_to_change, *m_bulk_data);
         ChangePartsHost(m_set + "_active", nodes_to_change, *m_bulk_data);
+    }
+
+    void AddActiveNodesAtElementCentersHost() {
+        m_bulk_data->modification_begin();
+        m_mesh_data->DeclareNodePart(m_set + "_extra_nodes");
+        m_mesh_data->AddPartToOutput(m_set + "_extra_nodes");
+        stk::mesh::PartVector parts;
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_active"));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part("universal_active_part"));
+        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_extra_nodes"));
+
+        // Declare the late field for the owning element of the extra nodes
+        aperi::FieldData owning_element_field_data("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, 1, std::vector<aperi::Unsigned>{});
+        m_mesh_data->DeclareLateField(owning_element_field_data, {m_set + "_extra_nodes"});
+
+        // Get the number of elements
+        unsigned num_requested = m_mesh_data->GetNumOwnedElements({m_set});
+        std::vector<stk::mesh::EntityId> requested_ids;
+        m_bulk_data->generate_new_ids(stk::topology::NODE_RANK, num_requested, requested_ids);
+
+        // Counter for the new nodes
+        unsigned new_node_counter = 0;
+
+        // Get the node_sets, max_edge_length, and parent_cell fields
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
+
+        stk::mesh::Field<aperi::Unsigned> *node_sets_field = StkGetField(FieldQueryData<aperi::Unsigned>{"node_sets", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        node_sets_field->sync_to_host();
+
+        stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+        max_edge_length_field->sync_to_host();
+
+        aperi::FieldQueryData<aperi::Unsigned> parent_cell_query = aperi::FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE};
+        stk::mesh::Field<aperi::Unsigned> *parent_cell_field;
+        bool parent_cell_field_exists = aperi::StkFieldExists(parent_cell_query, meta_data);
+        if (parent_cell_field_exists) {
+            parent_cell_field = StkGetField(FieldQueryData<aperi::Unsigned>{"parent_cell", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            parent_cell_field->sync_to_host();
+        }
+
+        stk::mesh::Field<aperi::Unsigned> *owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+
+        stk::mesh::Field<aperi::Unsigned> *cell_id_field = StkGetField(FieldQueryData<aperi::Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
+        cell_id_field->sync_to_host();
+
+        // Get the various coordinate fields
+        aperi::FieldQueryData<aperi::Real> current_coordinates_n_query_data{"current_coordinates_n", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        aperi::FieldQueryData<aperi::Real> current_coordinates_np1_query_data{"current_coordinates_np1", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        aperi::FieldQueryData<aperi::Real> reference_coordinates_query_data{"reference_coordinates", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
+        stk::mesh::Field<aperi::Real> *current_coordinates_n_field;
+        stk::mesh::Field<aperi::Real> *current_coordinates_np1_field;
+        stk::mesh::Field<aperi::Real> *reference_coordinates_field;
+        bool extra_coordinates_fields_exist = aperi::StkFieldExists(current_coordinates_n_query_data, meta_data) &&
+                                              aperi::StkFieldExists(current_coordinates_np1_query_data, meta_data) &&
+                                              aperi::StkFieldExists(reference_coordinates_query_data, meta_data);
+        if (extra_coordinates_fields_exist) {
+            current_coordinates_n_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_n", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            current_coordinates_np1_field = StkGetField(FieldQueryData<aperi::Real>{"current_coordinates_np1", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            reference_coordinates_field = StkGetField(FieldQueryData<aperi::Real>{"reference_coordinates", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
+            current_coordinates_n_field->sync_to_host();
+            current_coordinates_np1_field->sync_to_host();
+            reference_coordinates_field->sync_to_host();
+        }
+
+        // Create a new node for each element center
+        for (stk::mesh::Bucket *bucket : m_owned_selector.get_buckets(stk::topology::ELEMENT_RANK)) {
+            for (size_t i_elem = 0; i_elem < bucket->size(); ++i_elem) {
+                // Get the element
+                stk::mesh::Entity element = (*bucket)[i_elem];
+
+                // Get the nodes of the element
+                const stk::mesh::Entity *p_connected_nodes = m_bulk_data->begin_nodes(element);
+                size_t num_connected_nodes = m_bulk_data->num_nodes(element);
+
+                // Calculate the centroid of the element
+                Eigen::Vector3d centroid(0.0, 0.0, 0.0);
+                for (size_t i = 0; i < num_connected_nodes; ++i) {
+                    double *p_this_node_coords = stk::mesh::field_data(*m_coordinates_field, p_connected_nodes[i]);
+                    centroid += Eigen::Vector3d(p_this_node_coords[0], p_this_node_coords[1], p_this_node_coords[2]);
+                }
+                centroid /= num_connected_nodes;  // Average the coordinates to get the centroid
+
+                // Compute the max distance from the centroid to the nodes, times 3
+                double max_distance = 0.0;
+                for (size_t i = 0; i < num_connected_nodes; ++i) {
+                    double *p_this_node_coords = stk::mesh::field_data(*m_coordinates_field, p_connected_nodes[i]);
+                    Eigen::Vector3d node_coords(p_this_node_coords[0], p_this_node_coords[1], p_this_node_coords[2]);
+                    double distance = (node_coords - centroid).norm();
+                    if (distance > max_distance) {
+                        max_distance = distance;
+                    }
+                }
+                max_distance *= 3.0;  // Triple the distance for the max edge length
+
+                stk::mesh::Entity node = m_bulk_data->declare_node(requested_ids[new_node_counter++], parts);
+                double *p_node_coords = stk::mesh::field_data(*m_coordinates_field, node);
+                p_node_coords[0] = centroid[0];
+                p_node_coords[1] = centroid[1];
+                p_node_coords[2] = centroid[2];
+                if (extra_coordinates_fields_exist) {
+                    double *p_current_coords_n = stk::mesh::field_data(*current_coordinates_n_field, node);
+                    double *p_current_coords_np1 = stk::mesh::field_data(*current_coordinates_np1_field, node);
+                    double *p_reference_coords = stk::mesh::field_data(*reference_coordinates_field, node);
+                    p_current_coords_n[0] = centroid[0];
+                    p_current_coords_n[1] = centroid[1];
+                    p_current_coords_n[2] = centroid[2];
+                    p_current_coords_np1[0] = centroid[0];
+                    p_current_coords_np1[1] = centroid[1];
+                    p_current_coords_np1[2] = centroid[2];
+                    p_reference_coords[0] = centroid[0];
+                    p_reference_coords[1] = centroid[1];
+                    p_reference_coords[2] = centroid[2];
+                }
+
+                // Set the active field for the new node
+                UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, node);
+                active_field_data[0] = 1;  // Set to active
+
+                // Set the node_sets field for the new node
+                // TODO(jake): This should be moved to the preprocessor
+                aperi::Unsigned *node_sets_data = stk::mesh::field_data(*node_sets_field, node);
+                node_sets_data[0] = 1;  // Set to the set of the mesh
+
+                // Set the max_edge_length field for the new node
+                aperi::Real *max_edge_length_data = stk::mesh::field_data(*max_edge_length_field, node);
+                max_edge_length_data[0] = max_distance;
+
+                // Set the owning_element field for the new node
+                aperi::Unsigned *owning_element_data = stk::mesh::field_data(*owning_element_field, node);
+                owning_element_data[0] = element.local_offset();
+
+                // Set the parent_cell field for the new node
+                if (parent_cell_field_exists) {
+                    aperi::Unsigned *parent_cell_data = stk::mesh::field_data(*parent_cell_field, node);
+                    aperi::Unsigned *cell_id_data = stk::mesh::field_data(*cell_id_field, element);
+                    parent_cell_data[0] = cell_id_data[0];
+                }
+            }
+        }
+        m_bulk_data->modification_end();
+
+        // Mark modified on host and sync to device
+        m_active_temp_field->modify_on_host();
+        m_active_temp_field->sync_to_device();
+
+        m_coordinates_field->modify_on_host();
+        m_coordinates_field->sync_to_device();
+
+        node_sets_field->modify_on_host();
+        node_sets_field->sync_to_device();
+
+        max_edge_length_field->modify_on_host();
+        max_edge_length_field->sync_to_device();
+
+        owning_element_field->modify_on_host();
+        owning_element_field->sync_to_device();
+
+        cell_id_field->modify_on_host();
+        cell_id_field->sync_to_device();
+
+        if (parent_cell_field_exists) {
+            parent_cell_field->modify_on_host();
+            parent_cell_field->sync_to_device();
+        }
+
+        if (extra_coordinates_fields_exist) {
+            current_coordinates_n_field->modify_on_host();
+            current_coordinates_n_field->sync_to_device();
+            current_coordinates_np1_field->modify_on_host();
+            current_coordinates_np1_field->sync_to_device();
+            reference_coordinates_field->modify_on_host();
+            reference_coordinates_field->sync_to_device();
+        }
     }
 
     void CreateCellsPartFromCellIdFieldHost(bool nodal_from_thex) {
@@ -654,8 +844,6 @@ class MeshLabelerProcessor {
    private:
     std::shared_ptr<aperi::MeshData> m_mesh_data;   // The mesh data object.
     std::string m_set;                              // The set to process.
-    size_t m_num_subcells;                          // The number of subcells.
-    bool m_activate_center_node;                    // Whether to activate the center node
     stk::mesh::BulkData *m_bulk_data;               // The bulk data object.
     stk::mesh::Selector m_selector;                 // The selector
     stk::mesh::Selector m_owned_selector;           // The local selector

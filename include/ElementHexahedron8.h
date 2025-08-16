@@ -171,10 +171,11 @@ class ElementHexahedron8 : public ElementBase {
      * @brief Computes the internal force of all elements.
      *
      */
-    void ComputeInternalForceAllElements(double time_increment) override {
+    void ComputeInternalForceAllElements(double time_increment, double time) override {
         assert(m_compute_force != nullptr);
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
+        m_compute_force->SetTime(time);
         // Loop over all elements and compute the internal force
         m_ngp_mesh_data.ForEachElementAndConnectedNodes<HEX8_NUM_NODES>(*m_compute_force, m_selector);
         m_compute_force->MarkFieldsModifiedOnDevice();

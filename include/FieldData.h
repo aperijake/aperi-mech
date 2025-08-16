@@ -32,7 +32,8 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank);
  */
 enum class FieldDataTopologyRank { NODE,
                                    ELEMENT,
-                                   FACE };
+                                   FACE,
+                                   NONE };
 
 /**
  * @struct FieldData

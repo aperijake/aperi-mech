@@ -149,12 +149,12 @@ def _print_pass_fail(test_name, return_code, executable_time, extra_message=None
     TEST_NAME_WIDTH = 30
     TIME_WIDTH = 12
 
-    status = f"{GREEN}PASS{RESET}" if return_code == 0 else f"{RED}FAIL{RESET}"
+    status = f"{GREEN}(pass){RESET}" if return_code == 0 else f"{RED}(fail){RESET}"
     time_formatted = f"{executable_time:.4e}"
-    message = f"message: {extra_message}" if extra_message else ""
+    message = f"  message: {extra_message}" if extra_message else ""
 
     print(
-        f"    {status}:    time(s): {time_formatted:>{TIME_WIDTH}}    test: {test_name:<{TEST_NAME_WIDTH}}{message}"
+        f"    time(s): {time_formatted:>{TIME_WIDTH}}    test: {test_name:<{TEST_NAME_WIDTH}}{message} {status}"
     )
 
     if return_code != 0:
@@ -310,21 +310,21 @@ class PeakMemoryCheck:
         lower_limit = self.gold_peak_memory * (1.0 - self.tolerance_percent)
         message = f"Peak memory value: {self.peak_memory} MB, Gold value: {self.gold_peak_memory:.2f} MB, Upper limit {upper_limit:.2f} MB"
         return_code = 0
+        _print_pass_fail(self.test_name, return_code, 0, message)
         if self.peak_memory > upper_limit:
             print(
-                f"    Peak memory ({self.peak_memory:.2f} MB) exceeded the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
+                f"      Peak memory ({self.peak_memory:.2f} MB) exceeded the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
             )
             return_code = 1
         elif self.peak_memory < lower_limit:
             print(
-                f"    Peak memory ({self.peak_memory:.2f} MB) is less than the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
+                f"      Peak memory ({self.peak_memory:.2f} MB) is less than the gold peak memory ({self.gold_peak_memory:.2f} MB) by more than {self.tolerance_percent*100.0}%"
             )
             print(
-                f"    Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
+                f"      Consider changing the gold peak memory to {self.peak_memory:.2f} MB"
             )
         if self.write_json:
             self._write_json()
-        _print_pass_fail(self.test_name, return_code, 0, message)
 
         return return_code
 

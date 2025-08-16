@@ -266,6 +266,25 @@ aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const s
     return node_index;
 }
 
+Eigen::Vector3d ComputeEntityCentroid(const stk::mesh::BulkData& bulk, stk::mesh::Field<aperi::Real>& coordinates_field, const stk::mesh::Entity& entity) {
+    // Get the element entity
+    assert(bulk.is_valid(entity));
+
+    // Get the nodes of the element
+    const stk::mesh::Entity* p_nodes = bulk.begin_nodes(entity);
+    size_t num_nodes = bulk.num_nodes(entity);
+
+    // Compute the centroid
+    Eigen::Vector3d centroid(0.0, 0.0, 0.0);
+    for (size_t i = 0; i < num_nodes; ++i) {
+        double* p_node_coords = stk::mesh::field_data(coordinates_field, p_nodes[i]);
+        centroid += Eigen::Vector3d(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
+    }
+    centroid /= static_cast<double>(num_nodes);
+
+    return centroid;
+}
+
 stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found) {
     // Get the bulk data
     stk::mesh::MetaData& meta = *mesh_data.GetMetaData();
@@ -282,22 +301,10 @@ stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, cons
     // Loop over the elements in the part
     for (stk::mesh::Bucket* p_bucket : selector.get_buckets(stk::topology::ELEM_RANK)) {
         // Loop over each entity in the bucket
-        for (size_t i_entity = 0; i_entity < p_bucket->size(); i_entity++) {
+        for (auto element : *p_bucket) {
             // Get the nodes of the element
-            stk::mesh::Entity element = (*p_bucket)[i_entity];
-            const stk::mesh::Entity* nodes = p_bucket->begin_nodes(i_entity);
-            size_t num_nodes = p_bucket->num_nodes(i_entity);
-            Eigen::Vector3d element_centroid(0.0, 0.0, 0.0);
-            // Loop over the nodes of the element
-            for (size_t i_node = 0; i_node < num_nodes; ++i_node) {
-                // Get the node
-                stk::mesh::Entity node = nodes[i_node];
-                double* p_node_coords = stk::mesh::field_data(coordinates_field, node);
-                Eigen::Vector3d node_coordinates(p_node_coords[0], p_node_coords[1], p_node_coords[2]);
-                element_centroid += node_coordinates;
-            }
-            // Get the centroid of the element
-            element_centroid /= num_nodes;
+            // Get the element centroid
+            Eigen::Vector3d element_centroid = ComputeEntityCentroid(*mesh_data.GetBulkData(), coordinates_field, element);
 
             // Check if the coordinates match
             if ((element_centroid - coordinates).norm() < 1.0e-12) {
@@ -342,6 +349,102 @@ void DeleteElementAtCoordinates(const aperi::MeshData& mesh_data, const std::str
     stk::mesh::Entity entity_to_delete = GetElementAtCoordinates(mesh_data, part_name, coordinates, check_found);
     stk::mesh::EntityVector elements_to_delete = {entity_to_delete};
     stk::mesh::destroy_elements(bulk, elements_to_delete);
+}
+
+// Function to get element and centroid lists
+std::vector<std::pair<aperi::Index, Eigen::Vector3d>> GetElementIndicesAndCentroids(const aperi::MeshData& mesh_data,
+                                                                                    const aperi::Selector& selector) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    std::vector<std::pair<aperi::Index, Eigen::Vector3d>> elements_and_centroids;
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    // Loop over all the elements in the selected parts
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::ELEM_RANK)) {
+        for (stk::mesh::Entity element : *p_bucket) {
+            const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(element);
+            auto element_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+
+            // Get the centroid of the element
+            Eigen::Vector3d centroid = ComputeEntityCentroid(*p_bulk, coordinates_field, element);
+
+            // Add to the list
+            elements_and_centroids.emplace_back(element_index, centroid);
+        }
+    }
+    return elements_and_centroids;
+}
+
+// Function to get node indices and elements
+std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> GetNodeIndicesAndElements(const aperi::MeshData& mesh_data,
+                                                                                             const aperi::Selector& selector) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    std::vector<std::pair<aperi::Index, std::vector<aperi::Unsigned>>> nodes_and_elements;
+
+    // Loop over all the nodes in the selected parts
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Entity node : *p_bucket) {
+            const stk::mesh::MeshIndex& mesh_index = p_bulk->mesh_index(node);
+            auto node_index = aperi::Index(mesh_index.bucket->bucket_id(), mesh_index.bucket_ordinal);
+
+            // Get the connected elements for the node
+            stk::mesh::ConnectedEntities elems = p_bulk->get_connected_entities(node, stk::topology::ELEMENT_RANK);
+            std::vector<aperi::Unsigned> element_local_offsets;
+            for (const stk::mesh::Entity& elem : elems) {
+                element_local_offsets.push_back(elem.local_offset());
+            }
+            nodes_and_elements.emplace_back(node_index, element_local_offsets);
+        }
+    }
+    return nodes_and_elements;
+}
+
+std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> GetNodeLocalOffsetsAndCoordinates(const aperi::MeshData& mesh_data, const aperi::Selector& selector) {
+    std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> nodes_and_coordinates;
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    // Loop over all the nodes in the selected parts
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::NODE_RANK)) {
+        for (stk::mesh::Entity node : *p_bucket) {
+            // Get the local offset of the node
+            aperi::Unsigned node_index = node.local_offset();
+
+            // Get the coordinates of the node
+            Eigen::Vector3d coordinates;
+
+            double* p_node_coords = stk::mesh::field_data(coordinates_field, node);
+            coordinates << p_node_coords[0], p_node_coords[1], p_node_coords[2];
+
+            // Add to the list
+            nodes_and_coordinates.emplace_back(node_index, coordinates);
+        }
+    }
+    return nodes_and_coordinates;
+}
+std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> GetFaceLocalOffsetsAndCentroids(const aperi::MeshData& mesh_data, const aperi::Selector& selector) {
+    auto* p_bulk = mesh_data.GetBulkData();
+    std::vector<std::pair<aperi::Unsigned, Eigen::Vector3d>> faces_and_centroids;
+
+    // Get the coordinates field
+    stk::mesh::Field<double>& coordinates_field = *mesh_data.GetMetaData()->get_field<double>(stk::topology::NODE_RANK, mesh_data.GetCoordinatesFieldName());
+
+    // Loop over all the faces in the selected parts
+    for (stk::mesh::Bucket* p_bucket : selector().get_buckets(stk::topology::FACE_RANK)) {
+        for (stk::mesh::Entity face : *p_bucket) {
+            // Get the local offset of the face
+            aperi::Unsigned face_index = face.local_offset();
+
+            // Get the centroid of the face
+            Eigen::Vector3d centroid = ComputeEntityCentroid(*p_bulk, coordinates_field, face);
+
+            // Add to the list
+            faces_and_centroids.emplace_back(face_index, centroid);
+        }
+    }
+    return faces_and_centroids;
 }
 
 // Function to get interior and exterior faces

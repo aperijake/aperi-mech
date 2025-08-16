@@ -133,7 +133,13 @@ def should_run_test(
 
 
 def execute_test(
-    test_config, dirpath, build_dir, keep_results, write_json, parse_timings
+    test_config,
+    dirpath,
+    build_dir,
+    keep_results,
+    write_json,
+    parse_timings,
+    skip_memory,
 ):
     """
     Executes a single test and returns whether it passed.
@@ -156,7 +162,7 @@ def execute_test(
 
     if return_code != 0:
         print("\033[91m  FAIL\033[0m")
-        return False
+        return False, inputs["test_name"]
 
     all_exodiff_passed = all(
         ExodiffCheck(
@@ -172,7 +178,7 @@ def execute_test(
     )
 
     memcheck_passed = True
-    if inputs["peak_memory"] is not None:
+    if not skip_memory and inputs["peak_memory"] is not None:
         peak_memory_check = PeakMemoryCheck(
             f"{inputs['test_name']}_peak_memory",
             stats["peak_memory"],
@@ -201,10 +207,10 @@ def execute_test(
             and "remove" in test_config["cleanup"]
         ):
             cleanup_test_results(test_config)
-        return True
+        return True, None
     else:
         print("\033[91m  FAIL\033[0m")
-        return False
+        return False, inputs["test_name"]
 
 
 def cleanup_test_results(test_config):
@@ -228,6 +234,7 @@ def run_regression_tests_from_directory(
     keep_results=False,
     write_json=False,
     parse_timings=False,
+    skip_memory=False,
 ):
     """
     Runs regression tests from the specified directory.
@@ -235,6 +242,7 @@ def run_regression_tests_from_directory(
     passing_tests = 0
     total_tests = 0
     current_dir = os.getcwd()
+    failed_tests = []
 
     for dirpath, _, filenames in os.walk(root_dir):
         if "test.yaml" in filenames:
@@ -258,21 +266,26 @@ def run_regression_tests_from_directory(
                     ):
                         continue
 
-                    if execute_test(
+                    passed, failed_test_name = execute_test(
                         test_config,
                         dirpath,
                         build_dir,
                         keep_results,
                         write_json,
                         parse_timings,
-                    ):
+                        skip_memory,
+                    )
+                    if passed:
                         passing_tests += 1
+                    else:
+                        if failed_test_name:
+                            failed_tests.append(failed_test_name)
                     total_tests += 1
 
             print("-----------------------------------\n")
             os.chdir(current_dir)
 
-    return passing_tests, total_tests
+    return passing_tests, total_tests, failed_tests
 
 
 def clean_logs(root_dir):
@@ -415,6 +428,11 @@ def parse_arguments():
         help="Parse the timings from the test output and write them to a JSON file",
         action="store_true",
     )
+    parser.add_argument(
+        "--skip-memory",
+        help="Skip peak memory checks in all tests.",
+        action="store_true",
+    )
     args = parser.parse_args()
     if args.directory is None and args.directory_file is None:
         args.directory = "regression_tests"
@@ -454,22 +472,27 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     passing_tests = 0
     total_tests = 0
+    failed_tests_all = []
     for directory in directories:
-        passing_tests_dir, total_tests_dir = run_regression_tests_from_directory(
-            directory,
-            build_dir,
-            args.cpu,
-            args.serial,
-            args.parallel,
-            args.gpu,
-            args.release,
-            args.debug,
-            args.keep_results,
-            args.write_json,
-            args.parse_timings,
+        passing_tests_dir, total_tests_dir, failed_tests = (
+            run_regression_tests_from_directory(
+                directory,
+                build_dir,
+                args.cpu,
+                args.serial,
+                args.parallel,
+                args.gpu,
+                args.release,
+                args.debug,
+                args.keep_results,
+                args.write_json,
+                args.parse_timings,
+                args.skip_memory,
+            )
         )
         passing_tests += passing_tests_dir
         total_tests += total_tests_dir
+        failed_tests_all.extend(failed_tests)
     end_time = time.perf_counter()
     print(f"Total time: {end_time - start_time:.4e} seconds")
 
@@ -477,6 +500,9 @@ if __name__ == "__main__":
     if failing_tests > 0:
         print(f"{failing_tests} tests failed.")
         print(f"{passing_tests} tests passed.")
+        print("\nFailed tests summary:")
+        for test_name in failed_tests_all:
+            print(f"  - {test_name}")
         sys.exit(1)
     else:
         print(f"All {passing_tests} tests passed.")

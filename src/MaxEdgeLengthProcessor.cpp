@@ -39,7 +39,7 @@ struct MaxEdgeLengthFunctor {
             coordinates(0, j) = m_coordinates_field(node_idx, j);
         }
 
-        Real max_edge_length = 0.0;
+        Real max_edge_length = m_max_edge_length_field(node_idx, 0);
 
         auto connected_elements = ngp_mesh_data.GetNodeElements(node_idx);
         for (size_t i = 0; i < connected_elements.size(); ++i) {

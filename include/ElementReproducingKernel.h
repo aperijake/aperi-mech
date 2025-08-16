@@ -60,7 +60,7 @@ class ElementReproducingKernel : public ElementBase {
         CreateElementForceProcessor();
         CreateSmoothedCellDataProcessor();
         LabelParts();
-        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()));
+        m_compute_force->PreprocessingWithMeshModification(m_strain_smoothing_processor->GetSmoothedCellDataSizes(GetEstimatedTotalNumberOfNeighbors()), m_part_names);
         CreateFunctionCreationProcessor();
     }
 
@@ -211,13 +211,14 @@ class ElementReproducingKernel : public ElementBase {
      * @brief Computes the internal force of all elements.
      *
      */
-    void ComputeInternalForceAllElements(double time_increment) override {
+    void ComputeInternalForceAllElements(double time_increment, double time) override {
         assert(this->m_material != nullptr);
         assert(m_compute_force != nullptr);
 
         // Loop over all elements and compute the internal force
         m_compute_force->UpdateFields();  // Updates the ngp fields
         m_compute_force->SetTimeIncrement(time_increment);
+        m_compute_force->SetTime(time);
         m_compute_force->ForEachCellComputeForce(*m_smoothed_cell_data);
         m_compute_force->MarkFieldsModifiedOnDevice();
     }

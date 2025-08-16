@@ -112,12 +112,7 @@ class PowerMethodProcessor {
 
         std::string displacement_field_name = is_incremental ? "displacement_coefficients_inc" : "displacement_coefficients";
 
-        // Get the selector
-        std::vector<std::string> sets = {};
-        m_selector = StkGetSelector(sets, meta_data);
-        assert(m_selector.is_empty(stk::topology::ELEMENT_RANK) == false);
-
-        // Append "_active" to each set name and create a selector for the active entities
+        // Get the active selector
         std::vector<std::string> active_sets = {"universal_active_part"};
         m_active_selector = StkGetSelector(active_sets, meta_data);
 
@@ -491,7 +486,6 @@ class PowerMethodProcessor {
     std::shared_ptr<aperi::ExplicitSolver> m_solver;  // The solver object.
     bool m_eigenvector_is_initialized = false;        // Flag for if the eigenvector is initialized
     stk::mesh::BulkData *m_bulk_data;                 // The bulk data object.
-    stk::mesh::Selector m_selector;                   // The selector
     stk::mesh::Selector m_active_selector;            // The active selector
     stk::mesh::NgpMesh m_ngp_mesh;                    // The ngp mesh object.
 
