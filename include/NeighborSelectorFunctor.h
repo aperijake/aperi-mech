@@ -10,13 +10,21 @@
 #include "Index.h"
 #include "MeshData.h"
 #include "NgpMeshData.h"
+#include "Types.h"
+
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoNeighborSelectorFunctor.h"
+namespace aperi {
+using NeighborSelectorFunctor = protego::ConformingKernelNeighborSelectorFunctor;
+}
+#else
 
 namespace aperi {
 
 /**
  * @brief Functor to select neighbors for each node based on search results.
  */
-struct NeighborSelectorFunctor {
+struct ReproducingKernelNeighborSelectorFunctor {
     aperi::Field<aperi::Unsigned> m_node_neighbors_field;  // Field to store neighbor node IDs
     aperi::Field<aperi::Unsigned> m_num_neighbors_field;   // Field to store the number of neighbors
     stk::mesh::BulkData* m_bulk_data;                      // Pointer to the bulk data
@@ -29,7 +37,7 @@ struct NeighborSelectorFunctor {
      *
      * @param mesh_data Shared pointer to the mesh data.
      */
-    NeighborSelectorFunctor(std::shared_ptr<aperi::MeshData> mesh_data)
+    ReproducingKernelNeighborSelectorFunctor(std::shared_ptr<aperi::MeshData> mesh_data)
         : m_node_neighbors_field(aperi::Field(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE})),
           m_num_neighbors_field(aperi::Field(mesh_data, aperi::FieldQueryData<aperi::Unsigned>{"num_neighbors", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE})),
           m_bulk_data(mesh_data->GetBulkData()),
@@ -53,7 +61,7 @@ struct NeighborSelectorFunctor {
      * @param too_many_neighbors_count Counter for nodes with too many neighbors.
      */
     KOKKOS_FUNCTION
-    void operator()(const Kokkos::View<ResultViewType::value_type*, Kokkos::DefaultExecutionSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>& node_results,
+    void operator()(const Kokkos::View<ResultViewType::value_type*, Kokkos::DefaultExecutionSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >& node_results,
                     Kokkos::View<size_t, Kokkos::DefaultExecutionSpace> too_many_neighbors_count) const {
         // Get the node and neighbor entities and their indices
         auto& first_result = node_results(0);
@@ -91,4 +99,8 @@ struct NeighborSelectorFunctor {
     }
 };
 
+using NeighborSelectorFunctor = ReproducingKernelNeighborSelectorFunctor;
+
 }  // namespace aperi
+
+#endif
