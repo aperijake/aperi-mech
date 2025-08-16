@@ -13,6 +13,7 @@
 #include "IoMesh.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessor.h"
+#include "NeighborSelectorFunctor.h"
 #include "Selector.h"
 
 #ifdef USE_PROTEGO_MECH
@@ -31,10 +32,12 @@ void FindNeighbors(std::shared_ptr<MeshData> mesh_data, const ReproducingKernelI
     }
 
     // Create a search processor and perform neighbor search within variable-sized balls.
+    aperi::NeighborSelectorFunctor functor(mesh_data);
     aperi::NeighborSearchProcessor search_processor(mesh_data);
     search_processor.AddNeighborsWithinVariableSizedBall(
         reproducing_kernel_info.part_names,
-        reproducing_kernel_info.kernel_radius_scale_factors);
+        reproducing_kernel_info.kernel_radius_scale_factors,
+        functor);
 
     // Sync neighbor fields to host memory for output or further processing.
     search_processor.SyncFieldsToHost();

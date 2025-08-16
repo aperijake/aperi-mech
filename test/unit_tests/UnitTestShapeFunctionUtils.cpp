@@ -7,6 +7,7 @@
 #include "FunctionCreationProcessor.h"
 #include "MaxEdgeLengthProcessor.h"
 #include "NeighborSearchProcessor.h"
+#include "NeighborSelectorFunctor.h"
 #include "ShapeFunctionsFunctorReproducingKernel.h"
 #include "Types.h"
 
@@ -103,8 +104,9 @@ void SetMaxEdgeLengthAndFindNeighbors(const std::shared_ptr<aperi::MeshData>& me
     max_edge_length_processor.ComputeMaxEdgeLength();
 
     // Find the neighbors within a variable ball
+    aperi::NeighborSelectorFunctor functor(mesh_data);
     aperi::NeighborSearchProcessor search_processor(mesh_data);
-    search_processor.AddNeighborsWithinVariableSizedBall(part_names, kernel_radius_scale_factors);
+    search_processor.AddNeighborsWithinVariableSizedBall(part_names, kernel_radius_scale_factors, functor);
 }
 
 void ComputeReproducingKernelShapeFunctions(const std::shared_ptr<aperi::MeshData>& mesh_data, const std::vector<std::string>& part_names, const aperi::LagrangianFormulationType& lagrangian_formulation_type) {
