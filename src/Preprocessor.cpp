@@ -100,11 +100,6 @@ void DoPreprocessing(
     // Set up field data for the chosen Lagrangian formulation.
     SetFieldDataForLagrangianFormulation(mesh_data, lagrangian_formulation_type);
 
-#ifdef USE_PROTEGO_MECH
-    // Run Protego-specific preprocessing if enabled.
-    protego::DoPreprocessing(io_mesh, force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions);
-#endif
-
     // Gather reproducing kernel info from all internal force contributions.
     aperi::ReproducingKernelInfo reproducing_kernel_info;
     for (const auto& force_contribution : force_contributions) {
@@ -121,6 +116,11 @@ void DoPreprocessing(
                 this_reproducing_kernel_info.kernel_radius_scale_factors.end());
         }
     }
+
+#ifdef USE_PROTEGO_MECH
+    // Run Protego-specific preprocessing if enabled.
+    protego::DoPreprocessing(io_mesh, force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions);
+#endif
 
     // Perform neighbor search for all relevant parts.
     FindNeighbors(mesh_data, reproducing_kernel_info);
