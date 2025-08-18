@@ -60,6 +60,12 @@ class NeighborSearchProcessor {
                                              const std::vector<double> &kernel_radii,
                                              Functor functor);
 
+    template <typename Functor>
+    void DoBallSearch(const std::vector<std::string> &sets, Functor functor);
+
+    template <typename Functor>
+    void UnpackSearchResultsIntoField(ResultViewType &search_results, size_t num_domain_nodes, Functor functor);
+
     void SyncFieldsToHost();
     void CommunicateAllFieldData() const;
 
@@ -72,12 +78,6 @@ class NeighborSearchProcessor {
     RangeViewType CreateNodeSpheres(const aperi::Selector &selector);
 
    private:
-    template <typename Functor>
-    void DoBallSearch(const std::vector<std::string> &sets, Functor functor);
-
-    template <typename Functor>
-    void UnpackSearchResultsIntoField(ResultViewType &search_results, size_t num_domain_nodes, Functor functor);
-
     std::shared_ptr<aperi::MeshData> m_mesh_data;  // The mesh data object.
     std::vector<std::string> m_sets;               // The sets to process.
 
