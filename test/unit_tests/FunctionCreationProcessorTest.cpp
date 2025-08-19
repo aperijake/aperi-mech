@@ -10,6 +10,7 @@
 #include "FunctionEvaluationProcessor.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
+#include "NeighborSelectorFunctor.h"
 #include "UnitTestUtils.h"
 
 struct FillLinearFieldFunctor {

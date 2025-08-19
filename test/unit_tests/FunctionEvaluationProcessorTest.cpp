@@ -8,6 +8,7 @@
 #include "FieldData.h"
 #include "FunctionCreationProcessorTestFixture.h"
 #include "MeshData.h"
+#include "NeighborSelectorFunctor.h"
 #include "Types.h"
 #include "UnitTestUtils.h"
 
