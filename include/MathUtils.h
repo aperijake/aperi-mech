@@ -9,6 +9,10 @@
 #include <stdexcept>
 #include <vector>
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoMathUtils.h"
+#endif
+
 namespace aperi {
 
 // Compute the cross product of two vectors
@@ -259,11 +263,15 @@ KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
 
 template <int Size>
 KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const Eigen::Matrix<double, Size, Size> &mat) {
+#ifdef USE_PROTEGO_MECH
+    return protego::InvertMatrix<Size>(mat);
+#else
 #ifndef KOKKOS_ENABLE_CUDA
     // assert(mat.fullPivLu().isInvertible());
     return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
 #else
     return mat.inverse();
+#endif
 #endif
 }
 
@@ -462,117 +470,6 @@ KOKKOS_INLINE_FUNCTION int NearPoint(const Eigen::Vector3d &point, const Kokkos:
         }
     }
     return -1;
-}
-
-template <int N>
-KOKKOS_INLINE_FUNCTION void JacobiSvd(const Eigen::Matrix<double, N, N> &A_in,
-                                      Eigen::Matrix<double, N, N> &U,
-                                      Eigen::Matrix<double, N, 1> &S,
-                                      Eigen::Matrix<double, N, N> &Vt,
-                                      int max_sweeps = 30,
-                                      double tol = 1e-12) {
-    Eigen::Matrix<double, N, N> A = A_in;  // Working copy
-
-    U.setIdentity();
-    Vt.setIdentity();
-
-    for (int sweep = 0; sweep < max_sweeps; ++sweep) {
-        bool converged = true;
-        for (int p = 0; p < N - 1; ++p) {
-            for (int q = p + 1; q < N; ++q) {
-                // Compute Apq and Apq elements of A^T A for p,q cols
-                double App = 0.0, Aqq = 0.0, Apq = 0.0;
-                for (int i = 0; i < N; ++i) {
-                    double a_ip = A(i, p);
-                    double a_iq = A(i, q);
-                    App += a_ip * a_ip;
-                    Aqq += a_iq * a_iq;
-                    Apq += a_ip * a_iq;
-                }
-
-                if (fabs(Apq) > tol) {
-                    converged = false;
-                    double tau = (Aqq - App) / (2.0 * Apq);
-                    double t = ((tau >= 0.0) ? 1.0 : -1.0) / (fabs(tau) + sqrt(1 + tau * tau));
-                    double c = 1.0 / sqrt(1 + t * t);
-                    double s = t * c;
-
-                    // Rotate columns p and q of A
-                    for (int i = 0; i < N; ++i) {
-                        double aip = A(i, p);
-                        double aiq = A(i, q);
-                        A(i, p) = c * aip - s * aiq;
-                        A(i, q) = s * aip + c * aiq;
-                    }
-
-                    // Accumulate rotation to Vt (row rotations of V^T)
-                    for (int i = 0; i < N; ++i) {
-                        double vip = Vt(p, i);
-                        double viq = Vt(q, i);
-                        Vt(p, i) = c * vip - s * viq;
-                        Vt(q, i) = s * vip + c * viq;
-                    }
-                }
-            }
-        }
-        if (converged) break;
-    }
-
-    // Compute singular values and U = A * V * S^{-1}
-    for (int j = 0; j < N; ++j) {
-        double sigma = 0.0;
-        for (int i = 0; i < N; ++i) {
-            double val = A(i, j);
-            sigma += val * val;
-        }
-        S(j) = sqrt(sigma);
-
-        // Normalize j-th column of A to form U(:,j)
-        if (S(j) > tol) {
-            for (int i = 0; i < N; ++i) {
-                U(i, j) = A(i, j) / S(j);
-            }
-        } else {
-            // For zero singular value columns, fill with zeros (or set orthogonal basis if needed)
-            for (int i = 0; i < N; ++i) {
-                U(i, j) = 0.0;
-            }
-        }
-    }
-}
-
-template <int N>
-KOKKOS_INLINE_FUNCTION
-    Eigen::Matrix<double, N, N>
-    SvdPseudoInverse(const Eigen::Matrix<double, N, N> &A,
-                     double tol = 1e-12,
-                     int max_sweeps = 30) {
-    Eigen::Matrix<double, N, N> Ainv;
-    Eigen::Matrix<double, N, N> U, Vt;
-    Eigen::Matrix<double, N, 1> S;
-
-    // Compute SVD
-    JacobiSvd<N>(A, U, S, Vt, max_sweeps, tol);
-
-    // Invert singular values with tolerance
-    Eigen::Matrix<double, N, 1> Sinv;
-    for (int i = 0; i < N; ++i) {
-        Sinv(i) = (S(i) > tol) ? 1.0 / S(i) : 0.0;
-    }
-
-    // Compute Ainv = V * S^+ * U^T
-    Eigen::Matrix<double, N, N> tmp;
-    for (int i = 0; i < N; ++i)
-        for (int j = 0; j < N; ++j)
-            tmp(i, j) = Vt.transpose()(i, j) * Sinv(j);
-
-    Ainv.setZero();
-    for (int i = 0; i < N; ++i)
-        for (int j = 0; j < N; ++j)
-            for (int k = 0; k < N; ++k)
-                Ainv(i, j) += tmp(i, k) * U(j, k);
-
-    return Ainv;
 }
 
 }  // namespace aperi
