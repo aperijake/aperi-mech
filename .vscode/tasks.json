@@ -75,6 +75,30 @@
       }
     },
     {
+      "label": "make_san",
+      "type": "shell",
+      "command": "${SHELL:-sh}",
+      "args": [
+        "-c",
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} -s && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "options": {
+        "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "",
+          "GPU_FLAG": "",
+          "BUILD_PATH": "build/Debug_san",
+          "MAKE_JOBS": ""
+        }
+      }
+    },
+    {
       "label": "make_debug_protego",
       "type": "shell",
       "command": "${SHELL:-sh}",
@@ -94,6 +118,30 @@
           "PROTEGO_FLAG": "-p",
           "GPU_FLAG": "",
           "BUILD_PATH": "protego-mech/build/Debug",
+          "MAKE_JOBS": ""
+        }
+      }
+    },
+    {
+      "label": "make_san_protego",
+      "type": "shell",
+      "command": "${SHELL:-sh}",
+      "args": [
+        "-c",
+        "echo APERI_MECH_ROOT=$APERI_MECH_ROOT BUILD_ENV=$BUILD_ENV BUILD_TYPE=$BUILD_TYPE PROTEGO_FLAG=$PROTEGO_FLAG GPU_FLAG=$GPU_FLAG BUILD_PATH=$BUILD_PATH MAKE_JOBS=$MAKE_JOBS && source $APERI_MECH_ROOT/venv/bin/activate && spack env activate ${BUILD_ENV} && ./do_configure --build-type ${BUILD_TYPE} ${PROTEGO_FLAG} ${GPU_FLAG} -s && cd ${BUILD_PATH} && make -j ${MAKE_JOBS}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "options": {
+        "env": {
+          "APERI_MECH_ROOT": "${env:APERI_MECH_ROOT}",
+          "BUILD_ENV": "${env:APERI_MECH_CPU_ENV}",
+          "BUILD_TYPE": "Debug",
+          "PROTEGO_FLAG": "-p",
+          "GPU_FLAG": "",
+          "BUILD_PATH": "protego-mech/build/Debug_san",
           "MAKE_JOBS": ""
         }
       }

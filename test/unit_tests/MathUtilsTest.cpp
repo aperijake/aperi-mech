@@ -1,7 +1,9 @@
 #include <MathUtils.h>
 #include <gtest/gtest.h>
 
+#include <Eigen/Core>
 #include <array>
+#include <cmath>
 
 // Test the cross product of two vectors
 TEST(MathUtilsTest, Cross) {

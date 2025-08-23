@@ -1,11 +1,55 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <fstream>
+#include <iomanip>
 
 #include "Constants.h"
 #include "MathUtils.h"
 
 namespace aperi {
+
+template <size_t Rows, size_t Cols>
+inline void DumpMatrixToFile(const Eigen::Matrix<double, Rows, Cols>& M, std::ofstream& ofs) {
+    ofs << std::setprecision(16) << std::scientific;
+    for (int i = 0; i < Rows; ++i) {
+        for (int j = 0; j < Cols; ++j) {
+            ofs << M(i, j);
+            if (i != Rows - 1 || j != Cols - 1) {
+                ofs << ",";  // comma delimiter
+            }
+        }
+    }
+    ofs << "\n";
+}
+
+template <size_t Rows, size_t Cols>
+inline void ComputeMatrixInversionErrors(const Eigen::Matrix<double, Rows, Cols>& M,
+                                         const Eigen::Matrix<double, Rows, Cols>& M_inv,
+                                         double kernel_value_sum,
+                                         size_t actual_num_neighbors,
+                                         bool dump_low_quality_matrices = false) {
+    // Error of inverse
+    double inverse_error = (M * M_inv - Eigen::Matrix<double, Rows, Cols>::Identity()).norm();
+    // Compute using Eigen's full piv LU for comparison
+    Eigen::Matrix<double, Rows, Cols> M_inv_LU = M.fullPivLu().inverse();
+    double lu_inverse_error = (M * M_inv_LU - Eigen::Matrix<double, Rows, Cols>::Identity()).norm();
+    double rcond = M.fullPivLu().rcond();
+
+    // Report errors
+    Eigen::Matrix<double, 5, 1> errors;
+    errors << inverse_error, lu_inverse_error, kernel_value_sum, actual_num_neighbors, rcond;
+    std::ofstream errors_ofs("inverse_errors.csv", std::ios::app);  // append mode
+    DumpMatrixToFile<5, 1>(errors, errors_ofs);
+
+    // Check for low-quality matrices
+    bool is_low_quality = (inverse_error > 1e-6 || lu_inverse_error > 1e-6 || rcond < 1e-6);
+
+    if (is_low_quality && dump_low_quality_matrices) {
+        std::ofstream ofs("low_quality_matrices.csv", std::ios::app);  // append mode
+        DumpMatrixToFile<Rows, Cols>(M, ofs);
+    }
+}
 
 struct BasesLinear {
     constexpr static size_t size = 4;
@@ -152,14 +196,6 @@ struct ShapeFunctionsFunctorReproducingKernel {
         } else if (actual_num_neighbors == 1) {
             function_values(0, 0) = 1.0;
             return function_values;
-        } else if (actual_num_neighbors < Bases::size) {
-            // Throw an error if the number of neighbors is less than the matrix size
-            printf("The number of neighbors is less than the matrix size. Number of neighbors: %zu, Matrix size: %zu\n", actual_num_neighbors, Bases::size);
-            // Split shape functions evenly between neighbors
-            for (size_t i = 0; i < actual_num_neighbors; i++) {
-                function_values(i, 0) = 1.0 / actual_num_neighbors;
-            }
-            // Kokkos::abort("Aborting due to insufficient number of neighbors.");
         }
 
         // Allocate moment matrix (M) and M^-1
@@ -168,12 +204,12 @@ struct ShapeFunctionsFunctorReproducingKernel {
         // Allocate basis vector (H)
         Eigen::Matrix<double, Bases::size, 1> H = Eigen::Matrix<double, Bases::size, 1>::Zero();
 
-        size_t num_nonzero_kernel_values = actual_num_neighbors;
+        // Sum kernel values
+        double kernel_value_sum = 0.0;
 
         // Loop over neighbor nodes
         for (size_t i = 0; i < actual_num_neighbors; i++) {
             if (kernel_values(i, 0) == 0.0) {
-                --num_nonzero_kernel_values;
                 continue;
             }
 
@@ -182,19 +218,24 @@ struct ShapeFunctionsFunctorReproducingKernel {
 
             // Compute moment matrix (M)
             M += kernel_values(i, 0) * H * H.transpose();
-        }
 
-        if (num_nonzero_kernel_values < Bases::size) {
-            // Throw an error if the number of neighbors is less than the matrix size
-            printf("The number of neighbors with non-zero kernel values is less than the matrix size. Number of neighbors: %zu, Matrix size: %zu\n", num_nonzero_kernel_values, Bases::size);
-            for (size_t i = 0; i < actual_num_neighbors; i++) {
-                function_values(i, 0) = 1.0 / actual_num_neighbors;
-            }
-            // Kokkos::abort("Aborting due to insufficient number of neighbors.");
+            // Sum kernel values
+            kernel_value_sum += kernel_values(i, 0);
         }
 
         // Compute M^-1
         Eigen::Matrix<double, Bases::size, Bases::size> M_inv = InvertMatrix(M);
+
+        if (M_inv.norm() < 1e-15) {
+            // The matrix failed to invert. Fall back to constant bases
+            printf("The matrix failed to invert. Falling back to constant bases.\n");
+            for (size_t i = 0; i < actual_num_neighbors; i++) {
+                function_values(i, 0) = kernel_values(i, 0) / kernel_value_sum;
+            }
+            // ComputeMatrixInversionErrors<Bases::size, Bases::size>(M, M_inv, kernel_value_sum, actual_num_neighbors);
+            return function_values;
+        }
+        // ComputeMatrixInversionErrors<Bases::size, Bases::size>(M, M_inv, kernel_value_sum, actual_num_neighbors);
 
         // Loop over neighbor nodes again
         for (size_t i = 0; i < actual_num_neighbors; i++) {

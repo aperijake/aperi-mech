@@ -198,14 +198,14 @@ void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<ape
     // Get general field data
     std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
 
-    // Add time stepper field data
-    std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
-    field_data.insert(field_data.end(), time_stepper_field_data.begin(), time_stepper_field_data.end());
-
     // Create a mesh labeler
     // Add mesh labeler fields to the field data
     std::vector<aperi::FieldData> mesh_labeler_field_data = aperi::MeshLabeler::GetFieldData();
     field_data.insert(field_data.end(), mesh_labeler_field_data.begin(), mesh_labeler_field_data.end());
+
+    // Add time stepper field data
+    std::vector<aperi::FieldData> time_stepper_field_data = time_stepper->GetFieldData();
+    field_data.insert(field_data.end(), time_stepper_field_data.begin(), time_stepper_field_data.end());
 
     // Add fields to the mesh and complete initialization
     io_mesh->AddFields(field_data);

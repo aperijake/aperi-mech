@@ -9,6 +9,10 @@
 #include <stdexcept>
 #include <vector>
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoMathUtils.h"
+#endif
+
 namespace aperi {
 
 // Compute the cross product of two vectors
@@ -259,11 +263,15 @@ KOKKOS_INLINE_FUNCTION size_t RemoveDuplicates(T &arr, size_t relevant_length) {
 
 template <int Size>
 KOKKOS_FORCEINLINE_FUNCTION Eigen::Matrix<double, Size, Size> InvertMatrix(const Eigen::Matrix<double, Size, Size> &mat) {
+#ifdef USE_PROTEGO_MECH
+    return protego::InvertMatrix<Size>(mat);
+#else
 #ifndef KOKKOS_ENABLE_CUDA
     // assert(mat.fullPivLu().isInvertible());
     return mat.fullPivLu().inverse();  // Does not work on the gpu as of eigen 3.4
 #else
     return mat.inverse();
+#endif
 #endif
 }
 

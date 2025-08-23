@@ -21,6 +21,7 @@
 #include "FunctionCreationProcessorTestFixture.h"
 #include "MathUtils.h"
 #include "MeshData.h"
+#include "NeighborSelectorFunctor.h"
 #include "Types.h"
 #include "UnitTestUtils.h"
 
@@ -304,10 +305,11 @@ class CompadreApproximationFunctionTest : public FunctionCreationProcessorTestFi
         // Perform non-Compadre neighbor search
         auto search_start_time = std::chrono::high_resolution_clock::now();  // benchmark
         std::vector<std::string> part_names = {"block_1"};
+        aperi::NeighborSelectorFunctor functor(m_mesh_data);
         if (use_variable_ball) {
-            m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, {m_kernel_factor});
+            m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, {m_kernel_factor}, functor);
         } else {
-            m_search_processor->AddNeighborsWithinConstantSizedBall(part_names, {m_kernel_factor});
+            m_search_processor->AddNeighborsWithinConstantSizedBall(part_names, {m_kernel_factor}, functor);
         }
         Kokkos::fence();
         auto search_end_time = std::chrono::high_resolution_clock::now();

@@ -10,6 +10,7 @@
 #include "FunctionEvaluationProcessor.h"
 #include "MeshData.h"
 #include "NeighborSearchProcessorTestFixture.h"
+#include "NeighborSelectorFunctor.h"
 #include "UnitTestUtils.h"
 
 struct FillLinearFieldFunctor {
@@ -96,7 +97,8 @@ TEST_F(FunctionEvaluationProcessorTestFixture, FunctionEvaluationProcessorMoreNe
     BuildFunctionEvaluationProcessor();
     FillSrcFieldWithLinearFieldsValues(1.0, {2.0, 3.0, 4.0});
 
-    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {2.0});
+    aperi::NeighborSelectorFunctor functor(m_mesh_data);
+    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {2.0}, functor);
     BuildFunctionCreationProcessor();
     aperi::BasesLinear bases;
     m_function_value_storage_processor->compute_and_store_function_values<aperi::MAX_NODE_NUM_NEIGHBORS>(*m_shape_functions_functor_reproducing_kernel, bases);

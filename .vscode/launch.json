@@ -29,6 +29,15 @@
       "preLaunchTask": "make_debug"
     },
     {
+      "name": "Sanitizer Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug_san/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/build/Debug_san",
+      "preLaunchTask": "make_san"
+    },
+    {
       "name": "Debug Test Protego",
       "type": "lldb",
       "request": "launch",
@@ -36,6 +45,15 @@
       "args": [],
       "cwd": "${workspaceFolder}/protego-mech/build/Debug",
       "preLaunchTask": "make_debug_protego"
+    },
+    {
+      "name": "Sanitizer Test Protego",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/protego-mech/build/Debug_san/unit_tests",
+      "args": [],
+      "cwd": "${workspaceFolder}/protego-mech/build/Debug_san",
+      "preLaunchTask": "make_san_protego"
     },
     {
       "name": "Release Test GPU",

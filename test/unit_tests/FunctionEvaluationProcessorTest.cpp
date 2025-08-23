@@ -8,6 +8,7 @@
 #include "FieldData.h"
 #include "FunctionCreationProcessorTestFixture.h"
 #include "MeshData.h"
+#include "NeighborSelectorFunctor.h"
 #include "Types.h"
 #include "UnitTestUtils.h"
 
@@ -53,7 +54,8 @@ TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsStructuredMesh) {
     }
     CreateMeshAndProcessors(m_num_elements_x, m_num_elements_y, m_num_elements_z);
     double kernel_radius_scale_factor = 1.9;
-    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {kernel_radius_scale_factor});
+    aperi::NeighborSelectorFunctor functor(m_mesh_data);
+    m_search_processor->AddNeighborsWithinConstantSizedBall({"block_1"}, {kernel_radius_scale_factor}, functor);
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionCreationProcessor();
@@ -106,7 +108,8 @@ TEST_F(FunctionCreationProcessorTestFixture, MoreNeighborsRandomizedMesh) {
     m_max_edge_length_processor->ComputeMaxEdgeLength();  // Recompute the max edge length after the coordinates are randomized
     std::vector<double> kernel_radius_scale_factors = {1.5};
     std::vector<std::string> part_names = {"block_1"};
-    m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, kernel_radius_scale_factors);
+    aperi::NeighborSelectorFunctor functor(m_mesh_data);
+    m_search_processor->AddNeighborsWithinVariableSizedBall(part_names, kernel_radius_scale_factors, functor);
     m_search_processor->SyncFieldsToHost();
 
     BuildFunctionCreationProcessor();

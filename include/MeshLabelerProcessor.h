@@ -372,9 +372,6 @@ class MeshLabelerProcessor {
         // Get the node_sets, max_edge_length, and parent_cell fields
         stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
 
-        stk::mesh::Field<aperi::Unsigned> *node_sets_field = StkGetField(FieldQueryData<aperi::Unsigned>{"node_sets", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-        node_sets_field->sync_to_host();
-
         stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         max_edge_length_field->sync_to_host();
 
@@ -464,11 +461,6 @@ class MeshLabelerProcessor {
                 UnsignedLong *active_field_data = stk::mesh::field_data(*m_active_temp_field, node);
                 active_field_data[0] = 1;  // Set to active
 
-                // Set the node_sets field for the new node
-                // TODO(jake): This should be moved to the preprocessor
-                aperi::Unsigned *node_sets_data = stk::mesh::field_data(*node_sets_field, node);
-                node_sets_data[0] = 1;  // Set to the set of the mesh
-
                 // Set the max_edge_length field for the new node
                 aperi::Real *max_edge_length_data = stk::mesh::field_data(*max_edge_length_field, node);
                 max_edge_length_data[0] = max_distance;
@@ -493,9 +485,6 @@ class MeshLabelerProcessor {
 
         m_coordinates_field->modify_on_host();
         m_coordinates_field->sync_to_device();
-
-        node_sets_field->modify_on_host();
-        node_sets_field->sync_to_device();
 
         max_edge_length_field->modify_on_host();
         max_edge_length_field->sync_to_device();

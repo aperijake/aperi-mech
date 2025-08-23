@@ -59,6 +59,9 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         aperi::Unsigned initial_values = 1;
         stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_field, 1, &initial_values);
 
+        m_node_sets_field = &p_meta_data->declare_field<aperi::Unsigned>(stk::topology::NODE_RANK, "node_sets", 1);
+        stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_sets_field, 1, &initial_values);
+
         m_node_active_temp_field = &p_meta_data->declare_field<aperi::UnsignedLong>(stk::topology::NODE_RANK, "active_temp", 1);
         aperi::UnsignedLong initial_temp_value = 1;
         stk::mesh::put_field_on_entire_mesh_with_initial_value(*m_node_active_temp_field, 1, &initial_temp_value);
@@ -148,6 +151,7 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
         m_node_neighbors_field = nullptr;
         m_node_active_field = nullptr;
         m_node_active_temp_field = nullptr;
+        m_node_sets_field = nullptr;
         m_node_neighbors_function_values_field = nullptr;
         m_kernel_radius_field = nullptr;
         m_max_edge_length_field = nullptr;
@@ -166,6 +170,7 @@ class NeighborSearchProcessorTestFixture : public CaptureOutputTest {
     aperi::UnsignedField *m_node_num_neighbors_field;
     aperi::UnsignedField *m_node_neighbors_field;
     aperi::UnsignedField *m_node_active_field;
+    aperi::UnsignedField *m_node_sets_field;
     aperi::UnsignedLongField *m_node_active_temp_field;
     aperi::UnsignedField *m_cell_id_field;
     aperi::UnsignedField *m_subcell_id_field;
