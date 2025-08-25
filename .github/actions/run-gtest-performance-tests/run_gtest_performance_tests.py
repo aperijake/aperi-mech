@@ -8,7 +8,7 @@ def str_to_bool(value):
     return value.lower() in ("true", "1", "t", "y", "yes")
 
 
-def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
+def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type, protego):
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser("~/.ssh/known_hosts"))
     ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -22,7 +22,11 @@ def run_gtest_performance_tests(vm_ip, vm_username, gpu, build_type):
         service_name = "aperi-mech-gpu-development"
 
     # Construct the build path
-    build_path = f"~/aperi-mech_host/build/{build_type}"
+    build_path = "~/aperi-mech_host/"
+    if protego:
+        build_path += f"protego-mech/build/{build_type}"
+    else:
+        build_path += f"build/{build_type}"
     if gpu:
         build_path += "_gpu"
 
@@ -61,6 +65,7 @@ if __name__ == "__main__":
     parser.add_argument("--ip", default="127.0.0.1", help="IP address of the VM")
     parser.add_argument("--username", default="azureuser", help="Username for the VM")
     parser.add_argument("--gpu", default="false", help="GPU flag (true/false)")
+    parser.add_argument("--protego", default="false", help="Protego flag (true/false)")
     parser.add_argument(
         "--build_type",
         "--build-type",
@@ -72,5 +77,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_gtest_performance_tests(
-        args.ip, args.username, str_to_bool(args.gpu), args.build_type
+        args.ip,
+        args.username,
+        str_to_bool(args.gpu),
+        args.build_type,
+        str_to_bool(args.protego),
     )

@@ -8,7 +8,7 @@ def str_to_bool(value):
     return value.lower() in ("true", "1", "t", "y", "yes")
 
 
-def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
+def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel, protego):
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser("~/.ssh/known_hosts"))
     ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -17,6 +17,7 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
     # Convert string inputs to boolean
     gpu = str_to_bool(gpu)
     parallel = str_to_bool(parallel)
+    protego = str_to_bool(protego)
 
     # Construct the compose file and service name
     compose_file = "docker/docker-compose.yml"
@@ -36,6 +37,12 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
     else:
         test_flags += " --serial"
 
+    build_directory = "~/aperi-mech_host/"
+    if protego:
+        build_directory += "protego-mech/build/"
+    else:
+        build_directory += "build/"
+
     # Construct the command to run on the VM
     commands = f"""
     set -e
@@ -48,9 +55,9 @@ def run_aperi_mech_performance_tests(vm_ip, vm_username, gpu, parallel):
 
         echo "Running aperi-mech performance tests..."
         cd ~/aperi-mech_host/test/
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --write-json --no-preclean --parse-timings
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --clean-logs
-        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir ~/aperi-mech_host/build/ {test_flags} --clean-results
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir {build_directory} {test_flags} --write-json --no-preclean --parse-timings
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir {build_directory} {test_flags} --clean-logs
+        ./run_regression_tests.py --directory ./performance_tests/aperi-mech --build-dir {build_directory} {test_flags} --clean-results
     ' || {{ echo "Performance test step failed"; exit 1; }}
     """
 
@@ -71,10 +78,13 @@ if __name__ == "__main__":
     parser.add_argument("--ip", default="127.0.0.1", help="IP address of the VM")
     parser.add_argument("--username", default="azureuser", help="Username for the VM")
     parser.add_argument("--gpu", default="false", help="GPU flag (true/false)")
+    parser.add_argument("--protego", default="false", help="Protego flag (true/false)")
     parser.add_argument(
         "--parallel", default="false", help="Parallel flag (true/false)"
     )
 
     args = parser.parse_args()
 
-    run_aperi_mech_performance_tests(args.ip, args.username, args.gpu, args.parallel)
+    run_aperi_mech_performance_tests(
+        args.ip, args.username, args.gpu, args.parallel, args.protego
+    )

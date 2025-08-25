@@ -13,6 +13,9 @@ inputs:
   gpu:
     description: GPU build
     required: true
+  protego:
+    description: Protego build
+    required: true
 runs:
   using: composite
   steps:
@@ -21,7 +24,8 @@ runs:
       run: |
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
+        echo "protego: ${{ inputs.protego }}"
 
     - name: Run gtest performance tests
       shell: bash
-      run: python3 ./.github/actions/run-gtest-performance-tests/run_gtest_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --build-type ${{ inputs.build-type }}
+      run: python3 ./.github/actions/run-gtest-performance-tests/run_gtest_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --build-type ${{ inputs.build-type }} --protego ${{ inputs.protego }}

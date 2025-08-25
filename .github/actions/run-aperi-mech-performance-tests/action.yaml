@@ -10,6 +10,9 @@ inputs:
   gpu:
     description: Run GPU tests
     required: true
+  protego:
+    description: Run with Protego
+    required: true
   parallel:
     description: Run parallel tests
     required: true
@@ -20,8 +23,9 @@ runs:
       shell: bash
       run: |
         echo "gpu: ${{ inputs.gpu }}"
+        echo "protego: ${{ inputs.protego }}"
         echo "parallel: ${{ inputs.parallel }}"
 
     - name: Run aperi-mech performance tests
       shell: bash
-      run: python3 ./.github/actions/run-aperi-mech-performance-tests/run_aperi-mech_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --parallel ${{ inputs.parallel }}
+      run: python3 ./.github/actions/run-aperi-mech-performance-tests/run_aperi-mech_performance_tests.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --gpu ${{ inputs.gpu }} --parallel ${{ inputs.parallel }} --protego ${{ inputs.protego }}
