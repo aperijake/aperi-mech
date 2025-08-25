@@ -116,6 +116,7 @@ jobs:
               fi
               git lfs pull # Pull LFS files
               rm -rf build # Remove build directory, this prevents some false positives in tests
+              rm -rf protego-mech/build # Remove build directory, this prevents some false positives in tests
           EOF
 
       - name: Skipping Checkout Code on VM
@@ -366,7 +367,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add *.json
@@ -380,7 +380,7 @@ jobs:
       - name: Transfer benchmark data from VM to GitHub Actions runner (dev/bench)
         shell: bash
         run: |
-          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech
+          project_path=/home/${{ secrets.VM_USERNAME }}/aperi-mech/protego-mech
           # Copy all performance test results to the runner
           scp -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }}:${project_path}/build/*.json .
 

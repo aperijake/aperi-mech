@@ -358,12 +358,12 @@ def main():
     Entry point for the script. Defines file pairs and runs the comparison.
     """
     data_file_pairs = {
-        "build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
-        "build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
-        "build/performance_fem_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/solver/data.js",
-        "build/performance_fem_strain_smoothing_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/solver/data.js",
-        "build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
-        "build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
+        "protego_mech/build/performance_gtest_all_results.json": "gh-pages/dev/bench/gtest/AperiAzureGPU2/data.js",
+        "protego_mech/build/performance_aperi_mech_all_results.json": "gh-pages/dev/bench/aperi_mech/AperiAzureGPU2/data.js",
+        "protego_mech/build/performance_fem_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/fem/solver/data.js",
+        "protego_mech/build/performance_fem_strain_smoothing_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/sfem/solver/data.js",
+        "protego_mech/build/performance_rkpm_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm/solver/data.js",
+        "protego_mech/build/performance_rkpm_nodal_solver.json": "gh-pages/dev/bench/aperi_mech_detailed/AperiAzureGPU2/rkpm_nodal/solver/data.js",
     }
     check_new_performance_data(data_file_pairs)
 
