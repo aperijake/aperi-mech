@@ -352,10 +352,15 @@ class MeshLabelerProcessor {
         m_mesh_data->DeclareNodePart(m_set + "_extra_nodes");
         m_mesh_data->AddPartToOutput(m_set + "_extra_nodes");
         stk::mesh::PartVector parts;
-        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set));
-        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_active"));
-        parts.push_back(m_bulk_data->mesh_meta_data().get_part("universal_active_part"));
-        parts.push_back(m_bulk_data->mesh_meta_data().get_part(m_set + "_extra_nodes"));
+        std::vector<std::string> additional_part_names = {m_set, m_set + "_active", "universal_active_part", m_set + "_extra_nodes"};
+        for (const auto &part_name : additional_part_names) {
+            stk::mesh::Part *part = m_bulk_data->mesh_meta_data().get_part(part_name);
+            if (part) {
+                parts.push_back(part);
+            } else {
+                aperi::CoutP0() << "Part " << part_name << " not found in MeshLabelerProcessor." << std::endl;
+            }
+        }
 
         // Declare the late field for the owning element of the extra nodes
         aperi::FieldData owning_element_field_data("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, 1, std::vector<aperi::Unsigned>{});
