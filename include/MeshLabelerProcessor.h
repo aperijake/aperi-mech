@@ -347,7 +347,8 @@ class MeshLabelerProcessor {
         ChangePartsHost(m_set + "_active", nodes_to_change, *m_bulk_data);
     }
 
-    void AddActiveNodesAtElementCentersHost(bool always_add_element_bubble = false) {
+    void AddActiveNodesAtElementCentersHost(bool add_face_bubbles = false, bool always_add_element_bubble = false) {
+        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
         m_bulk_data->modification_begin();
         m_mesh_data->DeclareNodePart(m_set + "_extra_nodes");
         m_mesh_data->AddPartToOutput(m_set + "_extra_nodes");
@@ -366,14 +367,16 @@ class MeshLabelerProcessor {
         aperi::FieldData owning_element_field_data("owning_element", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::NODE, 1, 1, std::vector<aperi::Unsigned>{});
         m_mesh_data->DeclareLateField(owning_element_field_data, {m_set + "_extra_nodes"});
 
-        // Declare the late field that stores the extra node information for the faces. TODO(jake) this only has to be exterior faces.
-        std::vector<aperi::Unsigned> extra_node(1, aperi::Index::INVALID_ID);
-        aperi::FieldData extra_node_data("extra_node", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::FACE, 1, 1, extra_node);
-        m_mesh_data->DeclareLateField(extra_node_data, {m_set});
+        stk::mesh::Field<aperi::Unsigned> *extra_node_field = nullptr;
+        if (add_face_bubbles) {
+            // Declare the late field that stores the extra node information for the faces. TODO(jake) this only has to be exterior faces.
+            std::vector<aperi::Unsigned> extra_node(1, aperi::Index::INVALID_ID);
+            aperi::FieldData extra_node_data("extra_node", aperi::FieldDataRank::SCALAR, aperi::FieldDataTopologyRank::FACE, 1, 1, extra_node);
+            m_mesh_data->DeclareLateField(extra_node_data, {m_set});
+            extra_node_field = StkGetField(FieldQueryData<aperi::Unsigned>{"extra_node", FieldQueryState::None, FieldDataTopologyRank::FACE}, meta_data);
+        }
 
         // Get the node_sets, max_edge_length, and parent_cell fields
-        stk::mesh::MetaData *meta_data = &m_bulk_data->mesh_meta_data();
-
         stk::mesh::Field<aperi::Real> *max_edge_length_field = StkGetField(FieldQueryData<aperi::Real>{"max_edge_length", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
         max_edge_length_field->sync_to_host();
 
@@ -386,8 +389,6 @@ class MeshLabelerProcessor {
         }
 
         stk::mesh::Field<aperi::Unsigned> *owning_element_field = StkGetField(FieldQueryData<aperi::Unsigned>{"owning_element", FieldQueryState::None, FieldDataTopologyRank::NODE}, meta_data);
-
-        stk::mesh::Field<aperi::Unsigned> *extra_node_field = StkGetField(FieldQueryData<aperi::Unsigned>{"extra_node", FieldQueryState::None, FieldDataTopologyRank::FACE}, meta_data);
 
         stk::mesh::Field<aperi::Unsigned> *cell_id_field = StkGetField(FieldQueryData<aperi::Unsigned>{"cell_id", FieldQueryState::None, FieldDataTopologyRank::ELEMENT}, meta_data);
         cell_id_field->sync_to_host();
@@ -429,13 +430,15 @@ class MeshLabelerProcessor {
                 size_t num_bubble_faces = 0;
 
                 // Get connected faces. If face is exterior (only connected to one element), add to bubble_entities
-                const stk::mesh::Entity *p_connected_faces = m_bulk_data->begin_faces(element);
-                size_t num_connected_faces = m_bulk_data->num_faces(element);
-                for (size_t i = 0; i < num_connected_faces; ++i) {
-                    stk::mesh::Entity face = p_connected_faces[i];
-                    if (m_bulk_data->num_elements(face) == 1) {
-                        bubble_entities.push_back(face);
-                        num_bubble_faces++;
+                if (add_face_bubbles) {
+                    const stk::mesh::Entity *p_connected_faces = m_bulk_data->begin_faces(element);
+                    size_t num_connected_faces = m_bulk_data->num_faces(element);
+                    for (size_t i = 0; i < num_connected_faces; ++i) {
+                        stk::mesh::Entity face = p_connected_faces[i];
+                        if (m_bulk_data->num_elements(face) == 1) {
+                            bubble_entities.push_back(face);
+                            num_bubble_faces++;
+                        }
                     }
                 }
 
@@ -535,8 +538,10 @@ class MeshLabelerProcessor {
         owning_element_field->modify_on_host();
         owning_element_field->sync_to_device();
 
-        extra_node_field->modify_on_host();
-        extra_node_field->sync_to_device();
+        if (add_face_bubbles) {
+            extra_node_field->modify_on_host();
+            extra_node_field->sync_to_device();
+        }
 
         cell_id_field->modify_on_host();
         cell_id_field->sync_to_device();
