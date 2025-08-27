@@ -44,7 +44,7 @@ class BoundaryCondition {
     void SetEssentialBoundaryFlag();
 
     // Get the set names
-    std::vector<std::string> GetSetNames() const { return m_sets; }
+    std::vector<std::string> GetSets() const { return m_sets; }
 
    private:
     std::vector<std::pair<size_t, double>> m_components_and_values;

@@ -12,6 +12,7 @@
 #include "InternalForceContribution.h"
 #include "IoMesh.h"
 #include "MeshData.h"
+#include "MeshLabelerUtils.h"
 #include "NeighborSearchProcessor.h"
 #include "NeighborSelectorFunctor.h"
 #include "Selector.h"
@@ -116,6 +117,26 @@ void DoPreprocessing(
                 this_reproducing_kernel_info.kernel_radius_scale_factors.end());
         }
     }
+
+    // Add any extra face nodes to the sets of the face.
+    std::vector<std::string> all_sets;
+    for (const auto& initial_condition : initial_conditions) {
+        std::vector<std::string> sets = initial_condition->GetSets();
+        all_sets.insert(all_sets.end(), sets.begin(), sets.end());
+    }
+    for (const auto& external_force_contribution : external_force_contributions) {
+        std::vector<std::string> sets = external_force_contribution->GetSets();
+        all_sets.insert(all_sets.end(), sets.begin(), sets.end());
+    }
+    for (const auto& boundary_condition : boundary_conditions) {
+        std::vector<std::string> sets = boundary_condition->GetSets();
+        all_sets.insert(all_sets.end(), sets.begin(), sets.end());
+    }
+    for (const auto& contact_force_contribution : contact_force_contributions) {
+        std::vector<std::string> sets = contact_force_contribution->GetSets();
+        all_sets.insert(all_sets.end(), sets.begin(), sets.end());
+    }
+    aperi::AddExtraNodesToSurfaceParts(mesh_data, all_sets);
 
 #ifdef USE_PROTEGO_MECH
     // Run Protego-specific preprocessing if enabled.
