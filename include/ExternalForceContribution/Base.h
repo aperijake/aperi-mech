@@ -44,6 +44,14 @@ class ExternalForceContribution : public ForceContribution {
      */
     virtual void ComputeForce(double time, double time_increment) override = 0;
 
+    /**
+     * @brief Get the names of the sets to which the force applies.
+     * @return Vector of set names.
+     */
+    const std::vector<std::string>& GetSets() const {
+        return m_set_names;
+    }
+
    protected:
     std::shared_ptr<aperi::MeshData> m_mesh_data;                    ///< Mesh data object.
     std::vector<std::string> m_set_names;                            ///< Names of sets for the force.

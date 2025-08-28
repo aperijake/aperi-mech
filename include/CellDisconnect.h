@@ -101,20 +101,23 @@ struct AddConnectedElementsForNodeFunctor {
         aperi::FieldQueryData<aperi::Unsigned> field_query_data{"owning_element", aperi::FieldQueryState::None, aperi::FieldDataTopologyRank::NODE};
         if (aperi::FieldExists<aperi::Unsigned>(field_query_data, mesh_data)) {
             m_owning_element = aperi::Field<aperi::Unsigned>(mesh_data, field_query_data);
+            m_owning_element_valid = true;
         }
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(const aperi::Index &node_index) const {
         const auto connected_entities = m_ngp_mesh.GetNodeElements(node_index);
         const aperi::Unsigned node_disconnect_id = m_node_disconnect_id(node_index, 0);
-        for (size_t i = 0; i < connected_entities.size(); ++i) {
-            m_add_items_functor(node_disconnect_id, connected_entities[i].local_offset());
-        }
-        if (connected_entities.size() == 0) {
-            KOKKOS_ASSERT(m_owning_element.IsValid() && "Owning element field must be valid if no connected elements.");
+        size_t num_connected = connected_entities.size();
+        if (num_connected == 0) {
+            KOKKOS_ASSERT(m_owning_element_valid);
             // If no connected elements, add the owning element as a connected element
             const aperi::Unsigned owning_element_id = m_owning_element(node_index, 0);
             m_add_items_functor(node_disconnect_id, owning_element_id);
+        } else {
+            for (size_t i = 0; i < num_connected; ++i) {
+                m_add_items_functor(node_disconnect_id, connected_entities[i].local_offset());
+            }
         }
     }
 
@@ -122,6 +125,7 @@ struct AddConnectedElementsForNodeFunctor {
     aperi::NgpMeshData m_ngp_mesh;
     const aperi::Field<aperi::Unsigned> m_node_disconnect_id;  ///< The node disconnect id field
     aperi::Field<aperi::Unsigned> m_owning_element;            ///< The owning element field
+    bool m_owning_element_valid;                               ///< Flag to indicate if the owning element field is valid
     aperi::FlattenedRaggedArray::AddItemsFunctor<aperi::Unsigned> m_add_items_functor;
 };
 
@@ -224,6 +228,7 @@ class CellDisconnect {
 
     // Returns a device functor for node-element access
     struct GetNodeElementsFunctor NodeElementsFunctor() const {
+        assert(m_node_elements_built);
         return GetNodeElementsFunctor(m_mesh_data, m_node_elements.GetFlattenedArrayIndices(), m_node_elements.GetData());
     }
 

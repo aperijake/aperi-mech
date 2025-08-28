@@ -150,7 +150,7 @@ class BoundaryConditionTest : public ApplicationTest {
 
         // Check the essential boundary conditions
         for (const auto &m_boundary_condition : m_boundary_conditions) {
-            CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), m_boundary_condition->GetSetNames(), "essential_boundary", expected_on_essential_boundary, aperi::FieldQueryState::None);
+            CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*m_io_mesh->GetMeshData(), m_boundary_condition->GetSets(), "essential_boundary", expected_on_essential_boundary, aperi::FieldQueryState::None);
         }
     }
 
