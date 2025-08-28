@@ -13,9 +13,10 @@ class AperiMech(CMakePackage, CudaPackage):
 
     version("master")
 
-    variant("cov", default=False)
-    variant("protego", default=False)
-    variant("cuda", default=False)
+    variant("cov", default=False, description="Enable code coverage")
+    variant("protego", default=False, description="Enable Protego extensions")
+    variant("openmp", default=False, description="Enable OpenMP support")
+    variant("cuda", default=False, description="Enable CUDA support")
     variant(
         "cuda_arch",
         description="CUDA architecture",
@@ -28,25 +29,38 @@ class AperiMech(CMakePackage, CudaPackage):
 
     for dep in dependencies["dependencies"]:
         if dep["name"] in ("kokkos", "kokkos-kernels"):
-            depends_on(f"{dep['spec']} ~cuda", when="~cuda")
+            depends_on(f"{dep['spec']} ~cuda", when="~cuda ~openmp")
+            depends_on(f"{dep['spec']} ~cuda +openmp", when="~cuda +openmp")
             dep_spec = f"{dep['spec']} +cuda cuda_arch={{cuda_arch}}"
             if dep["name"] == "kokkos":
                 dep_spec += (
                     " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
                 )
+            # CUDA + OpenMP
             for cuda_arch in CudaPackage.cuda_arch_values:
                 depends_on(
                     dep_spec.format(cuda_arch=cuda_arch),
-                    when=f"+cuda cuda_arch={cuda_arch}",
+                    when=f"+cuda cuda_arch={cuda_arch} ~openmp",
+                )
+                depends_on(
+                    dep_spec.format(cuda_arch=cuda_arch) + " +openmp",
+                    when=f"+cuda cuda_arch={cuda_arch} +openmp",
                 )
         elif dep["name"] == "trilinos":
             # For non-CUDA case, use the spec as-is (it already has ~cuda)
-            depends_on(dep["spec"], when="~cuda")
+            depends_on(dep["spec"], when="~cuda ~openmp")
+            depends_on(dep["spec"] + " +openmp", when="~cuda +openmp")
 
             # For CUDA case, replace ~cuda with +cuda
             for cuda_arch in CudaPackage.cuda_arch_values:
                 trilinos_cuda_spec = f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
-                depends_on(trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch}")
+                depends_on(
+                    trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch} ~openmp"
+                )
+                depends_on(
+                    trilinos_cuda_spec + " +openmp",
+                    when=f"+cuda cuda_arch={cuda_arch} +openmp",
+                )
         else:
             depends_on(
                 dep["spec"],

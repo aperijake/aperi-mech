@@ -184,9 +184,9 @@ RUN . ./venv/bin/activate && \
     spack env create aperi-mech && \
     spack -e aperi-mech develop --path $APERI_MECH_ROOT aperi-mech && \
     if [ "$PROTEGO" = "1" ]; then \
-      spack -e aperi-mech add aperi-mech +protego build_type=Release; \
+      spack -e aperi-mech add aperi-mech +protego +openmp build_type=Release; \
     else \
-      spack -e aperi-mech add aperi-mech build_type=Release; \
+      spack -e aperi-mech add aperi-mech +openmp build_type=Release; \
     fi && \
     spack -e aperi-mech concretize -f
 
