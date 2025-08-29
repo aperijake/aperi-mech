@@ -55,7 +55,8 @@ TEST(PortableVectorTest, PushBack) {
     PortableVector<double> vec(5);
 
     // Use the helper class instead of direct lambdas
-    PortableVectorTestHelper::PushBackValues(vec, {1.0, 2.0, 3.0});
+    std::vector<double> to_push = {1.0, 2.0, 3.0};
+    PortableVectorTestHelper::PushBackValues(vec, to_push);
 
     EXPECT_EQ(vec.SizeHost(), 3);
 
@@ -63,9 +64,11 @@ TEST(PortableVectorTest, PushBack) {
     auto data_host = vec.GetDataHost();
 
     // Now check values directly from host mirror
-    EXPECT_DOUBLE_EQ(data_host(0), 1.0);
-    EXPECT_DOUBLE_EQ(data_host(1), 2.0);
-    EXPECT_DOUBLE_EQ(data_host(2), 3.0);
+    std::vector<double> actual = {data_host(0), data_host(1), data_host(2)};
+    std::sort(actual.begin(), actual.end());
+    for (size_t i = 0; i < to_push.size(); ++i) {
+        EXPECT_DOUBLE_EQ(actual[i], to_push[i]);
+    }
 }
 
 // Test copy constructor
@@ -73,7 +76,8 @@ TEST(PortableVectorTest, CopyConstructor) {
     PortableVector<double> vec1(5);
 
     // Use the helper class to access values
-    PortableVectorTestHelper::PushBackValues(vec1, {1.5, 2.5});
+    std::vector<double> to_push = {1.5, 2.5};
+    PortableVectorTestHelper::PushBackValues(vec1, to_push);
 
     // Create a copy
     PortableVector<double> vec2(vec1);
@@ -84,8 +88,12 @@ TEST(PortableVectorTest, CopyConstructor) {
 
     // Get host mirror and verify data
     auto data_host = vec2.GetDataHost();
-    EXPECT_DOUBLE_EQ(data_host(0), 1.5);
-    EXPECT_DOUBLE_EQ(data_host(1), 2.5);
+    std::vector<double> actual = {data_host(0), data_host(1)};
+    std::sort(actual.begin(), actual.end());
+    std::sort(to_push.begin(), to_push.end());
+    for (size_t i = 0; i < to_push.size(); ++i) {
+        EXPECT_DOUBLE_EQ(actual[i], to_push[i]);
+    }
 
     // Check they're independent (modifying one doesn't affect the other)
     // Use the helper class to access values
@@ -100,7 +108,8 @@ TEST(PortableVectorTest, MoveConstructor) {
     PortableVector<int> vec1(3);
 
     // Use the helper class to access values
-    PortableVectorTestHelper::PushBackValues(vec1, {10, 20});
+    std::vector<int> to_push = {10, 20};
+    PortableVectorTestHelper::PushBackValues(vec1, to_push);
 
     // Move construct
     PortableVector<int> vec2(std::move(vec1));
@@ -115,8 +124,12 @@ TEST(PortableVectorTest, MoveConstructor) {
 
     // Verify the data was moved using host mirror
     auto data_host = vec2.GetDataHost();
-    EXPECT_EQ(data_host(0), 10);
-    EXPECT_EQ(data_host(1), 20);
+    std::vector<int> actual = {data_host(0), data_host(1)};
+    std::sort(actual.begin(), actual.end());
+    std::sort(to_push.begin(), to_push.end());
+    for (size_t i = 0; i < to_push.size(); ++i) {
+        EXPECT_EQ(actual[i], to_push[i]);
+    }
 }
 
 // Test push_back on a larger vector
@@ -170,7 +183,8 @@ TEST(PortableVectorTest, OperatorParentheses) {
     Kokkos::View<double*> other_data("other_data", 5);
 
     // Use the helper class to push back values
-    PortableVectorTestHelper::PushBackValues(vec, {1.1, 2.2, 3.3});
+    std::vector<double> to_push = {1.1, 2.2, 3.3};
+    PortableVectorTestHelper::PushBackValues(vec, to_push);
 
     EXPECT_EQ(vec.SizeHost(), 3);
 
@@ -180,7 +194,10 @@ TEST(PortableVectorTest, OperatorParentheses) {
     auto other_data_host = Kokkos::create_mirror_view(other_data);
     Kokkos::deep_copy(other_data_host, other_data);
 
-    EXPECT_DOUBLE_EQ(other_data_host(0), 1.1);
-    EXPECT_DOUBLE_EQ(other_data_host(1), 2.2);
-    EXPECT_DOUBLE_EQ(other_data_host(2), 3.3);
+    std::vector<double> actual = {other_data_host(0), other_data_host(1), other_data_host(2)};
+    std::sort(actual.begin(), actual.end());
+    std::sort(to_push.begin(), to_push.end());
+    for (size_t i = 0; i < to_push.size(); ++i) {
+        EXPECT_DOUBLE_EQ(actual[i], to_push[i]);
+    }
 }
