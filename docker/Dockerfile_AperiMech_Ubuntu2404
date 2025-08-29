@@ -207,6 +207,14 @@ RUN . ./venv/bin/activate && \
 ENV APERI_MECH_ENV="aperi-mech"
 ENV APERI_MECH_CPU_ENV="aperi-mech"
 
+# Set recommended OpenMP environment variables
+# Adjust as necessary for your workload.
+# For unit tests, you may want set OMP_PROC_BIND=false to avoid MPI ranks from trying to bind to the same core
+ENV OMP_NUM_THREADS=1
+ENV OMP_PROC_BIND=spread
+ENV OMP_PLACES=cores
+ENV OMP_DYNAMIC=false
+
 # Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
 RUN . ./venv/bin/activate && \
     spack -e aperi-mech repo add $APERI_MECH_ROOT/tools/python/spackx/src/spackx/repos/aperi/
@@ -230,4 +238,4 @@ RUN . ./venv/bin/activate && \
 
 # Generic healthcheck to ensure the container is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD [ "bash", "-c", "echo 'Container is healthy'" ]
+  CMD [ "bash", "-c", "echo 'Container is healthy'" ]  CMD [ "bash", "-c", "echo 'Container is healthy'" ]
