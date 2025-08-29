@@ -82,7 +82,7 @@ double JBar(const std::vector<Tensor<Dim>>& Fs,
     assert(Fs.size() == weights.size());
 
     double jbar = 0.0;
-    for (int i = 0; i < Fs.size(); ++i) {
+    for (size_t i = 0; i < Fs.size(); ++i) {
         jbar += Det(Fs[i]) * weights[i];
     }
 
@@ -117,7 +117,7 @@ void FBar(const std::vector<Tensor<Dim>>& Fs,
           const std::vector<double>& weights,
           std::vector<Tensor<Dim>>& Fbars) {
     double jbar = JBar(Fs, weights);
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         Fbars[n] = Fs[n];
         Fbars[n] *= JScale<Dim>(jbar, Det(Fs[n]));
     }
@@ -137,14 +137,14 @@ void VjpFBar(const std::vector<Tensor<Dim>>& Fs,
 
     double dual_pressure = 0.0;
 
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         const double j = Det(Fs[n]);
         DerivJScale<Dim>(jbar, j, d_jscale_d_jbar, d_jscale_d_j);
         // in the future can probably rewrite in terms of Fbars[n]
         dual_pressure += d_jscale_d_jbar * InnerProduct(Pbars[n], Fs[n]) * weights[n];
     }
 
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         const double j = Det(Fs[n]);
         const double jscale = JScale<Dim>(jbar, j);
         Ps[n] = Pbars[n];
@@ -185,7 +185,7 @@ double ElementEnergyPerVolume(const std::vector<Tensor<Dim>>& Fs,
     FBar(Fs, weights, Fbars);
 
     double total_energy = 0.0;
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         total_energy += weights[n] * FakeEnergy(Fbars[n]);
     }
     return total_energy;
@@ -199,7 +199,7 @@ void DerivElementEnergyPerVolume(const std::vector<Tensor<Dim>>& Fs,
                                  const std::vector<Tensor<Dim>>& Fbars,
                                  std::vector<Tensor<Dim>>& Pbars,
                                  std::vector<Tensor<Dim>>& Ps) {
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         Pbars[n] = Fbars[n];
     }
 
@@ -264,7 +264,7 @@ void TestDerivElementEnergyPerVolume(std::vector<Tensor<Dim>>& Fs,
 
     static constexpr double k_eps = 1e-7;
 
-    for (int n = 0; n < Fs.size(); ++n) {
+    for (size_t n = 0; n < Fs.size(); ++n) {
         for (int i = 0; i < Dim; ++i) {
             for (int j = 0; j < Dim; ++j) {
                 Fs[n](i, j) += k_eps;
@@ -285,7 +285,7 @@ TEST(FBarTest, FbarTest) {
     std::vector<double> weights{0.2, 0.3, 0.25, 0.25};
 
     std::vector<Tensor<3>> fs;
-    for (int n = 0; n < weights.size(); ++n) {
+    for (size_t n = 0; n < weights.size(); ++n) {
         double vals[k_dim * k_dim] =
             {1.0 + 0.01 * n, 0.1 - 0.012 * n, -0.1,
              0.2, 1.1 - 0.02 * n, -0.2 + 0.005 * n,

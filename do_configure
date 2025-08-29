@@ -129,7 +129,7 @@ if [[ ${USE_GPU} == "ON" ]]; then
 fi
 
 # Add the C++ flags to the cmake command
-cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"
+cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas -Wno-psabi'"
 # cmake_command+=" -D CMAKE_CXX_FLAGS:STRING='-Wall -Wextra -Werror -pedantic -Wno-long-long -ftrapv -Wno-deprecated -Wno-unknown-pragmas'"
 
 # Add the flag to export compile commands to the cmake command
