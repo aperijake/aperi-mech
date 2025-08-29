@@ -15,6 +15,9 @@ ARG GROUP_ID=1000
 # Add build arg for protego (ssh submodules)
 ARG PROTEGO=0
 
+# Branch for the source code
+ARG SRC_BRANCH=main
+
 # Verify user and group IDs are numbers
 RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
         echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
@@ -106,8 +109,9 @@ ENV HOME=/home/aperi-mech_docker
 # Set the default command to bash
 CMD ["/bin/bash"]
 
-# Clone the public repo by default (for open source users)
-RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech
+# Clone the repo from GitHub, using the specified branch
+RUN git clone https://github.com/aperijake/aperi-mech.git ${HOME}/aperi-mech && \
+    cd ${HOME}/aperi-mech && git checkout "$SRC_BRANCH"
 
 # Fail early if PROTEGO is enabled but no SSH agent is detected
 RUN --mount=type=ssh \
@@ -144,10 +148,6 @@ WORKDIR ${HOME}/aperi-mech
 # Automatically activate the venv for interactive shells
 RUN echo "source ${HOME}/aperi-mech/venv/bin/activate" >> ${HOME}/.bashrc
 
-# Check out the specific branch for spack updates
-RUN git fetch --all && \
-    git checkout main
-
 # Set and aperi-mech environment variable globally
 ENV APERI_MECH_ROOT=${HOME}/aperi-mech
 
@@ -183,9 +183,9 @@ RUN . ./venv/bin/activate && \
     spack env create aperi-mech && \
     spack -e aperi-mech develop --path $APERI_MECH_ROOT aperi-mech && \
     if [ "$PROTEGO" = "1" ]; then \
-      spack -e aperi-mech add aperi-mech +protego build_type=Release; \
+      spack -e aperi-mech add aperi-mech +protego +openmp build_type=Release; \
     else \
-      spack -e aperi-mech add aperi-mech build_type=Release; \
+      spack -e aperi-mech add aperi-mech +openmp build_type=Release; \
     fi && \
     spack -e aperi-mech concretize -f
 
@@ -205,6 +205,14 @@ RUN . ./venv/bin/activate && \
 # Set environment variables for aperi-mech
 ENV APERI_MECH_ENV="aperi-mech"
 ENV APERI_MECH_CPU_ENV="aperi-mech"
+
+# Set recommended OpenMP environment variables
+# Adjust as necessary for your workload.
+# For unit tests, you may want set OMP_PROC_BIND=false to avoid MPI ranks from trying to bind to the same core
+ENV OMP_NUM_THREADS=1
+ENV OMP_PROC_BIND=spread
+ENV OMP_PLACES=cores
+ENV OMP_DYNAMIC=false
 
 # Register the local aperi-mech Spack repository so the aperi-mech repo can be found for future builds
 RUN . ./venv/bin/activate && \
