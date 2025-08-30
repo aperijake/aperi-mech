@@ -35,10 +35,12 @@ void PrintVersion() {
     aperi::CoutP0() << version << std::endl;
 }
 
-void PrintHeader() {
-    aperi::CoutP0() << "############################################" << std::endl;
-    aperi::CoutP0() << "                aperi-mech\n"
+void PrintHeader(const std::chrono::system_clock::time_point& start_time, int size) {
+    aperi::CoutP0() << "############################################\n";
+    aperi::CoutP0() << "                aperi-mech\n";
+    aperi::CoutP0() << "############################################\n"
                     << std::endl;
+    aperi::CoutP0() << "Compile time information:\n";
     aperi::CoutP0() << "  Version: ";
     PrintVersion();
     aperi::CoutP0() << "  Git Branch: " << GIT_BRANCH << std::endl;
@@ -52,6 +54,46 @@ void PrintHeader() {
     }
     aperi::CoutP0() << "############################################\n"
                     << std::endl;
+    std::time_t start_time_t = std::chrono::system_clock::to_time_t(start_time);
+    std::tm start_tm = *std::localtime(&start_time_t);
+
+    // Print runtime information
+    aperi::CoutP0() << "Runtime information:" << std::endl;
+    aperi::CoutP0() << "  MPI rank count: " << size << std::endl;
+#if defined(KOKKOS_ENABLE_CUDA)
+    aperi::CoutP0() << "  Execution Space: CUDA (GPU)" << std::endl;
+    aperi::CoutP0() << "  CUDA concurrency: " << Kokkos::Cuda::concurrency() << std::endl;
+#elif defined(KOKKOS_ENABLE_HIP)
+    aperi::CoutP0() << "  Execution Space: HIP (GPU)" << std::endl;
+    aperi::CoutP0() << "  HIP concurrency: " << Kokkos::HIP::concurrency() << std::endl;
+#elif defined(KOKKOS_ENABLE_OPENMP)
+    aperi::CoutP0() << "  Execution Space: OpenMP (CPU)" << std::endl;
+    aperi::CoutP0() << "  OpenMP concurrency: " << Kokkos::OpenMP::concurrency() << std::endl;
+#elif defined(KOKKOS_ENABLE_THREADS)
+    aperi::CoutP0() << "  Execution Space: Threads (CPU)" << std::endl;
+    aperi::CoutP0() << "  Threads concurrency: " << Kokkos::Threads::concurrency() << std::endl;
+#elif defined(KOKKOS_ENABLE_SERIAL)
+    aperi::CoutP0() << "  Execution Space: Serial (CPU)" << std::endl;
+    aperi::CoutP0() << "  Serial concurrency: " << Kokkos::Serial::concurrency() << std::endl;
+#else
+    aperi::CoutP0() << "  Execution Space: Unknown" << std::endl;
+#endif
+    aperi::CoutP0() << "  Started at: " << std::put_time(&start_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
+    aperi::CoutP0() << "############################################\n"
+                    << std::endl;
+}
+
+void PrintFooter(const std::chrono::system_clock::time_point& end_time, const std::chrono::system_clock::time_point& start_time, const std::string& timer_filename) {
+    std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
+    std::tm end_tm = *std::localtime(&end_time_t);
+    std::chrono::duration<double> total_time = end_time - start_time;
+
+    aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
+    aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
+    aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
+    aperi::CoutP0() << "For detailed performance data, check the timer log file: " << timer_filename << std::endl;
+    aperi::CoutP0() << "(use the print_timing_log.py script for a more readable output)" << std::endl;
+    aperi::CoutP0() << "############################################" << std::endl;
 }
 
 void PrintUsage(const char* argv0) {
@@ -114,15 +156,11 @@ int main(int argc, char* argv[]) {
         int size;
         MPI_Comm_size(p_comm, &size);
 
-        // Print header and number of processes
-        PrintHeader();
+        // Get start time
         auto start_time = std::chrono::system_clock::now();
-        std::time_t start_time_t = std::chrono::system_clock::to_time_t(start_time);
-        std::tm start_tm = *std::localtime(&start_time_t);
 
-        aperi::CoutP0() << "Running on " << size << " processes." << std::endl;
-        aperi::CoutP0() << "Started at: " << std::put_time(&start_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
-
+        // Print header and number of processes
+        PrintHeader(start_time, size);
         // Check if input filename is provided as a command-line argument
         if (argc < 2) {
             aperi::CerrP0() << "Usage: " << argv[0] << " <input_filename>" << std::endl;
@@ -134,7 +172,7 @@ int main(int argc, char* argv[]) {
         std::string input_filename = argv[1];
 
         // Create a name for the timer file: input_filename - extension + _timer.log
-        std::string timer_filename = input_filename.substr(0, input_filename.find_last_of('.')) + "_timer.log";
+        std::string timer_filename = "timing_" + input_filename.substr(0, input_filename.find_last_of('.')) + ".log";
 
         // Replace spaces with underscores
         std::replace(timer_filename.begin(), timer_filename.end(), ' ', '_');
@@ -157,16 +195,7 @@ int main(int argc, char* argv[]) {
 
         // Print footer
         auto end_time = std::chrono::system_clock::now();
-        std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
-        std::tm end_tm = *std::localtime(&end_time_t);
-        std::chrono::duration<double> total_time = end_time - start_time;
-
-        aperi::CoutP0() << "aperi-mech finished successfully!" << std::endl;
-        aperi::CoutP0() << "Finished at: " << std::put_time(&end_tm, "%Y-%m-%d %H:%M:%S") << std::endl;
-        aperi::CoutP0() << "Total time: " << std::scientific << std::setprecision(2) << total_time.count() << " seconds" << std::endl;
-        aperi::CoutP0() << "For detailed performance data, check the timer log file: " << timer_filename << std::endl;
-        aperi::CoutP0() << "(use the print_timing_log.py script for a more readable output)" << std::endl;
-        aperi::CoutP0() << "############################################" << std::endl;
+        PrintFooter(end_time, start_time, timer_filename);
 
         // Finalize Kokkos and MPI
         Kokkos::finalize();

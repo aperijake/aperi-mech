@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 
 #include "BoundaryCondition.h"
 #include "ContactForceContribution/Base.h"
@@ -47,7 +48,19 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(const YAML::Node& yaml_
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(const std::string& input_filename, bool add_faces) {
-    aperi::CoutP0() << "Reading Input File '" << input_filename << "'" << std::endl;
+    aperi::CoutP0() << "Reading Input File '" << input_filename << "'. Contents:" << std::endl;
+    aperi::CoutP0() << "--------------------------------------------" << std::endl;
+    // Dump the full input file contents to the log
+    std::ifstream infile(input_filename);
+    if (infile) {
+        std::string line;
+        while (std::getline(infile, line)) {
+            aperi::CoutP0() << line << std::endl;
+        }
+    } else {
+        aperi::CoutP0() << "Could not open input file: " << input_filename << std::endl;
+    }
+    aperi::CoutP0() << "--------------------------------------------" << std::endl;
 
     // Create an IO input file object and read the input file
     std::shared_ptr<aperi::IoInputFile> io_input_file = aperi::CreateIoInputFile(input_filename);
@@ -302,7 +315,6 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
 }
 
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
-    aperi::CoutP0() << "\n############################################" << std::endl;
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.

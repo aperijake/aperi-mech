@@ -94,8 +94,8 @@ class FunctionCreationProcessor {
                     coordinates(0, j) = m_coordinates_field(idx, j);
                 }
 
-                Eigen::Matrix<Real, MaxNumNeighbors, 3> shifted_neighbor_coordinates;
-                Eigen::Matrix<Real, MaxNumNeighbors, 1> kernel_values;
+                Eigen::Matrix<Real, MaxNumNeighbors, 3> shifted_neighbor_coordinates = Eigen::Matrix<Real, MaxNumNeighbors, 3>::Zero();
+                Eigen::Matrix<Real, MaxNumNeighbors, 1> kernel_values = Eigen::Matrix<Real, MaxNumNeighbors, 1>::Zero();
 
                 // Use the kernel radius of the evaluation point by default
                 Real kernel_radius = m_kernel_radius_field(idx, 0);
