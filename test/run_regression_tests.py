@@ -74,7 +74,7 @@ def get_inputs_from_yaml_node(yaml_node, test_name_prefix, build_dir):
         "exodiff": [],
         "executable_path": None,
         "num_processors": yaml_node["num_processors"],
-        "timer_filename": f"timer_{yaml_node['input_file'].split('.')[0]}.log",
+        "timer_filename": f"timing_{yaml_node['input_file'].split('.')[0]}.log",
         "args": yaml_node.get("args", []),
     }
 
