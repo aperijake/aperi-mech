@@ -7,7 +7,7 @@ from spack.pkg.builtin.trilinos import Trilinos as builtin_trilinos
 
 class Trilinos(GitPackage, builtin_trilinos):
     variant("krino", default=True)
-    depends_on("yaml-cpp")
+    depends_on("yaml-cpp", when="+krino")
     conflicts("~netcdf", when="+krino")
     conflicts("~hdf5", when="+krino")
     conflicts("~mpi", when="+krino")
