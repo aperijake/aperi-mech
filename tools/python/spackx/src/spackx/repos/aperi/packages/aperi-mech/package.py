@@ -3,9 +3,7 @@ import os
 
 from spack.package import CMakePackage, CudaPackage, depends_on, variant, version
 
-dependencies = json.load(
-    open(os.path.join(os.path.dirname(__file__), "dependencies.json"))
-)
+dependencies = json.load(open(os.path.join(os.path.dirname(__file__), "dependencies.json")))
 
 
 class AperiMech(CMakePackage, CudaPackage):
@@ -33,9 +31,7 @@ class AperiMech(CMakePackage, CudaPackage):
             depends_on(f"{dep['spec']} ~cuda +openmp", when="~cuda +openmp")
             dep_spec = f"{dep['spec']} +cuda cuda_arch={{cuda_arch}}"
             if dep["name"] == "kokkos":
-                dep_spec += (
-                    " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
-                )
+                dep_spec += " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
             # CUDA + OpenMP
             for cuda_arch in CudaPackage.cuda_arch_values:
                 depends_on(
@@ -53,10 +49,10 @@ class AperiMech(CMakePackage, CudaPackage):
 
             # For CUDA case, replace ~cuda with +cuda
             for cuda_arch in CudaPackage.cuda_arch_values:
-                trilinos_cuda_spec = f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
-                depends_on(
-                    trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch} ~openmp"
+                trilinos_cuda_spec = (
+                    f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
                 )
+                depends_on(trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch} ~openmp")
                 depends_on(
                     trilinos_cuda_spec + " +openmp",
                     when=f"+cuda cuda_arch={cuda_arch} +openmp",
@@ -86,13 +82,9 @@ class AperiMech(CMakePackage, CudaPackage):
             args.append(self.define("LCOV_BIN_DIR", self.spec["lcov"].prefix.bin))
         if self.spec.satisfies("+cuda"):
             args.append(self.define("USE_GPU", True))
-            args.append(
-                self.define("CMAKE_CUDA_COMPILER", self.spec["cuda"].prefix.bin.nvcc)
-            )
+            args.append(self.define("CMAKE_CUDA_COMPILER", self.spec["cuda"].prefix.bin.nvcc))
             cuda_arch = self.spec["kokkos"].variants["cuda_arch"].value
-            args.append(
-                self.define("CMAKE_CUDA_FLAGS", "-arch sm_{0}".format(cuda_arch))
-            )
+            args.append(self.define("CMAKE_CUDA_FLAGS", "-arch sm_{0}".format(cuda_arch)))
 
         return args
 
