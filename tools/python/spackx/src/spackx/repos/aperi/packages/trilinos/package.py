@@ -4,11 +4,13 @@ from spack.pkg.builtin.trilinos import Trilinos as builtin_trilinos
 
 
 class Trilinos(GitPackage, builtin_trilinos):
-    variant("krino", default=True)
+    variant("krino", default=False, description="Enable Krino")
     depends_on("yaml-cpp", when="+krino")
     conflicts("~boost", when="+krino")
     conflicts("~hdf5", when="+krino")
+    conflicts("~intrepid2", when="+krino")
     conflicts("~mpi", when="+krino")
+    conflicts("~sacado", when="+krino")
 
     def cmake_args(self):
         args = super().cmake_args()
