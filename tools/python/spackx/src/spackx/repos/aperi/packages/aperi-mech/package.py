@@ -52,6 +52,7 @@ class AperiMech(CMakePackage, CudaPackage):
             depends_on(dep["spec"], when="~cuda ~openmp")
             depends_on(dep["spec"] + " +openmp", when="~cuda +openmp")
             depends_on(dep["spec"] + " +krino +sacado +intrepid2 +boost", when="+krino")
+            depends_on(dep["spec"] + " ~krino ~sacado ~intrepid2 ~boost", when="~krino")
 
             # For CUDA case, replace ~cuda with +cuda
             for cuda_arch in CudaPackage.cuda_arch_values:
