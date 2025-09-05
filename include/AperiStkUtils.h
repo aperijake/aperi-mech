@@ -46,6 +46,9 @@ inline stk::topology::rank_t GetTopologyRank(FieldDataTopologyRank data_topology
     if (data_topology_rank == FieldDataTopologyRank::FACE) {
         return stk::topology::FACE_RANK;
     }
+    if (data_topology_rank == FieldDataTopologyRank::EDGE) {
+        return stk::topology::EDGE_RANK;
+    }
     throw std::invalid_argument("FieldData: Invalid data topology rank.");
 }
 
