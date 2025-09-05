@@ -31,6 +31,7 @@ void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const double z_pla
 size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumFacesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
+size_t GetNumEdgesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
