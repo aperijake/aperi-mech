@@ -148,6 +148,11 @@ void IoMesh::FillGeneratedMesh(const std::string &mesh_string) const {
     if (m_params.add_faces) {
         stk::mesh::create_faces(mp_io_broker->bulk_data());
     }
+
+    // Optionally create edges if requested
+    if (m_params.add_edges) {
+        stk::mesh::create_edges(mp_io_broker->bulk_data());
+    }
 }
 
 /**
@@ -178,6 +183,11 @@ void IoMesh::CompleteInitialization() {
     // Optionally create faces if requested
     if (m_params.add_faces) {
         stk::mesh::create_faces(mp_io_broker->bulk_data());
+    }
+
+    // Optionally create edges if requested
+    if (m_params.add_edges) {
+        stk::mesh::create_edges(mp_io_broker->bulk_data());
     }
 }
 
