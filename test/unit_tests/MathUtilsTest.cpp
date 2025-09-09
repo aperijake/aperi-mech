@@ -134,7 +134,7 @@ TEST(MathUtilsTest, TetVolume) {
 }
 
 // Test the hexahedron volume computation
-TEST(MathUtilsTest, ComputeHexahedronVolume) {
+TEST(MathUtilsTest, HexVolume) {
     // Test Case 1: Unit cube [0,1]^3
     {
         Eigen::Matrix<double, 8, 3> cube;
@@ -147,7 +147,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         cube.row(6) = Eigen::Vector3d(1.0, 1.0, 1.0);
         cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.0);
 
-        double volume = aperi::ComputeHexahedronVolume(cube);
+        double volume = aperi::HexVolume(cube);
         EXPECT_NEAR(volume, 1.0, 1.0e-12);
     }
 
@@ -163,7 +163,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         scaled_cube.row(6) = Eigen::Vector3d(2.0, 2.0, 2.0);
         scaled_cube.row(7) = Eigen::Vector3d(0.0, 2.0, 2.0);
 
-        double volume = aperi::ComputeHexahedronVolume(scaled_cube);
+        double volume = aperi::HexVolume(scaled_cube);
         EXPECT_NEAR(volume, 8.0, 1.0e-12);  // 2³ = 8
     }
 
@@ -179,7 +179,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         prism.row(6) = Eigen::Vector3d(2.0, 3.0, 4.0);
         prism.row(7) = Eigen::Vector3d(0.0, 3.0, 4.0);
 
-        double volume = aperi::ComputeHexahedronVolume(prism);
+        double volume = aperi::HexVolume(prism);
         EXPECT_NEAR(volume, 24.0, 1.0e-12);  // 2 × 3 × 4 = 24
     }
 
@@ -196,7 +196,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         // Modify one vertex to create non-planar face
         twisted_cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.5);
 
-        double volume = aperi::ComputeHexahedronVolume(twisted_cube);
+        double volume = aperi::HexVolume(twisted_cube);
         // Volume should be larger than 1.0 since we're extending one vertex outward
         EXPECT_GT(volume, 1.0);
 
@@ -204,7 +204,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         Eigen::Matrix<double, 8, 3> reference_cube = twisted_cube;
         reference_cube.row(7) = Eigen::Vector3d(0.0, 1.0, 1.0);
 
-        double reference_volume = aperi::ComputeHexahedronVolume(reference_cube);
+        double reference_volume = aperi::HexVolume(reference_cube);
         EXPECT_GT(volume, reference_volume);
     }
 
@@ -220,7 +220,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         translated_cube.row(6) = Eigen::Vector3d(2.0, 3.0, 4.0);
         translated_cube.row(7) = Eigen::Vector3d(1.0, 3.0, 4.0);
 
-        double volume = aperi::ComputeHexahedronVolume(translated_cube);
+        double volume = aperi::HexVolume(translated_cube);
         EXPECT_NEAR(volume, 1.0, 1.0e-12);
     }
 
@@ -236,7 +236,7 @@ TEST(MathUtilsTest, ComputeHexahedronVolume) {
         flat_hex.row(6) = Eigen::Vector3d(1.0, 1.0, 0.0);
         flat_hex.row(7) = Eigen::Vector3d(0.0, 1.0, 0.0);
 
-        double volume = aperi::ComputeHexahedronVolume(flat_hex);
+        double volume = aperi::HexVolume(flat_hex);
         EXPECT_NEAR(volume, 0.0, 1.0e-12);
     }
 }

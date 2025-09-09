@@ -48,8 +48,11 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     EXPECT_TRUE(after_write_file.good());
 }
 
-void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z) {
+void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z, bool tetrahedral) {
     std::string mesh_string = "generated:" + std::to_string(num_elem_x) + "x" + std::to_string(num_elem_y) + "x" + std::to_string(num_elem_z);
+    if (tetrahedral) {
+        mesh_string += "|tets";
+    }
     io_mesh.FillGeneratedMesh(mesh_string);
 
     size_t expected_num_nodes = (1U + num_elem_x) * (1U + num_elem_y) * (1U + num_elem_z);
@@ -57,6 +60,11 @@ void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned n
                                 (num_elem_x * num_elem_z * (num_elem_y + 1)) +
                                 (num_elem_y * num_elem_z * (num_elem_x + 1));
     size_t expected_num_elements = num_elem_x * num_elem_y * num_elem_z;
+    if (tetrahedral) {
+        expected_num_elements *= 6;                   // Each hex is split into 6 tets
+        expected_num_faces *= 2;                      // Each hex face is split into 2 tet faces
+        expected_num_faces += expected_num_elements;  // Interior to the hexahedra cube
+    }
     EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(mesh_data, "block_1"));
     EXPECT_EQ(expected_num_faces, GetNumFacesInPart(mesh_data, "block_1"));
     EXPECT_EQ(expected_num_elements, GetNumElementsInPart(mesh_data, "block_1"));

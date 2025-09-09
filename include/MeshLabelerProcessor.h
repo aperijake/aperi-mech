@@ -221,7 +221,7 @@ class MeshLabelerProcessor {
         }
 
         // Compute and return the volume
-        return aperi::ComputeHexahedronVolume(coords);
+        return aperi::HexVolume(coords);
     }
 
     // Set the active field for nodal integration. This is the original nodes from the tet mesh befor the 'thex' operation.
