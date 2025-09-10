@@ -113,6 +113,12 @@ class IoMesh {
      */
     std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
 
+    /**
+     * @brief Get the mesh I/O parameters.
+     * @return Reference to the mesh I/O parameters.
+     */
+    const IoMeshParameters &GetIoMeshParameters() const { return m_params; }
+
    private:
     /**
      * @brief Set properties for mesh I/O broker.

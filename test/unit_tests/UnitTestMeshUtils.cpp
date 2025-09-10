@@ -60,14 +60,24 @@ void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned n
                                 (num_elem_x * num_elem_z * (num_elem_y + 1)) +
                                 (num_elem_y * num_elem_z * (num_elem_x + 1));
     size_t expected_num_elements = num_elem_x * num_elem_y * num_elem_z;
+    size_t expected_num_edges = num_elem_x * (num_elem_y + 1) * (num_elem_z + 1) + num_elem_y * (num_elem_z + 1) * (num_elem_x + 1) + num_elem_z * (num_elem_x + 1) * (num_elem_y + 1);
     if (tetrahedral) {
+        expected_num_edges += expected_num_faces;     // Additional edge cuts the original faces
+        expected_num_edges += expected_num_elements;  // Additional edge cuts the original elements
         expected_num_elements *= 6;                   // Each hex is split into 6 tets
         expected_num_faces *= 2;                      // Each hex face is split into 2 tet faces
         expected_num_faces += expected_num_elements;  // Interior to the hexahedra cube
     }
     EXPECT_EQ(expected_num_nodes, GetNumNodesInPart(mesh_data, "block_1"));
-    EXPECT_EQ(expected_num_faces, GetNumFacesInPart(mesh_data, "block_1"));
     EXPECT_EQ(expected_num_elements, GetNumElementsInPart(mesh_data, "block_1"));
+    if (io_mesh.GetIoMeshParameters().add_faces) {
+        // Faces are only created if requested
+        EXPECT_EQ(expected_num_faces, GetNumFacesInPart(mesh_data, "block_1"));
+    }
+    if (io_mesh.GetIoMeshParameters().add_edges) {
+        // Edges are only created if requested
+        EXPECT_EQ(expected_num_edges, GetNumEdgesInPart(mesh_data, "block_1"));
+    }
 }
 
 void CleanUp(const std::filesystem::path& filePath) {
