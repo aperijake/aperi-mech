@@ -6,6 +6,7 @@
 #include "BoundaryCondition.h"
 #include "ContactForceContribution/Base.h"
 #include "EntityProcessor.h"
+#include "ExplicitTimeIntegrator.h"
 #include "ExternalForceContribution/Base.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -24,6 +25,38 @@
 #include "TimeStepper.h"
 
 namespace aperi {
+
+void ExplicitSolver::SetTemporalVaryingOutputFields() {
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"force_coefficients", FieldQueryState::None, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"displacement_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"velocity_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"acceleration_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
+
+    std::shared_ptr<aperi::Field<aperi::Real>> state_field_ptr = aperi::GetField<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+    if (state_field_ptr != nullptr) {
+        m_temporal_varying_output_fields.push_back(*state_field_ptr);
+    }
+    std::shared_ptr<aperi::Field<aperi::Real>> ref_disp_grad_field_ptr = aperi::GetField<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+    if (ref_disp_grad_field_ptr != nullptr) {
+        m_temporal_varying_output_fields.push_back(*ref_disp_grad_field_ptr);
+    }
+}
+
+// Create a node processor for force
+std::shared_ptr<ActiveNodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForce() {
+    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
+    field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
+    return std::make_shared<ActiveNodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+}
+
+// Create a node processor for local force
+std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal() {
+    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
+    field_query_data_vec[0] = {"force", FieldQueryState::None};
+    return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+}
 
 void ExplicitSolver::UpdateFieldStates() {
     bool rotate_device_states = true;
@@ -58,11 +91,11 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Set the force field to zero
+    // Zero the force field
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
 
-    // Compute kinematic field values from the generalized fields
+    // Compute kinematic field values from generalized fields if needed
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
@@ -70,7 +103,7 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
         m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
     }
 
-    // Compute internal force contributions
+    // Compute internal forces
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce(time, time_increment);
     }
@@ -82,15 +115,15 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
             m_node_processor_force_local->ParallelSumFieldData(0);
         }
         m_force_field_processor->ScatterValues();
-        // No need to sync back to device as the local force field is not used until the next time step
+        // No need to sync back to device as local force field is not used until next time step
     }
 
-    // Compute external force contributions
+    // Compute external forces
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce(time, time_increment);
     }
 
-    // Compute contact force contributions
+    // Compute contact forces
     for (const auto &contact_force_contribution : m_contact_force_contributions) {
         contact_force_contribution->ComputeForce(time, time_increment);
     }
@@ -113,7 +146,7 @@ void ExplicitSolver::WriteOutput(double time) {
     for (auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->PopulateElementOutputs();
     }
-    // Write the field results
+    // Write field results
     for (auto &field : m_temporal_varying_output_fields) {
         field.UpdateField();
         field.SyncDeviceToHost();
@@ -124,12 +157,12 @@ void ExplicitSolver::WriteOutput(double time) {
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
     bool update_shape_functions = false;
 
-    // If using the semi-Lagrangian formulation and it is time to update the reference configuration
+    // Check if reference configuration update is needed
     if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
         update_shape_functions = true;
     }
 
-    // If has material separation and a material separation event is triggered
+    // Check for material separation events
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         update_shape_functions = update_shape_functions || internal_force_contribution->CheckIfUpdateIsNeeded();
     }
