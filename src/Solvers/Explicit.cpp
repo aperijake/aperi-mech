@@ -1,4 +1,4 @@
-#include "Solver.h"
+#include "Solvers/Explicit.h"
 
 #include <chrono>
 #include <numeric>
@@ -28,12 +28,6 @@ namespace aperi {
 void ExplicitSolver::UpdateFieldStates() {
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
-void Solver::UpdateFieldsFromGeneralizedFields() {
-    for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeValuesFromGeneralizedFields();
-    }
 }
 
 /*

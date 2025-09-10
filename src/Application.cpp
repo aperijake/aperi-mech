@@ -23,7 +23,8 @@
 #include "Preprocessor.h"
 #include "Scheduler.h"
 #include "SimpleTimerFactory.h"
-#include "Solver.h"
+#include "Solvers/Base.h"
+#include "Solvers/Factory.h"
 #include "TimeStepper.h"
 #include "YamlUtils.h"
 

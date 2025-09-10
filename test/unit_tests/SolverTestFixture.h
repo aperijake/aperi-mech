@@ -7,7 +7,7 @@
 
 #include "Application.h"
 #include "ApplicationTestFixture.h"
-#include "Solver.h"
+#include "Solvers/Base.h"
 #include "UnitTestUtils.h"
 #include "YamlUtils.h"
 
