@@ -26,6 +26,7 @@ struct IoMeshParameters {
     bool lower_case_variable_names = true;  ///< Convert variable names to lowercase and replace spaces with underscores
     bool minimize_open_files = true;        ///< Minimize open files for live viewing of results
     bool add_faces = false;                 ///< Add faces to the mesh
+    bool add_edges = false;                 ///< Add edges to the mesh
     int integer_size = 8;                   ///< Integer size for input/output (4 or 8 bytes)
     int initial_bucket_capacity = 0;        ///< Initial bucket capacity for mesh
     int maximum_bucket_capacity = 0;        ///< Maximum bucket capacity for mesh
@@ -111,6 +112,12 @@ class IoMesh {
      * @brief Get shared pointer to MeshData.
      */
     std::shared_ptr<aperi::MeshData> GetMeshData() { return mp_mesh_data; }
+
+    /**
+     * @brief Get the mesh I/O parameters.
+     * @return Reference to the mesh I/O parameters.
+     */
+    const IoMeshParameters &GetIoMeshParameters() const { return m_params; }
 
    private:
     /**

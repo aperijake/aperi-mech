@@ -19,10 +19,12 @@ using FieldDataType = std::variant<Unsigned, unsigned long, double>;
  * @enum FieldDataRank
  * @brief Enum for field data ranks.
  */
-enum class FieldDataRank { SCALAR,
-                           VECTOR,
-                           TENSOR,
-                           CUSTOM };
+enum class FieldDataRank {
+    SCALAR,
+    VECTOR,
+    TENSOR,
+    CUSTOM
+};
 
 size_t FieldDataRankToNumberComponents(FieldDataRank data_rank);
 
@@ -30,10 +32,13 @@ size_t FieldDataRankToNumberComponents(FieldDataRank data_rank);
  * @enum FieldDataTopologyRank
  * @brief Enum for the topology rank the field data is associated with.
  */
-enum class FieldDataTopologyRank { NODE,
-                                   ELEMENT,
-                                   FACE,
-                                   NONE };
+enum class FieldDataTopologyRank {
+    ELEMENT,
+    FACE,
+    EDGE,
+    NODE,
+    NONE
+};
 
 /**
  * @struct FieldData

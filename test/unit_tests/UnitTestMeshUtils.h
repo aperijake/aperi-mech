@@ -23,7 +23,7 @@ class Entity;
 
 // Mesh Utils
 void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const std::string& mesh_string, const std::vector<aperi::FieldData>& field_data = {});
-void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z);
+void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z, bool tetrahedral = false);
 void CleanUp(const std::filesystem::path& filePath);
 void CheckMeshCounts(const aperi::MeshData& mesh_data, const std::vector<size_t>& expected_owned);
 void RandomizeCoordinates(const aperi::MeshData& mesh_data, double min_value = -0.5, double max_value = 0.5);
@@ -31,6 +31,7 @@ void SplitMeshIntoTwoBlocks(const aperi::MeshData& mesh_data, const double z_pla
 size_t GetNumElementsInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumNodesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 size_t GetNumFacesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
+size_t GetNumEdgesInPart(const aperi::MeshData& mesh_data, const std::string& part_name);
 aperi::Index GetNodeIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 aperi::Index GetElementIndexAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);
 stk::mesh::Entity GetElementAtCoordinates(const aperi::MeshData& mesh_data, const std::string& part_name, const Eigen::Vector3d& coordinates, bool check_found = true);

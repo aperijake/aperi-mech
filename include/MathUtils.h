@@ -28,8 +28,12 @@ std::array<double, 3> Add(const std::array<double, 3> &v1, const std::array<doub
 double Dot(const std::array<double, 3> &v1, const std::array<double, 3> &v2);
 
 // Compute the volume of a tetrahedron using Eigen
-KOKKOS_INLINE_FUNCTION
-double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
+template <typename Derived>
+KOKKOS_INLINE_FUNCTION double TetVolume(const Eigen::MatrixBase<Derived> &tet) {
+    // Assume tet has 4 rows and 3 columns (for a tetrahedron)
+    EIGEN_STATIC_ASSERT(Derived::RowsAtCompileTime == 4 || Derived::RowsAtCompileTime == Eigen::Dynamic, "TetVolume expects 4 rows");
+    EIGEN_STATIC_ASSERT(Derived::ColsAtCompileTime == 3 || Derived::ColsAtCompileTime == Eigen::Dynamic, "TetVolume expects 3 columns");
+
     Eigen::Vector3d v1 = tet.row(1) - tet.row(0);
     Eigen::Vector3d v2 = tet.row(2) - tet.row(0);
     Eigen::Vector3d v3 = tet.row(3) - tet.row(0);
@@ -37,9 +41,13 @@ double TetVolume(const Eigen::Matrix<double, 4, 3, Eigen::RowMajor> &tet) {
     return Kokkos::ArithTraits<double>::abs(v1.dot(v2.cross(v3))) / 6.0;
 }
 
-// Compute the volume of a hexahedron using the scalar triple product
-KOKKOS_INLINE_FUNCTION
-double ComputeHexahedronVolume(const Eigen::Matrix<double, 8, 3> &coordinates) {
+// Compute the volume of a hexahedron
+template <typename Derived>
+KOKKOS_INLINE_FUNCTION double HexVolume(const Eigen::MatrixBase<Derived> &coordinates) {
+    // Assume coordinates has 8 rows and 3 columns (for a hexahedron)
+    EIGEN_STATIC_ASSERT(Derived::RowsAtCompileTime == 8 || Derived::RowsAtCompileTime == Eigen::Dynamic, "HexVolume expects 8 rows");
+    EIGEN_STATIC_ASSERT(Derived::ColsAtCompileTime == 3 || Derived::ColsAtCompileTime == Eigen::Dynamic, "HexVolume expects 3 columns");
+
     // Decompose the hexahedron into 6 tetrahedra
     // These indices define tetrahedra that together cover the hexahedron
     Kokkos::Array<Kokkos::Array<int, 4>, 6> tetrahedra;
