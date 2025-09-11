@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "IoInputSchema.h"
+#include "AperiInputSchema/AperiInputSchema.h"
 #include "LogUtils.h"
 
 namespace aperi {
