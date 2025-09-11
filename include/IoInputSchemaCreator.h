@@ -3,6 +3,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <iostream>
+#include <vector>
 
 /**
  * @class InputSchemaCreator
@@ -30,85 +31,77 @@ class InputSchemaCreator {
      * @brief Adds a condition to the input schema.
      *
      * @param condition_name The name of the condition.
-     * @param condition_node The YAML node representing the condition.
-     * @param index The index of the condition.
+     * @param condition_nodes The vector of YAML nodes representing the condition set.
      */
-    void AddCondition(const std::string& condition_name, const YAML::Node& condition_node, int index) {
-        // Check if m_subitems has a key condition_name
-        if (m_subitems[condition_name]) {
-            // Check the length of the sequence
-            int max_index = m_subitems[condition_name].size() - 1;
-            if (max_index >= index) {  // If the index already exists, add the new node to the sequence
-                m_subitems[condition_name][index]["set"].push_back(condition_node);
-            } else if (index > max_index + 1) {  // If the index is out of range (more than 1 above current size), throw an error
-                throw std::runtime_error("Condition index out of range. Index: " + std::to_string(index) + ". Max index: " + std::to_string(max_index) + ". File: " + __FILE__ + ". Function: " + __FUNCTION__ + ". Line: " + std::to_string(__LINE__));
-            } else {  // If the index is 1 above the current size, create a new sequence and add the new node
-                YAML::Node set(YAML::NodeType::Map);
-                set["set"] = YAML::Node(YAML::NodeType::Sequence);
-                set["set"].push_back(condition_node);
-                m_subitems[condition_name].push_back(set);
-            }
-        } else {
-            // If it doesn't, create a new sequence and add the new node
-            if (index != 0) {
-                throw std::runtime_error("Index must be 0 for non-existing condition. Index: " + std::to_string(index) + ". File: " + __FILE__ + ". Function: " + __FUNCTION__ + ". Line: " + std::to_string(__LINE__));
-            }
+    void AddCondition(const std::string& condition_name, const std::vector<YAML::Node>& condition_nodes) {
+        // Ensure m_subitems has a sequence for condition_name
+        if (!m_subitems[condition_name]) {
             m_subitems[condition_name] = YAML::Node(YAML::NodeType::Sequence);
-            YAML::Node set(YAML::NodeType::Map);
-            set["set"] = YAML::Node(YAML::NodeType::Sequence);
-            set["set"].push_back(condition_node);
-            m_subitems[condition_name].push_back(set);
         }
+        // Create a new set and add all nodes to it
+        YAML::Node set(YAML::NodeType::Map);
+        set["set"] = YAML::Node(YAML::NodeType::Sequence);
+        for (const auto& node : condition_nodes) {
+            set["set"].push_back(node);
+        }
+        m_subitems[condition_name].push_back(set);
     }
 
     /**
      * @brief Adds an all_of condition to the input schema.
      *
      * @param all_of_node The YAML node representing the all_of condition.
-     * @param index The index of the condition.
      */
-    void AddAllOf(const YAML::Node& all_of_node, int index = 0) {
-        AddCondition("all_of", all_of_node, index);
+    void AddAllOf(const YAML::Node& all_of_node) {
+        if (!m_subitems["all_of"]) {
+            m_subitems["all_of"] = YAML::Node(YAML::NodeType::Sequence);
+        }
+        YAML::Node set(YAML::NodeType::Map);
+        set["set"] = YAML::Node(YAML::NodeType::Sequence);
+        set["set"].push_back(all_of_node);
+        m_subitems["all_of"].push_back(set);
     }
 
     /**
      * @brief Adds an one_of condition to the input schema.
      *
-     * @param any_of_node The YAML node representing the any_of condition.
-     * @param index The index of the condition.
+     * @param one_of_nodes The vector of YAML nodes representing the one_of condition set.
      */
-    void AddOneOf(const YAML::Node& one_of_node, int index = 0) {
-        AddCondition("one_of", one_of_node, index);
+    void AddOneOf(const std::vector<YAML::Node>& one_of_nodes) {
+        AddCondition("one_of", one_of_nodes);
     }
 
     /**
      * @brief Adds a two_of condition to the input schema.
      *
-     * @param two_of_node The YAML node representing the two_of condition.
-     * @param index The index of the condition.
+     * @param two_of_nodes The vector of YAML nodes representing the two_of condition set.
      */
-    void AddTwoOf(const YAML::Node& two_of_node, int index = 0) {
-        AddCondition("two_of", two_of_node, index);
+    void AddTwoOf(const std::vector<YAML::Node>& two_of_nodes) {
+        AddCondition("two_of", two_of_nodes);
     }
 
     /**
      * @brief Adds an optional condition to the input schema.
      *
      * @param optional_node The YAML node representing the optional condition.
-     * @param index The index of the condition.
      */
-    void AddOptional(const YAML::Node& optional_node, int index = 0) {
-        AddCondition("optional", optional_node, index);
+    void AddOptional(const YAML::Node& optional_node) {
+        if (!m_subitems["optional"]) {
+            m_subitems["optional"] = YAML::Node(YAML::NodeType::Sequence);
+        }
+        YAML::Node set(YAML::NodeType::Map);
+        set["set"] = YAML::Node(YAML::NodeType::Sequence);
+        set["set"].push_back(optional_node);
+        m_subitems["optional"].push_back(set);
     }
 
     /**
      * @brief Adds a one_or_more_of condition to the input schema.
      *
-     * @param one_or_more_of_node The YAML node representing the one_or_more_of condition.
-     * @param index The index of the condition.
+     * @param one_or_more_of_nodes The vector of YAML nodes representing the one_or_more_of condition set.
      */
-    void AddOneOrMoreOf(const YAML::Node& one_or_more_of_node, int index = 0) {
-        AddCondition("one_or_more_of", one_or_more_of_node, index);
+    void AddOneOrMoreOf(const std::vector<YAML::Node>& one_or_more_of_nodes) {
+        AddCondition("one_or_more_of", one_or_more_of_nodes);
     }
 
     /**
