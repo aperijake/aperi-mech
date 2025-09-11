@@ -9,6 +9,9 @@
 #include <vector>
 
 #include "AperiInputSchema/AperiInputSchema.h"
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoInputSchema/ProtegoInputSchema.h"
+#endif
 #include "LogUtils.h"
 
 namespace aperi {
@@ -316,7 +319,14 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     // As of now, there is one main node in the schema and input files: procedures
     // Want to hand it the procedures node from the schema and the procedures node from the input file
     // Get schema procedures node
-    std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(GetInputSchema(), "procedures");
+#ifdef USE_PROTEGO_MECH
+    ProtegoInputSchema protego_schema;
+    YAML::Node schema_node = protego_schema.GetInputSchema();
+#else
+    AperiInputSchema aperi_schema;
+    YAML::Node schema_node = aperi_schema.GetInputSchema();
+#endif
+    std::pair<YAML::Node, int> schema_sub_node_pair = GetNode(schema_node, "procedures");
     if (schema_sub_node_pair.second) {
         aperi::CerrP0() << "Schema Error: 'procedures' node not found." << std::endl;
         throw std::runtime_error("Schema Error: 'procedures' node not found. Line: " + std::to_string(__LINE__));
