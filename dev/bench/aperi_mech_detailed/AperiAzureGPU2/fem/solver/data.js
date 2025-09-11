@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756566320669,
+  "lastUpdate": 1757551947224,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -5729,6 +5729,388 @@ window.BENCHMARK_DATA = {
           {
             "name": "Application_CreateTimeStepper_fem_gpu_np_1",
             "value": 0.000021,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "57064def13dde7cc973189bd85c5830cd4d9040f",
+          "message": "Merge pull request #132 from aperijake/bary_dual [skip ci]\n\nBary dual",
+          "timestamp": "2025-09-10T23:35:50Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/57064def13dde7cc973189bd85c5830cd4d9040f"
+        },
+        "date": 1757551946201,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Element_Other_fem_cpu_np_1",
+            "value": 0.535788,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_fem_cpu_np_1",
+            "value": 0.00334,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_fem_cpu_np_1",
+            "value": 10.995273,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_fem_cpu_np_1",
+            "value": 3.05899,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_fem_cpu_np_1",
+            "value": 0.00005,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_fem_cpu_np_1",
+            "value": 0.000031,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_fem_cpu_np_1",
+            "value": 201.753433,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_fem_cpu_np_1",
+            "value": 10.453903,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_fem_cpu_np_1",
+            "value": 0.000061,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_fem_cpu_np_1",
+            "value": 0.005036,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_fem_cpu_np_1",
+            "value": 0.000034,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_fem_cpu_np_1",
+            "value": 0.000157,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_fem_cpu_np_1",
+            "value": 0.000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_fem_cpu_np_1",
+            "value": 241.23297,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_fem_cpu_np_1",
+            "value": 0.000052,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_fem_cpu_np_1",
+            "value": 24.090047,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_fem_cpu_np_1",
+            "value": 0.000089,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_fem_cpu_np_1",
+            "value": 0.781812,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_fem_cpu_np_1",
+            "value": 0.000412,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_fem_cpu_np_1",
+            "value": 0.000802,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_fem_cpu_np_1",
+            "value": 206.117924,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_fem_cpu_np_1",
+            "value": 0.000058,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_fem_cpu_np_1",
+            "value": 0.00002,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_fem_cpu_np_1",
+            "value": 0.000028,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_fem_cpu_np_4",
+            "value": 0.272335,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_fem_cpu_np_4",
+            "value": 0.007948,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_fem_cpu_np_4",
+            "value": 0.000032,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_fem_cpu_np_4",
+            "value": 0.000212,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_fem_cpu_np_4",
+            "value": 0.000064,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_fem_cpu_np_4",
+            "value": 2.386381,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_fem_cpu_np_4",
+            "value": 6.225432,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_fem_cpu_np_4",
+            "value": 0.001799,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_fem_cpu_np_4",
+            "value": 0.494481,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_fem_cpu_np_4",
+            "value": 65.398012,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_fem_cpu_np_4",
+            "value": 0.00014,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_fem_cpu_np_4",
+            "value": 55.992119,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_fem_cpu_np_4",
+            "value": 0.000019,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_fem_cpu_np_4",
+            "value": 0.000097,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_fem_cpu_np_4",
+            "value": 9.168784,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_fem_cpu_np_4",
+            "value": 0.000028,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_fem_cpu_np_4",
+            "value": 46.089649,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_fem_cpu_np_4",
+            "value": 0.000121,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_fem_cpu_np_4",
+            "value": 0.000017,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_fem_cpu_np_4",
+            "value": 0.109072,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_fem_cpu_np_4",
+            "value": 0.503618,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_fem_cpu_np_4",
+            "value": 0.105248,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_fem_cpu_np_4",
+            "value": 0.000146,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_fem_cpu_np_4",
+            "value": 2.279514,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_fem_gpu_np_1",
+            "value": 0.005077,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_fem_gpu_np_1",
+            "value": 9.370124,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_fem_gpu_np_1",
+            "value": 3.246421,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_fem_gpu_np_1",
+            "value": 0.143485,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_fem_gpu_np_1",
+            "value": 0.000026,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_Other_fem_gpu_np_1",
+            "value": 0.030615,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_fem_gpu_np_1",
+            "value": 0.000154,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_fem_gpu_np_1",
+            "value": 25.11911,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_fem_gpu_np_1",
+            "value": 0.001676,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_fem_gpu_np_1",
+            "value": 0.063655,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_fem_gpu_np_1",
+            "value": 8.279337,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_fem_gpu_np_1",
+            "value": 11.836801,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_fem_gpu_np_1",
+            "value": 1.32259,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_fem_gpu_np_1",
+            "value": 9.259235,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_fem_gpu_np_1",
+            "value": 0.061019,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_fem_gpu_np_1",
+            "value": 0.000065,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_fem_gpu_np_1",
+            "value": 0.013778,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_fem_gpu_np_1",
+            "value": 0.000022,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_fem_gpu_np_1",
+            "value": 0.000155,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_fem_gpu_np_1",
+            "value": 0.000131,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_fem_gpu_np_1",
+            "value": 0.000074,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_fem_gpu_np_1",
+            "value": 0.000046,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_fem_gpu_np_1",
+            "value": 50.334988,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_fem_gpu_np_1",
+            "value": 0.000409,
             "unit": "seconds"
           }
         ]
