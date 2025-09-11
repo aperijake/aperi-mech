@@ -68,4 +68,10 @@ struct SearchResultTraits<aperi::Intersection> {
     }
 };
 
+enum class SolverType {
+    EXPLICIT,
+    STATIC,
+    NONE
+};
+
 }  // namespace aperi

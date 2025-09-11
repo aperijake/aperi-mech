@@ -318,8 +318,17 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
+    // Make sure there is exactly one procedure
+    int num_procedures = io_input_file->GetProcedureCount();
+    if (num_procedures != 1) {
+        throw std::runtime_error("Only one procedure is supported currently. Found " + std::to_string(num_procedures) + " procedures in the input file.");
+    }
+
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
+
+    // Get the procedure type
+    aperi::SolverType procedure_type = io_input_file->GetProcedureType(procedure_id);
 
     // Get parts
     std::vector<YAML::Node> parts = io_input_file->GetParts(procedure_id);
@@ -408,7 +417,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     PrintNodeCounts(io_mesh->GetMeshData());
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(procedure_type, io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;
