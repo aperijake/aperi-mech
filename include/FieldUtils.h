@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <memory>
 #include <stk_mesh/base/NgpFieldBLAS.hpp>
+#include <stk_mesh/base/NgpReductions.hpp>
 #include <vector>
 
 #include "Field.h"
@@ -192,6 +193,66 @@ void AddValue(const Field<T> &field, const double &value, const std::vector<std:
 
     // Loop over the nodes and add the value
     ForEachNode(add_value_functor, *mesh_data, selector);
+}
+
+/**
+ * @brief Compute the dot product of two fields
+ * @param field_0 The first field.
+ * @param field_1 The second field.
+ * @param selector The selector defining the subset of entities to include in the dot product.
+ * @param Rank The topology rank of the entities to consider (e.g., NODE, ELEMENT).
+ * @tparam T The type of the field (e.g., double).
+ * @return The dot product of the two fields over the selected entities.
+ */
+template <typename T>
+T Dot(const Field<T> &field_0, const Field<T> &field_1, const aperi::Selector &selector, const aperi::FieldDataTopologyRank &rank) {
+    std::shared_ptr<aperi::MeshData> mesh_data = field_0.GetMeshData();
+    stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
+    stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*bulk_data);
+
+    // Define a functor to compute the local dot product per entity
+    struct DotProductFunctor {
+        stk::mesh::NgpField<T> field0, field1;
+
+        DotProductFunctor(stk::mesh::NgpField<T> f0, stk::mesh::NgpField<T> f1) : field0(f0), field1(f1) {}
+
+        KOKKOS_INLINE_FUNCTION
+        void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
+            T local_dot_product = 0.0;
+            const size_t num_components = field0.get_num_components_per_entity(entity);
+            for (size_t i = 0; i < num_components; ++i) {
+                local_dot_product += field0(entity, i) * field1(entity, i);
+            }
+            update += local_dot_product;  // Accumulate into the reduction
+        }
+    };
+
+    // Use STK's for_each_entity_reduce with a Sum reduction
+    stk::mesh::Field<T> *stk_field_0 = field_0.GetField();
+    stk::mesh::Field<T> *stk_field_1 = field_1.GetField();
+    T local_sum = 0.0;
+    Kokkos::Sum<T> sum_reduction(local_sum);
+    stk::topology::rank_t stk_rank = aperi::GetTopologyRank(rank);
+    stk::mesh::for_each_entity_reduce(ngp_mesh, stk_rank, selector(), sum_reduction, DotProductFunctor(*stk_field_0, *stk_field_1));
+
+    // Perform MPI all-reduce for global sum across processors
+    T global_dot_product = 0.0;
+    stk::all_reduce_sum(bulk_data->parallel(), &local_sum, &global_dot_product, 1);
+
+    return global_dot_product;
+}
+
+/**
+ * @brief Compute the norm of a field
+ * @param field The field.
+ * @param selector The selector defining the subset of entities to include in the norm computation.
+ * @param Rank The topology rank of the entities to consider (e.g., NODE, ELEMENT).
+ * @tparam T The type of the field (e.g., double).
+ * @return The norm of the field over the selected entities.
+ */
+template <typename T>
+T Norm(const Field<T> &field, const aperi::Selector &selector, const aperi::FieldDataTopologyRank &rank) {
+    return std::sqrt(Dot(field, field, selector, rank));
 }
 
 }  // namespace aperi

@@ -13,6 +13,7 @@
 #include <stk_mesh/base/NgpField.hpp>
 #include <stk_mesh/base/NgpForEachEntity.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
+#include <stk_mesh/base/NgpReductions.hpp>
 #include <vector>
 
 #include "AperiStkUtils.h"
@@ -698,40 +699,38 @@ class EntityProcessor {
     // Compute the dot product of two fields
     T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-        // Kokkos array for the dot product
-        Kokkos::View<T *, Kokkos::DefaultExecutionSpace> dot_product("dot_product", 1);
-        auto dot_product_host = Kokkos::create_mirror_view(dot_product);
-        dot_product_host(0) = 0.0;
-        Kokkos::deep_copy(dot_product, dot_product_host);
 
         // Get the fields
         auto field_0 = *m_ngp_fields[field_index_0];
         auto field_1 = *m_ngp_fields[field_index_1];
 
-        // Compute the dot product
-        stk::mesh::for_each_entity_run(
-            m_ngp_mesh, Rank, m_owned_selector,
-            KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex &entity) {
-                // Get the number of components
-                const size_t num_components = field_0.get_num_components_per_entity(entity);
-                // Compute the dot product
+        // Define a functor to compute the local dot product per entity
+        struct DotProductFunctor {
+            stk::mesh::NgpField<T> field0, field1;
+
+            DotProductFunctor(stk::mesh::NgpField<T> f0, stk::mesh::NgpField<T> f1) : field0(f0), field1(f1) {}
+
+            KOKKOS_INLINE_FUNCTION
+            void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
                 T local_dot_product = 0.0;
-                for (size_t i = 0; i < num_components; i++) {
-                    local_dot_product += field_0(entity, i) * field_1(entity, i);
+                const size_t num_components = field0.get_num_components_per_entity(entity);
+                for (size_t i = 0; i < num_components; ++i) {
+                    local_dot_product += field0(entity, i) * field1(entity, i);
                 }
-                // Atomic add the local dot product to the dot product
-                Kokkos::atomic_add(&dot_product[0], local_dot_product);
-            });
+                update += local_dot_product;  // Accumulate into the reduction
+            }
+        };
 
-        // Host view for the dot product
-        Kokkos::deep_copy(dot_product_host, dot_product);
+        // Use STK's for_each_entity_reduce with a Sum reduction
+        T local_sum = 0.0;
+        Kokkos::Sum<T> sum_reduction(local_sum);
+        stk::mesh::for_each_entity_reduce(m_ngp_mesh, Rank, m_owned_selector, sum_reduction, DotProductFunctor(field_0, field_1));
 
-        // Parallel sum the dot product
-        T dot_product_value = dot_product_host(0);
-        T dot_product_value_global = 0.0;
-        stk::all_reduce_sum(m_bulk_data->parallel(), &dot_product_value, &dot_product_value_global, 1);
+        // Perform MPI all-reduce for global sum across processors
+        T global_dot_product = 0.0;
+        stk::all_reduce_sum(m_bulk_data->parallel(), &local_sum, &global_dot_product, 1);
 
-        return dot_product_value_global;
+        return global_dot_product;
     }
 
     // Scale and multiply fields

@@ -613,7 +613,7 @@ class AperiInputSchema {
 
     virtual InputSchemaCreator GetProceduresSchemaCreator() {
         InputSchemaCreator schema_creator("procedures", "sequence", "the list of procedures");
-        schema_creator.AddOneOrMoreOf({GetExplicitDynamicsProcedureSchemaCreator().GetInputSchema()});
+        schema_creator.AddOneOf({GetExplicitDynamicsProcedureSchemaCreator().GetInputSchema()});
         return schema_creator;
     }
 };
