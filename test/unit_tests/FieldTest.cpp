@@ -9,6 +9,7 @@
 #include "FieldUtils.h"
 #include "ForEachEntity.h"
 #include "MeshData.h"
+#include "UnitTestFieldUtils.h"
 
 // Test node field access using raw pointers
 TEST_F(FieldTestFixture, NodalFieldAccessRawPointer) {
@@ -700,4 +701,80 @@ TEST_F(FieldTestFixture, AXPBYZFields) {
 
     // Check for errors
     EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
+}
+
+// Test Dot method
+TEST_F(FieldTestFixture, DotFields) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data for the three fields
+    aperi::FieldQueryData<double> x_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::FieldQueryData<double> y_query_data{"nodal_field", aperi::FieldQueryState::N};
+
+    // Create the fields
+    aperi::Field<double> x_field(m_mesh_data, x_query_data);
+    aperi::Field<double> y_field(m_mesh_data, y_query_data);
+
+    // Randomize the x and y fields
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed_x = 42;
+    size_t seed_y = 43;
+
+    m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+    m_node_processor->RandomizeField(1, min, max, seed_y);  // y field (N)
+
+    // Get the selector, universal part
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+
+    // Perform the operation with the Dot utility
+    double dot_product = aperi::Dot(x_field, y_field, selector, aperi::FieldDataTopologyRank::NODE);
+
+    // Verify the result by manually computing the dot product
+    std::string field_name = "nodal_field";
+    Eigen::MatrixXd x_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, field_name, aperi::FieldQueryState::NP1, true);
+    Eigen::MatrixXd y_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, field_name, aperi::FieldQueryState::N, true);
+    double local_expected_dot_product = (x_values.array() * y_values.array()).sum();
+    double expected_dot_product = 0.0;
+    MPI_Allreduce(&local_expected_dot_product, &expected_dot_product, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    // Check if the computed dot product matches the expected value
+    EXPECT_NEAR(dot_product, expected_dot_product, 1.0e-10) << "Dot product verification failed.";
+}
+
+// Test Norm method
+TEST_F(FieldTestFixture, NormField) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data for the three fields
+    aperi::FieldQueryData<double> x_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+
+    // Create the fields
+    aperi::Field<double> x_field(m_mesh_data, x_query_data);
+
+    // Randomize the x and y fields
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed_x = 42;
+
+    m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+
+    // Get the selector, universal part
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+
+    // Perform the operation with the norm utility
+    double norm = aperi::Norm(x_field, selector, aperi::FieldDataTopologyRank::NODE);
+
+    // Verify the result by manually computing the dot product
+    std::string field_name = "nodal_field";
+    Eigen::MatrixXd x_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, field_name, aperi::FieldQueryState::NP1, true);
+    double local_expected_dot_product = (x_values.array() * x_values.array()).sum();
+    double expected_dot_product = 0.0;
+    MPI_Allreduce(&local_expected_dot_product, &expected_dot_product, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    // Check if the computed norm matches the expected value
+    double expected_norm = std::sqrt(expected_dot_product);
+    EXPECT_NEAR(norm, expected_norm, 1.0e-10) << "Norm verification failed.";
 }

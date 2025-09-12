@@ -320,7 +320,7 @@ int IoInputFile::CheckInputWithSchema(bool verbose) {
     // Want to hand it the procedures node from the schema and the procedures node from the input file
     // Get schema procedures node
 #ifdef USE_PROTEGO_MECH
-    ProtegoInputSchema protego_schema;
+    protego::ProtegoInputSchema protego_schema;
     YAML::Node schema_node = protego_schema.GetInputSchema();
 #else
     AperiInputSchema aperi_schema;
