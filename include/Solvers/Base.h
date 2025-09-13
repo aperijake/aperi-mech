@@ -11,6 +11,7 @@ class BoundaryCondition;
 class IoMesh;
 class ContactForceContribution;
 class ExternalForceContribution;
+struct FieldData;
 class TimeStepper;
 class InternalForceContribution;
 class MeshData;
@@ -91,6 +92,12 @@ class Solver {
      * @return The formulation type.
      */
     aperi::LagrangianFormulationType GetLagrangianFormulationType() { return m_lagrangian_formulation_type; }
+
+    /**
+     * @brief Function to get default field data.
+     * @return A vector of default FieldData.
+     */
+    static std::vector<aperi::FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
 
    protected:
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                              ///< The input/output mesh object.

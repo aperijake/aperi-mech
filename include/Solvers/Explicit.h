@@ -121,6 +121,12 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      */
     void UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
 
+    /**
+     * @brief Function to get default field data.
+     * @return A vector of default FieldData.
+     */
+    std::vector<aperi::FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
+
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::vector<aperi::Field<aperi::Real>> m_temporal_varying_output_fields;

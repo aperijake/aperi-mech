@@ -9,6 +9,10 @@
 #include "IoMesh.h"
 #include "Selector.h"
 
+#ifdef USE_PROTEGO_MECH
+#include "ProtegoFieldData.h"
+#endif
+
 namespace aperi {
 
 Solver::Solver(std::shared_ptr<aperi::IoMesh> io_mesh,
@@ -72,6 +76,39 @@ void Solver::UpdateFieldsFromGeneralizedFields() {
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeValuesFromGeneralizedFields();
     }
+}
+
+std::vector<FieldData> Solver::GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType lagrangian_formulation_type, bool output_coefficients) {
+    std::vector<FieldData> field_data;
+
+    field_data.push_back(FieldData("max_edge_length", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));       // The maximum edge length for the node
+    field_data.push_back(FieldData("essential_boundary", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}));  // Indicator for essential boundary conditions
+
+    // Element data
+    field_data.push_back(FieldData("displacement_gradient", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+    field_data.push_back(FieldData("pk1_stress", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
+    field_data.push_back(FieldData("volume", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    field_data.push_back(FieldData("bulk_modulus", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+
+    // TODO(jake): Add ability to turn this on / off per part
+    if (use_strain_smoothing) {
+        // TODO(jake): Some of these fields are only really needed for RK, but NeighborSearchProcessor needs to be refactored to allow for this
+
+        // Node neighbor data.
+        field_data.push_back(FieldData("num_neighbors", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<Unsigned>{}));  // The number of neighbors for the node
+        field_data.push_back(FieldData("kernel_radius", FieldDataRank::SCALAR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The kernel radius for the node
+
+        Unsigned max_node_num_neighbors = uses_generalized_fields ? MAX_NODE_NUM_NEIGHBORS : FEM_NODE_NUM_NEIGHBORS;
+        field_data.push_back(FieldData("neighbors", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<Unsigned>{}, false));      // The neighbors of the node
+        field_data.push_back(FieldData("function_values", FieldDataRank::CUSTOM, FieldDataTopologyRank::NODE, 1, max_node_num_neighbors, std::vector<double>{}, false));  // The function values of neighbors at the node
+
+#ifdef USE_PROTEGO_MECH
+        std::vector<FieldData> protego_field_data = protego::GetFieldData();
+        field_data.insert(field_data.end(), protego_field_data.begin(), protego_field_data.end());
+#endif
+    }
+
+    return field_data;
 }
 
 }  // namespace aperi
