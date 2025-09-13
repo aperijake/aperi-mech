@@ -696,43 +696,6 @@ class EntityProcessor {
         return field_norm;
     }
 
-    // Compute the dot product of two fields
-    T ComputeDotProduct(size_t field_index_0, size_t field_index_1) {
-        m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);
-
-        // Get the fields
-        auto field_0 = *m_ngp_fields[field_index_0];
-        auto field_1 = *m_ngp_fields[field_index_1];
-
-        // Define a functor to compute the local dot product per entity
-        struct DotProductFunctor {
-            stk::mesh::NgpField<T> field0, field1;
-
-            DotProductFunctor(stk::mesh::NgpField<T> f0, stk::mesh::NgpField<T> f1) : field0(f0), field1(f1) {}
-
-            KOKKOS_INLINE_FUNCTION
-            void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
-                T local_dot_product = 0.0;
-                const size_t num_components = field0.get_num_components_per_entity(entity);
-                for (size_t i = 0; i < num_components; ++i) {
-                    local_dot_product += field0(entity, i) * field1(entity, i);
-                }
-                update += local_dot_product;  // Accumulate into the reduction
-            }
-        };
-
-        // Use STK's for_each_entity_reduce with a Sum reduction
-        T local_sum = 0.0;
-        Kokkos::Sum<T> sum_reduction(local_sum);
-        stk::mesh::for_each_entity_reduce(m_ngp_mesh, Rank, m_owned_selector, sum_reduction, DotProductFunctor(field_0, field_1));
-
-        // Perform MPI all-reduce for global sum across processors
-        T global_dot_product = 0.0;
-        stk::all_reduce_sum(m_bulk_data->parallel(), &local_sum, &global_dot_product, 1);
-
-        return global_dot_product;
-    }
-
     // Scale and multiply fields
     void ScaleAndMultiplyField(size_t field_index_1, size_t field_index_2, double a) {
         m_ngp_mesh = stk::mesh::get_updated_ngp_mesh(*m_bulk_data);

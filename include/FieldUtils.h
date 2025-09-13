@@ -196,6 +196,28 @@ void AddValue(const Field<T> &field, const double &value, const std::vector<std:
 }
 
 /**
+ * @brief Functor for computing the dot product of two fields in a reduction.
+ * @tparam T The type of the field (e.g., double).
+ */
+template <typename T>
+struct DotProductFunctor {
+    stk::mesh::NgpField<T> field0, field1;
+
+    DotProductFunctor(stk::mesh::NgpField<T> f0, stk::mesh::NgpField<T> f1) : field0(f0), field1(f1) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
+        T local_dot_product = 0.0;
+        const size_t num_components = field0.get_num_components_per_entity(entity);
+        KOKKOS_ASSERT(num_components == field1.get_num_components_per_entity(entity));
+        for (size_t i = 0; i < num_components; ++i) {
+            local_dot_product += field0(entity, i) * field1(entity, i);
+        }
+        update += local_dot_product;  // Accumulate into the reduction
+    }
+};
+
+/**
  * @brief Compute the dot product of two fields
  * @param field_0 The first field.
  * @param field_1 The second field.
@@ -210,30 +232,13 @@ T Dot(const Field<T> &field_0, const Field<T> &field_1, const aperi::Selector &s
     stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
     stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*bulk_data);
 
-    // Define a functor to compute the local dot product per entity
-    struct DotProductFunctor {
-        stk::mesh::NgpField<T> field0, field1;
-
-        DotProductFunctor(stk::mesh::NgpField<T> f0, stk::mesh::NgpField<T> f1) : field0(f0), field1(f1) {}
-
-        KOKKOS_INLINE_FUNCTION
-        void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
-            T local_dot_product = 0.0;
-            const size_t num_components = field0.get_num_components_per_entity(entity);
-            for (size_t i = 0; i < num_components; ++i) {
-                local_dot_product += field0(entity, i) * field1(entity, i);
-            }
-            update += local_dot_product;  // Accumulate into the reduction
-        }
-    };
-
     // Use STK's for_each_entity_reduce with a Sum reduction
-    stk::mesh::Field<T> *stk_field_0 = field_0.GetField();
-    stk::mesh::Field<T> *stk_field_1 = field_1.GetField();
+    stk::mesh::NgpField<T> stk_field_0 = field_0.GetNgpField();
+    stk::mesh::NgpField<T> stk_field_1 = field_1.GetNgpField();
     T local_sum = 0.0;
     Kokkos::Sum<T> sum_reduction(local_sum);
     stk::topology::rank_t stk_rank = aperi::GetTopologyRank(rank);
-    stk::mesh::for_each_entity_reduce(ngp_mesh, stk_rank, selector(), sum_reduction, DotProductFunctor(*stk_field_0, *stk_field_1));
+    stk::mesh::for_each_entity_reduce(ngp_mesh, stk_rank, selector(), sum_reduction, DotProductFunctor<T>(stk_field_0, stk_field_1));
 
     // Perform MPI all-reduce for global sum across processors
     T global_dot_product = 0.0;

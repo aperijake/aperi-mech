@@ -145,32 +145,6 @@ TEST_F(NodeProcessingTestFixture, ConsistentlyRandomizeField) {
     EXPECT_NE(m_node_processor_stk_ngp->CalculateFieldNorm(1), 0.0);
 }
 
-// Test ComputeDotProduct method
-TEST_F(NodeProcessingTestFixture, ComputeDotProduct) {
-    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
-    size_t num_nodes = (m_num_elements_x + 1) * (m_num_elements_y + 1) * (m_num_elements_z + 1);
-    size_t num_components = 3;
-    size_t num_dofs = num_nodes * num_components;
-    // Fill the fields with initial values
-    m_node_processor_stk_ngp->FillField(1.78, 0);
-    m_node_processor_stk_ngp->FillField(2.89, 1);
-    m_node_processor_stk_ngp->FillField(3.79, 2);
-    m_node_processor_stk_ngp->MarkAllFieldsModifiedOnDevice();
-    m_node_processor_stk_ngp->SyncAllFieldsDeviceToHost();
-    // Compute the dot product
-    double dot_product_01 = m_node_processor_stk_ngp->ComputeDotProduct(0, 1);
-    double dot_product_02 = m_node_processor_stk_ngp->ComputeDotProduct(0, 2);
-    double dot_product_12 = m_node_processor_stk_ngp->ComputeDotProduct(1, 2);
-    // Expected dot products
-    double expected_dot_product_01 = num_dofs * 1.78 * 2.89;
-    double expected_dot_product_02 = num_dofs * 1.78 * 3.79;
-    double expected_dot_product_12 = num_dofs * 2.89 * 3.79;
-    // Check the dot products
-    EXPECT_NEAR(dot_product_01, expected_dot_product_01, 1.0e-8);
-    EXPECT_NEAR(dot_product_02, expected_dot_product_02, 1.0e-8);
-    EXPECT_NEAR(dot_product_12, expected_dot_product_12, 1.0e-8);
-}
-
 // Tests SumField method
 TEST_F(NodeProcessingTestFixture, SumField) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);

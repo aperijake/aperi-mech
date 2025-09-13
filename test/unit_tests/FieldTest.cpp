@@ -723,6 +723,8 @@ TEST_F(FieldTestFixture, DotFields) {
 
     m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
     m_node_processor->RandomizeField(1, min, max, seed_y);  // y field (N)
+    m_node_processor->MarkFieldModifiedOnDevice(0);
+    m_node_processor->MarkFieldModifiedOnDevice(1);
 
     // Get the selector, universal part
     std::vector<std::string> sets = {};
@@ -759,6 +761,7 @@ TEST_F(FieldTestFixture, NormField) {
     size_t seed_x = 42;
 
     m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+    m_node_processor->MarkFieldModifiedOnDevice(0);
 
     // Get the selector, universal part
     std::vector<std::string> sets = {};

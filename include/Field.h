@@ -495,6 +495,15 @@ class Field {
     }
 
     /**
+     * @brief Get the updated NGP field object.
+     * @return The NGP field object.
+     */
+    stk::mesh::NgpField<T> GetNgpField() const {
+        m_ngp_field = stk::mesh::get_updated_ngp_field<T>(*m_field);
+        return m_ngp_field;
+    }
+
+    /**
      * @brief == operator to compare two fields.
      * @param other The other field to compare with.
      * @return True if the fields are equal, false otherwise.

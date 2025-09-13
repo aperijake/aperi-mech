@@ -48,7 +48,7 @@ class IoInputFile {
     aperi::SolverType GetProcedureType(int procedure_id, bool exit_on_error = true) const {
         std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
         if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
-        if (procedure_id < 0 || procedure_id >= procedures_node_pair.first.size()) {
+        if (procedure_id < 0 || procedure_id >= static_cast<int>(procedures_node_pair.first.size())) {
             if (exit_on_error) throw std::runtime_error("Invalid procedure ID");
             return aperi::SolverType::NONE;
         }
