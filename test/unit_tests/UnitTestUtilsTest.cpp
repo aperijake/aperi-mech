@@ -5,6 +5,7 @@
 #include "FieldData.h"
 #include "Index.h"
 #include "IoMesh.h"
+#include "Solvers/Explicit.h"
 #include "UnitTestUtils.h"
 
 // Fixture for UnitTestUtils tests
@@ -20,7 +21,7 @@ class UnitTestUtilsTestFixture : public ::testing::Test {
         m_mesh_filename = test_suite_name + "_" + test_name + ".exo";
 
         // Create FieldData
-        m_field_data = aperi::GetFieldData(false, false, aperi::LagrangianFormulationType::Total, false);
+        m_field_data = aperi::ExplicitSolver::GetFieldData(false, false, aperi::LagrangianFormulationType::Total, false);
     }
 
     void TearDown() override {

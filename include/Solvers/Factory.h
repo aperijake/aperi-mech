@@ -72,4 +72,18 @@ inline std::shared_ptr<Solver> CreateSolver(aperi::SolverType solver_type,
     }
 }
 
+inline std::vector<aperi::FieldData> GetSolverFieldData(aperi::SolverType solver_type, bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients) {
+    if (solver_type == aperi::SolverType::STATIC) {
+#ifdef USE_PROTEGO_MECH
+        return StaticSolver::GetFieldData(uses_generalized_fields, use_strain_smoothing, formulation_type, output_coefficients);
+#else
+        throw std::runtime_error("Static solver is not available. protego-mech is required for this feature.");
+#endif
+    } else if (solver_type == aperi::SolverType::EXPLICIT) {
+        return ExplicitSolver::GetFieldData(uses_generalized_fields, use_strain_smoothing, formulation_type, output_coefficients);
+    } else {
+        throw std::runtime_error("Unrecognized solver type.");
+    }
+}
+
 }  // namespace aperi
