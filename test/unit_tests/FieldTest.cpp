@@ -746,7 +746,7 @@ TEST_F(FieldTestFixture, DotFields) {
 }
 
 // Test Norm method
-TEST_F(FieldTestFixture, NormField) {
+TEST_F(FieldTestFixture, l2NormField) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
 
     // Create field query data for the three fields
@@ -768,7 +768,8 @@ TEST_F(FieldTestFixture, NormField) {
     aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
     // Perform the operation with the norm utility
-    double norm = aperi::Norm(x_field, selector, aperi::FieldDataTopologyRank::NODE);
+    double norm = aperi::l2Norm(x_field, selector, aperi::FieldDataTopologyRank::NODE);
+    double norm_lp = aperi::lPNorm(x_field, selector, aperi::FieldDataTopologyRank::NODE, 2.0);
 
     // Verify the result by manually computing the dot product
     std::string field_name = "nodal_field";
@@ -780,4 +781,5 @@ TEST_F(FieldTestFixture, NormField) {
     // Check if the computed norm matches the expected value
     double expected_norm = std::sqrt(expected_dot_product);
     EXPECT_NEAR(norm, expected_norm, 1.0e-10) << "Norm verification failed.";
+    EXPECT_NEAR(norm_lp, expected_norm, 1.0e-10) << "lPNorm verification failed.";
 }
