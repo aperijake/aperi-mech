@@ -93,8 +93,6 @@ void CopyField(const Field<T> &src, Field<T> &dest, std::vector<std::string> set
  */
 template <typename T>
 void AXPBYZField(const T &a, const Field<T> &x, const T &b, const Field<T> &y, Field<T> &z, const aperi::Selector &selector) {
-    // Fields cannot be the same
-    assert(x != y && x != z && y != z);
     // Get the bulk data
     const stk::mesh::BulkData &bulk_data = *x.GetMeshData()->GetBulkData();
     stk::mesh::field_axpbyz(bulk_data, a, *x.GetField(), b, *y.GetField(), *z.GetField(), selector(), stk::ngp::ExecSpace());

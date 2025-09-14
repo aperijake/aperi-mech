@@ -703,6 +703,61 @@ TEST_F(FieldTestFixture, AXPBYZFields) {
     EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
 }
 
+// Test AXPBYZField with Y and Z the same field
+TEST_F(FieldTestFixture, AXPBYFields) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data for the three fields
+    aperi::FieldQueryData<double> x_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::FieldQueryData<double> y_query_data{"nodal_field", aperi::FieldQueryState::N};
+    aperi::FieldQueryData<double> z_query_data{"nodal_field_2", aperi::FieldQueryState::None};
+
+    // Create the fields
+    aperi::Field<double> x_field(m_mesh_data, x_query_data);
+    aperi::Field<double> y_field(m_mesh_data, y_query_data);
+    aperi::Field<double> z_field(m_mesh_data, z_query_data);
+
+    // Randomize the x and y fields
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed_x = 42;
+    size_t seed_y = 43;
+
+    m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+    m_node_processor->RandomizeField(1, min, max, seed_y);  // y field (N)
+
+    // Copy y field to z field to set up the test
+    aperi::CopyField(y_field, z_field);
+
+    // Constants for the operation z = ax + by
+    double a = 2.5;
+    double b = -1.5;
+
+    // Perform the operation with the AXPBYZField utility
+    aperi::AXPBYZField(a, x_field, b, y_field, y_field);
+
+    // Verify the result by manually computing z = ax + by for each node
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+    // Create a Kokkos::View to store the error flag
+    Kokkos::View<int> error_flag("error_flag");
+    Kokkos::deep_copy(error_flag, 0);
+
+    // Create the verify functor
+    AXPBYZ_TestVerifyFunctor verify_func(x_field, z_field, y_field, a, b, error_flag);
+
+    // Loop over each node and verify the results
+    ForEachNode(verify_func, *m_mesh_data, selector);
+
+    // Copy the error flag back to the host
+    int error_flag_host;
+    Kokkos::deep_copy(error_flag_host, error_flag);
+
+    // Check for errors
+    EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
+}
+
 // Test Dot method
 TEST_F(FieldTestFixture, DotFields) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
