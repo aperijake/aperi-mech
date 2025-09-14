@@ -133,10 +133,4 @@ struct FieldQueryData {
     size_t number_of_components = 3;                                    // The number of components of the field. Not relevant for most queries, I think it is just for creating fields.
 };
 
-/**
- * @brief Function to get default field data.
- * @return A vector of default FieldData.
- */
-std::vector<FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
-
 }  // namespace aperi

@@ -1,4 +1,4 @@
-#include "Solver.h"
+#include "Solvers/Explicit.h"
 
 #include <chrono>
 #include <numeric>
@@ -6,6 +6,7 @@
 #include "BoundaryCondition.h"
 #include "ContactForceContribution/Base.h"
 #include "EntityProcessor.h"
+#include "ExplicitTimeIntegrator.h"
 #include "ExternalForceContribution/Base.h"
 #include "Field.h"
 #include "FieldData.h"
@@ -25,15 +26,88 @@
 
 namespace aperi {
 
+std::vector<FieldData> ExplicitSolver::GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType lagrangian_formulation_type, bool output_coefficients) {
+    std::vector<FieldData> field_data = Solver::GetFieldData(uses_generalized_fields, use_strain_smoothing, lagrangian_formulation_type, output_coefficients);
+
+    // TODO(jake): Fields that are "*_coefficients" only need to be on the active part. Can rework this to only define them on the active part.
+    // Node data
+    if (uses_generalized_fields) {
+        // Generalized fields, output as "_coefficients"
+        field_data.push_back(FieldData("displacement_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The displacement field, generalized
+        field_data.push_back(FieldData("velocity_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));      // The velocity field, generalized
+        field_data.push_back(FieldData("acceleration_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}, output_coefficients));  // The acceleration field, generalized
+        field_data.push_back(FieldData("force_coefficients", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}, output_coefficients));         // The force field
+        // Actual field data at nodes, no state is needed as it is calculated from the coefficients which have states
+        field_data.push_back(FieldData("displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement field
+        field_data.push_back(FieldData("velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));      // The velocity field
+        field_data.push_back(FieldData("acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The acceleration field
+        field_data.push_back(FieldData("force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));
+        if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+            field_data.push_back(FieldData("displacement_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field, physical
+        }
+    } else {
+        // Field data at nodes is the same as generalized fields. Just output coefficients.
+        field_data.push_back(FieldData("velocity_coefficients", "velocity", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));          // The velocity field, generalized / full
+        field_data.push_back(FieldData("displacement_coefficients", "displacement", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The displacement field, generalized / full
+        field_data.push_back(FieldData("acceleration_coefficients", "acceleration", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 2, std::vector<double>{}));  // The acceleration field, generalized / full
+        field_data.push_back(FieldData("force_coefficients", "force", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The force field
+    }
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Updated || lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        field_data.push_back(FieldData("displacement_coefficients_inc", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The displacement increment field, generalized
+        // The current coordinates field, manually states as they will not be updated every time step
+        field_data.push_back(FieldData("current_coordinates_n", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));    // The current coordinates field
+        field_data.push_back(FieldData("current_coordinates_np1", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The current coordinates field
+    }
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        field_data.push_back(FieldData("reference_coordinates", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The last reference coordinates field
+    }
+    field_data.push_back(FieldData("mass_from_elements", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));  // The mass as determined from the attached elements
+    field_data.push_back(FieldData("mass", FieldDataRank::VECTOR, FieldDataTopologyRank::NODE, 1, std::vector<double>{}));                // The mass field (mass_from_elements as coefficients on the approximation functions)
+
+    // Element data
+    field_data.push_back(FieldData("mass", FieldDataRank::SCALAR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+
+    if (lagrangian_formulation_type == aperi::LagrangianFormulationType::Semi) {
+        field_data.push_back(FieldData("reference_displacement_gradient", "reference_disp_grad", FieldDataRank::TENSOR, FieldDataTopologyRank::ELEMENT, 1, std::vector<double>{}));
+    }
+    return field_data;
+}
+
+void ExplicitSolver::SetTemporalVaryingOutputFields() {
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"force_coefficients", FieldQueryState::None, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"displacement_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"velocity_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"acceleration_coefficients", FieldQueryState::NP1, FieldDataTopologyRank::NODE}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"displacement_gradient", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
+    m_temporal_varying_output_fields.push_back(aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"pk1_stress", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT}));
+
+    std::shared_ptr<aperi::Field<aperi::Real>> state_field_ptr = aperi::GetField<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"state", FieldQueryState::NP1, FieldDataTopologyRank::ELEMENT});
+    if (state_field_ptr != nullptr) {
+        m_temporal_varying_output_fields.push_back(*state_field_ptr);
+    }
+    std::shared_ptr<aperi::Field<aperi::Real>> ref_disp_grad_field_ptr = aperi::GetField<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"reference_displacement_gradient", FieldQueryState::None, FieldDataTopologyRank::ELEMENT});
+    if (ref_disp_grad_field_ptr != nullptr) {
+        m_temporal_varying_output_fields.push_back(*ref_disp_grad_field_ptr);
+    }
+}
+
+// Create a node processor for force
+std::shared_ptr<ActiveNodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForce() {
+    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
+    field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
+    return std::make_shared<ActiveNodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+}
+
+// Create a node processor for local force
+std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal() {
+    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
+    field_query_data_vec[0] = {"force", FieldQueryState::None};
+    return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
+}
+
 void ExplicitSolver::UpdateFieldStates() {
     bool rotate_device_states = true;
     mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
-void Solver::UpdateFieldsFromGeneralizedFields() {
-    for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeValuesFromGeneralizedFields();
-    }
 }
 
 /*
@@ -64,11 +138,11 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Set the force field to zero
+    // Zero the force field
     m_node_processor_force->FillField(0.0, 0);
     m_node_processor_force->MarkFieldModifiedOnDevice(0);
 
-    // Compute kinematic field values from the generalized fields
+    // Compute kinematic field values from generalized fields if needed
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
@@ -76,7 +150,7 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
         m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
     }
 
-    // Compute internal force contributions
+    // Compute internal forces
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce(time, time_increment);
     }
@@ -88,15 +162,15 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
             m_node_processor_force_local->ParallelSumFieldData(0);
         }
         m_force_field_processor->ScatterValues();
-        // No need to sync back to device as the local force field is not used until the next time step
+        // No need to sync back to device as local force field is not used until next time step
     }
 
-    // Compute external force contributions
+    // Compute external forces
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce(time, time_increment);
     }
 
-    // Compute contact force contributions
+    // Compute contact forces
     for (const auto &contact_force_contribution : m_contact_force_contributions) {
         contact_force_contribution->ComputeForce(time, time_increment);
     }
@@ -119,7 +193,7 @@ void ExplicitSolver::WriteOutput(double time) {
     for (auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->PopulateElementOutputs();
     }
-    // Write the field results
+    // Write field results
     for (auto &field : m_temporal_varying_output_fields) {
         field.UpdateField();
         field.SyncDeviceToHost();
@@ -130,12 +204,12 @@ void ExplicitSolver::WriteOutput(double time) {
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
     bool update_shape_functions = false;
 
-    // If using the semi-Lagrangian formulation and it is time to update the reference configuration
+    // Check if reference configuration update is needed
     if (m_reference_configuration_update_scheduler && m_reference_configuration_update_scheduler->AtNextEvent(n)) {
         update_shape_functions = true;
     }
 
-    // If has material separation and a material separation event is triggered
+    // Check for material separation events
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         update_shape_functions = update_shape_functions || internal_force_contribution->CheckIfUpdateIsNeeded();
     }
@@ -148,12 +222,12 @@ void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<Explic
     }
 }
 
-void LogLine(int width = 89) {
+inline void LogLine(int width = 89) {
     aperi::CoutP0() << std::setw(width) << std::setfill('-') << "-" << std::endl;
     aperi::CoutP0() << std::setfill(' ');
 }
 
-void LogRow(const std::array<std::string, 5> &row) {
+inline void LogRow(const std::array<std::string, 5> &row) {
     aperi::CoutP0() << std::left
                     << std::setw(12) << row[0]
                     << std::setw(16) << row[1]
@@ -164,7 +238,7 @@ void LogRow(const std::array<std::string, 5> &row) {
                     << std::right;
 }
 
-void LogHeader() {
+inline void LogHeader() {
     LogLine();
     LogRow({" ", " ", " ", "Running Mean", " "});
     LogRow({"Increment", "Time", "Time Step", "Walltime/Step", "Event Message"});
@@ -172,7 +246,7 @@ void LogHeader() {
     LogLine();
 }
 
-void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") {
+inline void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") {
     aperi::CoutP0() << std::left
                     << std::setw(12) << n
                     << std::setw(16) << time

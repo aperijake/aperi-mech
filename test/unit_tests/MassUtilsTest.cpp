@@ -12,6 +12,7 @@
 #include "Materials/Factory.h"
 #include "MeshLabeler.h"
 #include "Preprocessor.h"
+#include "Solvers/Explicit.h"
 #include "UnitTestUtils.h"
 
 // Fixture for mass matrix tests
@@ -51,7 +52,7 @@ class MassMatrixTest : public CaptureOutputTest {
         // Create FieldData
         bool uses_strain_smoothing = uses_generalized_fields;
         aperi::LagrangianFormulationType formulation_type = aperi::LagrangianFormulationType::Total;
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, uses_strain_smoothing, formulation_type, true /* output_coefficients */);
+        std::vector<aperi::FieldData> field_data = aperi::ExplicitSolver::GetFieldData(uses_generalized_fields, uses_strain_smoothing, formulation_type, true /* output_coefficients */);
 
         // Add field data from mesh labeler
         std::vector<aperi::FieldData> mesh_labeler_field_data = aperi::MeshLabeler::GetFieldData();

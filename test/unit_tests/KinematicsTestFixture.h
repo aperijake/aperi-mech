@@ -18,6 +18,7 @@
 #include "Preprocessor.h"
 #include "QuadratureSmoothed.h"
 #include "SmoothedCellDataProcessor.h"
+#include "Solvers/Explicit.h"
 #include "Types.h"
 #include "UnitTestNodalMeshUtils.h"
 
@@ -100,7 +101,7 @@ class KinematicsTestFixture : public MeshLabelerTestFixture {
 
         CreateAndReadNodalMesh();
         // Use updated lagrangian formulation type to get fields. It will give extra field for total lagrangian that we will use here.
-        std::vector<aperi::FieldData> extra_fields = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, aperi::LagrangianFormulationType::Updated, use_one_pass_method);
+        std::vector<aperi::FieldData> extra_fields = aperi::ExplicitSolver::GetFieldData(uses_generalized_fields, use_strain_smoothing, aperi::LagrangianFormulationType::Updated, use_one_pass_method);
         if (use_f_bar) {
             extra_fields.push_back(aperi::FieldData("displacement_gradient_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));
             extra_fields.push_back(aperi::FieldData("pk1_stress_bar", aperi::FieldDataRank::TENSOR, aperi::FieldDataTopologyRank::ELEMENT, 2, std::vector<double>{}));

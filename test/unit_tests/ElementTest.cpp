@@ -17,6 +17,7 @@
 #include "MeshLabeler.h"
 #include "Preprocessor.h"
 #include "SmoothedCellData.h"
+#include "Solvers/Explicit.h"
 #include "UnitTestUtils.h"
 
 class CreateElementStrainSmoothedTest : public CaptureOutputTest {
@@ -50,7 +51,7 @@ class CreateElementStrainSmoothedTest : public CaptureOutputTest {
         aperi::LagrangianFormulationType lagrangian_formulation_type = aperi::LagrangianFormulationType::Total;
 
         // Get field data
-        std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, use_strain_smoothing, lagrangian_formulation_type, true /* output_coefficients*/);
+        std::vector<aperi::FieldData> field_data = aperi::ExplicitSolver::GetFieldData(uses_generalized_fields, use_strain_smoothing, lagrangian_formulation_type, true /* output_coefficients*/);
 
         // Add field data from mesh labeler
         aperi::MeshLabeler mesh_labeler(m_io_mesh->GetMeshData());

@@ -35,7 +35,7 @@
 #include "FieldData.h"
 #include "LogUtils.h"
 #include "MeshData.h"
-#include "Solver.h"
+#include "Solvers/Explicit.h"
 #include "Types.h"
 
 namespace aperi {

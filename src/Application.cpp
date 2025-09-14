@@ -23,7 +23,8 @@
 #include "Preprocessor.h"
 #include "Scheduler.h"
 #include "SimpleTimerFactory.h"
-#include "Solver.h"
+#include "Solvers/Base.h"
+#include "Solvers/Factory.h"
 #include "TimeStepper.h"
 #include "YamlUtils.h"
 
@@ -204,12 +205,12 @@ std::vector<std::shared_ptr<aperi::InternalForceContribution>> CreateInternalFor
     return internal_force_contributions;
 }
 
-void AddFieldsToMesh(std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients) {
+void AddFieldsToMesh(const aperi::SolverType& solver_type, const std::shared_ptr<aperi::IoMesh> io_mesh, std::shared_ptr<aperi::TimeStepper> time_stepper, bool uses_generalized_fields, bool has_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::AddFieldsToMesh, aperi::application_timer_map);
 
     // Get general field data
-    std::vector<aperi::FieldData> field_data = aperi::GetFieldData(uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
+    std::vector<aperi::FieldData> field_data = aperi::GetSolverFieldData(solver_type, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
 
     // Create a mesh labeler
     // Add mesh labeler fields to the field data
@@ -317,8 +318,17 @@ void Preprocessing(std::shared_ptr<aperi::IoMesh> io_mesh, const std::vector<std
 std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInputFile> io_input_file, bool add_faces) {
     aperi::CoutP0() << " Creating Solver" << std::endl;
 
+    // Make sure there is exactly one procedure
+    int num_procedures = io_input_file->GetProcedureCount();
+    if (num_procedures != 1) {
+        throw std::runtime_error("Only one procedure is supported currently. Found " + std::to_string(num_procedures) + " procedures in the input file.");
+    }
+
     // TODO(jake): hard coding to 1 procedure for now. Fix this when we have multiple procedures.
     int procedure_id = 0;
+
+    // Get the procedure type
+    aperi::SolverType solver_type = io_input_file->GetProcedureType(procedure_id);
 
     // Get parts
     std::vector<YAML::Node> parts = io_input_file->GetParts(procedure_id);
@@ -364,7 +374,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     }
 
     // Add fields to the mesh
-    AddFieldsToMesh(io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
+    AddFieldsToMesh(solver_type, io_mesh, time_stepper, uses_generalized_fields, has_strain_smoothing, formulation_type, output_coefficients);
 
     // Create external force contributions
     std::vector<YAML::Node> loads = io_input_file->GetLoads(procedure_id);
@@ -407,7 +417,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
     PrintNodeCounts(io_mesh->GetMeshData());
 
     // Create solver
-    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
+    std::shared_ptr<aperi::Solver> solver = aperi::CreateSolver(solver_type, io_mesh, internal_force_contributions, external_force_contributions, contact_force_contributions, boundary_conditions, time_stepper, output_scheduler, reference_configuration_update_scheduler);
 
     aperi::CoutP0() << " - Solver Created" << std::endl;
     aperi::CoutP0() << "############################################" << std::endl;

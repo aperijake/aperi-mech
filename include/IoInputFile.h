@@ -9,6 +9,7 @@
 
 #include "Constants.h"
 #include "MathUtils.h"
+#include "Types.h"
 #include "YamlUtils.h"
 
 namespace aperi {
@@ -35,6 +36,33 @@ class IoInputFile {
     int Read();
     int CheckInputWithSchema(bool verbose = false);
     static int Write(const std::string& filename, const YAML::Node& yaml_data);
+
+    // Get the procedure count
+    int GetProcedureCount() const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+        return procedures_node_pair.first.size();
+    }
+
+    // Get the procedure type for a specific procedure id
+    aperi::SolverType GetProcedureType(int procedure_id, bool exit_on_error = true) const {
+        std::pair<YAML::Node, int> procedures_node_pair = GetNode(m_yaml_file, "procedures");
+        if (exit_on_error && procedures_node_pair.second != 0) throw std::runtime_error("Error getting procedures");
+        if (procedure_id < 0 || procedure_id >= static_cast<int>(procedures_node_pair.first.size())) {
+            if (exit_on_error) throw std::runtime_error("Invalid procedure ID");
+            return aperi::SolverType::NONE;
+        }
+        // Return the name of the first key in the procedure node
+        std::string procedure_name = procedures_node_pair.first[procedure_id].begin()->first.as<std::string>();
+        if (procedure_name == "explicit_dynamics_procedure") {
+            return aperi::SolverType::EXPLICIT;
+        } else if (procedure_name == "static_procedure") {
+            return aperi::SolverType::STATIC;
+        } else {
+            if (exit_on_error) throw std::runtime_error("Unrecognized solver type: " + procedure_name);
+        }
+        return aperi::SolverType::NONE;
+    }
 
     // Get mesh file for a specific procedure id
     std::string GetMeshFile(int procedure_id, bool exit_on_error = true) const {
