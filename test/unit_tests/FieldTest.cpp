@@ -838,3 +838,52 @@ TEST_F(FieldTestFixture, l2NormField) {
     EXPECT_NEAR(norm, expected_norm, 1.0e-10) << "Norm verification failed.";
     EXPECT_NEAR(norm_lp, expected_norm, 1.0e-10) << "lPNorm verification failed.";
 }
+
+// Test Norm method
+TEST_F(FieldTestFixture, Scale) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data
+    aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::Field<double> field(m_mesh_data, field_query_data);
+
+    // Randomize the field
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed = 42;
+    m_node_processor->RandomizeField(0, min, max, seed);
+    m_node_processor->MarkFieldModifiedOnDevice(0);
+
+    // Get original field values
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    Eigen::MatrixXd original_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Scale the field
+    double alpha = 2.5;
+    field.Scale(alpha, selector);
+
+    // Get scaled field values
+    Eigen::MatrixXd scaled_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Verify scaling
+    Eigen::MatrixXd expected_values = alpha * original_values;
+    Eigen::MatrixXd diff = scaled_values - expected_values;
+    double local_max_diff = diff.array().abs().maxCoeff();
+    double global_max_diff = 0.0;
+    MPI_Allreduce(&local_max_diff, &global_max_diff, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    EXPECT_NEAR(global_max_diff, 0.0, 1.0e-10) << "Scale with Selector failed: max difference = " << global_max_diff;
+
+    // Scale back using Scale with sets
+    field.Scale(1.0 / alpha, sets);
+
+    // Get rescaled field values
+    Eigen::MatrixXd rescaled_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Verify rescaling
+    diff = rescaled_values - original_values;
+    local_max_diff = diff.array().abs().maxCoeff();
+    global_max_diff = 0.0;
+    MPI_Allreduce(&local_max_diff, &global_max_diff, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+}
