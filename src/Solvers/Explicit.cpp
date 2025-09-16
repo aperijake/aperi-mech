@@ -222,12 +222,12 @@ void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<Explic
     }
 }
 
-inline void LogLine(int width = 89) {
+void ExplicitSolver::LogLine(int width) const {
     aperi::CoutP0() << std::setw(width) << std::setfill('-') << "-" << std::endl;
     aperi::CoutP0() << std::setfill(' ');
 }
 
-inline void LogRow(const std::array<std::string, 5> &row) {
+void ExplicitSolver::LogRow(const std::array<std::string, 5> &row) const {
     aperi::CoutP0() << std::left
                     << std::setw(12) << row[0]
                     << std::setw(16) << row[1]
@@ -238,7 +238,7 @@ inline void LogRow(const std::array<std::string, 5> &row) {
                     << std::right;
 }
 
-inline void LogHeader() {
+void ExplicitSolver::LogHeader() const {
     LogLine();
     LogRow({" ", " ", " ", "Running Mean", " "});
     LogRow({"Increment", "Time", "Time Step", "Walltime/Step", "Event Message"});
@@ -246,7 +246,7 @@ inline void LogHeader() {
     LogLine();
 }
 
-inline void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") {
+void ExplicitSolver::LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event) const {
     aperi::CoutP0() << std::left
                     << std::setw(12) << n
                     << std::setw(16) << time

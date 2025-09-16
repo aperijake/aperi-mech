@@ -274,7 +274,7 @@ std::vector<std::unique_ptr<aperi::InitialCondition>> AddInitialConditions(const
     return initial_conditions_vector;
 }
 
-std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh) {
+std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(const std::vector<YAML::Node>& boundary_condition_nodes, std::shared_ptr<aperi::IoMesh> io_mesh, const aperi::SolverType solver_type) {
     // Create a scoped timer
     auto simple_timer = aperi::SimpleTimerFactory::Create(ApplicationTimerType::CreateBoundaryConditions, aperi::application_timer_map);
 
@@ -284,7 +284,7 @@ std::vector<std::shared_ptr<aperi::BoundaryCondition>> CreateBoundaryConditions(
     for (auto boundary_condition_node : boundary_condition_nodes) {
         auto name = boundary_condition_node.begin()->first.as<std::string>();
         aperi::CoutP0() << "      " << name << std::endl;
-        boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition_node, io_mesh->GetMeshData()));
+        boundary_conditions.push_back(aperi::CreateBoundaryCondition(boundary_condition_node, io_mesh->GetMeshData(), solver_type));
     }
 
     return boundary_conditions;
@@ -386,7 +386,7 @@ std::shared_ptr<aperi::Solver> Application::CreateSolver(std::shared_ptr<IoInput
 
     // Create boundary conditions
     std::vector<YAML::Node> boundary_condition_nodes = io_input_file->GetBoundaryConditions(procedure_id);
-    std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh);
+    std::vector<std::shared_ptr<aperi::BoundaryCondition>> boundary_conditions = CreateBoundaryConditions(boundary_condition_nodes, io_mesh, solver_type);
 
     // Get the output scheduler
     std::shared_ptr<aperi::Scheduler<double>> output_scheduler = CreateOutputScheduler(output_scheduler_node);

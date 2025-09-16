@@ -127,6 +127,12 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      */
     void UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
 
+    // Logging functions
+    void LogLine(int width = 89) const;
+    void LogRow(const std::array<std::string, 5> &row) const;
+    void LogHeader() const;
+    void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") const;
+
     std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
     std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
     std::vector<aperi::Field<aperi::Real>> m_temporal_varying_output_fields;

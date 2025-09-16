@@ -384,6 +384,52 @@ TEST(MathUtilsTest, SmoothStepInterpolationSecondDerivative) {
     }
 }
 
+// Test the integrated linear interpolation
+TEST(MathUtilsTest, IntegratedLinearInterpolation) {
+    std::vector<double> abscissa = {0.0, 1.0, 2.0, 3.0};
+    std::vector<double> ordinate = {0.0, 1.0, 3.0, 1.0};
+
+    // Test at start (should be 0)
+    double result = aperi::IntegratedLinearInterpolation(0.0, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.0);
+
+    // Test within first segment (0 to 1): integral of 0 to 0.5 is (0 + 0.5)/2 * 0.5 = 0.125
+    result = aperi::IntegratedLinearInterpolation(0.5, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.125);
+
+    // Test at end of first segment (1.0): integral 0 to 1 is (0+1)/2 *1 = 0.5
+    result = aperi::IntegratedLinearInterpolation(1.0, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.5);
+
+    // Test within second segment (1 to 2): integral 0 to 1.5 = 0.5 + (1 + 2)/2 * 0.5 = 0.5 + 0.75 = 1.25
+    result = aperi::IntegratedLinearInterpolation(1.5, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 1.25);
+
+    // Test at end of second segment (2.0): integral 0 to 2 = 0.5 + 2.0 = 2.5
+    result = aperi::IntegratedLinearInterpolation(2.0, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 2.5);
+
+    // Test beyond last point (3.5): full integral 0 to 3 = 0.5 + 2.0 + 2.0 = 0.5 + 2.0 + 2.0 = 4.5
+    result = aperi::IntegratedLinearInterpolation(3.5, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 4.5);
+
+    // Test at exact last point (3.0): same as above
+    result = aperi::IntegratedLinearInterpolation(3.0, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 4.5);
+
+    // Test before start (negative): should be 0
+    result = aperi::IntegratedLinearInterpolation(-0.5, abscissa, ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.0);
+
+    // Test with single point
+    std::vector<double> single_abscissa = {1.0};
+    std::vector<double> single_ordinate = {5.0};
+    result = aperi::IntegratedLinearInterpolation(1.0, single_abscissa, single_ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.0);  // Integral at start is 0
+    result = aperi::IntegratedLinearInterpolation(2.0, single_abscissa, single_ordinate);
+    EXPECT_DOUBLE_EQ(result, 0.0);  // No segments, so 0
+}
+
 // Test normalizing a vector
 TEST(MathUtilsTest, Normalize) {
     std::array<double, 3> vector = {1.0, 1.0, 1.0};
