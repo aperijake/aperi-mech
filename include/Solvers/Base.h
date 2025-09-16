@@ -73,7 +73,7 @@ class Solver {
     /**
      * @brief Updates fields from generalized fields.
      */
-    void UpdateFieldsFromGeneralizedFields();
+    virtual void UpdateFieldsFromGeneralizedFields() = 0;
 
     /**
      * @brief Computes forces.

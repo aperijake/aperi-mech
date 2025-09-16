@@ -72,12 +72,6 @@ Solver::Solver(std::shared_ptr<aperi::IoMesh> io_mesh,
     }
 }
 
-void Solver::UpdateFieldsFromGeneralizedFields() {
-    for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeValuesFromGeneralizedFields();
-    }
-}
-
 std::vector<FieldData> Solver::GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType lagrangian_formulation_type, bool output_coefficients) {
     std::vector<FieldData> field_data;
 
