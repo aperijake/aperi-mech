@@ -105,11 +105,6 @@ std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal(
     return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
 }
 
-void ExplicitSolver::UpdateFieldStates() {
-    bool rotate_device_states = true;
-    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -184,21 +179,6 @@ void ExplicitSolver::CommunicateForce() {
         m_node_processor_force->MarkFieldModifiedOnHost(0);
         m_node_processor_force->SyncFieldHostToDevice(0);
     }
-}
-
-void ExplicitSolver::WriteOutput(double time) {
-    if (m_uses_generalized_fields) {
-        UpdateFieldsFromGeneralizedFields();
-    }
-    for (auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->PopulateElementOutputs();
-    }
-    // Write field results
-    for (auto &field : m_temporal_varying_output_fields) {
-        field.UpdateField();
-        field.SyncDeviceToHost();
-    }
-    m_io_mesh->WriteFieldResults(time);
 }
 
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {

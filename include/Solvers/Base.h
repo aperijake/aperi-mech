@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Constants.h"
+#include "Field.h"
 #include "Selector.h"
 
 namespace aperi {
@@ -68,7 +69,7 @@ class Solver {
     /**
      * @brief Updates field states (N -> NP1 and NP1 -> N).
      */
-    virtual void UpdateFieldStates() = 0;
+    void UpdateFieldStates();
 
     /**
      * @brief Updates fields from generalized fields.
@@ -100,6 +101,16 @@ class Solver {
     static std::vector<aperi::FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
 
    protected:
+    /**
+     * @brief Sets the temporal varying output fields.
+     */
+    virtual void SetTemporalVaryingOutputFields() = 0;
+
+    /**
+     * @brief Writes the output.
+     */
+    void WriteOutput(double time);
+
     std::shared_ptr<aperi::IoMesh> m_io_mesh;                                                              ///< The input/output mesh object.
     std::vector<std::shared_ptr<aperi::InternalForceContribution>> m_internal_force_contributions;         ///< The vector of internal force contributions.
     std::vector<std::shared_ptr<aperi::ExternalForceContribution>> m_external_force_contributions;         ///< The vector of external force contributions.
@@ -116,5 +127,7 @@ class Solver {
     std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_kinematics_from_generalized_field_processor;  ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_force_field_processor;                        ///< The force field processor.
     aperi::Selector m_active_selector;                                                                     ///< The active selector.
+
+    std::vector<aperi::Field<aperi::Real>> m_temporal_varying_output_fields;  ///< Fields that vary with time and should be output
 };
 }  // namespace aperi
