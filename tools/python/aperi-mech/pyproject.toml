@@ -17,6 +17,9 @@ dependencies = [
   "meshio==5.3.5",
   "netCDF4==1.7.2",
   "pandas==2.3.0",
+  "pybind11",
+  "PyYAML",
+  "optuna",
   "ruff",
   "mypy",
 ]
