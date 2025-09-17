@@ -105,11 +105,6 @@ std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal(
     return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
 }
 
-void ExplicitSolver::UpdateFieldStates() {
-    bool rotate_device_states = true;
-    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
-}
-
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -186,21 +181,6 @@ void ExplicitSolver::CommunicateForce() {
     }
 }
 
-void ExplicitSolver::WriteOutput(double time) {
-    if (m_uses_generalized_fields) {
-        UpdateFieldsFromGeneralizedFields();
-    }
-    for (auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->PopulateElementOutputs();
-    }
-    // Write field results
-    for (auto &field : m_temporal_varying_output_fields) {
-        field.UpdateField();
-        field.SyncDeviceToHost();
-    }
-    m_io_mesh->WriteFieldResults(time);
-}
-
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {
     bool update_shape_functions = false;
 
@@ -222,12 +202,59 @@ void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<Explic
     }
 }
 
-inline void LogLine(int width = 89) {
+void ExplicitSolver::CreateOutputValueFromGeneralizedFieldProcessors() {
+    for (const auto &internal_force_contribution : m_internal_force_contributions) {
+        if (internal_force_contribution->UsesGeneralizedFields()) {
+            // Create a value from generalized field processor for all generalized fields
+            std::array<aperi::FieldQueryData<double>, 3> src_field_query_data;
+            src_field_query_data[0] = {"displacement_coefficients", FieldQueryState::NP1};
+            src_field_query_data[1] = {"velocity_coefficients", FieldQueryState::NP1};
+            src_field_query_data[2] = {"acceleration_coefficients", FieldQueryState::NP1};
+
+            std::array<aperi::FieldQueryData<double>, 3> dest_field_query_data;
+            dest_field_query_data[0] = {"displacement", FieldQueryState::None};
+            dest_field_query_data[1] = {"velocity", FieldQueryState::None};
+            dest_field_query_data[2] = {"acceleration", FieldQueryState::None};
+
+            std::vector<std::string> part_names = {internal_force_contribution->GetPartName()};
+            m_output_value_from_generalized_field_processors.push_back(std::make_shared<aperi::FunctionEvaluationProcessor<3>>(src_field_query_data, dest_field_query_data, mp_mesh_data, part_names));
+        }
+    }
+}
+
+void ExplicitSolver::UpdateFieldsFromGeneralizedFields() {
+    // Splitting into multiple steps to avoid oversyncing between host and device
+    // Communicate the source fields
+    for (auto &output_value_from_generalized_field_processor : m_output_value_from_generalized_field_processors) {
+        output_value_from_generalized_field_processor->SyncAllSourceFieldsDeviceToHost();
+        output_value_from_generalized_field_processor->CommunicateAllSourceFieldData();
+    }
+    // Mark all source fields as modified on the host
+    for (auto &output_value_from_generalized_field_processor : m_output_value_from_generalized_field_processors) {
+        output_value_from_generalized_field_processor->MarkAllSourceFieldsModifiedOnHost();
+    }
+    // Sync all source fields from host to device
+    for (auto &output_value_from_generalized_field_processor : m_output_value_from_generalized_field_processors) {
+        output_value_from_generalized_field_processor->SyncAllSourceFieldsHostToDevice();
+    }
+    // For each processor, compute the destination fields and mark them as modified on the device
+    for (auto &output_value_from_generalized_field_processor : m_output_value_from_generalized_field_processors) {
+        // Compute the values of the destination fields from the source fields
+        output_value_from_generalized_field_processor->ComputeValues();
+        output_value_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
+    }
+    // Communicate the destination fields
+    for (auto &output_value_from_generalized_field_processor : m_output_value_from_generalized_field_processors) {
+        output_value_from_generalized_field_processor->SyncAllDestinationFieldsDeviceToHost();
+    }
+}
+
+void ExplicitSolver::LogLine(int width) const {
     aperi::CoutP0() << std::setw(width) << std::setfill('-') << "-" << std::endl;
     aperi::CoutP0() << std::setfill(' ');
 }
 
-inline void LogRow(const std::array<std::string, 5> &row) {
+void ExplicitSolver::LogRow(const std::array<std::string, 5> &row) const {
     aperi::CoutP0() << std::left
                     << std::setw(12) << row[0]
                     << std::setw(16) << row[1]
@@ -238,7 +265,7 @@ inline void LogRow(const std::array<std::string, 5> &row) {
                     << std::right;
 }
 
-inline void LogHeader() {
+void ExplicitSolver::LogHeader() const {
     LogLine();
     LogRow({" ", " ", " ", "Running Mean", " "});
     LogRow({"Increment", "Time", "Time Step", "Walltime/Step", "Event Message"});
@@ -246,7 +273,7 @@ inline void LogHeader() {
     LogLine();
 }
 
-inline void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") {
+void ExplicitSolver::LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event) const {
     aperi::CoutP0() << std::left
                     << std::setw(12) << n
                     << std::setw(16) << time

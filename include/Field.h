@@ -364,6 +364,29 @@ class Field {
         Fill(0, sets);
     }
 
+    /**
+     * @brief Scale a field by a value.
+     * @param alpha The value to scale the field by.
+     * @param selector The selector for the field.
+     */
+    void Scale(const T &alpha, const aperi::Selector &selector) {
+        assert(m_field != nullptr);
+        stk::mesh::field_scale(*m_mesh_data->GetBulkData(), alpha, *m_field, selector(), stk::ngp::ExecSpace());
+    }
+
+    /**
+     * @brief Scale a field by a value.
+     * @param alpha The value to scale the field by.
+     * @param sets The sets used to get the selector.
+     */
+    void Scale(const T &alpha, std::vector<std::string> sets = {}) {
+        // Get the selector
+        aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+        // Scale the field
+        Scale(alpha, selector);
+    }
+
     // Get the sum of a field
     T GetSumHost() const {
         assert(m_field != nullptr);

@@ -272,13 +272,13 @@ class PowerMethodProcessor {
     void ComputeNextEigenvector(double epsilon) {
         /* Compute the next eigenvector
             Compute v_n+1 = (M^{-1}K) v_n, where:
-            (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / (epsilon * l)
+            (M^{-1}K) v_n = M^{-1} (F(u + v_n * l * epsilon) - F(u)) / (l * epsilon)
 
-            - v_n+1:               displacement field, the next eigenvector, computed in place
-            - f(u):                force_in field, computed outside of the power method
-            - f(u + \epsilon v_n): force field, computed before this function
-            - l:                   max_edge_length field
-            - M:                   mass field
+            - v_n+1:                     displacement field, the next eigenvector, computed in place
+            - f(u):                      force_in field, computed outside of the power method
+            - f(u + v_n * epsilon * l):  force field, computed before this function
+            - l:                         max_edge_length field
+            - M:                         mass field
 
             - The eigenvector is zeroed out for nodes in the essential boundary set
         */
@@ -322,7 +322,7 @@ class PowerMethodProcessor {
                     // Get the force from the current displacement
                     double force_u = ngp_force_in_field(node_index, i);
 
-                    // Compute v_n+1 = (M^{-1}K) v_n = M^{-1} (F(u + \epsilon v_n) - F(u)) / \epsilon
+                    // Compute v_n+1 = (M^{-1}K) v_n = M^{-1} (F(u + v_n * l * epsilon) - F(u)) / (l * epsilon)
                     ngp_displacement_field(node_index, i) = (force_u_epsilon - force_u) / (l_epsilon * mass);
                 }
             });

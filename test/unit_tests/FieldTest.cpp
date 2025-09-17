@@ -703,6 +703,61 @@ TEST_F(FieldTestFixture, AXPBYZFields) {
     EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
 }
 
+// Test AXPBYZField with Y and Z the same field
+TEST_F(FieldTestFixture, AXPBYFields) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data for the three fields
+    aperi::FieldQueryData<double> x_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::FieldQueryData<double> y_query_data{"nodal_field", aperi::FieldQueryState::N};
+    aperi::FieldQueryData<double> z_query_data{"nodal_field_2", aperi::FieldQueryState::None};
+
+    // Create the fields
+    aperi::Field<double> x_field(m_mesh_data, x_query_data);
+    aperi::Field<double> y_field(m_mesh_data, y_query_data);
+    aperi::Field<double> z_field(m_mesh_data, z_query_data);
+
+    // Randomize the x and y fields
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed_x = 42;
+    size_t seed_y = 43;
+
+    m_node_processor->RandomizeField(0, min, max, seed_x);  // x field (NP1)
+    m_node_processor->RandomizeField(1, min, max, seed_y);  // y field (N)
+
+    // Copy y field to z field to set up the test
+    aperi::CopyField(y_field, z_field);
+
+    // Constants for the operation z = ax + by
+    double a = 2.5;
+    double b = -1.5;
+
+    // Perform the operation with the AXPBYZField utility
+    aperi::AXPBYZField(a, x_field, b, y_field, y_field);
+
+    // Verify the result by manually computing z = ax + by for each node
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get());
+
+    // Create a Kokkos::View to store the error flag
+    Kokkos::View<int> error_flag("error_flag");
+    Kokkos::deep_copy(error_flag, 0);
+
+    // Create the verify functor
+    AXPBYZ_TestVerifyFunctor verify_func(x_field, z_field, y_field, a, b, error_flag);
+
+    // Loop over each node and verify the results
+    ForEachNode(verify_func, *m_mesh_data, selector);
+
+    // Copy the error flag back to the host
+    int error_flag_host;
+    Kokkos::deep_copy(error_flag_host, error_flag);
+
+    // Check for errors
+    EXPECT_EQ(error_flag_host, 0) << "AXPBYZ_VerifyFunctor detected errors in AXPBYZField computation.";
+}
+
 // Test Dot method
 TEST_F(FieldTestFixture, DotFields) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
@@ -746,7 +801,7 @@ TEST_F(FieldTestFixture, DotFields) {
 }
 
 // Test Norm method
-TEST_F(FieldTestFixture, NormField) {
+TEST_F(FieldTestFixture, l2NormField) {
     AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
 
     // Create field query data for the three fields
@@ -768,7 +823,8 @@ TEST_F(FieldTestFixture, NormField) {
     aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
 
     // Perform the operation with the norm utility
-    double norm = aperi::Norm(x_field, selector, aperi::FieldDataTopologyRank::NODE);
+    double norm = aperi::l2Norm(x_field, selector, aperi::FieldDataTopologyRank::NODE);
+    double norm_lp = aperi::lPNorm(x_field, selector, aperi::FieldDataTopologyRank::NODE, 2.0);
 
     // Verify the result by manually computing the dot product
     std::string field_name = "nodal_field";
@@ -780,4 +836,54 @@ TEST_F(FieldTestFixture, NormField) {
     // Check if the computed norm matches the expected value
     double expected_norm = std::sqrt(expected_dot_product);
     EXPECT_NEAR(norm, expected_norm, 1.0e-10) << "Norm verification failed.";
+    EXPECT_NEAR(norm_lp, expected_norm, 1.0e-10) << "lPNorm verification failed.";
+}
+
+// Test Norm method
+TEST_F(FieldTestFixture, Scale) {
+    AddMeshDatabase(m_num_elements_x, m_num_elements_y, m_num_elements_z);
+
+    // Create field query data
+    aperi::FieldQueryData<double> field_query_data{"nodal_field", aperi::FieldQueryState::NP1};
+    aperi::Field<double> field(m_mesh_data, field_query_data);
+
+    // Randomize the field
+    double min = 1.0;
+    double max = 2.0;
+    size_t seed = 42;
+    m_node_processor->RandomizeField(0, min, max, seed);
+    m_node_processor->MarkFieldModifiedOnDevice(0);
+
+    // Get original field values
+    std::vector<std::string> sets = {};
+    aperi::Selector selector = aperi::Selector(sets, m_mesh_data.get(), aperi::SelectorOwnership::OWNED);
+    Eigen::MatrixXd original_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Scale the field
+    double alpha = 2.5;
+    field.Scale(alpha, selector);
+
+    // Get scaled field values
+    Eigen::MatrixXd scaled_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Verify scaling
+    Eigen::MatrixXd expected_values = alpha * original_values;
+    Eigen::MatrixXd diff = scaled_values - expected_values;
+    double local_max_diff = diff.array().abs().maxCoeff();
+    double global_max_diff = 0.0;
+    MPI_Allreduce(&local_max_diff, &global_max_diff, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    EXPECT_NEAR(global_max_diff, 0.0, 1.0e-10) << "Scale with Selector failed: max difference = " << global_max_diff;
+
+    // Scale back using Scale with sets
+    field.Scale(1.0 / alpha, sets);
+
+    // Get rescaled field values
+    Eigen::MatrixXd rescaled_values = GetEntityFieldValues<aperi::FieldDataTopologyRank::NODE, double, 3>(*m_mesh_data, sets, "nodal_field", aperi::FieldQueryState::NP1, true);
+
+    // Verify rescaling
+    diff = rescaled_values - original_values;
+    local_max_diff = diff.array().abs().maxCoeff();
+    global_max_diff = 0.0;
+    MPI_Allreduce(&local_max_diff, &global_max_diff, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 }

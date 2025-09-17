@@ -93,8 +93,6 @@ void CopyField(const Field<T> &src, Field<T> &dest, std::vector<std::string> set
  */
 template <typename T>
 void AXPBYZField(const T &a, const Field<T> &x, const T &b, const Field<T> &y, Field<T> &z, const aperi::Selector &selector) {
-    // Fields cannot be the same
-    assert(x != y && x != z && y != z);
     // Get the bulk data
     const stk::mesh::BulkData &bulk_data = *x.GetMeshData()->GetBulkData();
     stk::mesh::field_axpbyz(bulk_data, a, *x.GetField(), b, *y.GetField(), *z.GetField(), selector(), stk::ngp::ExecSpace());
@@ -247,17 +245,101 @@ T Dot(const Field<T> &field_0, const Field<T> &field_1, const aperi::Selector &s
     return global_dot_product;
 }
 
+template <typename T>
+struct lPFunctor {
+    stk::mesh::NgpField<T> field;
+    double power;
+
+    lPFunctor(stk::mesh::NgpField<T> f, double p) : field(f), power(p) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
+        T local_sum = 0.0;
+        const size_t num_components = field.get_num_components_per_entity(entity);
+        for (size_t i = 0; i < num_components; ++i) {
+            local_sum += Kokkos::pow(field(entity, i), power);
+        }
+        update += local_sum;  // Accumulate into the reduction
+    }
+};
+
 /**
- * @brief Compute the norm of a field
+ * @brief Compute the lp norm of a field
  * @param field The field.
  * @param selector The selector defining the subset of entities to include in the norm computation.
  * @param Rank The topology rank of the entities to consider (e.g., NODE, ELEMENT).
+ * @param p The order of the norm.
  * @tparam T The type of the field (e.g., double).
- * @return The norm of the field over the selected entities.
+ * @return The lp norm of the field over the selected entities.
  */
 template <typename T>
-T Norm(const Field<T> &field, const aperi::Selector &selector, const aperi::FieldDataTopologyRank &rank) {
-    return std::sqrt(Dot(field, field, selector, rank));
+T lPNorm(const Field<T> &field, const aperi::Selector &selector, const aperi::FieldDataTopologyRank &rank, double p = 2.0) {
+    std::shared_ptr<aperi::MeshData> mesh_data = field.GetMeshData();
+    stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
+    stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*bulk_data);
+
+    // Use STK's for_each_entity_reduce with a Sum reduction
+    stk::mesh::NgpField<T> stk_field = field.GetNgpField();
+    T local_sum = 0.0;
+    Kokkos::Sum<T> sum_reduction(local_sum);
+    stk::topology::rank_t stk_rank = aperi::GetTopologyRank(rank);
+    stk::mesh::for_each_entity_reduce(ngp_mesh, stk_rank, selector(), sum_reduction, lPFunctor<T>(stk_field, p));
+
+    // Perform MPI all-reduce for global sum across processors
+    T global_sum = 0.0;
+    stk::all_reduce_sum(bulk_data->parallel(), &local_sum, &global_sum, 1);
+
+    return std::pow(global_sum, 1.0 / p);
+}
+
+/**
+ * @brief Functor for computing the l2 norm (squared sum) of a field in a reduction.
+ * @tparam T The type of the field (e.g., double).
+ */
+template <typename T>
+struct l2NormSquaredFunctor {
+    stk::mesh::NgpField<T> field;
+
+    l2NormSquaredFunctor(stk::mesh::NgpField<T> f) : field(f) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const stk::mesh::FastMeshIndex &entity, T &update) const {
+        T local_sum = 0.0;
+        const size_t num_components = field.get_num_components_per_entity(entity);
+        for (size_t i = 0; i < num_components; ++i) {
+            T val = field(entity, i);
+            local_sum += val * val;  // Direct squaring for efficiency
+        }
+        update += local_sum;  // Accumulate into the reduction
+    }
+};
+
+/**
+ * @brief Compute the l2 norm of a field (specialized for p=2).
+ * @param field The field.
+ * @param selector The selector defining the subset of entities to include in the norm computation.
+ * @param rank The topology rank of the entities to consider (e.g., NODE, ELEMENT).
+ * @tparam T The type of the field (e.g., double).
+ * @return The l2 norm of the field over the selected entities.
+ */
+template <typename T>
+T l2Norm(const Field<T> &field, const aperi::Selector &selector, const aperi::FieldDataTopologyRank &rank) {
+    std::shared_ptr<aperi::MeshData> mesh_data = field.GetMeshData();
+    stk::mesh::BulkData *bulk_data = mesh_data->GetBulkData();
+    stk::mesh::NgpMesh ngp_mesh = stk::mesh::get_updated_ngp_mesh(*bulk_data);
+
+    // Use STK's for_each_entity_reduce with a Sum reduction
+    stk::mesh::NgpField<T> stk_field = field.GetNgpField();
+    T local_sum = 0.0;
+    Kokkos::Sum<T> sum_reduction(local_sum);
+    stk::topology::rank_t stk_rank = aperi::GetTopologyRank(rank);
+    stk::mesh::for_each_entity_reduce(ngp_mesh, stk_rank, selector(), sum_reduction, l2NormSquaredFunctor<T>(stk_field));
+
+    // Perform MPI all-reduce for global sum across processors
+    T global_sum = 0.0;
+    stk::all_reduce_sum(bulk_data->parallel(), &local_sum, &global_sum, 1);
+
+    return std::sqrt(global_sum);  // Take square root for the norm
 }
 
 }  // namespace aperi

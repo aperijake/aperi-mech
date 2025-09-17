@@ -72,12 +72,6 @@ Solver::Solver(std::shared_ptr<aperi::IoMesh> io_mesh,
     }
 }
 
-void Solver::UpdateFieldsFromGeneralizedFields() {
-    for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeValuesFromGeneralizedFields();
-    }
-}
-
 std::vector<FieldData> Solver::GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType lagrangian_formulation_type, bool output_coefficients) {
     std::vector<FieldData> field_data;
 
@@ -109,6 +103,26 @@ std::vector<FieldData> Solver::GetFieldData(bool uses_generalized_fields, bool u
     }
 
     return field_data;
+}
+
+void Solver::UpdateFieldStates() {
+    bool rotate_device_states = true;
+    mp_mesh_data->UpdateFieldDataStates(rotate_device_states);
+}
+
+void Solver::WriteOutput(double time) {
+    if (m_uses_generalized_fields) {
+        UpdateFieldsFromGeneralizedFields();
+    }
+    for (auto &internal_force_contribution : m_internal_force_contributions) {
+        internal_force_contribution->PopulateElementOutputs();
+    }
+    // Write field results
+    for (auto &field : m_temporal_varying_output_fields) {
+        field.UpdateField();
+        field.SyncDeviceToHost();
+    }
+    m_io_mesh->WriteFieldResults(time);
 }
 
 }  // namespace aperi

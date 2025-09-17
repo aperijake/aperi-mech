@@ -147,6 +147,41 @@ double LinearInterpolation(double x, const T &abscissa, const T &ordinate) {
     throw std::runtime_error("Linear interpolation failed.");
 }
 
+// Integrated linear interpolation (cumulative integral of linear interpolation)
+template <typename T>
+double IntegratedLinearInterpolation(double x, const T &abscissa, const T &ordinate) {
+    assert(abscissa.size() == ordinate.size());
+    assert(abscissa.size() > 0);
+    double integral = 0.0;
+    if (x <= abscissa[0]) {
+        return 0.0;
+    }
+    if (x >= abscissa.back()) {
+        // Compute full integral
+        for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+            double dt = abscissa[i + 1] - abscissa[i];
+            double avg_v = (ordinate[i] + ordinate[i + 1]) / 2.0;
+            integral += avg_v * dt;
+        }
+        return integral;
+    }
+    // Partial integral up to x
+    for (size_t i = 0; i < abscissa.size() - 1; ++i) {
+        if (x <= abscissa[i + 1]) {
+            double dt_partial = x - abscissa[i];
+            double slope = (ordinate[i + 1] - ordinate[i]) / (abscissa[i + 1] - abscissa[i]);
+            double v_at_x = ordinate[i] + slope * dt_partial;
+            integral += (ordinate[i] + v_at_x) / 2.0 * dt_partial;
+            return integral;
+        } else {
+            double dt = abscissa[i + 1] - abscissa[i];
+            double avg_v = (ordinate[i] + ordinate[i + 1]) / 2.0;
+            integral += avg_v * dt;
+        }
+    }
+    throw std::runtime_error("Integrated linear interpolation failed.");
+}
+
 // Smooth step function
 template <typename T>
 double SmoothStepInterpolation(double x, const T &abscissa, const T &ordinate) {

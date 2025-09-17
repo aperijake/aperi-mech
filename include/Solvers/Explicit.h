@@ -13,6 +13,8 @@ class IoMesh;
 class InternalForceContribution;
 class ContactForceContribution;
 class ExternalForceContribution;
+template <size_t NumFields>
+class FunctionEvaluationProcessor;
 class BoundaryCondition;
 class TimeStepper;
 template <typename EventType>
@@ -60,6 +62,7 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
         if (m_uses_generalized_fields) {
             m_node_processor_force_local = CreateNodeProcessorForceLocal();
         }
+        CreateOutputValueFromGeneralizedFieldProcessors();
     }
 
     ~ExplicitSolver() {}
@@ -69,9 +72,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * @return A vector of default FieldData.
      */
     static std::vector<aperi::FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
-
-    // Set the temporal varying output fields
-    void SetTemporalVaryingOutputFields();
 
     // Create a node processor for force
     std::shared_ptr<ActiveNodeProcessor<1>> CreateNodeProcessorForce();
@@ -110,15 +110,18 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
     void CommunicateForce() override;
 
    protected:
-    /**
-     * @brief Updates the field states. N -> NP1 and NP1 -> N.
-     */
-    void UpdateFieldStates() override;
+    // Set the temporal varying output fields
+    void SetTemporalVaryingOutputFields() override;
 
     /**
-     * @brief Writes the output.
+     * @brief Creates processors to compute output values from generalized fields.
      */
-    void WriteOutput(double time);
+    void CreateOutputValueFromGeneralizedFieldProcessors();
+
+    /**
+     * @brief Updates fields from generalized fields.
+     */
+    void UpdateFieldsFromGeneralizedFields() override;
 
     /**
      * @brief Updates the shape functions.
@@ -127,8 +130,15 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      */
     void UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator);
 
-    std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;
-    std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;
-    std::vector<aperi::Field<aperi::Real>> m_temporal_varying_output_fields;
+    // Logging functions
+    void LogLine(int width = 89) const;
+    void LogRow(const std::array<std::string, 5> &row) const;
+    void LogHeader() const;
+    void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") const;
+
+    std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;  ///< For zeroing and communicating generalized force
+    std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;  ///< For zeroing and communicating local force
+
+    std::vector<std::shared_ptr<aperi::FunctionEvaluationProcessor<3>>> m_output_value_from_generalized_field_processors;  ///< To compute output values from generalized fields
 };
 }  // namespace aperi
