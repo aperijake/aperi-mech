@@ -20,6 +20,7 @@ dependencies = [
   "pybind11",
   "PyYAML",
   "optuna",
+  "scikit-learn",
   "ruff",
   "mypy",
 ]
