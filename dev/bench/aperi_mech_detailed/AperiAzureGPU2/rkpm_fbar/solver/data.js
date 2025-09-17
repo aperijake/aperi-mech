@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757819759468,
+  "lastUpdate": 1758152204503,
   "repoUrl": "https://github.com/aperijake/aperi-mech",
   "entries": {
     "Benchmark": [
@@ -10483,6 +10483,623 @@ window.BENCHMARK_DATA = {
           {
             "name": "Solver_CommunicateForce_rkpm_fbar_gpu_np_1",
             "value": 0.000131,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jake Koester",
+            "username": "aperijake",
+            "email": "146987853+aperijake@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "820ed915d343c78360d770eb801f0348272849b2",
+          "message": "Merge pull request #134 from aperijake/shared_libs [skip ci]\n\nadd python packages",
+          "timestamp": "2025-09-17T22:20:48Z",
+          "url": "https://github.com/aperijake/aperi-mech/commit/820ed915d343c78360d770eb801f0348272849b2"
+        },
+        "date": 1758152199217,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "SmoothedCellData_Instantiate_rkpm_fbar_cpu_np_1",
+            "value": 0.600903,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_cpu_np_1",
+            "value": 0.000037,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_cpu_np_1",
+            "value": 0.000212,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_rkpm_fbar_cpu_np_1",
+            "value": 0.003788,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_rkpm_fbar_cpu_np_1",
+            "value": 8.614923,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_rkpm_fbar_cpu_np_1",
+            "value": 433.696032,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_rkpm_fbar_cpu_np_1",
+            "value": 0.000142,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_ComputeFunctionValues_rkpm_fbar_cpu_np_1",
+            "value": 1.849273,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_rkpm_fbar_cpu_np_1",
+            "value": 0.000067,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_rkpm_fbar_cpu_np_1",
+            "value": 97.949759,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_rkpm_fbar_cpu_np_1",
+            "value": 0.000147,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_rkpm_fbar_cpu_np_1",
+            "value": 566.199723,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_cpu_np_1",
+            "value": 0.376338,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_rkpm_fbar_cpu_np_1",
+            "value": 0.000034,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_rkpm_fbar_cpu_np_1",
+            "value": 0.161943,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_rkpm_fbar_cpu_np_1",
+            "value": 0.000027,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_rkpm_fbar_cpu_np_1",
+            "value": 0.000342,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_BuildSmoothedCellData_rkpm_fbar_cpu_np_1",
+            "value": 63.129803,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_AddCellNumElements_rkpm_fbar_cpu_np_1",
+            "value": 0.027188,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_rkpm_fbar_cpu_np_1",
+            "value": 24.186034,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_rkpm_fbar_cpu_np_1",
+            "value": 0.105969,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_Instantiate_rkpm_fbar_cpu_np_1",
+            "value": 0.000059,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_rkpm_fbar_cpu_np_1",
+            "value": 0.000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_rkpm_fbar_cpu_np_1",
+            "value": 0.000954,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetFunctionDerivatives_rkpm_fbar_cpu_np_1",
+            "value": 18.764203,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_rkpm_fbar_cpu_np_1",
+            "value": 0.00007,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_rkpm_fbar_cpu_np_1",
+            "value": 443.843985,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_rkpm_fbar_cpu_np_1",
+            "value": 0.000555,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetCellLocalOffsets_rkpm_fbar_cpu_np_1",
+            "value": 0.092386,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_rkpm_fbar_cpu_np_1",
+            "value": 5.167501,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CoarseSearch_rkpm_fbar_cpu_np_1",
+            "value": 5.459465,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_rkpm_fbar_cpu_np_1",
+            "value": 0.000051,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetNodeIndiciesAndMap_rkpm_fbar_cpu_np_1",
+            "value": 62.20393,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_rkpm_fbar_cpu_np_1",
+            "value": 0.000024,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_cpu_np_1",
+            "value": 0.537551,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_cpu_np_1",
+            "value": 0.001918,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_Instantiate_rkpm_fbar_cpu_np_1",
+            "value": 0.000065,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_SortSearchResults_rkpm_fbar_cpu_np_1",
+            "value": 2.560782,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_cpu_np_1",
+            "value": 0.055521,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_rkpm_fbar_cpu_np_4",
+            "value": 180.993691,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetFunctionDerivatives_rkpm_fbar_cpu_np_4",
+            "value": 4.742818,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CoarseSearch_rkpm_fbar_cpu_np_4",
+            "value": 1.593915,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_rkpm_fbar_cpu_np_4",
+            "value": 0.000019,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_GhostNodeNeighbors_rkpm_fbar_cpu_np_4",
+            "value": 0.112423,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_rkpm_fbar_cpu_np_4",
+            "value": 2.022435,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_Instantiate_rkpm_fbar_cpu_np_4",
+            "value": 0.00007,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_cpu_np_4",
+            "value": 0.021334,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_Instantiate_rkpm_fbar_cpu_np_4",
+            "value": 0.000102,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_rkpm_fbar_cpu_np_4",
+            "value": 5.310978,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_ComputeFunctionValues_rkpm_fbar_cpu_np_4",
+            "value": 0.513008,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_rkpm_fbar_cpu_np_4",
+            "value": 0.000131,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_rkpm_fbar_cpu_np_4",
+            "value": 0.000283,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_KokkosDeepCopy_rkpm_fbar_cpu_np_4",
+            "value": 0.000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_rkpm_fbar_cpu_np_4",
+            "value": 6.119322,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_rkpm_fbar_cpu_np_4",
+            "value": 0.000048,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_rkpm_fbar_cpu_np_4",
+            "value": 141.06017,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_rkpm_fbar_cpu_np_4",
+            "value": 0.004348,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_Instantiate_rkpm_fbar_cpu_np_4",
+            "value": 0.267809,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_cpu_np_4",
+            "value": 0.000043,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_cpu_np_4",
+            "value": 0.45866,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_rkpm_fbar_cpu_np_4",
+            "value": 0.000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_rkpm_fbar_cpu_np_4",
+            "value": 0.000037,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetNodeIndiciesAndMap_rkpm_fbar_cpu_np_4",
+            "value": 16.324955,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_cpu_np_4",
+            "value": 0.630222,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_rkpm_fbar_cpu_np_4",
+            "value": 111.88191,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_rkpm_fbar_cpu_np_4",
+            "value": 28.011371,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_cpu_np_4",
+            "value": 0.000117,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_cpu_np_4",
+            "value": 0.002437,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_rkpm_fbar_cpu_np_4",
+            "value": 0.000164,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_BuildSmoothedCellData_rkpm_fbar_cpu_np_4",
+            "value": 16.793521,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_rkpm_fbar_cpu_np_4",
+            "value": 0.000107,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_rkpm_fbar_cpu_np_4",
+            "value": 0.647098,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_rkpm_fbar_cpu_np_4",
+            "value": 0.053213,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetCellLocalOffsets_rkpm_fbar_cpu_np_4",
+            "value": 0.027173,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_rkpm_fbar_cpu_np_4",
+            "value": 0.001048,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_rkpm_fbar_cpu_np_4",
+            "value": 31.00081,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_rkpm_fbar_cpu_np_4",
+            "value": 0.756134,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_rkpm_fbar_cpu_np_4",
+            "value": 0.00007,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_SortSearchResults_rkpm_fbar_cpu_np_4",
+            "value": 0.801587,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_AddCellNumElements_rkpm_fbar_cpu_np_4",
+            "value": 0.007679,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodeSpheres_rkpm_fbar_gpu_np_1",
+            "value": 0.001802,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_Instantiate_rkpm_fbar_gpu_np_1",
+            "value": 0.000057,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateTimeStepper_rkpm_fbar_gpu_np_1",
+            "value": 0.000023,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_Instantiate_rkpm_fbar_gpu_np_1",
+            "value": 0.288328,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_SortSearchResults_rkpm_fbar_gpu_np_1",
+            "value": 0.259701,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateOutputScheduler_rkpm_fbar_gpu_np_1",
+            "value": 0.000028,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_Instantiate_rkpm_fbar_gpu_np_1",
+            "value": 0.000057,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Preprocessing_rkpm_fbar_gpu_np_1",
+            "value": 12.772241,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_BuildSmoothedCellData_rkpm_fbar_gpu_np_1",
+            "value": 4.212553,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddInitialConditions_rkpm_fbar_gpu_np_1",
+            "value": 0.000047,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateExternalForceContribution_rkpm_fbar_gpu_np_1",
+            "value": 0.000061,
+            "unit": "seconds"
+          },
+          {
+            "name": "Element_CreateElementForceProcessor_rkpm_fbar_gpu_np_1",
+            "value": 0.125874,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ComputeForce_rkpm_fbar_gpu_np_1",
+            "value": 23.806719,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_LabelParts_rkpm_fbar_gpu_np_1",
+            "value": 6.499416,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_Total_rkpm_fbar_gpu_np_1",
+            "value": 34.009479,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateInternalForceContribution_rkpm_fbar_gpu_np_1",
+            "value": 0.001892,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateShapeFunctions_rkpm_fbar_gpu_np_1",
+            "value": 0.000167,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetNodeIndiciesAndMap_rkpm_fbar_gpu_np_1",
+            "value": 3.89812,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_ComputeKernelRadius_rkpm_fbar_gpu_np_1",
+            "value": 0.00489,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateBoundaryConditions_rkpm_fbar_gpu_np_1",
+            "value": 2.51529,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_Total_rkpm_fbar_gpu_np_1",
+            "value": 77.638448,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CalculateResultsDistances_rkpm_fbar_gpu_np_1",
+            "value": 0.018849,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeStepCompute_rkpm_fbar_gpu_np_1",
+            "value": 0.000157,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_AddFieldsToMesh_rkpm_fbar_gpu_np_1",
+            "value": 26.092079,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_AddCellNumElements_rkpm_fbar_gpu_np_1",
+            "value": 0.007692,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_ReadInputMesh_rkpm_fbar_gpu_np_1",
+            "value": 0.146641,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CoarseSearch_rkpm_fbar_gpu_np_1",
+            "value": 0.268534,
+            "unit": "seconds"
+          },
+          {
+            "name": "FunctionCreationProcessor_ComputeFunctionValues_rkpm_fbar_gpu_np_1",
+            "value": 0.136676,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_WriteOutput_rkpm_fbar_gpu_np_1",
+            "value": 9.60053,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetCellLocalOffsets_rkpm_fbar_gpu_np_1",
+            "value": 0.005801,
+            "unit": "seconds"
+          },
+          {
+            "name": "SmoothedCellData_SetFunctionDerivatives_rkpm_fbar_gpu_np_1",
+            "value": 0.912771,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_TimeIntegrationNodalUpdates_rkpm_fbar_gpu_np_1",
+            "value": 0.027693,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_CommunicateForce_rkpm_fbar_gpu_np_1",
+            "value": 0.000138,
+            "unit": "seconds"
+          },
+          {
+            "name": "Application_CreateFieldResultsFile_rkpm_fbar_gpu_np_1",
+            "value": 0.000058,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_UnpackSearchResultsIntoField_rkpm_fbar_gpu_np_1",
+            "value": 0.027322,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_UpdateFieldStates_rkpm_fbar_gpu_np_1",
+            "value": 0.296079,
+            "unit": "seconds"
+          },
+          {
+            "name": "StrainSmoothingProcessor_Instantiate_rkpm_fbar_gpu_np_1",
+            "value": 0.000386,
+            "unit": "seconds"
+          },
+          {
+            "name": "Solver_ApplyBoundaryConditions_rkpm_fbar_gpu_np_1",
+            "value": 0.014496,
+            "unit": "seconds"
+          },
+          {
+            "name": "NeighborSearchProcessor_CreateNodePoints_rkpm_fbar_gpu_np_1",
+            "value": 0.011456,
             "unit": "seconds"
           }
         ]
