@@ -91,20 +91,6 @@ void ExplicitSolver::SetTemporalVaryingOutputFields() {
     }
 }
 
-// Create a node processor for force
-std::shared_ptr<ActiveNodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForce() {
-    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
-    field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
-    return std::make_shared<ActiveNodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
-}
-
-// Create a node processor for local force
-std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal() {
-    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
-    field_query_data_vec[0] = {"force", FieldQueryState::None};
-    return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
-}
-
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -133,16 +119,14 @@ Reference:
 */
 
 void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Zero the force field
-    m_node_processor_force->FillField(0.0, 0);
-    m_node_processor_force->MarkFieldModifiedOnDevice(0);
+    // Zero the force field (will be marked modified)
+    m_force_coefficients_field.Zero(m_active_selector);
 
     // Compute kinematic field values from generalized fields if needed
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-        m_node_processor_force_local->FillField(0.0, 0);
-        m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
+        m_local_force_coefficients_field.Zero(m_full_selector);
     }
 
     // Compute internal forces
@@ -152,10 +136,8 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
-        if (m_num_processors > 1) {
-            m_node_processor_force_local->SyncFieldDeviceToHost(0);
-            m_node_processor_force_local->ParallelSumFieldData(0);
-        }
+        // Sum the local force coefficients field (will happen if more than one processor)
+        m_local_force_coefficients_field.ParallelSum();
         m_force_field_processor->ScatterValues();
         // No need to sync back to device as local force field is not used until next time step
     }
@@ -172,13 +154,8 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
 }
 
 void ExplicitSolver::CommunicateForce() {
-    // If there is more than one processor, communicate the field data that other processors need
-    if (m_num_processors > 1) {
-        m_node_processor_force->SyncFieldDeviceToHost(0);
-        m_node_processor_force->ParallelSumFieldData(0);
-        m_node_processor_force->MarkFieldModifiedOnHost(0);
-        m_node_processor_force->SyncFieldHostToDevice(0);
-    }
+    // Parallel sum the force field (only will happen if more than one processor)
+    m_force_coefficients_field.ParallelSum();
 }
 
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {

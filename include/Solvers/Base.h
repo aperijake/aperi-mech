@@ -127,6 +127,7 @@ class Solver {
     std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_kinematics_from_generalized_field_processor;  ///< The kinematics from generalized field processor.
     std::shared_ptr<aperi::FunctionEvaluationProcessor<1>> m_force_field_processor;                        ///< The force field processor.
     aperi::Selector m_active_selector;                                                                     ///< The active selector.
+    aperi::Selector m_full_selector;                                                                       ///< The full selector.
 
     std::vector<aperi::Field<aperi::Real>> m_temporal_varying_output_fields;  ///< Fields that vary with time and should be output
 };
