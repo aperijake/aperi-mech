@@ -11,6 +11,9 @@
 
 namespace aperi {
 
+template <typename T>
+class Field;
+
 /**
  * @class ExternalForceContribution
  * @brief Abstract base class for external force contributions in a mechanical system.
@@ -24,12 +27,12 @@ class ExternalForceContribution : public ForceContribution {
      * @brief Constructor.
      * @param mesh_data Shared pointer to mesh data.
      * @param set_names Names of sets to which the force applies.
-     * @param components_and_values Pairs of component indices and their values.
+     * @param values Array of force values for x, y, z components.
      * @param time_function Function describing time dependence of the force.
      */
     ExternalForceContribution(std::shared_ptr<aperi::MeshData> mesh_data,
                               std::vector<std::string> set_names,
-                              std::vector<std::pair<size_t, double>> components_and_values,
+                              std::array<double, 3> values,
                               std::function<double(double)> time_function);
 
     /**
@@ -39,10 +42,11 @@ class ExternalForceContribution : public ForceContribution {
 
     /**
      * @brief Compute the external force and apply it to the mesh.
+     * @param force_field The field to which the computed force will be applied.
      * @param time Current simulation time.
      * @param time_increment Time step size.
      */
-    virtual void ComputeForce(double time, double time_increment) override = 0;
+    virtual void ComputeForce(aperi::Field<aperi::Real>& force_field, double time, double time_increment) override = 0;
 
     /**
      * @brief Get the names of the sets to which the force applies.
@@ -53,10 +57,10 @@ class ExternalForceContribution : public ForceContribution {
     }
 
    protected:
-    std::shared_ptr<aperi::MeshData> m_mesh_data;                    ///< Mesh data object.
-    std::vector<std::string> m_set_names;                            ///< Names of sets for the force.
-    std::vector<std::pair<size_t, double>> m_components_and_values;  ///< Component indices and values.
-    std::function<double(double)> m_time_function;                   ///< Time-dependent scaling function.
+    std::shared_ptr<aperi::MeshData> m_mesh_data;   ///< Mesh data object.
+    std::vector<std::string> m_set_names;           ///< Names of sets for the force.
+    std::array<double, 3> m_values;                 ///< Values for x, y, z components of the force.
+    std::function<double(double)> m_time_function;  ///< Time-dependent scaling function.
 };
 
 }  // namespace aperi

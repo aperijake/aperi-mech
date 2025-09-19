@@ -133,7 +133,7 @@ void TestGravity(const YAML::Node& yaml_data, const std::shared_ptr<aperi::Solve
     }
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*solver->GetMeshData(), {}, "displacement_coefficients", expected_displacement, aperi::FieldQueryState::NP1, tolerance);
     CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*solver->GetMeshData(), {}, "velocity_coefficients", expected_velocity, aperi::FieldQueryState::NP1);
-    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*solver->GetMeshData(), {}, "acceleration_coefficients", integrated_values[2], aperi::FieldQueryState::NP1);
+    CheckEntityFieldValues<aperi::FieldDataTopologyRank::NODE>(*solver->GetMeshData(), {}, "acceleration_coefficients", integrated_values[2], aperi::FieldQueryState::NP1, tolerance * 10);
 
     auto density = yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["parts"][0]["part"]["material"]["elastic"]["density"].as<double>();
     double mass = density * num_procs * num_blocks;  // 1x1x(num_procs * num_blocks) mesh

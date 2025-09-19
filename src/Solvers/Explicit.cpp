@@ -118,10 +118,30 @@ Reference:
     13. Output; if simulation not complete, go to 4.
 */
 
-void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Zero the force field (will be marked modified)
-    m_force_coefficients_field.Zero(m_active_selector);
+/*
+- Needs a displacement field as input.
+  - Displacement may be from generalized or kronecker delta fields
+  - Displacement may be full or increment
+    - Full displacement field for Total Lagrangian
+        - Displacement field is "displacement" if not using generalized fields, or "displacement_coefficients" if using generalized fields
+    - Increment displacement field for Updated Lagrangian and Semi-Lagrangian
+        - Displacement field is "displacement_inc" if not using generalized fields, or "displacement_coefficients_inc" if using generalized fields
+  - For the two-pass method, the displacement field needs to be un-generalized first
+  - Contact also needs the have a physical velocity
+- Needs a force field as output.
+  - Force may be to generalized or kronecker delta fields
+    - Currently
+        - local forces are call "force"
+        - local contact forces are call "contact_force"
+        - generalized forces are called "force_coefficients"
+        - gravity forces are applied to "force_coefficients"
+  - Local forces will need to be "generalized"
+    - Two-pass method: local forces are computed to a local force field, then scattered to the global force field
+    - Contact will compute local forces to a local force field, then scattered to the global force field
 
+Currently, the displacement and force fields are controlled by the ForceContributions.
+*/
+void ExplicitSolver::ComputeForce(double time, double time_increment) {
     // Compute kinematic field values from generalized fields if needed
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
@@ -129,9 +149,24 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
         m_local_force_coefficients_field.Zero(m_full_selector);
     }
 
+    aperi::Field<aperi::Real> dummy_force_field;  // Dummy field to pass to contributions that do not use the force field
+
+    // Zero the force field (will be marked modified)
+    m_force_coefficients_field.Zero(m_active_selector);
+
     // Compute internal forces
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeForce(time, time_increment);
+        internal_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
+    }
+
+    // Compute external forces
+    for (const auto &external_force_contribution : m_external_force_contributions) {
+        external_force_contribution->ComputeForce(m_force_coefficients_field, time, time_increment);
+    }
+
+    // Compute contact forces
+    for (const auto &contact_force_contribution : m_contact_force_contributions) {
+        contact_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
     }
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
@@ -140,16 +175,6 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
         m_local_force_coefficients_field.ParallelSum();
         m_force_field_processor->ScatterValues();
         // No need to sync back to device as local force field is not used until next time step
-    }
-
-    // Compute external forces
-    for (const auto &external_force_contribution : m_external_force_contributions) {
-        external_force_contribution->ComputeForce(time, time_increment);
-    }
-
-    // Compute contact forces
-    for (const auto &contact_force_contribution : m_contact_force_contributions) {
-        contact_force_contribution->ComputeForce(time, time_increment);
     }
 }
 

@@ -14,6 +14,9 @@
 
 namespace aperi {
 
+template <typename T>
+class Field;
+
 /**
  * @brief Represents an internal force contribution.
  *
@@ -36,11 +39,14 @@ class InternalForceContribution : public ForceContribution {
 
     /**
      * @brief Computes the internal forces.
+     * @param force_field The field to which the computed force will be applied.
+     * @param time Current simulation time.
+     * @param time_increment Time step size.
      *
      * This function overrides the ComputeForce function from the base class.
      * It calculates the internal forces for the force contribution.
      */
-    void ComputeForce(double time, double time_increment) override {
+    void ComputeForce(aperi::Field<aperi::Real>& force_field, double time, double time_increment) override {
         assert(m_element != nullptr);
         // Compute the internal force for all elements
         m_element->ComputeInternalForceAllElements(time_increment, time);
