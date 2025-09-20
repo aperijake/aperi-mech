@@ -115,6 +115,21 @@ inline std::pair<std::vector<T>, int> GetValueSequence(const YAML::Node& node, c
     return std::make_pair(values, return_code);
 }
 
+// Get a value sequence and check that it is a valid location vector
+inline std::pair<std::vector<double>, int> GetLocationVector(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
+    std::pair<std::vector<double>, int> values_pair = GetValueSequence<double>(node, name, verbose);
+    if (values_pair.second != 0 && optional) {
+        return values_pair;
+    }
+    std::vector<double> values = values_pair.first;
+    int return_code = values_pair.second;
+    if (values.size() != 3) {
+        std::cerr << "Error: location vector '" << name << "' must be a vector of length 3. Found: " << values.size() << "." << std::endl;
+        return_code = 1;
+    }
+    return std::make_pair(values, return_code);
+}
+
 // Get a value sequence and check that it is a valid direction vector
 inline std::pair<std::vector<double>, int> GetDirectionVector(const YAML::Node& node, const std::string& name, bool verbose = false, bool optional = false) {
     std::pair<std::vector<double>, int> values_pair = GetValueSequence<double>(node, name, verbose);

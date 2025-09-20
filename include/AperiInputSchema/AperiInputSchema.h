@@ -80,6 +80,16 @@ class AperiInputSchema {
         return schema_creator;
     }
 
+    virtual InputSchemaCreator GetNormalSchemaCreator() {
+        InputSchemaCreator schema_creator("normal", "direction_vector", "the normal vector");
+        return schema_creator;
+    }
+
+    virtual InputSchemaCreator GetReferencePointSchemaCreator() {
+        InputSchemaCreator schema_creator("reference_point", "location_vector", "the reference point");
+        return schema_creator;
+    }
+
     virtual InputSchemaCreator GetVectorSchemaCreator() {
         InputSchemaCreator schema_creator("vector", "map", "the vector");
         schema_creator.AddAllOf(GetMagnitudeSchemaCreator().GetInputSchema());
