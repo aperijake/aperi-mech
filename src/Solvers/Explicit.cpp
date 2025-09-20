@@ -142,29 +142,37 @@ Reference:
 Currently, the displacement and force fields are controlled by the ForceContributions.
 */
 void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Compute kinematic field values from generalized fields if needed
+    // Generalized "displacement_coefficients", "velocity_coefficients", and "acceleration_coefficients" come into this function.
+
+    // Physical "displacement" is computed from generalized fields if needed:
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
         m_local_force_coefficients_field.Zero(m_full_selector);
     }
 
-    aperi::Field<aperi::Real> dummy_force_field;  // Dummy field to pass to contributions that do not use the force field
+    aperi::Field<aperi::Real> dummy_force_field;  // Dummy field to pass to contributions that do not use the force field yet
 
     // Zero the force field (will be marked modified)
     m_force_coefficients_field.Zero(m_active_selector);
 
-    // Compute internal forces
+    // Compute internal forces.
+    // - Kinematics: Depending on the formulation, may use physical or generalized displacements, full or increment.
+    // - Force: Will use "force_coefficients" field for generalized forces unless it is the two-pass method where it will use the local force field "force".
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
         internal_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
     }
 
-    // Compute external forces
+    // Compute external forces.
+    // - Kinematics: Currently, no need for physical displacements. Will for things like pressure BCs in the future.
+    // - Force: Currently, all external forces apply to the generalized force field. Will need to change if we want to apply to local forces for things like traction BCs in the future.
     for (const auto &external_force_contribution : m_external_force_contributions) {
         external_force_contribution->ComputeForce(m_force_coefficients_field, time, time_increment);
     }
 
-    // Compute contact forces
+    // Compute contact forces.
+    // - Kinematics: Computes physical displacements on the contact surfaces. Does all the time for collision detection.
+    // - Force: Does a local to generalized force scatter internally, depending on if any contact is detected.
     for (const auto &contact_force_contribution : m_contact_force_contributions) {
         contact_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
     }
@@ -176,6 +184,7 @@ void ExplicitSolver::ComputeForce(double time, double time_increment) {
         m_force_field_processor->ScatterValues();
         // No need to sync back to device as local force field is not used until next time step
     }
+    // "force_coefficients" is now fully computed. "force" should not be needed again until the next time step.
 }
 
 void ExplicitSolver::CommunicateForce() {
