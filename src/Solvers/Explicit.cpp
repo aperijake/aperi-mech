@@ -91,20 +91,6 @@ void ExplicitSolver::SetTemporalVaryingOutputFields() {
     }
 }
 
-// Create a node processor for force
-std::shared_ptr<ActiveNodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForce() {
-    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
-    field_query_data_vec[0] = {"force_coefficients", FieldQueryState::None};
-    return std::make_shared<ActiveNodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
-}
-
-// Create a node processor for local force
-std::shared_ptr<NodeProcessor<1>> ExplicitSolver::CreateNodeProcessorForceLocal() {
-    std::array<FieldQueryData<aperi::Real>, 1> field_query_data_vec;
-    field_query_data_vec[0] = {"force", FieldQueryState::None};
-    return std::make_shared<NodeProcessor<1>>(field_query_data_vec, mp_mesh_data);
-}
-
 /*
 # Explicit time integration algorithm for nonlinear problems
 Reference:
@@ -132,53 +118,78 @@ Reference:
     13. Output; if simulation not complete, go to 4.
 */
 
-void ExplicitSolver::ComputeForce(double time, double time_increment) {
-    // Zero the force field
-    m_node_processor_force->FillField(0.0, 0);
-    m_node_processor_force->MarkFieldModifiedOnDevice(0);
+/*
+- Needs a displacement field as input.
+  - Displacement may be from generalized or kronecker delta fields
+  - Displacement may be full or increment
+    - Full displacement field for Total Lagrangian
+        - Displacement field is "displacement" if not using generalized fields, or "displacement_coefficients" if using generalized fields
+    - Increment displacement field for Updated Lagrangian and Semi-Lagrangian
+        - Displacement field is "displacement_inc" if not using generalized fields, or "displacement_coefficients_inc" if using generalized fields
+  - For the two-pass method, the displacement field needs to be un-generalized first
+  - Contact also needs the have a physical velocity
+- Needs a force field as output.
+  - Force may be to generalized or kronecker delta fields
+    - Currently
+        - local forces are call "force"
+        - local contact forces are call "contact_force"
+        - generalized forces are called "force_coefficients"
+        - gravity forces are applied to "force_coefficients"
+  - Local forces will need to be "generalized"
+    - Two-pass method: local forces are computed to a local force field, then scattered to the global force field
+    - Contact will compute local forces to a local force field, then scattered to the global force field
 
-    // Compute kinematic field values from generalized fields if needed
+Currently, the displacement and force fields are controlled by the ForceContributions.
+*/
+void ExplicitSolver::ComputeForce(double time, double time_increment) {
+    // Generalized "displacement_coefficients", "velocity_coefficients", and "acceleration_coefficients" come into this function.
+
+    // Physical "displacement" is computed from generalized fields if needed:
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
         m_kinematics_from_generalized_field_processor->ComputeValues();
         m_kinematics_from_generalized_field_processor->MarkAllDestinationFieldsModifiedOnDevice();
-        m_node_processor_force_local->FillField(0.0, 0);
-        m_node_processor_force_local->MarkFieldModifiedOnDevice(0);
+        m_local_force_coefficients_field.Zero(m_full_selector);
     }
 
-    // Compute internal forces
+    aperi::Field<aperi::Real> dummy_force_field;  // Dummy field to pass to contributions that do not use the force field yet
+
+    // Zero the force field (will be marked modified)
+    m_force_coefficients_field.Zero(m_active_selector);
+
+    // Compute internal forces.
+    // - Kinematics: Depending on the formulation, may use physical or generalized displacements, full or increment.
+    // - Force: Will use "force_coefficients" field for generalized forces unless it is the two-pass method where it will use the local force field "force".
     for (const auto &internal_force_contribution : m_internal_force_contributions) {
-        internal_force_contribution->ComputeForce(time, time_increment);
+        internal_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
+    }
+
+    // Compute external forces.
+    // - Kinematics: Currently, no need for physical displacements. Will for things like pressure BCs in the future.
+    // - Force: Currently, all external forces apply to the generalized force field. Will need to change if we want to apply to local forces for things like traction BCs in the future.
+    for (const auto &external_force_contribution : m_external_force_contributions) {
+        external_force_contribution->ComputeForce(m_force_coefficients_field, time, time_increment);
+    }
+
+    // Compute contact forces.
+    // - Kinematics: Computes physical displacements on the contact surfaces. Does all the time for collision detection.
+    // - Force: Does a local to generalized force scatter internally, depending on if any contact is detected.
+    for (const auto &contact_force_contribution : m_contact_force_contributions) {
+        contact_force_contribution->ComputeForce(dummy_force_field, time, time_increment);
     }
 
     // Scatter the local forces. May have to be done after the external forces are computed if things change in the future.
     if (m_uses_generalized_fields && (!m_uses_one_pass_method)) {
-        if (m_num_processors > 1) {
-            m_node_processor_force_local->SyncFieldDeviceToHost(0);
-            m_node_processor_force_local->ParallelSumFieldData(0);
-        }
+        // Sum the local force coefficients field (will happen if more than one processor)
+        m_local_force_coefficients_field.ParallelSum();
         m_force_field_processor->ScatterValues();
         // No need to sync back to device as local force field is not used until next time step
     }
-
-    // Compute external forces
-    for (const auto &external_force_contribution : m_external_force_contributions) {
-        external_force_contribution->ComputeForce(time, time_increment);
-    }
-
-    // Compute contact forces
-    for (const auto &contact_force_contribution : m_contact_force_contributions) {
-        contact_force_contribution->ComputeForce(time, time_increment);
-    }
+    // "force_coefficients" is now fully computed. "force" should not be needed again until the next time step.
 }
 
 void ExplicitSolver::CommunicateForce() {
-    // If there is more than one processor, communicate the field data that other processors need
-    if (m_num_processors > 1) {
-        m_node_processor_force->SyncFieldDeviceToHost(0);
-        m_node_processor_force->ParallelSumFieldData(0);
-        m_node_processor_force->MarkFieldModifiedOnHost(0);
-        m_node_processor_force->SyncFieldHostToDevice(0);
-    }
+    // Parallel sum the force field (only will happen if more than one processor)
+    m_force_coefficients_field.ParallelSum();
 }
 
 void ExplicitSolver::UpdateShapeFunctions(size_t n, const std::shared_ptr<ExplicitTimeIntegrator> &explicit_time_integrator) {

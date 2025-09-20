@@ -37,6 +37,7 @@ Solver::Solver(std::shared_ptr<aperi::IoMesh> io_mesh,
     m_uses_one_pass_method = false;
     m_lagrangian_formulation_type = m_internal_force_contributions[0]->GetLagrangianFormulationType();
     m_active_selector = aperi::Selector({"universal_active_part"}, mp_mesh_data.get());
+    m_full_selector = aperi::Selector({}, mp_mesh_data.get());
     for (const auto &force_contribution : m_internal_force_contributions) {
         if (force_contribution->UsesGeneralizedFields()) {
             m_uses_generalized_fields = true;

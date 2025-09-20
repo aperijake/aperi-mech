@@ -56,11 +56,11 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
                  boundary_conditions,
                  time_stepper,
                  output_scheduler,
-                 reference_configuration_update_scheduler) {
+                 reference_configuration_update_scheduler),
+          m_force_coefficients_field(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"force_coefficients", FieldQueryState::None, aperi::FieldDataTopologyRank::NODE}) {
         // Set the force node processor for zeroing the force field
-        m_node_processor_force = CreateNodeProcessorForce();
         if (m_uses_generalized_fields) {
-            m_node_processor_force_local = CreateNodeProcessorForceLocal();
+            m_local_force_coefficients_field = aperi::Field<aperi::Real>(mp_mesh_data, aperi::FieldQueryData<aperi::Real>{"force", FieldQueryState::None, aperi::FieldDataTopologyRank::NODE});
         }
         CreateOutputValueFromGeneralizedFieldProcessors();
     }
@@ -72,12 +72,6 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
      * @return A vector of default FieldData.
      */
     static std::vector<aperi::FieldData> GetFieldData(bool uses_generalized_fields, bool use_strain_smoothing, aperi::LagrangianFormulationType formulation_type, bool output_coefficients);
-
-    // Create a node processor for force
-    std::shared_ptr<ActiveNodeProcessor<1>> CreateNodeProcessorForce();
-
-    // Create a node processor for local force
-    std::shared_ptr<NodeProcessor<1>> CreateNodeProcessorForceLocal();
 
     /**
      * @brief Build the mass matrix.
@@ -136,8 +130,8 @@ class ExplicitSolver : public Solver, public std::enable_shared_from_this<Explic
     void LogHeader() const;
     void LogEvent(const size_t n, const double time, const double time_increment, const double this_runtime, const std::string &event = "") const;
 
-    std::shared_ptr<ActiveNodeProcessor<1>> m_node_processor_force;  ///< For zeroing and communicating generalized force
-    std::shared_ptr<NodeProcessor<1>> m_node_processor_force_local;  ///< For zeroing and communicating local force
+    aperi::Field<aperi::Real> m_force_coefficients_field;        ///< The force coefficients field
+    aperi::Field<aperi::Real> m_local_force_coefficients_field;  ///< The local force coefficients field
 
     std::vector<std::shared_ptr<aperi::FunctionEvaluationProcessor<3>>> m_output_value_from_generalized_field_processors;  ///< To compute output values from generalized fields
 };
