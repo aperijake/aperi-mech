@@ -37,6 +37,37 @@ std::shared_ptr<ContactForceContribution> CreateContactForceContribution(YAML::N
         // Throw, not supported
         throw std::runtime_error(error_message);
 #endif
+    } else if (type == "planar") {
+#ifdef USE_PROTEGO_MECH
+        std::vector<std::string> sets;
+        bool all_exterior_surfaces = false;
+        double stiffness_penalty_factor = 1.0;
+        double damping_penalty_factor = 1.0;
+        if (contact_node["sets"]) {
+            sets = contact_node["sets"].as<std::vector<std::string>>();
+        } else if (contact_node["all_exterior_surfaces"]) {
+            all_exterior_surfaces = true;
+        }
+        if (contact_node["stiffness_penalty_factor"]) {
+            stiffness_penalty_factor = contact_node["stiffness_penalty_factor"].as<double>();
+        }
+        if (contact_node["damping_penalty_factor"]) {
+            damping_penalty_factor = contact_node["damping_penalty_factor"].as<double>();
+        }
+        if (!contact_node["normal"]) {
+            throw std::runtime_error("Planar contact force contribution requires 'normal' to be specified.");
+        }
+        std::array<double, 3> normal = contact_node["normal"].as<std::array<double, 3>>();
+        if (!contact_node["reference_point"]) {
+            throw std::runtime_error("Planar contact force contribution requires 'reference_point' to be specified.");
+        }
+        std::array<double, 3> reference_point = contact_node["reference_point"].as<std::array<double, 3>>();
+        return std::make_shared<ContactForceContributionPlanar>(mesh_data, sets, all_exterior_surfaces, stiffness_penalty_factor, damping_penalty_factor, normal, reference_point, uses_generalized_fields, formulation_type);
+#else
+        std::string error_message = "Planar contact force contribution is not implemented in aperi-mech. Please use protego-mech for this feature.";
+        // Throw, not supported
+        throw std::runtime_error(error_message);
+#endif
     } else {
         std::string error_message = "Unrecognized contact force contribution type: " + type;
         // Throw, not supported

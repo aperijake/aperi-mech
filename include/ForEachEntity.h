@@ -134,6 +134,12 @@ struct ForEachEntityWithCaching {
     size_t m_sync_count;                            ///< Last synchronization count for the mesh
 
     /**
+     * @brief Default constructor.
+     * Leaves the object in an uninitialized state. You must initialize mp_mesh_data and m_selector later.
+     */
+    ForEachEntityWithCaching() : mp_mesh_data(nullptr), m_selector(), m_bucket_ids(), m_sync_count(0) {}
+
+    /**
      * @brief Constructor.
      *
      * @param mesh_data Shared pointer to mesh data.

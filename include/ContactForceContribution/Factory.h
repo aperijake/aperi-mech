@@ -7,6 +7,7 @@
 #include "ContactForceContribution/Base.h"
 #ifdef USE_PROTEGO_MECH
 #include "ProtegoContactForceContribution/Pinball.h"
+#include "ProtegoContactForceContribution/Planar.h"
 #endif
 #include "MeshData.h"
 
