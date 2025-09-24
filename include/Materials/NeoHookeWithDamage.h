@@ -101,7 +101,7 @@ class NeoHookeanWithDamageMaterial : public Material {
     struct NeoHookeanWithDamageGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
         NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha)
-            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(0.99) {
+            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(0.99), m_max_damage_increment(1.0) {
             if (m_lambda < 0.0) {
                 printf("NeoHookeanWithDamage: lambda: %f\n", m_lambda);
                 Kokkos::abort("NeoHookeanWithDamage: lambda must be >= 0");
@@ -185,6 +185,9 @@ class NeoHookeanWithDamageMaterial : public Material {
                 return;
             }
 
+            // Limit damage increment per timestep to avoid instabilities
+            Dnew = Kokkos::min(Dnew, Dn + m_max_damage_increment);
+
             bool is_failed = false;
             if (Dnew >= m_max_effective_damage) {
                 // If damage is close to 1.0, set it to the maximum effective damage
@@ -234,6 +237,7 @@ class NeoHookeanWithDamageMaterial : public Material {
         double m_I1_failure;                 /**< Critical value of I1 for complete failure */
         double m_alpha;                      /**< Damage evolution exponent */
         double m_max_effective_damage;       /**< Maximum effective damage value */
+        double m_max_damage_increment;       /**< Maximum damage increment per timestep */
         double m_failure_magic_number = 2.0; /**< Magic number for failure */
     };
 
