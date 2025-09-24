@@ -341,6 +341,16 @@ class AperiInputSchema {
         return schema_creator;
     }
 
+    virtual InputSchemaCreator GetMaximumDamageIncrementSchemaCreator() {
+        InputSchemaCreator schema_creator("maximum_damage_increment", "float", "the maximum damage increment per timestep");
+        return schema_creator;
+    }
+
+    virtual InputSchemaCreator GetMaximumDamageSchemaCreator() {
+        InputSchemaCreator schema_creator("maximum_damage", "float", "the maximum damage value so some residual stiffness remains");
+        return schema_creator;
+    }
+
     virtual InputSchemaCreator GetConstantTemperatureSchemaCreator() {
         InputSchemaCreator schema_creator("constant_temperature", "float", "use a constant temperature of the given value");
         return schema_creator;
@@ -390,6 +400,8 @@ class AperiInputSchema {
         schema_creator.AddAllOf(GetI1CriticalSchemaCreator().GetInputSchema());
         schema_creator.AddAllOf(GetI1FailureSchemaCreator().GetInputSchema());
         schema_creator.AddAllOf(GetAlphaSchemaCreator().GetInputSchema());
+        schema_creator.AddOptional(GetMaximumDamageIncrementSchemaCreator().GetInputSchema());
+        schema_creator.AddOptional(GetMaximumDamageSchemaCreator().GetInputSchema());
         return schema_creator;
     }
 

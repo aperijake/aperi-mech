@@ -67,9 +67,11 @@ class NeoHookeanWithDamageMaterial : public Material {
         double I1_critical = m_material_properties->properties.at("I1_critical");
         double I1_failure = m_material_properties->properties.at("I1_failure");
         double alpha = m_material_properties->properties.at("alpha");
+        double max_effective_damage = m_material_properties->properties.at("maximum_damage");
+        double max_damage_increment = m_material_properties->properties.at("maximum_damage_increment");
         Kokkos::parallel_for(
             "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
-                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, I1_failure, alpha);
+                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, I1_failure, alpha, max_effective_damage, max_damage_increment);
             });
         m_stress_functor = stress_functor;
     }
@@ -100,8 +102,8 @@ class NeoHookeanWithDamageMaterial : public Material {
      */
     struct NeoHookeanWithDamageGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
-        NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha)
-            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(0.99), m_max_damage_increment(1.0) {
+        NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha, double max_effective_damage, double max_damage_increment)
+            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(max_effective_damage), m_max_damage_increment(max_damage_increment) {
             if (m_lambda < 0.0) {
                 printf("NeoHookeanWithDamage: lambda: %f\n", m_lambda);
                 Kokkos::abort("NeoHookeanWithDamage: lambda must be >= 0");
