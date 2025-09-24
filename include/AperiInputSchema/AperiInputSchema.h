@@ -351,6 +351,16 @@ class AperiInputSchema {
         return schema_creator;
     }
 
+    virtual InputSchemaCreator GetStopFailingAtTimeSchemaCreator() {
+        InputSchemaCreator schema_creator("stop_failing_at_time", "float", "stop allowing failure after this time");
+        return schema_creator;
+    }
+
+    virtual InputSchemaCreator GetFailAllAtTimeSchemaCreator() {
+        InputSchemaCreator schema_creator("fail_all_at_time", "float", "fail all material after this time");
+        return schema_creator;
+    }
+
     virtual InputSchemaCreator GetConstantTemperatureSchemaCreator() {
         InputSchemaCreator schema_creator("constant_temperature", "float", "use a constant temperature of the given value");
         return schema_creator;
@@ -402,6 +412,8 @@ class AperiInputSchema {
         schema_creator.AddAllOf(GetAlphaSchemaCreator().GetInputSchema());
         schema_creator.AddOptional(GetMaximumDamageIncrementSchemaCreator().GetInputSchema());
         schema_creator.AddOptional(GetMaximumDamageSchemaCreator().GetInputSchema());
+        schema_creator.AddOptional(GetStopFailingAtTimeSchemaCreator().GetInputSchema());
+        schema_creator.AddOptional(GetFailAllAtTimeSchemaCreator().GetInputSchema());
         return schema_creator;
     }
 

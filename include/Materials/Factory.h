@@ -78,17 +78,27 @@ inline std::shared_ptr<Material> CreateMaterial(YAML::Node& material_node) {
         double alpha = material_model_node["alpha"].as<double>();
         double max_effective_damage = 0.99;
         double max_damage_increment = 1.0;
+        double stop_failing_at_time = -1.0;
+        double fail_all_at_time = -1.0;
         if (material_model_node["maximum_damage"].IsDefined()) {
             max_effective_damage = material_model_node["maximum_damage"].as<double>();
         }
         if (material_model_node["maximum_damage_increment"].IsDefined()) {
             max_damage_increment = material_model_node["maximum_damage_increment"].as<double>();
         }
+        if (material_model_node["stop_failing_at_time"].IsDefined()) {
+            stop_failing_at_time = material_model_node["stop_failing_at_time"].as<double>();
+        }
+        if (material_model_node["fail_all_at_time"].IsDefined()) {
+            fail_all_at_time = material_model_node["fail_all_at_time"].as<double>();
+        }
         material_properties->properties.emplace("I1_critical", I1_critical);
         material_properties->properties.emplace("I1_failure", I1_failure);
         material_properties->properties.emplace("alpha", alpha);
         material_properties->properties.emplace("maximum_damage", max_effective_damage);
         material_properties->properties.emplace("maximum_damage_increment", max_damage_increment);
+        material_properties->properties.emplace("stop_failing_at_time", stop_failing_at_time);
+        material_properties->properties.emplace("fail_all_at_time", fail_all_at_time);
 
         return std::make_shared<NeoHookeanWithDamageMaterial>(material_properties);
 

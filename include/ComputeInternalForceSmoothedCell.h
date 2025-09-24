@@ -217,7 +217,7 @@ class ComputeInternalForceSmoothedCellBase : public ComputeInternalForceBase<ape
         m_stress_functor.GetStress(&displacement_gradient_np1_map, &velocity_gradient_map, &state_n_map, &state_np1_map, m_time_increment_device(0), &pk1_stress_n_map, pk1_stress_map);
 
         // Handle material separation
-        if (m_stress_functor.CheckSeparationState(&state_np1_map) == MaterialSeparationState::JUST_FAILED) {
+        if (m_stress_functor.CheckSeparationState(&state_np1_map, time) == MaterialSeparationState::JUST_FAILED) {
             // Do nothing in base class, but in derived classes we handle material separation
             material_separation_functor(subcell_id);
         }
