@@ -67,9 +67,13 @@ class NeoHookeanWithDamageMaterial : public Material {
         double I1_critical = m_material_properties->properties.at("I1_critical");
         double I1_failure = m_material_properties->properties.at("I1_failure");
         double alpha = m_material_properties->properties.at("alpha");
+        double max_effective_damage = m_material_properties->properties.at("maximum_damage");
+        double max_damage_increment = m_material_properties->properties.at("maximum_damage_increment");
+        double stop_failing_at_time = m_material_properties->properties.at("stop_failing_at_time");
+        double fail_all_at_time = m_material_properties->properties.at("fail_all_at_time");
         Kokkos::parallel_for(
             "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
-                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, I1_failure, alpha);
+                new ((NeoHookeanWithDamageGetStressFunctor*)stress_functor) NeoHookeanWithDamageGetStressFunctor(lambda, two_mu, I1_critical, I1_failure, alpha, max_effective_damage, max_damage_increment, stop_failing_at_time, fail_all_at_time);
             });
         m_stress_functor = stress_functor;
     }
@@ -100,8 +104,24 @@ class NeoHookeanWithDamageMaterial : public Material {
      */
     struct NeoHookeanWithDamageGetStressFunctor : public StressFunctor {
         KOKKOS_FUNCTION
-        NeoHookeanWithDamageGetStressFunctor(double lambda, double two_mu, double I1_critical, double I1_failure, double alpha)
-            : m_lambda(lambda), m_mu(two_mu / 2.0), m_I1_critical(I1_critical), m_I1_failure(I1_failure), m_alpha(alpha), m_max_effective_damage(0.99) {
+        NeoHookeanWithDamageGetStressFunctor(double lambda,
+                                             double two_mu,
+                                             double I1_critical,
+                                             double I1_failure,
+                                             double alpha,
+                                             double max_effective_damage,
+                                             double max_damage_increment,
+                                             double stop_failing_at_time,
+                                             double fail_all_at_time)
+            : m_lambda(lambda),
+              m_mu(two_mu / 2.0),
+              m_I1_critical(I1_critical),
+              m_I1_failure(I1_failure),
+              m_alpha(alpha),
+              m_max_effective_damage(max_effective_damage),
+              m_max_damage_increment(max_damage_increment),
+              m_stop_failing_at_time(stop_failing_at_time),
+              m_fail_all_at_time(fail_all_at_time) {
             if (m_lambda < 0.0) {
                 printf("NeoHookeanWithDamage: lambda: %f\n", m_lambda);
                 Kokkos::abort("NeoHookeanWithDamage: lambda must be >= 0");
@@ -129,6 +149,22 @@ class NeoHookeanWithDamageMaterial : public Material {
             if (m_max_effective_damage < 0.0 || m_max_effective_damage > 1.0) {
                 printf("NeoHookeanWithDamage: max_effective_damage: %f\n", m_max_effective_damage);
                 Kokkos::abort("NeoHookeanWithDamage: max_effective_damage must be in [0, 1]");
+            }
+            if (m_max_damage_increment < 0.0) {
+                printf("NeoHookeanWithDamage: max_damage_increment is less than 0: %f. Setting to 0 which means no damage increment will occur.\n", m_max_damage_increment);
+                m_max_damage_increment = 0.0;
+            } else if (m_max_damage_increment > 1.0) {
+                printf("NeoHookeanWithDamage: max_damage_increment is greater than 1: %f. Setting to 1.\n", m_max_damage_increment);
+                m_max_damage_increment = 1.0;
+            } else if (m_max_damage_increment == 0.0) {
+                printf("NeoHookeanWithDamage: max_damage_increment is 0. No damage increment will occur.\n");
+            }
+            if (m_max_effective_damage > 1.0) {
+                printf("NeoHookeanWithDamage: max_effective_damage is greater than 1: %f. Setting to 1.\n", m_max_effective_damage);
+                m_max_effective_damage = 1.0;
+            } else if (m_max_effective_damage < 0.0) {
+                printf("NeoHookeanWithDamage: max_effective_damage is less than 0: %f. Setting to 0.\n", m_max_effective_damage);
+                m_max_effective_damage = 0.0;
             }
         }
 
@@ -185,6 +221,9 @@ class NeoHookeanWithDamageMaterial : public Material {
                 return;
             }
 
+            // Limit damage increment per timestep to avoid instabilities
+            Dnew = Kokkos::min(Dnew, Dn + m_max_damage_increment);
+
             bool is_failed = false;
             if (Dnew >= m_max_effective_damage) {
                 // If damage is close to 1.0, set it to the maximum effective damage
@@ -205,14 +244,22 @@ class NeoHookeanWithDamageMaterial : public Material {
         }
 
         KOKKOS_INLINE_FUNCTION
-        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1) const override {
+        virtual MaterialSeparationState CheckSeparationState(Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<Eigen::Dynamic>>* state_np1, const double& time) const override {
             double D = state_np1->coeffRef(DAMAGE);
             if (D == m_failure_magic_number) {
                 // Set to 1.0 and return JUST_FAILED
                 state_np1->coeffRef(DAMAGE) = m_max_effective_damage;
-                return MaterialSeparationState::JUST_FAILED;
+                if (time >= m_stop_failing_at_time && m_stop_failing_at_time > 0.0) {
+                    // Stop failing after a certain time. Label any future failures as intact.
+                    return MaterialSeparationState::INTACT;
+                } else {
+                    return MaterialSeparationState::JUST_FAILED;
+                }
             } else if (D >= 1.0) {
                 return MaterialSeparationState::FAILED;
+            } else if (time >= m_fail_all_at_time && m_fail_all_at_time > 0.0) {
+                // Fail all after a certain time
+                return MaterialSeparationState::JUST_FAILED;
             }
             return MaterialSeparationState::INTACT;
         }
@@ -234,6 +281,9 @@ class NeoHookeanWithDamageMaterial : public Material {
         double m_I1_failure;                 /**< Critical value of I1 for complete failure */
         double m_alpha;                      /**< Damage evolution exponent */
         double m_max_effective_damage;       /**< Maximum effective damage value */
+        double m_max_damage_increment;       /**< Maximum damage increment per timestep */
+        double m_stop_failing_at_time;       /**< Time to stop failing */
+        double m_fail_all_at_time;           /**< Time to fail all */
         double m_failure_magic_number = 2.0; /**< Magic number for failure */
     };
 
