@@ -21,6 +21,7 @@ export F77=/usr/bin/gfortran
    python3 -m pip install -e .
    cd $aperi_mech/tools/python/spackx
    python3 -m pip install -e .
+   pip install ~/projects/imppy3d  # optionally install local imppy3d
    ```
 
 2. **Install Spack and add it to the virtual environment:**
@@ -69,6 +70,7 @@ export F77=/usr/bin/gfortran
 3. **Create a Spack environment for `aperi-mech` and install it:**
 
    ```shell
+   export MACOSX_DEPLOYMENT_TARGET=12 # Optional, if deploying set the minimum os target
    spack env create aperi-mech
    spacktivate aperi-mech
    spack develop --path $aperi_mech aperi-mech
