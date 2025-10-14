@@ -12,6 +12,7 @@ USE_PROTEGO_MECH=OFF
 USE_SANITIZER=OFF
 GPU_OPT_LEVEL=3
 INSTALL_PREFIX="${SCRIPT_DIR}/install"
+OSX_DEPLOYMENT_TARGET=""
 
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
@@ -52,6 +53,12 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-i | --install-prefix)
 		INSTALL_PREFIX="$2"
+		shift
+		shift
+		;;
+	--osx-deployment-target)
+		OSX_DEPLOYMENT_TARGET="$2"
+		echo "Setting macOS deployment target to $2"
 		shift
 		shift
 		;;
@@ -126,6 +133,11 @@ if [[ ${USE_GPU} == "ON" ]]; then
 	cmake_command+=' -D CMAKE_CUDA_FLAGS="-arch=sm_'
 	arch_string=$(spack find kokkos | grep 'cuda_arch=' | awk -F'cuda_arch=' 'NR==1 {print $2}' | awk '{print $1}') || true
 	cmake_command+="${arch_string}\""
+fi
+
+# Add the macOS deployment target if specified
+if [[ -n ${OSX_DEPLOYMENT_TARGET} ]]; then
+	cmake_command+=" -D CMAKE_OSX_DEPLOYMENT_TARGET:STRING=${OSX_DEPLOYMENT_TARGET}"
 fi
 
 # Add the C++ flags to the cmake command

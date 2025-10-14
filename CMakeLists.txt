@@ -8,8 +8,10 @@ option(USE_PROTEGO_MECH "Include protego-mech library" OFF)
 option(USE_SANITIZER "Enable sanitizer" OFF)
 set(GPU_OPTIMIZE_LEVEL "3" CACHE STRING "GPU optimization level (1-3, default 3)")
 
-# Set the minimum MacOS deployment target
-set(CMAKE_OSX_DEPLOYMENT_TARGET 12.0)
+# Set the minimum MacOS deployment target if specified
+if(DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET ${CMAKE_OSX_DEPLOYMENT_TARGET})
+endif()
 
 # Set the flags for Debug configuration (if you don't have this already)
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
