@@ -61,13 +61,42 @@ export F77=/usr/bin/gfortran
    source $aperi_mech/venv/bin/activate
    ```
 
-2. **(Optional) Inspect the `aperi-mech` Spack specification:**
+2. **(Optional) Build and Install `openmpi`**
+
+   When building to deploy on MacOS you may want to build your own `openmpi`. This is due to
+   1. Troubles compiling Fortran code with `spack`
+   2. The homebrew version uses a `hwloc` implementation that will probe `OpenGL` resources, cauing problems with `MPI_Init` call.
+
+   After building, make sure you declare the installed `openmpi` as an external in `~/.spack/packages.yaml` or the relevant environment file.
+
+   Install dependencies
+
+   ```shell
+   export MACOSX_DEPLOYMENT_TARGET=12 # For deploying to a wider range of MacOS versions
+   spack env create openmpi_dependencies
+   spacktivate openmpi_dependencies
+   spack add hwloc libevent pmix
+
+   spack concretize --force --fresh
+   spack install
+   ```
+
+   Build openmpi
+
+   ```shell
+   cd $aperi_mech/tools/openmpi
+   rm -rf openmpi-5.0.8 # clean old build
+   rm -rf ~/local/openmpi-5.0.8-with-hwloc # clean old install
+   ./download_and_build.sh
+   ```
+
+3. **(Optional) Inspect the `aperi-mech` Spack specification:**
 
    ```shell
    spack spec aperi-mech
    ```
 
-3. **Create a Spack environment for `aperi-mech` and install it:**
+4. **Create a Spack environment for `aperi-mech` and install it:**
 
    ```shell
    export MACOSX_DEPLOYMENT_TARGET=12 # Optional, if deploying set the minimum os target
