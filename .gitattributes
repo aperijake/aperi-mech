@@ -5,3 +5,4 @@
 *.tiff filter=lfs diff=lfs merge=lfs -text
 *.stl filter=lfs diff=lfs merge=lfs -text
 *.vtk filter=lfs diff=lfs merge=lfs -text
+protego-mech/tools/test_baselines/**/baseline.tar.gz filter=lfs diff=lfs merge=lfs -text
