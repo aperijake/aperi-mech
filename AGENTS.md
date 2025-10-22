@@ -6,7 +6,7 @@
 
 ## Environment
 
-- In every new shell, activate the project venv before running commands: `source /Users/jake/projects/aperi-mech/venv/bin/activate`.
+- Before running Python in a new shell, activate the project venv: `source /Users/jake/projects/aperi-mech/venv/bin/activate`.
 
 ## Precedence
 
