@@ -21,7 +21,12 @@ export F77=/usr/bin/gfortran
    python3 -m pip install -e .
    cd $aperi_mech/tools/python/spackx
    python3 -m pip install -e .
-   pip install ~/projects/imppy3d  # optionally install local imppy3d
+   ```
+
+   **Note:** The `imppy3d` package is automatically installed from the `float32_support` branch of the aperijake fork as specified in `pyproject.toml`. If you need to use a local development version instead, you can install it in editable mode:
+
+   ```shell
+   pip install -e ~/projects/imppy3d
    ```
 
 2. **Install Spack and add it to the virtual environment:**
