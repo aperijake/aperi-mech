@@ -38,11 +38,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     automake \
     build-essential \
     ca-certificates \
+    chrpath \
     cmake \
     coreutils \
     curl \
+    desktop-file-utils \
     environment-modules \
     file \
+    fuse \
     gfortran \
     git \
     git-lfs \
@@ -52,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libaec-dev \
     libbz2-dev \
     libcurl4-openssl-dev \
+    libfuse2 \
     libgl1 \
     libglu1-mesa \
     libhwloc-dev \
@@ -66,6 +70,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-release \
     openssh-client \
     openssl \
+    patchelf \
     pkgconf \
     python3 \
     python3-dev \
@@ -78,6 +83,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xorg \
     zip \
     && rm -rf /var/lib/apt/lists/*
+
+#################### AppImage Tools ####################
+# Download and install AppImage tools for bundling
+RUN mkdir -p /opt/appimage-tools && \
+    cd /opt/appimage-tools && \
+    # Download appimagetool for ARM64
+    curl -L -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage && \
+    chmod +x appimagetool && \
+    # Download linuxdeploy for ARM64
+    curl -L -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage && \
+    chmod +x linuxdeploy && \
+    # Create symlinks in /usr/local/bin
+    ln -s /opt/appimage-tools/appimagetool /usr/local/bin/appimagetool && \
+    ln -s /opt/appimage-tools/linuxdeploy /usr/local/bin/linuxdeploy
 
 #################### User Setup ####################
 # Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
