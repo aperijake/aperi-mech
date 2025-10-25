@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Dockerfile for building a CPU-only environment for the aperi-mech project on Rocky Linux 9
+# This may struggle on non-x86_64 architectures due to some dependencies not being available
 
 # Base image, Rocky Linux 9
 FROM rockylinux:9
@@ -46,8 +47,11 @@ RUN dnf -y update && \
     cmake \
     coreutils \
     curl \
+    desktop-file-utils \
     environment-modules \
     file \
+    fuse \
+    fuse-libs \
     git \
     git-lfs \
     gnupg2 \
@@ -55,11 +59,14 @@ RUN dnf -y update && \
     bzip2-devel \
     mesa-libGL \
     mesa-libGLU \
+    mesa-libGL-devel \
+    mesa-libGLU-devel \
     hwloc-devel \
     ncurses-devel \
     snappy-devel \
     openssl-devel \
     patch \
+    patchelf \
     libcurl-devel \
     libtool \
     libxml2-devel \
@@ -76,7 +83,23 @@ RUN dnf -y update && \
     xz \
     zip \
     lbzip2 \
+    qt6-qtbase-devel \
+    qt6-qtbase-gui \
     && dnf clean all
+
+#################### AppImage Tools ####################
+# Download and install AppImage tools for bundling
+RUN mkdir -p /opt/appimage-tools && \
+    cd /opt/appimage-tools && \
+    # Download appimagetool for ARM64
+    curl -L -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage && \
+    chmod +x appimagetool && \
+    # Download linuxdeploy for ARM64
+    curl -L -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage && \
+    chmod +x linuxdeploy && \
+    # Create symlinks in /usr/local/bin
+    ln -s /opt/appimage-tools/appimagetool /usr/local/bin/appimagetool && \
+    ln -s /opt/appimage-tools/linuxdeploy /usr/local/bin/linuxdeploy
 
 #################### User Setup ####################
 # Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
