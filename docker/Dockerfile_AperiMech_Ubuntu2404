@@ -15,6 +15,9 @@ ARG GROUP_ID=1000
 # Add build arg for protego (ssh submodules)
 ARG PROTEGO=0
 
+# Add build arg for optional Azure mirror
+ARG USE_AZURE_MIRROR=false
+
 # Branch for the source code
 ARG SRC_BRANCH=main
 
@@ -28,6 +31,12 @@ RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Optionally use Azure mirror for faster apt speeds
+RUN if [ "$USE_AZURE_MIRROR" = "true" ]; then \
+        sed -i 's|URIs: http://.*\.ubuntu\.com/ubuntu/|URIs: http://azure.archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources && \
+        echo "Updated ubuntu.sources:" && cat /etc/apt/sources.list.d/ubuntu.sources; \
+    fi
 
 #################### System Packages from apt ####################
 # Install necessary packages
