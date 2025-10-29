@@ -1,5 +1,26 @@
 # Docker images for `aperi-mech`
 
+## Quick Start (New CI/CD Workflow)
+
+### Building and Pushing to GHCR
+
+**Recommended approach for CI/CD**: Build base images without protego and push to GitHub Container Registry.
+
+```bash
+# First time: Set up GHCR (see GHCR_SETUP.md)
+# Then build and push:
+
+# Build and push CPU image
+./build_and_push_images.sh --push
+
+# Build and push GPU image
+./build_and_push_images.sh --gpu --push
+```
+
+**Security**: The script automatically checks that no protego source code is in the image before pushing.
+
+See [GHCR_SETUP.md](GHCR_SETUP.md) for detailed setup instructions and [build_and_push_images.sh](build_and_push_images.sh) for usage.
+
 ## Using the images
 
 Grab the docker image and load it on your system
