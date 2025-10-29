@@ -183,11 +183,22 @@ printf '%q ' "${cmd[@]}"
 echo "| tee ${LOG_FILE}"
 echo ""
 
+# Run build and capture exit code (tee can mask failures)
 "${cmd[@]}" 2>&1 | tee "${LOG_FILE}"
+BUILD_EXIT_CODE=${PIPESTATUS[0]}
 
 echo ""
+if [[ ${BUILD_EXIT_CODE} -ne 0 ]]; then
+	echo "============================================"
+	echo "❌ Build FAILED with exit code ${BUILD_EXIT_CODE}"
+	echo "============================================"
+	echo ""
+	echo "Check the build log for details: ${LOG_FILE}"
+	exit "${BUILD_EXIT_CODE}"
+fi
+
 echo "============================================"
-echo "Build completed successfully!"
+echo "✅ Build completed successfully!"
 echo "============================================"
 echo ""
 
@@ -204,8 +215,8 @@ if "${PUSH_TO_GHCR}"; then
 		echo "⚠️  It may contain closed-source protego-mech code."
 		echo "⚠️  Pushing to a public registry could expose proprietary code!"
 		echo ""
-		read -p "Are you SURE you want to push this image? (type 'yes' to confirm): " confirm
-		if [[ $confirm != "yes" ]]; then
+		read -r -p "Are you SURE you want to push this image? (type 'yes' to confirm): " confirm
+		if [[ ${confirm} != "yes" ]]; then
 			echo "Push cancelled."
 			exit 0
 		fi
@@ -230,10 +241,10 @@ if "${PUSH_TO_GHCR}"; then
 
 	# Check for any .cpp or .h files in protego-mech
 	protego_files=$(docker run --rm "${IMAGE_TAG}" bash -c "find /home/aperi-mech_docker/aperi-mech/protego-mech -name '*.cpp' -o -name '*.h' 2>/dev/null | head -5" || true)
-	if [[ -n $protego_files ]]; then
+	if [[ -n ${protego_files} ]]; then
 		echo ""
 		echo "❌ ERROR: Found protego-mech source files in image:"
-		echo "$protego_files"
+		echo "${protego_files}"
 		echo ""
 		echo "This image contains closed-source code and should NOT be pushed."
 		exit 1
