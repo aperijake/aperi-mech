@@ -236,6 +236,14 @@ jobs:
           build: ${{ env.BUILD_TYPE }}
           with-protego: ${{ env.PROTEGO }}
 
+      - name: Run GUI tests
+        if: env.PROTEGO == 'true' && env.GPU == 'false'
+        uses: ./.github/actions/run-gui-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+
   code-coverage:
     name: Build Debug, Code Coverage
     runs-on: ubuntu-latest
