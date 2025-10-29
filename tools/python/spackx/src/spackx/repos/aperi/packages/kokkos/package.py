@@ -12,3 +12,7 @@ class Kokkos(GitPackage, builtin_kokkos):
         "4.6.02",
         sha256="baf1ebbe67abe2bbb8bb6aed81b4247d53ae98ab8475e516d9c87e87fa2422ce",
     )
+    version(
+        "4.7.01",
+        sha256="404cf33e76159e83b8b4ad5d86f6899d442b5da4624820ab457412116cdcd201",
+    )

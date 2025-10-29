@@ -27,15 +27,15 @@
     },
     {
       "name": "kokkos",
-      "spec": "kokkos@4.6.02 cxxstd=17"
+      "spec": "kokkos@4.7.01 cxxstd=17"
     },
     {
       "name": "kokkos-kernels",
-      "spec": "kokkos-kernels@4.6.02"
+      "spec": "kokkos-kernels@4.7.01"
     },
     {
       "name": "trilinos",
-      "spec": "trilinos@develop commit=0e7caf3c177f7b8c03e523238a05febc50398192 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~cuda ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
+      "spec": "trilinos@develop commit=a79795b17e0d64c7fca6fda37b907a28db7c2642 ~amesos ~amesos2 ~anasazi ~aztec ~belos ~epetra ~epetraext ~ifpack ~ifpack2 ~ml ~muelu +exodus +gtest +hdf5 +mpi +stk +zoltan +zoltan2 cxxstd=17"
     }
   ]
 }

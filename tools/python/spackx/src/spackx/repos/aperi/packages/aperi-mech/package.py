@@ -1,7 +1,14 @@
 import json
 import os
 
-from spack.package import CMakePackage, CudaPackage, depends_on, variant, version
+from spack.package import (
+    CMakePackage,
+    CudaPackage,
+    conflicts,
+    depends_on,
+    variant,
+    version,
+)
 
 dependencies = json.load(
     open(os.path.join(os.path.dirname(__file__), "dependencies.json"))
@@ -17,6 +24,7 @@ class AperiMech(CMakePackage, CudaPackage):
     variant("protego", default=False, description="Enable Protego extensions")
     variant("krino", default=True, description="Enable Krino")
     variant("openmp", default=False, description="Enable OpenMP support")
+    variant("shared", default=True, description="Enable building shared libs")
     variant("cuda", default=False, description="Enable CUDA support")
     variant(
         "cuda_arch",
@@ -28,42 +36,102 @@ class AperiMech(CMakePackage, CudaPackage):
         when="+cuda",
     )
 
+    # Add static variants for external and Trilinos-related packages when building aperi-mech statically
+    # Had problems turning off shared variants for cgns, hdf5, gettext when building aperi-mech statically
+    # Trilinos had problems using netcdf-c ~shared
+    # Had problems installing openmpi and openblas with spack (fortran issues) so using system openmpi
+    depends_on("metis ~shared", when="~shared")
+    depends_on("parmetis ~shared", when="~shared")
+    depends_on("boost ~shared", when="~shared")
+    depends_on("parallel-netcdf ~shared", when="~shared")
+    depends_on("yaml-cpp ~shared", when="~shared")
+
+    depends_on("perl ~shared", when="~shared")
+    depends_on("openssl ~shared", when="~shared")
+    depends_on("zlib-ng ~shared", when="~shared")
+    depends_on("googletest ~shared", when="~shared")
+    depends_on("matio ~shared", when="~shared")
+
+    depends_on("bzip2 ~shared", when="~shared")
+    depends_on("libxml2 ~shared", when="~shared")
+
+    # Conflict on shared and cuda variants
+    conflicts(
+        "+shared",
+        when="+cuda",
+        msg="Cannot build shared libs with CUDA due to relocatable device code",
+    )
+
     for dep in dependencies["dependencies"]:
         if dep["name"] in ("kokkos", "kokkos-kernels"):
-            depends_on(f"{dep['spec']} ~cuda", when="~cuda ~openmp")
-            depends_on(f"{dep['spec']} ~cuda +openmp", when="~cuda +openmp")
-            dep_spec = f"{dep['spec']} +cuda cuda_arch={{cuda_arch}}"
-            if dep["name"] == "kokkos":
-                dep_spec += (
-                    " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
-                )
-            # CUDA + OpenMP
-            for cuda_arch in CudaPackage.cuda_arch_values:
-                depends_on(
-                    dep_spec.format(cuda_arch=cuda_arch),
-                    when=f"+cuda cuda_arch={cuda_arch} ~openmp",
-                )
-                depends_on(
-                    dep_spec.format(cuda_arch=cuda_arch) + " +openmp",
-                    when=f"+cuda cuda_arch={cuda_arch} +openmp",
-                )
-        elif dep["name"] == "trilinos":
-            # For non-CUDA case, use the spec as-is (it already has ~cuda)
-            depends_on(dep["spec"], when="~cuda ~openmp")
-            depends_on(dep["spec"] + " +openmp", when="~cuda +openmp")
-            depends_on(dep["spec"] + " +krino +sacado +intrepid2 +boost", when="+krino")
-            depends_on(dep["spec"] + " ~krino ~sacado ~intrepid2 ~boost", when="~krino")
+            base_spec = dep["spec"]
+            is_kokkos = dep["name"] == "kokkos"
 
-            # For CUDA case, replace ~cuda with +cuda
-            for cuda_arch in CudaPackage.cuda_arch_values:
-                trilinos_cuda_spec = f"{dep['spec'].replace('~cuda', '+cuda')} +cuda_rdc cuda_arch={cuda_arch}"
-                depends_on(
-                    trilinos_cuda_spec, when=f"+cuda cuda_arch={cuda_arch} ~openmp"
-                )
-                depends_on(
-                    trilinos_cuda_spec + " +openmp",
-                    when=f"+cuda cuda_arch={cuda_arch} +openmp",
-                )
+            def build_kokkos_spec(shared, openmp, cuda_arch, base, kokkos):
+                spec = base
+                spec += " +shared" if shared else " ~shared"
+                spec += " +openmp" if openmp else " ~openmp"
+                if cuda_arch is None:
+                    spec += " ~cuda"
+                else:
+                    spec += f" +cuda cuda_arch={cuda_arch}"
+                    if kokkos:
+                        spec += " +cuda_lambda +cuda_relocatable_device_code ~cuda_uvm +wrapper"
+                return spec
+
+            cuda_arches = [
+                arch for arch in CudaPackage.cuda_arch_values if arch != "none"
+            ]
+            for cuda_arch in [None] + cuda_arches:
+                for shared in (False, True):
+                    for openmp in (False, True):
+                        spec = build_kokkos_spec(
+                            shared, openmp, cuda_arch, base_spec, is_kokkos
+                        )
+                        if cuda_arch is None:
+                            when = "~cuda"
+                        else:
+                            when = f"+cuda cuda_arch={cuda_arch}"
+                        when += " +shared" if shared else " ~shared"
+                        when += " +openmp" if openmp else " ~openmp"
+                        depends_on(spec, when=when)
+
+        elif dep["name"] == "trilinos":
+            base_spec = dep["spec"]
+
+            def build_trilinos_spec(shared, openmp, krino, cuda_arch, base):
+                spec = base
+                spec += " +shared" if shared else " ~shared"
+                spec += " +openmp" if openmp else " ~openmp"
+                if krino:
+                    spec += " +krino +sacado +intrepid2 +boost"
+                else:
+                    spec += " ~krino ~sacado ~intrepid2 ~boost"
+                if cuda_arch is None:
+                    spec += " ~cuda"
+                else:
+                    spec += f" +cuda +cuda_rdc +wrapper cuda_arch={cuda_arch}"
+                return spec
+
+            cuda_arches = [
+                arch for arch in CudaPackage.cuda_arch_values if arch != "none"
+            ]
+            for cuda_arch in [None] + cuda_arches:
+                for shared in (False, True):
+                    for openmp in (False, True):
+                        for krino in (False, True):
+                            spec = build_trilinos_spec(
+                                shared, openmp, krino, cuda_arch, base_spec
+                            )
+                            if cuda_arch is None:
+                                when = "~cuda"
+                            else:
+                                when = f"+cuda cuda_arch={cuda_arch}"
+                            when += " +shared" if shared else " ~shared"
+                            when += " +openmp" if openmp else " ~openmp"
+                            when += " +krino" if krino else " ~krino"
+                            depends_on(spec, when=when)
+
         else:
             depends_on(
                 dep["spec"],

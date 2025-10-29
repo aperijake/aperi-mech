@@ -5,6 +5,8 @@ USE_CACHE=true
 USE_GPU=false
 SRC_BRANCH="main"
 PLATFORM="amd64"
+DISTRO="ubuntu"
+USE_AZURE_MIRROR=false
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -28,6 +30,14 @@ while [[ $# -gt 0 ]]; do
 		PLATFORM="$2"
 		shift 2
 		;;
+	--distro)
+		DISTRO="$2"
+		shift 2
+		;;
+	--azure-mirror)
+		USE_AZURE_MIRROR=true
+		shift
+		;;
 	--help | -h)
 		echo "Usage: build_images_for_cicd.sh [OPTIONS]"
 		echo "Options:"
@@ -36,6 +46,8 @@ while [[ $# -gt 0 ]]; do
 		echo "  --gpu               Build GPU-enabled image"
 		echo "  --branch BRANCH     Specify the source branch (default: main)"
 		echo "  --platform PLATFORM Specify the platform (default: amd64)"
+		echo "  --distro DISTRO     Specify the distribution: ubuntu or rocky (default: ubuntu)"
+		echo "  --azure-mirror      Use Azure mirror for apt sources (Ubuntu only)"
 		exit 0
 		;;
 	*)
@@ -61,14 +73,27 @@ else
 fi
 
 if "${USE_GPU}"; then
+	if [[ ${DISTRO} == "rocky" ]]; then
+		echo "Error: GPU build not yet supported for ${DISTRO}"
+		exit 1
+	fi
 	DOCKERFILE="Dockerfile_AperiMech_Ubuntu2404_Nvidia"
 	IMAGE_TAG="aperi-mech:cuda-t4"
 else
-	DOCKERFILE="Dockerfile_AperiMech_Ubuntu2404"
-	IMAGE_TAG="aperi-mech:latest"
+	if [[ ${DISTRO} == "rocky" ]]; then
+		DOCKERFILE="Dockerfile_AperiMech_RockyLinux9"
+		IMAGE_TAG="aperi-mech:rocky9"
+	else
+		DOCKERFILE="Dockerfile_AperiMech_Ubuntu2404"
+		IMAGE_TAG="aperi-mech:latest"
+	fi
 fi
 
 BUILD_ARGS=(--build-arg SRC_BRANCH="${SRC_BRANCH}")
+
+if "${USE_AZURE_MIRROR}"; then
+	BUILD_ARGS+=(--build-arg USE_AZURE_MIRROR=true)
+fi
 
 LOG_FILE="build_log_$(date +%Y%m%d_%H%M%S).log"
 
