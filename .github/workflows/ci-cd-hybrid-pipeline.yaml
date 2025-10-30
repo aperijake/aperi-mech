@@ -45,7 +45,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root --cpus 4
+      options: --user root
 
     env:
       BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
@@ -89,7 +89,8 @@ jobs:
           # Debug info
           echo "============================================"
           echo "Build Environment Info:"
-          echo "  CPU cores: $(nproc)"
+          echo "  CPU cores (nproc): $(nproc)"
+          echo "  CPU cores (nproc --all): $(nproc --all)"
           echo "  Memory: $(free -h | grep Mem | awk '{print $2}')"
           echo "  Build path: ${BUILD_PATH}"
           echo "  Configure flags: ${CONFIGURE_FLAGS}"
@@ -98,12 +99,10 @@ jobs:
           # Configure
           ./do_configure --build-type ${BUILD_TYPE} ${CONFIGURE_FLAGS}
 
-          # Build (use 75% of available cores, avoid bc since it's not in container)
-          NUM_PROCS=$(nproc)
-          NUM_JOBS=$(awk "BEGIN {print int($NUM_PROCS * 0.75 + 0.5)}")
-          echo "Building with ${NUM_JOBS} parallel jobs (75% of ${NUM_PROCS} cores)"
+          # Build (use all available cores - nproc --all shows total cores, not just quota-limited)
+          echo "Building with $(nproc --all) parallel jobs"
           cd ${BUILD_PATH}
-          make -j${NUM_JOBS}
+          make -j$(nproc --all)
 
       - name: Run material tests
         shell: bash
@@ -141,6 +140,10 @@ jobs:
 
           # Add aperi-mech build directory to PATH (needed for utils tests to find aperi-mech executable)
           export PATH=${GITHUB_WORKSPACE}/${BUILD_PATH}:$PATH
+
+          # Allow MPI to run as root (container runs as root, needed for regression tests)
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
           echo "Running utils modules tests..."
           echo "aperi-mech location: $(which aperi-mech || echo 'NOT FOUND')"
