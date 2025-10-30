@@ -239,11 +239,16 @@ if "${PUSH_TO_GHCR}"; then
 		exit 1
 	fi
 
-	# Check for any .cpp or .h files in protego-mech
-	protego_files=$(docker run --rm "${IMAGE_TAG}" bash -c "find /home/aperi-mech_docker/aperi-mech/protego-mech -name '*.cpp' -o -name '*.h' 2>/dev/null | head -5" || true)
-	if [[ -n ${protego_files} ]]; then
+	# Check for any .cpp or .h files in protego-mech (count files, not output text)
+	# Use wc -l to count files, avoiding false positives from stderr messages
+	protego_source_count=$(docker run --rm "${IMAGE_TAG}" bash -c "find /home/aperi-mech_docker/aperi-mech/protego-mech -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | wc -l" || echo "0")
+	protego_source_count=$(echo "${protego_source_count}" | tr -d '[:space:]') # Remove whitespace
+
+	if [[ ${protego_source_count} -gt 0 ]]; then
+		# Found files, list them for debugging
+		protego_files=$(docker run --rm "${IMAGE_TAG}" bash -c "find /home/aperi-mech_docker/aperi-mech/protego-mech -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | head -10")
 		echo ""
-		echo "❌ ERROR: Found protego-mech source files in image:"
+		echo "❌ ERROR: Found ${protego_source_count} protego-mech source files in image:"
 		echo "${protego_files}"
 		echo ""
 		echo "This image contains closed-source code and should NOT be pushed."
