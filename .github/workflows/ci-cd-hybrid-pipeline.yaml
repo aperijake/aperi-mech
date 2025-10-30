@@ -50,6 +50,11 @@ jobs:
     env:
       BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
       PROTEGO: ${{ matrix.config.PROTEGO }}
+      # Allow MPI to run as root (containers run as root by default)
+      OMPI_ALLOW_RUN_AS_ROOT: 1
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+      # Allow MPI oversubscription (PRRTE detects only 1 slot in container)
+      PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
 
     steps:
       - name: Checkout code
@@ -140,10 +145,6 @@ jobs:
 
           # Add aperi-mech build directory to PATH (needed for utils tests to find aperi-mech executable)
           export PATH=${GITHUB_WORKSPACE}/${BUILD_PATH}:$PATH
-
-          # Allow MPI to run as root (container runs as root, needed for regression tests)
-          export OMPI_ALLOW_RUN_AS_ROOT=1
-          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
           echo "Running utils modules tests..."
           echo "aperi-mech location: $(which aperi-mech || echo 'NOT FOUND')"
