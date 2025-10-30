@@ -44,12 +44,23 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     io_mesh.CreateFieldResultsFile(filename);
     io_mesh.AddFieldResultsOutput(field_data);
     io_mesh.WriteFieldResults(0);
-    io_mesh.CloseFieldResultsFile();  // Close the file before checking
 
-    // Verify the file was written successfully
+    // Ensure all ranks finish writing before checking the file
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Check if file exists and is readable
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     std::ifstream after_write_file(filename);
-    EXPECT_TRUE(after_write_file.good());
-    after_write_file.close();  // Explicitly close the check stream
+    bool file_good = after_write_file.good();
+
+    if (!file_good) {
+        std::cerr << "Rank: " << rank << " File check failed for: " << filename << std::endl;
+        std::cerr << "Rank: " << rank << "   exists: " << std::filesystem::exists(filename) << std::endl;
+        std::cerr << "Rank: " << rank << "   cwd: " << std::filesystem::current_path() << std::endl;
+    }
+
+    EXPECT_TRUE(file_good);
 }
 
 void GenerateMesh(aperi::IoMesh& io_mesh, aperi::MeshData& mesh_data, unsigned num_elem_x, unsigned num_elem_y, unsigned num_elem_z, bool tetrahedral) {
