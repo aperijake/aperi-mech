@@ -32,8 +32,7 @@ class UnitTestUtilsTestFixture : public ::testing::Test {
     void WriteMesh() {
         // Write the mesh to a temporary file an
         aperi::IoMeshParameters io_mesh_parameters;
-        // io_mesh_parameters.compose_output = true;
-        io_mesh_parameters.compose_output = false;
+        io_mesh_parameters.compose_output = true;
 
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.minimize_open_files = false;
@@ -179,7 +178,7 @@ TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
 }
 
 // Test find node index at coordinates, invalid case
-TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndex) {
+TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndexAtCoordinates) {
     // Write the mesh
     m_mesh_string = "1x1x" + std::to_string(m_num_procs);
     WriteMesh();
