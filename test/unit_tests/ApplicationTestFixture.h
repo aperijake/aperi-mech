@@ -70,7 +70,14 @@ class ApplicationTest : public CaptureOutputTest {
         // Create a temporary input file
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["geometry"]["mesh"] = m_mesh_filename;
         m_yaml_data["procedures"][0]["explicit_dynamics_procedure"]["output"]["file"] = m_results_filename;
-        aperi::IoInputFile::Write(m_filename, m_yaml_data);
+
+        // Only rank 0 should write the file to avoid race condition
+        int rank;
+        MPI_Comm_rank(m_comm, &rank);
+        if (rank == 0) {
+            aperi::IoInputFile::Write(m_filename, m_yaml_data);
+        }
+        MPI_Barrier(m_comm);  // Wait for rank 0 to finish writing
     }
 
     void TearDownApplicationTest(bool keep_mesh = false) {
