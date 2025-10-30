@@ -1,46 +1,80 @@
-# Docker images for `aperi-mech`
+# Docker Images for aperi-mech
 
-## Using the images
+This directory contains Docker configuration and scripts for building and managing aperi-mech container images.
 
-Grab the docker image and load it on your system
+## Quick Start
+
+### Building and Pushing to GHCR
+
+For CI/CD workflows, build base images and push to GitHub Container Registry (GHCR):
 
 ```bash
-# Change to your desired directory and copy the image from the shared drive
-cp /path/to/shared/drive/aperi-mech-image.tar.gz .
-# where `aperi-mech-image` is the specific image
+# First time: Set up GHCR (see GHCR_SETUP.md)
 
-# Decompress the image
+# Build and push CPU image
+./build_and_push_images.sh --push
+
+# Build and push GPU image
+./build_and_push_images.sh --gpu --push
+```
+
+**Security**: The build script automatically verifies that no closed-source code is included before pushing to GHCR.
+
+See [GHCR_SETUP.md](GHCR_SETUP.md) for detailed setup instructions.
+
+## Using Docker Images
+
+### Pulling from GHCR
+
+For public repositories, images can be pulled directly from GitHub Container Registry:
+
+```bash
+# Pull CPU image
+docker pull ghcr.io/<username>/aperi-mech:latest
+
+# Pull GPU image
+docker pull ghcr.io/<username>/aperi-mech:cuda-t4
+```
+
+### Loading from File
+
+For shared or archived images:
+
+```bash
+# Copy image from shared location
+cp /path/to/shared/drive/aperi-mech-image.tar.gz .
+
+# Decompress
 gunzip aperi-mech-image.tar.gz
 
-# Load the Docker image
+# Load into Docker
 docker load -i aperi-mech-image.tar
 
-# Verify the image is available
+# Verify loaded
 docker images | grep aperi-mech
 ```
 
-Start the image and attach a shell
+### Running Containers
+
+Start a container and attach a shell:
 
 ```bash
-# With mounting a path from the host system
-docker run -it -v /folder/path/to/mount:/home/aperi-mech_docker/host_folder aperi-mech
+# CPU image with host path mounted
+docker run -it -v /folder/path:/home/aperi-mech_docker/host_folder aperi-mech:latest
+
+# CPU image without host mount
+docker run -it aperi-mech:latest
+
+# GPU image with GPU support and host mount
+docker run --gpus all -it -v /folder/path:/home/aperi-mech_docker/host_folder aperi-mech:cuda-t4
+
+# GPU image without host mount
+docker run --gpus all -it aperi-mech:cuda-t4
 ```
 
-```bash
-# Without mounting the path from the host system
-docker run -it aperi-mech
-```
+### Working with Private Submodules
 
-```bash
-# If this is a gpu build, pass the flag to enable them
-docker run --gpus all -it -v /folder/path/to/mount:/home/aperi-mech_docker/host_folder aperi-mech
-# or
-docker run --gpus all -it aperi-mech
-```
-
-### Working with the Private `protego-mech` Submodule
-
-For accessing private submodules, you'll need to set up GitHub authentication within the container. This assumes the host system has credentials set up to access GitHub. If not, follow the instructions on GitHub to do this. After that is done, proceed with:
+To access private submodules within containers, GitHub authentication must be configured. This requires SSH keys to be mounted from the host system:
 
 ```bash
 # Start container with SSH keys mounted and the present directory
@@ -50,14 +84,14 @@ docker run -it \
   aperi-mech
 ```
 
-Inside the container
+Inside the container:
 
 ```bash
 # Set SSH key permissions
 chmod 600 ~/.ssh/id_rsa
 chmod 644 ~/.ssh/id_rsa.pub
 
-# Setup Git identity (optional)
+# Configure Git identity (optional)
 git config --global user.name "Your Name"
 git config --global user.email "your.email@example.com"
 
@@ -65,55 +99,89 @@ git config --global user.email "your.email@example.com"
 cd /home/aperi-mech_docker/aperi-mech
 git submodule update --init --recursive
 
-# Configure to build with protego-mech
+# Configure build with private submodule
 spacktivate aperi-mech
 ./do_configure --build-type Release --protego-mech
 
-# Build protego-mech
+# Build
 cd protego-mech/build/Release
 make -j 4
 
-# Run the unit tests
+# Run unit tests
 ./unit_tests
 ```
 
-### Running `aperi-mech`
+### Running the Application
 
 ```bash
-# Run `input.yaml` without protego-mech
+# Run without private submodule
 /home/aperi-mech_docker/build/Release/aperi-mech input.yaml
 
-# Run `input.yaml` with protego-mech
+# Run with private submodule
 /home/aperi-mech_docker/protego-mech/build/Release/aperi-mech input.yaml
 ```
 
-## Developer notes
+## Developer Notes
 
-### Build a docker image
+### Building Docker Images Manually
+
+For local development or custom builds:
 
 ```bash
-# Arm, change `arm64` to `amd64` if that is the target platform
+# CPU image for Arm64 (change to amd64 for x86-64)
 docker buildx build --platform linux/arm64 --load -t aperi-mech:latest -f Dockerfile . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 
-# For Tesla T4 (compute capability 7.5)
-docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-t4 --build-arg CUDA_ARCH=75 -f Dockerfile_Nvidia . \
+# GPU image for Tesla T4 (compute capability 7.5)
+docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-t4 \
+  --build-arg CUDA_ARCH=75 -f Dockerfile_Nvidia . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 
-# For H100 (compute capability 9.0)
-docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-h100 --build-arg CUDA_ARCH=90 -f Dockerfile_Nvidia . \
+# GPU image for H100 (compute capability 9.0)
+docker buildx build --platform linux/amd64 --load -t aperi-mech:cuda-h100 \
+  --build-arg CUDA_ARCH=90 -f Dockerfile_Nvidia . \
   --progress=plain 2>&1 | tee build_log_$(date +%Y%m%d_%H%M%S).log
 ```
 
-### Share a docker image
+### Sharing Docker Images
+
+To share images without using a registry:
 
 ```bash
-# Save a Docker image to a tar file
+# Save image to tar file
 docker save -o aperi-mech-image.tar aperi-mech:latest
 
-# Compress the image (recommended)
+# Compress (recommended for large images)
 gzip -c aperi-mech-image.tar > aperi-mech-image.tar.gz
 
-# Copy to shared drive
+# Transfer to shared location
 cp aperi-mech-image.tar.gz /path/to/shared/drive/
 ```
+
+## Image Maintenance
+
+### When to Rebuild Images
+
+Rebuild and push updated images when:
+
+- Dependencies are updated (Trilinos, Kokkos, Spack packages)
+- Base OS requires security updates
+- CUDA versions change for GPU images
+- Build tool versions are upgraded
+
+### Maintenance Frequency
+
+**Recommended schedule**:
+
+- Security updates: As needed (monitor security advisories)
+- Dependency updates: Every 3-6 months
+- Routine rebuilds: Quarterly
+
+### Update Process
+
+1. Update Dockerfile with new versions
+2. Build locally and test thoroughly
+3. Run security checks (automated in build script)
+4. Push to GHCR with appropriate tags
+5. Update CI/CD workflows if image names change
+6. Monitor first few CI/CD runs with new images
