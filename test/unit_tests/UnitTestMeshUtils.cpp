@@ -6,6 +6,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Comm.hpp>
@@ -40,24 +41,46 @@ void WriteTestMesh(const std::string& filename, aperi::IoMesh& io_mesh, const st
     // std::vector<size_t> expected_owned = {8, 0, 0, 1};
     // CheckMeshCounts(*io_mesh.GetMeshData(), expected_owned);
 
+    // Get rank for debugging
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     // Write the generated mesh
+    if (rank == 0) {
+        std::cerr << "Rank 0: About to write file: " << filename << std::endl;
+    }
+
     io_mesh.CreateFieldResultsFile(filename);
     io_mesh.AddFieldResultsOutput(field_data);
     io_mesh.WriteFieldResults(0);
 
+    if (rank == 0) {
+        std::cerr << "Rank 0: WriteFieldResults completed" << std::endl;
+    }
+
     // Ensure all ranks finish writing before checking the file
     MPI_Barrier(MPI_COMM_WORLD);
 
+    if (rank == 0) {
+        std::cerr << "Rank 0: After barrier, checking file" << std::endl;
+    }
+
     // Check if file exists and is readable
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     std::ifstream after_write_file(filename);
     bool file_good = after_write_file.good();
 
-    if (!file_good) {
-        std::cerr << "Rank: " << rank << " File check failed for: " << filename << std::endl;
-        std::cerr << "Rank: " << rank << "   exists: " << std::filesystem::exists(filename) << std::endl;
-        std::cerr << "Rank: " << rank << "   cwd: " << std::filesystem::current_path() << std::endl;
+    if (!file_good && rank == 0) {
+        std::cerr << "Rank 0: File check FAILED for: " << filename << std::endl;
+        std::cerr << "Rank 0:   exists: " << std::filesystem::exists(filename) << std::endl;
+        std::cerr << "Rank 0:   cwd: " << std::filesystem::current_path() << std::endl;
+
+        // Try to see what files DO exist
+        std::cerr << "Rank 0: .exo files in current directory:" << std::endl;
+        for (const auto& entry : std::filesystem::directory_iterator(".")) {
+            if (entry.path().extension() == ".exo") {
+                std::cerr << "Rank 0:   - " << entry.path().filename() << std::endl;
+            }
+        }
     }
 
     EXPECT_TRUE(file_good);
