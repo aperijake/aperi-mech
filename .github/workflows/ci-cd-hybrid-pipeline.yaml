@@ -59,6 +59,12 @@ jobs:
           submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Fix git ownership
+        shell: bash
+        run: |
+          # Fix git ownership warning (Actions checks out as different user)
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Configure and build
         shell: bash
         run: |
@@ -83,9 +89,9 @@ jobs:
           # Configure
           ./do_configure --build-type ${BUILD_TYPE} ${CONFIGURE_FLAGS}
 
-          # Build (use 75% of available cores)
+          # Build (use 75% of available cores, avoid bc since it's not in container)
           NUM_PROCS=$(nproc)
-          NUM_JOBS=$(echo "$NUM_PROCS * 0.75" | bc | awk '{print int($1+0.5)}')
+          NUM_JOBS=$(awk "BEGIN {print int($NUM_PROCS * 0.75 + 0.5)}")
           cd ${BUILD_PATH}
           make -j${NUM_JOBS}
 
@@ -426,6 +432,11 @@ jobs:
           lfs: true
           submodules: false
 
+      - name: Fix git ownership
+        shell: bash
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Install lcov
         shell: bash
         run: |
@@ -442,7 +453,7 @@ jobs:
           ./do_configure --build-type Debug --code-coverage
 
           NUM_PROCS=$(nproc)
-          NUM_JOBS=$(echo "$NUM_PROCS * 0.75" | bc | awk '{print int($1+0.5)}')
+          NUM_JOBS=$(awk "BEGIN {print int($NUM_PROCS * 0.75 + 0.5)}")
           cd build/Debug_cov
           make -j${NUM_JOBS}
           make coverage
