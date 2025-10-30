@@ -60,6 +60,7 @@ jobs:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Configure and build
+        shell: bash
         run: |
           set -e
 
@@ -89,6 +90,7 @@ jobs:
           make -j${NUM_JOBS}
 
       - name: Run material tests
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -105,6 +107,7 @@ jobs:
           ctest -L material --output-on-failure
 
       - name: Run utils modules tests
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -120,6 +123,7 @@ jobs:
           ctest -L utils_modules --output-on-failure
 
       - name: Run unit tests (serial)
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -136,6 +140,7 @@ jobs:
           mpirun -n 1 ./unit_tests
 
       - name: Run unit tests (parallel)
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -152,6 +157,7 @@ jobs:
           mpirun -n 3 ./unit_tests
 
       - name: Run regression tests (serial)
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -171,6 +177,7 @@ jobs:
           python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG}
 
       - name: Run regression tests (parallel)
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
@@ -191,6 +198,7 @@ jobs:
 
       - name: Run GUI tests
         if: env.PROTEGO == 'true'
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE/protego-mech/gui
@@ -419,10 +427,12 @@ jobs:
           submodules: false
 
       - name: Install lcov
+        shell: bash
         run: |
           apt-get update && apt-get install -y lcov
 
       - name: Configure and build with coverage
+        shell: bash
         run: |
           set -e
           cd $GITHUB_WORKSPACE
