@@ -45,7 +45,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root
+      options: --user root --cpus 4
 
     env:
       BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
@@ -137,11 +137,14 @@ jobs:
           fi
           BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          # Add aperi-mech build directory to PATH (needed for utils tests)
-          export PATH=$PATH:${BUILD_PATH}
-
           cd ${BUILD_PATH}
+
+          # Add aperi-mech build directory to PATH (needed for utils tests to find aperi-mech executable)
+          export PATH=${GITHUB_WORKSPACE}/${BUILD_PATH}:$PATH
+
           echo "Running utils modules tests..."
+          echo "aperi-mech location: $(which aperi-mech || echo 'NOT FOUND')"
+          echo "exodiff location: $(which exodiff || echo 'NOT FOUND')"
           make run_utils_modules_tests
 
       - name: Run unit tests (serial)
