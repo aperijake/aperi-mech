@@ -256,7 +256,12 @@ jobs:
           source venv/bin/activate
 
           pip install -q --upgrade pip
+
+          # Temporarily rename setup_linux.py to setup.py for pip install
+          mv setup_linux.py setup.py
           pip install -q -e .
+          mv setup.py setup_linux.py
+
           pip install -q pytest pytest-cov
 
           # Run tests
