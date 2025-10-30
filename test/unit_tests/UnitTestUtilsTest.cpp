@@ -32,7 +32,8 @@ class UnitTestUtilsTestFixture : public ::testing::Test {
     void WriteMesh() {
         // Write the mesh to a temporary file an
         aperi::IoMeshParameters io_mesh_parameters;
-        io_mesh_parameters.compose_output = true;
+        // io_mesh_parameters.compose_output = true;
+        io_mesh_parameters.compose_output = false;
 
         io_mesh_parameters.mesh_type = "generated";
         io_mesh_parameters.minimize_open_files = false;
