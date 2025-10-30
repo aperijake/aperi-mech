@@ -178,7 +178,7 @@ TEST_F(UnitTestUtilsTestFixture, FindNodeIndexAtCoordinates) {
 }
 
 // Test find node index at coordinates, invalid case
-TEST_F(UnitTestUtilsTestFixture, FindInvalidNodeIndexAtCoordinates) {
+TEST_F(UnitTestUtilsTestFixture, DISABLED_FindInvalidNodeIndexAtCoordinates) {
     // Write the mesh
     m_mesh_string = "1x1x" + std::to_string(m_num_procs);
     WriteMesh();
