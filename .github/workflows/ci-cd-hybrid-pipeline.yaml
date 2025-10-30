@@ -1,0 +1,493 @@
+name: CI/CD Hybrid Pipeline
+
+# This workflow uses a hybrid approach:
+# - CPU tests run on GitHub-hosted runners (parallel, fast)
+# - GPU tests run on Azure VM (serial, slower but GPU-enabled)
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch: ~ # Allows manual triggering of the workflow
+
+permissions:
+  contents: read
+  packages: read # For pulling from GHCR
+
+concurrency:
+  group: ci-cd-hybrid-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  #############################################################################
+  # CPU Tests - Run on GitHub-hosted runners (parallel)
+  #############################################################################
+
+  build-and-test-cpu:
+    name: Build and Test CPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      max-parallel: 4 # Run all 4 CPU configs in parallel
+      matrix:
+        config:
+          - { BUILD_TYPE: Debug, PROTEGO: true }
+          - { BUILD_TYPE: Debug, PROTEGO: false }
+          - { BUILD_TYPE: Release, PROTEGO: true }
+          - { BUILD_TYPE: Release, PROTEGO: false }
+
+    container:
+      image: ghcr.io/aperijake/aperi-mech:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+
+    env:
+      BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
+      PROTEGO: ${{ matrix.config.PROTEGO }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Configure and build
+        run: |
+          set -e
+
+          # GitHub Actions checks out code to $GITHUB_WORKSPACE
+          # We need to work from there, not the container's $APERI_MECH_ROOT
+          cd $GITHUB_WORKSPACE
+
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
+
+          # Determine build path and flags
+          BUILD_ROOT="build"
+          CONFIGURE_FLAGS=""
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_ROOT="protego-mech/build"
+            CONFIGURE_FLAGS="--protego-mech"
+          fi
+          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+
+          # Configure
+          ./do_configure --build-type ${BUILD_TYPE} ${CONFIGURE_FLAGS}
+
+          # Build (use 75% of available cores)
+          NUM_PROCS=$(nproc)
+          NUM_JOBS=$(echo "$NUM_PROCS * 0.75" | bc | awk '{print int($1+0.5)}')
+          cd ${BUILD_PATH}
+          make -j${NUM_JOBS}
+
+      - name: Run material tests
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
+
+          BUILD_ROOT="build"
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_ROOT="protego-mech/build"
+          fi
+          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+
+          cd ${BUILD_PATH}
+          ctest -L material --output-on-failure
+
+      - name: Run utils modules tests
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+
+          BUILD_ROOT="build"
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_ROOT="protego-mech/build"
+          fi
+          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+
+          cd ${BUILD_PATH}
+          ctest -L utils_modules --output-on-failure
+
+      - name: Run unit tests (serial)
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
+
+          BUILD_ROOT="build"
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_ROOT="protego-mech/build"
+          fi
+          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+
+          cd ${BUILD_PATH}
+          mpirun -n 1 ./unit_tests
+
+      - name: Run unit tests (parallel)
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
+
+          BUILD_ROOT="build"
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_ROOT="protego-mech/build"
+          fi
+          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+
+          cd ${BUILD_PATH}
+          mpirun -n 3 ./unit_tests
+
+      - name: Run regression tests (serial)
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+
+          # Determine build directory and test selection file
+          BUILD_DIR="build"
+          BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
+          CPU_FLAG="--cpu"  # GitHub runners don't have GPU
+          TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
+
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_DIR="protego-mech/build"
+            TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
+          fi
+
+          python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG}
+
+      - name: Run regression tests (parallel)
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+
+          # Determine build directory and test selection file
+          BUILD_DIR="build"
+          BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
+          CPU_FLAG="--cpu"  # GitHub runners don't have GPU
+          TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
+
+          if [ "$PROTEGO" = "true" ]; then
+            BUILD_DIR="protego-mech/build"
+            TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
+          fi
+
+          python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG} --parallel
+
+      - name: Run GUI tests
+        if: env.PROTEGO == 'true'
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE/protego-mech/gui
+
+          # Set up Python environment for GUI tests
+          if [ ! -d "venv" ]; then
+            python3 -m venv venv
+          fi
+          source venv/bin/activate
+
+          pip install -q --upgrade pip
+          pip install -q -e .
+          pip install -q pytest pytest-cov
+
+          # Run tests
+          cd test
+          pytest -v --cov=../gui --cov-report=term --cov-report=xml
+
+  #############################################################################
+  # GPU Tests - Run on Azure VM (serial, since only one VM)
+  #############################################################################
+
+  setup-gpu:
+    name: Setup GPU VM
+    runs-on: ubuntu-latest
+
+    outputs:
+      vm_started: ${{ steps.vm-status.outputs.vm_started }}
+
+    steps:
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          ref: ${{ github.head_ref }}
+
+      - name: Access Azure VM
+        id: vm-status
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.62.0
+          inlineScript: |
+            echo "Logging into Azure..."
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            if [ $? -eq 0 ]; then
+              echo "Logged in successfully"
+            else
+              echo "Failed to login"
+              exit 1
+            fi
+            echo "Setting Azure subscription..."
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            if [ $? -eq 0 ]; then
+                echo "Subscription set successfully"
+            else
+                echo "Failed to set subscription"
+                exit 1
+            fi
+            echo "Checking if VM is running..."
+            VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
+            if [ "$VM_STATUS" != "VM running" ]; then
+              echo "Starting VM..."
+              az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+              echo "vm_started=true" >> $GITHUB_OUTPUT
+            else
+              echo "VM is already running"
+              echo "vm_started=false" >> $GITHUB_OUTPUT
+            fi
+
+      - name: Common SSH and Azure CLI Setup
+        uses: ./.github/actions/common-ssh-and-azure-steps
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
+
+      - name: Checkout Code on VM
+        run: |
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e # Exit on error
+
+            cd ~/aperi-mech
+            echo "Fetching git branches..."
+            git fetch --all
+
+            echo "Stashing any unstaged changes..."
+            git stash --include-untracked
+
+            echo "Checking out main branch and pulling latest changes..."
+            git checkout main
+            git pull origin main --rebase
+
+            # Configure git to use the CICD_REPO_SECRET for fetching submodules
+            if ! git config --global --get url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf; then
+              git config --global url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf "https://github.com/"
+            fi
+
+            echo "Initializing and updating submodules to the commit referenced in the parent repository..."
+            git submodule sync
+            git submodule update --init --recursive
+
+            echo "Checking out appropriate branch for the parent repository..."
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              git fetch origin ${{ github.sha }}
+              git checkout ${{ github.sha }}
+            elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              git checkout main
+            else
+              git checkout ${{ github.ref }}
+            fi
+
+            # Ensure submodules are updated to the correct commit
+            echo "Ensuring submodules are on the correct commit..."
+            git submodule update --recursive
+
+            git lfs pull # Pull LFS files
+
+            # Clean up build directories to prevent false positives
+            rm -rf build
+            rm -rf protego-mech/build
+          EOF
+
+  build-and-test-gpu:
+    name: Build and Test GPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }})
+    runs-on: ubuntu-latest
+    needs: setup-gpu
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # Run GPU configs serially (only one VM)
+      matrix:
+        config:
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true }
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: true }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false }
+
+    env:
+      BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
+      GPU: ${{ matrix.config.GPU }}
+      PROTEGO: ${{ matrix.config.PROTEGO }}
+
+    steps:
+      - name: Checkout Code on Runner
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          ref: ${{ github.head_ref }}
+
+      - name: Common Runner Config Steps
+        uses: ./.github/actions/common-runner-config-steps
+
+      - name: Build
+        uses: ./.github/actions/build-action
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
+          gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
+
+      - name: Run material tests
+        uses: ./.github/actions/run-material-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
+
+      - name: Run utils modules tests
+        uses: ./.github/actions/run-utils-modules-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          with-protego: ${{ env.PROTEGO }}
+
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          build-type: ${{ env.BUILD_TYPE }}
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          num-processes: 1
+          with-protego: ${{ env.PROTEGO }}
+
+      - name: Run regression tests, serial
+        uses: ./.github/actions/run-regression-tests
+        with:
+          VM_IP: ${{ secrets.VM_IP }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          gpu: ${{ env.GPU }}
+          parallel: false
+          build: ${{ env.BUILD_TYPE }}
+          with-protego: ${{ env.PROTEGO }}
+
+  #############################################################################
+  # Code Coverage (CPU only, on GitHub runner)
+  #############################################################################
+
+  code-coverage:
+    name: Build Debug, Code Coverage
+    runs-on: ubuntu-latest
+    needs: [build-and-test-cpu, build-and-test-gpu]
+
+    container:
+      image: ghcr.io/aperijake/aperi-mech:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: false
+
+      - name: Install lcov
+        run: |
+          apt-get update && apt-get install -y lcov
+
+      - name: Configure and build with coverage
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
+
+          ./do_configure --build-type Debug --code-coverage
+
+          NUM_PROCS=$(nproc)
+          NUM_JOBS=$(echo "$NUM_PROCS * 0.75" | bc | awk '{print int($1+0.5)}')
+          cd build/Debug_cov
+          make -j${NUM_JOBS}
+          make coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ${{ github.workspace }}/build/Debug_cov/coverage.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  #############################################################################
+  # Teardown
+  #############################################################################
+
+  teardown-gpu:
+    runs-on: ubuntu-latest
+    name: Teardown GPU VM
+    needs: [setup-gpu, build-and-test-gpu, code-coverage]
+    if: always()
+
+    steps:
+      - name: Print VM status
+        run: |
+          echo "VM started: ${{ needs.setup-gpu.outputs.vm_started }}"
+
+      - name: Stop Azure VM
+        if: needs.setup-gpu.outputs.vm_started == 'true'
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.62.0
+          inlineScript: |
+            echo "Logging into Azure..."
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            if [ $? -eq 0 ]; then
+              echo "Logged in successfully"
+            else
+              echo "Failed to login"
+              exit 1
+            fi
+            echo "Setting Azure subscription..."
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            if [ $? -eq 0 ]; then
+                echo "Subscription set successfully"
+            else
+                echo "Failed to set subscription"
+                exit 1
+            fi
+            echo "Deallocating VM..."
+            az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
+            if [ $? -eq 0 ]; then
+                echo "VM deallocated successfully"
+            else
+                echo "Failed to deallocate VM"
+                exit 1
+            fi

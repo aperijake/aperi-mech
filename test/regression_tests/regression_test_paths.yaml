@@ -1,0 +1,10 @@
+# Yaml file with paths to regression tests and paths to exclude from regression tests
+# The paths are relative to the directory where the yaml file is located
+
+# This file defines which regression tests to run for the open-source aperi-mech build
+# (without protego-mech)
+
+paths:
+  # Path to all aperi-mech regression tests
+  - path: .
+    exclude: ~
