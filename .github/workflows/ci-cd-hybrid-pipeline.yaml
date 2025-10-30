@@ -204,6 +204,7 @@ jobs:
           set -e
           cd $GITHUB_WORKSPACE
           source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
 
           # Determine build directory and test selection file
           BUILD_DIR="build"
@@ -225,6 +226,7 @@ jobs:
           set -e
           cd $GITHUB_WORKSPACE
           source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+          spack env activate aperi-mech
 
           # Determine build directory and test selection file
           BUILD_DIR="build"
