@@ -468,6 +468,18 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+
+    env:
+      # MPI Configuration for Docker Containers:
+      # - OMPI_ALLOW_RUN_AS_ROOT: Required because GitHub Actions containers run as root user
+      OMPI_ALLOW_RUN_AS_ROOT: 1
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+      # - PRTE_MCA_rmaps: Allow oversubscription since container reports only 1 slot despite having 4 cores
+      PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
+      # - OMPI_MCA_btl: Disable shared memory transport to avoid container restrictions, use TCP loopback instead
+      OMPI_MCA_btl: ^sm
+      OMPI_MCA_btl_base_warn_component_unused: 0
 
     steps:
       - name: Checkout code
@@ -496,10 +508,12 @@ jobs:
 
           ./do_configure --build-type Debug --code-coverage
 
-          NUM_PROCS=$(nproc)
-          NUM_JOBS=$(awk "BEGIN {print int($NUM_PROCS * 0.75 + 0.5)}")
+          # Build using all available cores
+          # Note: Use 'nproc --all' instead of 'nproc' because containers may report limited quota
+          # but actually have access to all host cores for build parallelism
+          echo "Building with $(nproc --all) parallel jobs"
           cd build/Debug_cov
-          make -j${NUM_JOBS}
+          make -j$(nproc --all)
           make coverage
 
       - name: Upload coverage reports to Codecov
