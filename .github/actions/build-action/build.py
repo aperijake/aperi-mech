@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import os
 import sys
 
 import paramiko
@@ -14,7 +15,9 @@ def str_to_bool(value):
 def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, vm_pool=False):
     ssh = paramiko.SSHClient()
     # Load host keys from ~/.ssh/known_hosts (populated by ssh-keyscan in workflow)
-    ssh.load_system_host_keys()
+    known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
+    if os.path.exists(known_hosts_path):
+        ssh.load_host_keys(known_hosts_path)
     # Reject unknown hosts for security (workflow adds keys via ssh-keyscan)
     ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
