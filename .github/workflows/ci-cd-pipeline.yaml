@@ -386,7 +386,7 @@ jobs:
           # Test SSH connection
           ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"$VM_IP" "echo 'SSH connection successful'"
 
-      - name: Checkout Code on VM
+      - name: Setup Build Directories on VM
         run: |
           # VM_POOL_CONFIG: Map VM index to IP output (add cases when scaling)
           case "${{ matrix.vm_index }}" in
@@ -397,47 +397,17 @@ jobs:
           esac
 
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@"$VM_IP" << 'EOF'
-            set -e # Exit on error
+            set -e
 
-            cd ~/aperi-mech
-            echo "Fetching git branches..."
-            git fetch --all
+            # Create build directories on temp storage
+            mkdir -p /mnt/builds
+            mkdir -p /mnt/builds/protego-builds
 
-            echo "Stashing any unstaged changes..."
-            git stash --include-untracked
+            # Clean up any old builds
+            rm -rf /mnt/builds/*
+            rm -rf /mnt/builds/protego-builds/*
 
-            echo "Checking out main branch and pulling latest changes..."
-            git checkout main
-            git pull origin main --rebase
-
-            # Configure git to use the CICD_REPO_SECRET for fetching submodules
-            if ! git config --global --get url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf; then
-              git config --global url."https://${{ secrets.CICD_REPO_SECRET }}@github.com/".insteadOf "https://github.com/"
-            fi
-
-            echo "Initializing and updating submodules to the commit referenced in the parent repository..."
-            git submodule sync
-            git submodule update --init --recursive
-
-            echo "Checking out appropriate branch for the parent repository..."
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              git fetch origin ${{ github.sha }}
-              git checkout ${{ github.sha }}
-            elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-              git checkout main
-            else
-              git checkout ${{ github.ref }}
-            fi
-
-            # Ensure submodules are updated to the correct commit
-            echo "Ensuring submodules are on the correct commit..."
-            git submodule update --recursive
-
-            git lfs pull # Pull LFS files
-
-            # Clean up build directories to prevent false positives
-            rm -rf build
-            rm -rf protego-mech/build
+            echo "Build directories ready on temp storage"
           EOF
 
   # Intermediate job to query VM IPs after they're started
@@ -552,6 +522,8 @@ jobs:
           VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
+          vm-pool: "true"
+          CICD_REPO_SECRET: ${{ secrets.CICD_REPO_SECRET }}
 
       - name: Run material tests
         uses: ./.github/actions/run-material-tests
@@ -562,6 +534,7 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
+          vm-pool: "true"
 
       - name: Run utils modules tests
         uses: ./.github/actions/run-utils-modules-tests
@@ -572,6 +545,7 @@ jobs:
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
+          vm-pool: "true"
 
       - name: Run unit tests
         uses: ./.github/actions/run-unit-tests
@@ -583,6 +557,7 @@ jobs:
           gpu: ${{ env.GPU }}
           num-processes: 1
           with-protego: ${{ env.PROTEGO }}
+          vm-pool: "true"
 
       - name: Run regression tests, serial
         uses: ./.github/actions/run-regression-tests
@@ -594,6 +569,7 @@ jobs:
           parallel: false
           build: ${{ env.BUILD_TYPE }}
           with-protego: ${{ env.PROTEGO }}
+          vm-pool: "true"
 
   #############################################################################
   # Code Coverage (CPU only, on GitHub runner)

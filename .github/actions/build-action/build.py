@@ -3,7 +3,6 @@
 import argparse
 import math
 import sys
-import os
 
 import paramiko
 
@@ -12,10 +11,9 @@ def str_to_bool(value):
     return value.lower() in ("true", "1", "t", "y", "yes")
 
 
-def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
+def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, vm_pool=False):
     ssh = paramiko.SSHClient()
-    ssh.load_host_keys(os.path.expanduser("~/.ssh/known_hosts"))
-    ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # Auto-accept for dynamic IPs
 
     # Establish the SSH connection with increased timeout and keepalive options
     ssh.connect(vm_ip, username=vm_username, timeout=60)
@@ -26,13 +24,6 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
     stdin, stdout, stderr = ssh.exec_command("nproc")
     num_procs = int(stdout.read().strip())
     num_jobs = math.ceil(num_procs * 0.75)
-
-    # Construct the compose file and service name
-    compose_file = "docker/docker-compose.yml"
-    service_name = "aperi-mech-development"
-    if gpu and not code_coverage:
-        compose_file = "docker/docker-compose_nvidia.yml"
-        service_name = "aperi-mech-gpu-development"
 
     # Construct the configure flag and build path
     configure_flag = ""
@@ -51,25 +42,86 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego):
         build_path += "_cov"
         run_coverage = "make coverage"
 
-    # Construct the command to run on the VM
-    commands = f"""
-    set -e
-    cd ~/aperi-mech
+    if vm_pool:
+        # VM Pool mode: Use docker run directly, code from Docker image
+        docker_image = "ghcr.io/aperijake/aperi-mech:cuda-t4"
 
-    docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
-        cd ~/aperi-mech_host
-        source $APERI_MECH_ROOT/venv/bin/activate
-        spack env activate aperi-mech
+        # Setup volume mounts for build directories
+        volume_mounts = "-v /mnt/builds:/home/aperi-mech_docker/aperi-mech/build"
+        if with_protego:
+            volume_mounts += " -v /mnt/builds/protego-builds:/home/aperi-mech_docker/aperi-mech/protego-mech/build"
 
-        ./do_configure --build-type {build_type} {configure_flag}
+        # GPU flag
+        gpu_flag = "--gpus all" if (gpu and not code_coverage) else ""
 
-        cd {build_path}
-        make -j{num_jobs}
+        # Pull protego submodule if needed
+        protego_setup = ""
+        if with_protego:
+            protego_setup = """
+            echo "Configuring git for protego-mech submodule..."
+            git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "https://github.com/"
 
-        {run_coverage}
+            echo "Pulling protego-mech submodule..."
+            git submodule update --init --recursive protego-mech || echo "Submodule already initialized"
+            """
 
-    ' || {{ echo "Build project step failed"; exit 1; }}
-    """
+        commands = f"""
+        set -e
+
+        # Ensure build directories exist
+        mkdir -p /mnt/builds /mnt/builds/protego-builds
+
+        # Run build in Docker container
+        docker run --rm {gpu_flag} {volume_mounts} \\
+          -e CICD_REPO_SECRET="${{CICD_REPO_SECRET}}" \\
+          {docker_image} /bin/bash -c '
+            set -e
+            cd /home/aperi-mech_docker/aperi-mech
+
+            {protego_setup}
+
+            echo "Activating environment..."
+            source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+            spack env activate aperi-mech
+
+            echo "Configuring build..."
+            ./do_configure --build-type {build_type} {configure_flag}
+
+            echo "Building..."
+            cd {build_path}
+            make -j{num_jobs}
+
+            {run_coverage}
+
+            echo "Build complete!"
+        ' || {{ echo "Build failed"; exit 1; }}
+        """
+    else:
+        # Old single-VM mode: Use docker-compose, code from VM
+        compose_file = "docker/docker-compose.yml"
+        service_name = "aperi-mech-development"
+        if gpu and not code_coverage:
+            compose_file = "docker/docker-compose_nvidia.yml"
+            service_name = "aperi-mech-gpu-development"
+
+        commands = f"""
+        set -e
+        cd ~/aperi-mech
+
+        docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
+            cd ~/aperi-mech_host
+            source $APERI_MECH_ROOT/venv/bin/activate
+            spack env activate aperi-mech
+
+            ./do_configure --build-type {build_type} {configure_flag}
+
+            cd {build_path}
+            make -j{num_jobs}
+
+            {run_coverage}
+
+        ' || {{ echo "Build project step failed"; exit 1; }}
+        """
 
     print("Executing the following commands on the VM:")
     print(commands)
@@ -111,6 +163,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--protego", default="false", help="With Protego flag (true/false)"
     )
+    parser.add_argument(
+        "--vm-pool",
+        "--vm_pool",
+        dest="vm_pool",
+        default="false",
+        help="VM pool mode (true/false) - uses docker run instead of docker-compose",
+    )
 
     args = parser.parse_args()
 
@@ -121,4 +180,5 @@ if __name__ == "__main__":
         args.build_type,
         str_to_bool(args.code_coverage),
         str_to_bool(args.protego),
+        str_to_bool(args.vm_pool),
     )
