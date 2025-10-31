@@ -1,9 +1,12 @@
 name: CI/CD Pipeline
 
-# Hybrid CI/CD Pipeline:
+# Hybrid CI/CD Pipeline with VM Pool:
 # - CPU tests: Run in parallel on GitHub-hosted runners (~25 min)
-# - GPU tests: Run serially on self-hosted Azure VM (~70 min)
-# - Total runtime: ~70 min (50% faster than previous 145 min serial approach)
+# - GPU tests: Run in parallel across 3 Azure VMs (~25-35 min)
+# - VMs use persistent OS disks (32GB Standard SSD), dynamic IPs, temp storage for Docker
+# - Cost: ~$20-24/month (compute ~$13-17 + persistent OS disks $7.20)
+# - Total runtime: ~35 min (76% faster than 145 min serial, 50% faster than single VM)
+# - To scale pool: Search for "VM_POOL_CONFIG" and update all marked sections
 
 on:
   pull_request:
@@ -268,15 +271,21 @@ jobs:
           pytest -v test_image_segmenter.py test_meshing.py test_simulation.py
 
   #############################################################################
-  # GPU Tests - Run on Azure VM (serial, since only one VM)
+  # GPU Tests - Run on Azure VM Pool (parallel across 3 VMs)
+  #############################################################################
+  # VM_POOL_CONFIG: Current pool size is 3 VMs
+  # To scale the pool, search for "VM_POOL_CONFIG" and update all marked sections
   #############################################################################
 
   setup-gpu:
-    name: Setup GPU VM
+    name: Setup GPU VM (${{ matrix.vm_index }})
     runs-on: ubuntu-latest
 
-    outputs:
-      vm_started: ${{ steps.vm-status.outputs.vm_started }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3 # VM_POOL_CONFIG: Start all VMs in parallel (set to pool size)
+      matrix:
+        vm_index: [1, 2, 3] # VM_POOL_CONFIG: Update array when adding/removing VMs
 
     steps:
       - name: Checkout Code on Runner
@@ -285,7 +294,7 @@ jobs:
           lfs: false
           ref: ${{ github.head_ref }}
 
-      - name: Access Azure VM
+      - name: Start Azure VM and Get Status
         id: vm-status
         uses: azure/CLI@v2
         with:
@@ -299,6 +308,7 @@ jobs:
               echo "Failed to login"
               exit 1
             fi
+
             echo "Setting Azure subscription..."
             az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
             if [ $? -eq 0 ]; then
@@ -307,27 +317,86 @@ jobs:
                 echo "Failed to set subscription"
                 exit 1
             fi
-            echo "Checking if VM is running..."
-            VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }} --query instanceView.statuses[1].displayStatus --output tsv)
-            if [ "$VM_STATUS" != "VM running" ]; then
-              echo "Starting VM..."
-              az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
-              echo "vm_started=true" >> $GITHUB_OUTPUT
+
+            # Determine VM name based on matrix index
+            if [ "${{ matrix.vm_index }}" = "1" ]; then
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
             else
-              echo "VM is already running"
-              echo "vm_started=false" >> $GITHUB_OUTPUT
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
             fi
 
-      - name: Common SSH and Azure CLI Setup
-        uses: ./.github/actions/common-ssh-and-azure-steps
+            echo "Checking VM: $VM_NAME"
+            VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME" --query instanceView.statuses[1].displayStatus --output tsv)
+
+            if [ "$VM_STATUS" != "VM running" ]; then
+              echo "Starting VM $VM_NAME..."
+              az vm start --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME"
+              echo "vm_started_${{ matrix.vm_index }}=true" >> $GITHUB_OUTPUT
+            else
+              echo "VM $VM_NAME is already running"
+              echo "vm_started_${{ matrix.vm_index }}=false" >> $GITHUB_OUTPUT
+            fi
+
+      - name: Get VM Dynamic IP
+        id: get-ip
+        uses: azure/CLI@v2
         with:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
+          azcliversion: 2.62.0
+          inlineScript: |
+            # Login (reuse credentials from previous step)
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            # Determine VM name
+            if [ "${{ matrix.vm_index }}" = "1" ]; then
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+            else
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
+            fi
+
+            # Get dynamic public IP with retry logic
+            echo "Querying public IP for $VM_NAME..."
+            for i in {1..5}; do
+              VM_IP=$(az vm show -d --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME" --query publicIps -o tsv)
+              if [ -n "$VM_IP" ] && [ "$VM_IP" != "null" ]; then
+                echo "VM $VM_NAME Public IP: $VM_IP"
+                echo "vm_ip_${{ matrix.vm_index }}=$VM_IP" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+              echo "Retry $i: Waiting for IP address..."
+              sleep 10
+            done
+
+            echo "Error: Could not retrieve IP for $VM_NAME"
+            exit 1
+
+      - name: Setup SSH for Dynamic IP
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Get IP from previous step output
+          VM_IP="${{ steps.get-ip.outputs[format('vm_ip_{0}', matrix.vm_index)] }}"
+
+          # Add host key using ssh-keyscan (for dynamic IPs)
+          echo "Adding SSH host key for $VM_IP..."
+          ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Test SSH connection
+          ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"$VM_IP" "echo 'SSH connection successful'"
 
       - name: Checkout Code on VM
         run: |
-          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@${{ secrets.VM_IP }} << 'EOF'
+          # VM_POOL_CONFIG: Map VM index to IP output (add cases when scaling)
+          case "${{ matrix.vm_index }}" in
+            1) VM_IP="${{ steps.get-ip.outputs.vm_ip_1 }}" ;;
+            2) VM_IP="${{ steps.get-ip.outputs.vm_ip_2 }}" ;;
+            3) VM_IP="${{ steps.get-ip.outputs.vm_ip_3 }}" ;;
+            *) echo "Error: Invalid VM index ${{ matrix.vm_index }}"; exit 1 ;;
+          esac
+
+          ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@"$VM_IP" << 'EOF'
             set -e # Exit on error
 
             cd ~/aperi-mech
@@ -371,20 +440,65 @@ jobs:
             rm -rf protego-mech/build
           EOF
 
-  build-and-test-gpu:
-    name: Build and Test GPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }})
+  # Intermediate job to query VM IPs after they're started
+  get-vm-ips:
+    name: Get VM IPs
     runs-on: ubuntu-latest
     needs: setup-gpu
 
+    outputs:
+      # VM_POOL_CONFIG: Add vm_ip_N output for each VM in the pool
+      vm_ip_1: ${{ steps.get-ips.outputs.vm_ip_1 }}
+      vm_ip_2: ${{ steps.get-ips.outputs.vm_ip_2 }}
+      vm_ip_3: ${{ steps.get-ips.outputs.vm_ip_3 }}
+
+    steps:
+      - name: Query All VM IPs
+        id: get-ips
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.62.0
+          inlineScript: |
+            echo "Logging into Azure..."
+            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+            az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            # VM_POOL_CONFIG: Update loop range to match pool size (e.g., "1 2 3 4" for 4 VMs)
+            for i in 1 2 3; do
+              if [ "$i" = "1" ]; then
+                VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+              else
+                VM_NAME="${{ secrets.AZURE_VM_NAME }}-$i"
+              fi
+
+              echo "Querying IP for $VM_NAME..."
+              VM_IP=$(az vm show -d --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME" --query publicIps -o tsv)
+
+              if [ -n "$VM_IP" ] && [ "$VM_IP" != "null" ]; then
+                echo "VM $VM_NAME IP: $VM_IP"
+                echo "vm_ip_$i=$VM_IP" >> $GITHUB_OUTPUT
+              else
+                echo "Warning: Could not get IP for $VM_NAME"
+              fi
+            done
+
+  build-and-test-gpu:
+    name: Build and Test GPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }}, VM=${{ matrix.config.VM_INDEX }})
+    runs-on: ubuntu-latest
+    needs: get-vm-ips
+
     strategy:
       fail-fast: false
-      max-parallel: 1 # Run GPU configs serially (only one VM)
+      max-parallel: 3 # VM_POOL_CONFIG: Set to pool size to run one config per VM
       matrix:
+        # VM_POOL_CONFIG: Assign each test config to a VM_INDEX
+        # With 3 VMs and 4 configs, VM 1 runs 2 configs sequentially
+        # With 4 VMs and 4 configs, each VM runs 1 config (true 1:1 parallelization)
         config:
-          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true }
-          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false }
-          - { BUILD_TYPE: Release, GPU: true, PROTEGO: true }
-          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false }
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true, VM_INDEX: 1 }
+          - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false, VM_INDEX: 2 }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: true, VM_INDEX: 3 }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false, VM_INDEX: 1 }
 
     env:
       BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
@@ -392,11 +506,38 @@ jobs:
       PROTEGO: ${{ matrix.config.PROTEGO }}
 
     steps:
+      - name: Set VM IP
+        id: set-ip
+        run: |
+          # VM_POOL_CONFIG: Map config VM_INDEX to IP output (add cases when scaling)
+          case "${{ matrix.config.VM_INDEX }}" in
+            1) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_1 }}" ;;
+            2) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_2 }}" ;;
+            3) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_3 }}" ;;
+            *) echo "Error: Invalid VM index ${{ matrix.config.VM_INDEX }}"; exit 1 ;;
+          esac
+          echo "VM_IP=$VM_IP" >> $GITHUB_ENV
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+          echo "Using VM IP: $VM_IP for VM ${{ matrix.config.VM_INDEX }}"
+
       - name: Checkout Code on Runner
         uses: actions/checkout@v4
         with:
           lfs: false
           ref: ${{ github.head_ref }}
+
+      - name: Setup SSH for Dynamic IP
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Add host key using ssh-keyscan (for dynamic IPs)
+          echo "Adding SSH host key for ${{ steps.set-ip.outputs.vm_ip }}..."
+          ssh-keyscan -H "${{ steps.set-ip.outputs.vm_ip }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Test SSH connection
+          ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"${{ steps.set-ip.outputs.vm_ip }}" "echo 'SSH connection successful to VM ${{ matrix.config.VM_INDEX }}'"
 
       - name: Common Runner Config Steps
         uses: ./.github/actions/common-runner-config-steps
@@ -405,7 +546,7 @@ jobs:
         uses: ./.github/actions/build-action
         with:
           build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
+          VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
@@ -416,7 +557,7 @@ jobs:
         uses: ./.github/actions/run-material-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
+          VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
@@ -426,7 +567,7 @@ jobs:
         uses: ./.github/actions/run-utils-modules-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
+          VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
@@ -436,7 +577,7 @@ jobs:
         uses: ./.github/actions/run-unit-tests
         with:
           build-type: ${{ env.BUILD_TYPE }}
-          VM_IP: ${{ secrets.VM_IP }}
+          VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
@@ -446,7 +587,7 @@ jobs:
       - name: Run regression tests, serial
         uses: ./.github/actions/run-regression-tests
         with:
-          VM_IP: ${{ secrets.VM_IP }}
+          VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
@@ -531,17 +672,18 @@ jobs:
 
   teardown-gpu:
     runs-on: ubuntu-latest
-    name: Teardown GPU VM
+    name: Teardown GPU VM (${{ matrix.vm_index }})
     needs: [setup-gpu, build-and-test-gpu, code-coverage]
     if: always()
 
-    steps:
-      - name: Print VM status
-        run: |
-          echo "VM started: ${{ needs.setup-gpu.outputs.vm_started }}"
+    strategy:
+      fail-fast: false
+      max-parallel: 3 # VM_POOL_CONFIG: Deallocate all VMs in parallel (set to pool size)
+      matrix:
+        vm_index: [1, 2, 3] # VM_POOL_CONFIG: Update array to match setup-gpu matrix
 
-      - name: Stop Azure VM
-        if: needs.setup-gpu.outputs.vm_started == 'true'
+    steps:
+      - name: Deallocate Azure VM
         uses: azure/CLI@v2
         with:
           azcliversion: 2.62.0
@@ -554,6 +696,7 @@ jobs:
               echo "Failed to login"
               exit 1
             fi
+
             echo "Setting Azure subscription..."
             az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
             if [ $? -eq 0 ]; then
@@ -562,11 +705,26 @@ jobs:
                 echo "Failed to set subscription"
                 exit 1
             fi
-            echo "Deallocating VM..."
-            az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_VM_NAME }}
-            if [ $? -eq 0 ]; then
-                echo "VM deallocated successfully"
+
+            # Determine VM name based on matrix index
+            if [ "${{ matrix.vm_index }}" = "1" ]; then
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
             else
-                echo "Failed to deallocate VM"
-                exit 1
+              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
+            fi
+
+            echo "Checking status of VM: $VM_NAME"
+            VM_STATUS=$(az vm get-instance-view --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME" --query instanceView.statuses[1].displayStatus --output tsv 2>/dev/null || echo "Not found")
+
+            if [ "$VM_STATUS" = "VM running" ]; then
+              echo "Deallocating VM $VM_NAME..."
+              az vm deallocate --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name "$VM_NAME"
+              if [ $? -eq 0 ]; then
+                  echo "VM $VM_NAME deallocated successfully"
+              else
+                  echo "Failed to deallocate VM $VM_NAME"
+                  exit 1
+              fi
+            else
+              echo "VM $VM_NAME is not running (status: $VM_STATUS), skipping deallocation"
             fi
