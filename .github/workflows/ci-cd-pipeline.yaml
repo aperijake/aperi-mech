@@ -70,7 +70,7 @@ jobs:
         with:
           lfs: true
           submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-key: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
 
       - name: Fix git ownership
         shell: bash
@@ -373,7 +373,7 @@ jobs:
       - name: Setup SSH for Dynamic IP
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           # Get IP from previous step output
@@ -529,7 +529,7 @@ jobs:
       - name: Setup SSH for Dynamic IP
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           # Add host key using ssh-keyscan (for dynamic IPs)
@@ -547,7 +547,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: ${{ env.GPU }}
@@ -558,7 +558,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
@@ -568,7 +568,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
@@ -578,7 +578,7 @@ jobs:
         with:
           build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           num-processes: 1
@@ -588,7 +588,7 @@ jobs:
         uses: ./.github/actions/run-regression-tests
         with:
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
           gpu: ${{ env.GPU }}
           parallel: false
@@ -673,7 +673,7 @@ jobs:
   teardown-gpu:
     runs-on: ubuntu-latest
     name: Teardown GPU VM (${{ matrix.vm_index }})
-    needs: [setup-gpu, build-and-test-gpu, code-coverage]
+    needs: [setup-gpu, build-and-test-gpu]
     if: always()
 
     strategy:
