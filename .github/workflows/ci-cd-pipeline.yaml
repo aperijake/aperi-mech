@@ -320,9 +320,9 @@ jobs:
 
             # Determine VM name based on matrix index
             if [ "${{ matrix.vm_index }}" = "1" ]; then
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}"
             else
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}-${{ matrix.vm_index }}"
             fi
 
             echo "Checking VM: $VM_NAME"
@@ -349,9 +349,9 @@ jobs:
 
             # Determine VM name
             if [ "${{ matrix.vm_index }}" = "1" ]; then
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}"
             else
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}-${{ matrix.vm_index }}"
             fi
 
             # Get dynamic public IP with retry logic
@@ -466,9 +466,9 @@ jobs:
             # VM_POOL_CONFIG: Update loop range to match pool size (e.g., "1 2 3 4" for 4 VMs)
             for i in 1 2 3; do
               if [ "$i" = "1" ]; then
-                VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+                VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}"
               else
-                VM_NAME="${{ secrets.AZURE_VM_NAME }}-$i"
+                VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}-$i"
               fi
 
               echo "Querying IP for $VM_NAME..."
@@ -708,9 +708,9 @@ jobs:
 
             # Determine VM name based on matrix index
             if [ "${{ matrix.vm_index }}" = "1" ]; then
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}"
             else
-              VM_NAME="${{ secrets.AZURE_VM_NAME }}-${{ matrix.vm_index }}"
+              VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}-${{ matrix.vm_index }}"
             fi
 
             echo "Checking status of VM: $VM_NAME"

@@ -47,7 +47,7 @@ The CI/CD workflow distributes GPU tests across 3 VMs running in parallel:
 
 ### VM Naming Convention
 
-- Base VM: `CICD-NCasT4v3` (configured in GitHub secret `AZURE_VM_NAME`)
+- Base VM: `CICD-NCasT4v3` (configured in GitHub secret `AZURE_CICD_GPU_VM_BASE`)
 - Additional VMs: `CICD-NCasT4v3-2`, `CICD-NCasT4v3-3`
 - Workflow automatically appends `-2`, `-3` etc. based on the base name
 
