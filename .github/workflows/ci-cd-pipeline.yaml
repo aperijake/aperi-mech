@@ -70,7 +70,7 @@ jobs:
         with:
           lfs: true
           submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
-          ssh-key: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Fix git ownership
         shell: bash
