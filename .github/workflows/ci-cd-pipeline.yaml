@@ -379,12 +379,22 @@ jobs:
           # Get IP from previous step output
           VM_IP="${{ steps.get-ip.outputs[format('vm_ip_{0}', matrix.vm_index)] }}"
 
-          # Add host key using ssh-keyscan (for dynamic IPs)
-          echo "Adding SSH host key for $VM_IP..."
-          ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Wait for SSH to be ready with retry logic (VMs may take different times to boot)
+          echo "Waiting for SSH to be ready on $VM_IP..."
+          for i in {1..10}; do
+            echo "Attempt $i/10: Testing SSH connection..."
+            if ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null; then
+              if ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"$VM_IP" "echo 'SSH connection successful'" 2>/dev/null; then
+                echo "SSH is ready!"
+                exit 0
+              fi
+            fi
+            echo "SSH not ready yet, waiting 15 seconds..."
+            sleep 15
+          done
 
-          # Test SSH connection
-          ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"$VM_IP" "echo 'SSH connection successful'"
+          echo "Error: SSH connection failed after 10 attempts"
+          exit 1
 
       - name: Setup Build Directories on VM
         run: |
