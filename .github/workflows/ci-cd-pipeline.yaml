@@ -399,9 +399,9 @@ jobs:
           ssh -T -o ConnectTimeout=10 ${{ secrets.VM_USERNAME }}@"$VM_IP" << 'EOF'
             set -e
 
-            # Create build directories on temp storage
-            mkdir -p /mnt/builds
-            mkdir -p /mnt/builds/protego-builds
+            # Create build directories on temp storage (needs sudo as /mnt is root-owned)
+            sudo mkdir -p /mnt/builds /mnt/builds/protego-builds
+            sudo chown -R $USER:$USER /mnt/builds
 
             # Clean up any old builds
             rm -rf /mnt/builds/*
