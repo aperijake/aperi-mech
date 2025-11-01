@@ -383,7 +383,7 @@ jobs:
           echo "Waiting for SSH to be ready on $VM_IP..."
           for i in {1..10}; do
             echo "Attempt $i/10: Testing SSH connection..."
-            if ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null; then
+            if ssh-keyscan "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null; then
               if ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"$VM_IP" "echo 'SSH connection successful'" 2>/dev/null; then
                 echo "SSH is ready!"
                 exit 0
@@ -512,9 +512,12 @@ jobs:
           echo "${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # Add host key using ssh-keyscan (for dynamic IPs)
+          # Add host key using ssh-keyscan (without -H flag for paramiko compatibility)
           echo "Adding SSH host key for ${{ steps.set-ip.outputs.vm_ip }}..."
-          ssh-keyscan -H "${{ steps.set-ip.outputs.vm_ip }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan "${{ steps.set-ip.outputs.vm_ip }}" >> ~/.ssh/known_hosts 2>&1
+
+          echo "Known hosts file contents:"
+          cat ~/.ssh/known_hosts
 
           # Test SSH connection
           ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"${{ steps.set-ip.outputs.vm_ip }}" "echo 'SSH connection successful to VM ${{ matrix.config.VM_INDEX }}'"
