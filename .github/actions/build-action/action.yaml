@@ -11,8 +11,8 @@ inputs:
     description: Username for the VM
     required: true
   VM_KNOWN_HOST:
-    description: Known hosts entry for the VM
-    required: true
+    description: Known hosts entry for the VM (optional, for static IP VMs)
+    required: false
   build-type:
     description: Build type (e.g., Release, Debug)
     required: true
@@ -26,10 +26,17 @@ inputs:
     description: Enable code coverage
     required: false
     default: "false"
+  vm-pool:
+    description: VM pool mode (uses docker run instead of docker-compose)
+    required: false
+    default: "false"
+  CICD_REPO_SECRET:
+    description: GitHub token for accessing private submodules
+    required: false
 runs:
   using: composite
   steps:
-    - name: Common SSH and Azure CLI Setup
+    - name: Common SSH Setup
       uses: ./.github/actions/common-ssh-and-azure-steps
       with:
         VM_IP: ${{ inputs.VM_IP }}
@@ -43,11 +50,21 @@ runs:
         echo "gpu: ${{ inputs.gpu }}"
         echo "code-coverage: ${{ inputs.code-coverage }}"
         echo "with-protego: ${{ inputs.with-protego }}"
+        echo "vm-pool: ${{ inputs.vm-pool }}"
 
     - name: Build project
       shell: bash
+      env:
+        CICD_REPO_SECRET: ${{ inputs.CICD_REPO_SECRET }}
       run: |
-        python3 ./.github/actions/build-action/build.py --ip ${{ inputs.VM_IP }} --username ${{ inputs.VM_USERNAME }} --build-type ${{ inputs.build-type }} --gpu ${{ inputs.gpu }} --code-coverage ${{ inputs.code-coverage }} --protego ${{ inputs.with-protego }}
+        python3 ./.github/actions/build-action/build.py \
+          --ip ${{ inputs.VM_IP }} \
+          --username ${{ inputs.VM_USERNAME }} \
+          --build-type ${{ inputs.build-type }} \
+          --gpu ${{ inputs.gpu }} \
+          --code-coverage ${{ inputs.code-coverage }} \
+          --protego ${{ inputs.with-protego }} \
+          --vm-pool ${{ inputs.vm-pool }}
         exit_code=$?
         if [ $exit_code -ne 0 ]; then
           echo "Build failed with exit code $exit_code"

@@ -19,6 +19,10 @@ inputs:
   with-protego:
     description: Enable Protego build
     required: true
+  vm-pool:
+    description: VM pool mode (uses docker run instead of docker-compose)
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -28,54 +32,95 @@ runs:
         echo "build-type: ${{ inputs.build-type }}"
         echo "gpu: ${{ inputs.gpu }}"
         echo "with-protego: ${{ inputs.with-protego }}"
+        echo "vm-pool: ${{ inputs.vm-pool }}"
 
     - name: Run utils modules tests
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
-          set -e # Exit on error
-          cd ~/aperi-mech
+          set -e
 
-          compose_file=docker/docker-compose.yml
-          service_name=aperi-mech-development
-          if [ ${{ inputs.gpu }} == 'true' ]; then
-            compose_file=docker/docker-compose_nvidia.yml
-            service_name=aperi-mech-gpu-development
+          # Determine build type (case-insensitive)
+          build_type="Debug"
+          build_type_lower=$(echo "${{ inputs.build-type }}" | tr "[:upper:]" "[:lower:]")
+          if [ "$build_type_lower" == "release" ]; then
+            build_type="Release"
           fi
-          # Debugging
-          echo "On VM, Compose file: $compose_file"
-          echo "On VM, Service name: $service_name"
 
-          docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            build_type="Debug"
-            build_type_lower=$(echo "${{ inputs.build-type }}" | tr "[:upper:]" "[:lower:]")
-            if [ "$build_type_lower" == "release" ]; then
-              build_type="Release"
+          # Determine build path
+          build_root="build"
+          if [ "${{ inputs.with-protego }}" == "true" ]; then
+            build_root="protego-mech/build"
+          fi
+          build_path="${build_root}/${build_type}"
+          if [ "${{ inputs.gpu }}" == "true" ]; then
+            build_path="${build_path}_gpu"
+          fi
+
+          echo "Build path: $build_path"
+
+          if [ "${{ inputs.vm-pool }}" == "true" ]; then
+            # VM Pool mode: Use docker run
+            docker_image="ghcr.io/aperijake/aperi-mech:cuda-t4"
+            gpu_flag=""
+            if [ "${{ inputs.gpu }}" == "true" ]; then
+              gpu_flag="--gpus all"
             fi
-            build_root=~/aperi-mech_host/build
-            if [ ${{ inputs.with-protego }} == "true" ]; then
-              build_root=~/aperi-mech_host/protego-mech/build
+
+            volume_mounts="-v /mnt/builds:/home/aperi-mech_docker/aperi-mech/build"
+            if [ "${{ inputs.with-protego }}" == "true" ]; then
+              volume_mounts="$volume_mounts -v /mnt/builds/protego-builds:/home/aperi-mech_docker/aperi-mech/protego-mech/build"
             fi
-            build_path="${build_root}/${build_type}"
-            if [ ${{ inputs.gpu }} == "true" ]; then
-              build_path="${build_path}_gpu"
+
+            docker run --rm $gpu_flag $volume_mounts \
+              $docker_image /bin/bash -c "
+                set -e
+                cd /home/aperi-mech_docker/aperi-mech/${build_path}
+
+                echo 'Setting up Spack environment...'
+                source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+                spack env activate aperi-mech
+
+                # Add aperi-mech build directory to PATH
+                export PATH=\$PATH:/home/aperi-mech_docker/aperi-mech/${build_path}
+
+                echo 'Running utils modules tests...'
+                make run_utils_modules_tests
+              " || { echo "Utils modules test step failed"; exit 1; }
+
+          else
+            # Old single-VM mode: Use docker-compose
+            cd ~/aperi-mech
+
+            compose_file=docker/docker-compose.yml
+            service_name=aperi-mech-development
+            if [ "${{ inputs.gpu }}" == "true" ]; then
+              compose_file=docker/docker-compose_nvidia.yml
+              service_name=aperi-mech-gpu-development
             fi
-            # Debugging
-            echo "In container, inputs.build-type: ${{ inputs.build-type }}"
-            echo "In container, inputs.gpu: ${{ inputs.gpu }}"
-            echo "In container, inputs.with-protego: ${{ inputs.with-protego }}"
-            echo "In container, build_path: $build_path"
 
-            cd $build_path
-            echo "Setting up Spack environment..."
-            source $APERI_MECH_ROOT/venv/bin/activate
-            spack env activate aperi-mech
+            echo "Compose file: $compose_file"
+            echo "Service name: $service_name"
 
-            # Add aperi-mech build directory to PATH
-            export PATH=$PATH:$build_path
+            docker-compose -f $compose_file run --rm $service_name /bin/bash -c "
+              build_root=~/aperi-mech_host/${build_root}
+              build_path=\${build_root}/${build_type}
+              if [ \"${{ inputs.gpu }}\" == \"true\" ]; then
+                build_path=\"\${build_path}_gpu\"
+              fi
 
-            echo "Running utils modules tests..."
-            make run_utils_modules_tests
+              echo \"Build path: \$build_path\"
+              cd \$build_path
 
-          '  || { echo "Utils modules test step failed"; exit 1; }
+              echo 'Setting up Spack environment...'
+              source \$APERI_MECH_ROOT/venv/bin/activate
+              spack env activate aperi-mech
+
+              # Add aperi-mech build directory to PATH
+              export PATH=\$PATH:\$build_path
+
+              echo 'Running utils modules tests...'
+              make run_utils_modules_tests
+            " || { echo "Utils modules test step failed"; exit 1; }
+          fi
         EOF
