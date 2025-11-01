@@ -53,9 +53,10 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
         docker_image = "ghcr.io/aperijake/aperi-mech:cuda-t4"
 
         # Setup volume mounts for build directories
-        volume_mounts = "-v /mnt/builds:/home/aperi-mech_docker/aperi-mech/build"
+        # Mount to /tmp to avoid conflicts with git submodule init, then symlink
+        volume_mounts = "-v /mnt/builds:/tmp/aperi-builds"
         if with_protego:
-            volume_mounts += " -v /mnt/builds/protego-builds:/home/aperi-mech_docker/aperi-mech/protego-mech/build"
+            volume_mounts += " -v /mnt/builds/protego-builds:/tmp/protego-builds"
 
         # GPU flag
         gpu_flag = "--gpus all" if (gpu and not code_coverage) else ""
@@ -67,11 +68,12 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
             echo "Configuring git for protego-mech submodule..."
             git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "https://github.com/"
 
-            echo "Cleaning and pulling protego-mech submodule..."
-            # Remove existing protego-mech directory if present (Docker image may have stale version)
-            ls -la protego-mech || true
-            rm -rf protego-mech
+            echo "Initializing protego-mech submodule..."
             git submodule update --init --recursive protego-mech
+
+            echo "Setting up symlink for protego-mech build directory..."
+            # Create symlink to mounted build directory
+            ln -sf /tmp/protego-builds protego-mech/build
             """
 
         commands = f"""
@@ -86,6 +88,11 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
           {docker_image} /bin/bash -c '
             set -e
             cd /home/aperi-mech_docker/aperi-mech
+
+            echo "Setting up symlink for main build directory..."
+            # Create symlink from build to mounted location
+            rm -rf build
+            ln -sf /tmp/aperi-builds build
 
             {protego_setup}
 
