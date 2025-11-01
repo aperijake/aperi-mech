@@ -516,9 +516,6 @@ jobs:
           echo "Adding SSH host key for ${{ steps.set-ip.outputs.vm_ip }}..."
           ssh-keyscan "${{ steps.set-ip.outputs.vm_ip }}" >> ~/.ssh/known_hosts 2>&1
 
-          echo "Known hosts file contents:"
-          cat ~/.ssh/known_hosts
-
           # Test SSH connection
           ssh -T -o ConnectTimeout=30 -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@"${{ steps.set-ip.outputs.vm_ip }}" "echo 'SSH connection successful to VM ${{ matrix.config.VM_INDEX }}'"
 
