@@ -16,12 +16,28 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
     ssh = paramiko.SSHClient()
     # Load host keys from ~/.ssh/known_hosts (populated by ssh-keyscan in workflow)
     known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
+    print(f"DEBUG: Looking for known_hosts at: {known_hosts_path}")
+    print(f"DEBUG: File exists: {os.path.exists(known_hosts_path)}")
     if os.path.exists(known_hosts_path):
+        print(f"DEBUG: Loading host keys from {known_hosts_path}")
+        with open(known_hosts_path, 'r') as f:
+            print(f"DEBUG: known_hosts contents:\n{f.read()}")
         ssh.load_host_keys(known_hosts_path)
+        print(f"DEBUG: Loaded {len(ssh.get_host_keys())} host keys")
+        print(f"DEBUG: Looking for host: {vm_ip}")
+        host_keys = ssh.get_host_keys()
+        if vm_ip in host_keys:
+            print(f"DEBUG: Found keys for {vm_ip}: {list(host_keys[vm_ip].keys())}")
+        else:
+            print(f"DEBUG: No keys found for {vm_ip}")
+            print(f"DEBUG: Available hosts in known_hosts: {list(host_keys.keys())}")
+    else:
+        print(f"DEBUG: known_hosts file does not exist!")
     # Reject unknown hosts for security (workflow adds keys via ssh-keyscan)
     ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
     # Establish the SSH connection with increased timeout and keepalive options
+    print(f"DEBUG: Attempting to connect to {vm_ip}")
     ssh.connect(vm_ip, username=vm_username, timeout=60)
     transport = ssh.get_transport()
     transport.set_keepalive(30)  # Send keepalive messages every 30 seconds
