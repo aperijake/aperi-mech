@@ -26,6 +26,9 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
     transport = ssh.get_transport()
     transport.set_keepalive(30)  # Send keepalive messages every 30 seconds
 
+    # Get CICD_REPO_SECRET from environment (set by GitHub Actions)
+    cicd_repo_secret = os.environ.get("CICD_REPO_SECRET", "")
+
     # Determine the number of processors and calculate 75% of them
     stdin, stdout, stderr = ssh.exec_command("nproc")
     num_procs = int(stdout.read().strip())
@@ -67,6 +70,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
             protego_setup = """
             echo "Configuring git for protego-mech submodule..."
             git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "https://github.com/"
+            git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "git@github.com:"
 
             echo "Initializing protego-mech submodule..."
             git submodule update --init --recursive protego-mech
@@ -84,7 +88,7 @@ def run_build(vm_ip, vm_username, gpu, build_type, code_coverage, with_protego, 
 
         # Run build in Docker container
         docker run --rm {gpu_flag} {volume_mounts} \\
-          -e CICD_REPO_SECRET="${{CICD_REPO_SECRET}}" \\
+          -e CICD_REPO_SECRET="{cicd_repo_secret}" \\
           {docker_image} /bin/bash -c '
             set -e
             cd /home/aperi-mech_docker/aperi-mech
