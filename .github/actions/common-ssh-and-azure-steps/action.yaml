@@ -22,6 +22,18 @@ runs:
       shell: bash
       run: echo "${{ inputs.VM_KNOWN_HOST }}" > ~/.ssh/known_hosts
 
+    - name: Add dynamic IP to known_hosts (if not already present)
+      if: ${{ inputs.VM_KNOWN_HOST == '' }}
+      shell: bash
+      run: |
+        # For dynamic IPs, add host key via ssh-keyscan if not already in known_hosts
+        if ! grep -q "${{ inputs.VM_IP }}" ~/.ssh/known_hosts 2>/dev/null; then
+          echo "Adding host key for dynamic IP ${{ inputs.VM_IP }}..."
+          ssh-keyscan "${{ inputs.VM_IP }}" >> ~/.ssh/known_hosts 2>&1
+        else
+          echo "Host key for ${{ inputs.VM_IP }} already in known_hosts"
+        fi
+
     - name: Add SSH private key
       shell: bash
       run: |
