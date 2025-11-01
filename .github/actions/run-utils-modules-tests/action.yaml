@@ -72,9 +72,11 @@ runs:
               volume_mounts="$volume_mounts -v /mnt/builds/protego-builds:/tmp/protego-builds"
             fi
 
+            with_protego_flag="${{ inputs.with-protego }}"
+
             docker run --rm $gpu_flag $volume_mounts \
               -e BUILD_PATH="$build_path" \
-              -e WITH_PROTEGO="${{ inputs.with-protego }}" \
+              -e WITH_PROTEGO="$with_protego_flag" \
               $docker_image /bin/bash -c '
                 set -e
                 cd /home/aperi-mech_docker/aperi-mech
