@@ -82,35 +82,35 @@ runs:
             fi
 
             docker run --rm $gpu_flag $volume_mounts \
-              $docker_image /bin/bash -c "
+              $docker_image /bin/bash -c '
                 set -e
                 cd /home/aperi-mech_docker/aperi-mech
 
                 # Create symlinks to mounted build directories
                 ln -sf /tmp/aperi-builds build
-                if [ \"${{ inputs.with-protego }}\" == \"true\" ]; then
+                if [ "${{ inputs.with-protego }}" == "true" ]; then
                   ln -sf /tmp/protego-builds protego-mech/build
                 fi
 
-                echo 'Setting up Spack environment...'
+                echo "Setting up Spack environment..."
                 source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
                 spack env activate aperi-mech
 
-                echo 'Running regression tests...'
+                echo "Running regression tests..."
                 cd /home/aperi-mech_docker/aperi-mech/test/
 
-                if [ \"${{ inputs.with-protego }}\" == \"true\" ]; then
-                  ./run_regression_tests.py \\
-                    --directory-file /home/aperi-mech_docker/aperi-mech/protego-mech/test/regression_tests/regression_test_paths.yaml \\
-                    --build-dir /home/aperi-mech_docker/aperi-mech/protego-mech/build/ \\
-                    $test_flags
+                if [ "${{ inputs.with-protego }}" == "true" ]; then
+                  ./run_regression_tests.py \
+                    --directory-file /home/aperi-mech_docker/aperi-mech/protego-mech/test/regression_tests/regression_test_paths.yaml \
+                    --build-dir /home/aperi-mech_docker/aperi-mech/protego-mech/build/ \
+                    '"${test_flags}"'
                 else
-                  ./run_regression_tests.py \\
-                    --directory ./regression_tests \\
-                    --build-dir /home/aperi-mech_docker/aperi-mech/build/ \\
-                    $test_flags
+                  ./run_regression_tests.py \
+                    --directory ./regression_tests \
+                    --build-dir /home/aperi-mech_docker/aperi-mech/build/ \
+                    '"${test_flags}"'
                 fi
-              " || { echo "Regression test step failed"; exit 1; }
+              ' || { echo "Regression test step failed"; exit 1; }
 
           else
             # Old single-VM mode: Use docker-compose

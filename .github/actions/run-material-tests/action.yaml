@@ -73,25 +73,25 @@ runs:
             fi
 
             docker run --rm $gpu_flag $volume_mounts \
-              $docker_image /bin/bash -c "
+              $docker_image /bin/bash -c '
                 set -e
                 cd /home/aperi-mech_docker/aperi-mech
 
                 # Create symlinks to mounted build directories
                 ln -sf /tmp/aperi-builds build
-                if [ \"${{ inputs.with-protego }}\" == \"true\" ]; then
+                if [ "${{ inputs.with-protego }}" == "true" ]; then
                   ln -sf /tmp/protego-builds protego-mech/build
                 fi
 
-                cd ${build_path}
+                cd '"${build_path}"'
 
-                echo 'Setting up Spack environment...'
+                echo "Setting up Spack environment..."
                 source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
                 spack env activate aperi-mech
 
-                echo 'Running material tests...'
+                echo "Running material tests..."
                 make run_material_tests
-              " || { echo "Material test step failed"; exit 1; }
+              ' || { echo "Material test step failed"; exit 1; }
 
           else
             # Old single-VM mode: Use docker-compose
