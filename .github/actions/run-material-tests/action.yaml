@@ -73,17 +73,19 @@ runs:
             fi
 
             docker run --rm $gpu_flag $volume_mounts \
+              -e BUILD_PATH="$build_path" \
+              -e WITH_PROTEGO="${{ inputs.with-protego }}" \
               $docker_image /bin/bash -c '
                 set -e
                 cd /home/aperi-mech_docker/aperi-mech
 
                 # Create symlinks to mounted build directories
                 ln -sf /tmp/aperi-builds build
-                if [ "${{ inputs.with-protego }}" == "true" ]; then
+                if [ "$WITH_PROTEGO" == "true" ]; then
                   ln -sf /tmp/protego-builds protego-mech/build
                 fi
 
-                cd '"${build_path}"'
+                cd $BUILD_PATH
 
                 echo "Setting up Spack environment..."
                 source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
