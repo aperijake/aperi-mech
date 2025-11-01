@@ -532,7 +532,6 @@ jobs:
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
-          VM_KNOWN_HOST: ${{ secrets.VM_KNOWN_HOST }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
           vm-pool: "true"
