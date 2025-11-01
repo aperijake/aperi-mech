@@ -76,14 +76,21 @@ runs:
               gpu_flag="--gpus all"
             fi
 
-            volume_mounts="-v /mnt/builds:/home/aperi-mech_docker/aperi-mech/build"
+            volume_mounts="-v /mnt/builds:/tmp/aperi-builds"
             if [ "${{ inputs.with-protego }}" == "true" ]; then
-              volume_mounts="$volume_mounts -v /mnt/builds/protego-builds:/home/aperi-mech_docker/aperi-mech/protego-mech/build"
+              volume_mounts="$volume_mounts -v /mnt/builds/protego-builds:/tmp/protego-builds"
             fi
 
             docker run --rm $gpu_flag $volume_mounts \
               $docker_image /bin/bash -c "
                 set -e
+                cd /home/aperi-mech_docker/aperi-mech
+
+                # Create symlinks to mounted build directories
+                ln -sf /tmp/aperi-builds build
+                if [ \"${{ inputs.with-protego }}\" == \"true\" ]; then
+                  ln -sf /tmp/protego-builds protego-mech/build
+                fi
 
                 echo 'Setting up Spack environment...'
                 source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
