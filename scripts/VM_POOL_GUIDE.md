@@ -53,25 +53,25 @@ The CI/CD workflow distributes GPU tests across 3 VMs running in parallel:
 
 ### Key Design Decisions
 
-**Persistent OS Disks** (32GB Standard SSD)
+#### Persistent OS Disks (32GB Standard SSD)
 
 - **Why**: Drivers/Docker persist across deallocations, no reinstallation needed
 - **Cost**: \$2.40/month per VM (\$7.20/month for 3 VMs) - worth it for simplicity
 - **vs. Ephemeral**: Ephemeral disks are wiped on deallocation, requiring ~10 min reinstall each time
 
-**No Data Disks**
+#### No Data Disks
 
 - Docker images and build artifacts use VM's temp storage (free, ~150GB on Standard_NC4as_T4_v3)
 - Azure ingress bandwidth is FREE, so pulling images from GHCR takes only ~3-4 min
 - Saves \$2.40/month per VM (\$7.20/month for 3 VMs)
 
-**Dynamic Public IPs**
+#### Dynamic Public IPs
 
 - Queried at runtime by workflow using `az vm show -d --query publicIps`
 - Saves \$4/month per VM (\$12/month for 3 VMs) vs. static IPs
 - Adds only ~5 seconds per workflow run
 
-**Ubuntu 24.04 LTS with Secure Boot Disabled**
+#### Ubuntu 24.04 LTS with Secure Boot Disabled
 
 - Long-term support until 2029
 - Secure Boot disabled to avoid NVIDIA driver MOK enrollment issues
@@ -312,7 +312,7 @@ nvidia-smi
 
 **Expected output**:
 
-```
+```text
 +-----------------------------------------------------------------------------+
 | NVIDIA-SMI 570.xx.xx    Driver Version: 570.xx.xx    CUDA Version: 12.x   |
 |-------------------------------+----------------------+----------------------+
@@ -772,7 +772,7 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 
 **Symptom**: During setup script, you see:
 
-```
+```text
 Job for nvidia-cdi-refresh.service failed because the control process exited with error code.
 Warning: Failed to trigger CDI refresh
 ```

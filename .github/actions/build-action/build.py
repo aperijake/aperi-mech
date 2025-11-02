@@ -74,7 +74,8 @@ def run_build(
                 update_cmd = f"cd /mnt/aperi-mech-ci && git fetch origin && git checkout {git_ref} && (git pull origin {git_ref} || true)"
             else:
                 print(f"Cloning repository at {git_ref}...")
-                update_cmd = f"git clone https://github.com/{git_repo}.git /mnt/aperi-mech-ci && cd /mnt/aperi-mech-ci && git checkout {git_ref}"
+                # Clone with all branches, then fetch the specific ref (in case it's a PR commit)
+                update_cmd = f"git clone --no-single-branch https://github.com/{git_repo}.git /mnt/aperi-mech-ci && cd /mnt/aperi-mech-ci && git fetch origin {git_ref} && git checkout {git_ref}"
 
             _, stdout, stderr = runner.ssh.exec_command(update_cmd)
             exit_status = stdout.channel.recv_exit_status()

@@ -8,6 +8,7 @@ Test script generation locally:
 """
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -122,7 +123,28 @@ class DockerRunner:
 
         if stream_output:
             print("Executing the following commands on the VM:")
-            print(script)
+            # Mask sensitive variables (e.g., CICD_REPO_SECRET) before printing
+            masked_script = script
+            # Mask CICD_REPO_SECRET if present:
+            if "CICD_REPO_SECRET" in masked_script:
+                # Replace the value in e.g. '-e CICD_REPO_SECRET="value"' with hidden
+                masked_script = re.sub(
+                    r'(-e\s+CICD_REPO_SECRET\s*=\s*")[^"]*(")',
+                    r"\1<hidden>\2",
+                    masked_script,
+                )
+                # Also mask possible export lines
+                masked_script = re.sub(
+                    r'(export\s+CICD_REPO_SECRET\s*=\s*")[^"]*(")',
+                    r"\1<hidden>\2",
+                    masked_script,
+                )
+                masked_script = re.sub(
+                    r"(export\s+CICD_REPO_SECRET\s*=\s*)\S+",
+                    r"\1<hidden>",
+                    masked_script,
+                )
+            print(masked_script)
             print("-" * 80)
 
         _, stdout, stderr = self.ssh.exec_command(script, get_pty=True)

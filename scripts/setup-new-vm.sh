@@ -51,26 +51,26 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log_info() {
-	echo -e "${BLUE}[INFO]${NC} $1"
+	printf "%b[INFO]%b %s\n" "${BLUE}" "${NC}" "$1"
 }
 
 log_success() {
-	echo -e "${GREEN}[SUCCESS]${NC} $1"
+	printf "%b[SUCCESS]%b %s\n" "${GREEN}" "${NC}" "$1"
 }
 
 log_warning() {
-	echo -e "${YELLOW}[WARNING]${NC} $1"
+	printf "%b[WARNING]%b %s\n" "${YELLOW}" "${NC}" "$1"
 }
 
 log_error() {
-	echo -e "${RED}[ERROR]${NC} $1"
+	printf "%b[ERROR]%b %s\n" "${RED}" "${NC}" "$1"
 }
 
 log_step() {
 	echo ""
-	echo -e "${CYAN}========================================${NC}"
-	echo -e "${CYAN}$1${NC}"
-	echo -e "${CYAN}========================================${NC}"
+	printf "%b========================================%b\n" "${CYAN}" "${NC}"
+	printf "%b%s%b\n" "${CYAN}" "$1" "${NC}"
+	printf "%b========================================%b\n" "${CYAN}" "${NC}"
 }
 
 # Check if command exists
@@ -91,18 +91,19 @@ check_prerequisites() {
 	log_step "Checking Prerequisites"
 
 	# Check Ubuntu version
-	if [ -f /etc/os-release ]; then
+	if [[ -f /etc/os-release ]]; then
+		# shellcheck source=/dev/null
 		. /etc/os-release
-		log_info "Detected OS: $NAME $VERSION"
+		log_info "Detected OS: ${NAME} ${VERSION}"
 
-		if [[ $VERSION_ID != "24.04" ]]; then
-			log_warning "This script is designed for Ubuntu 24.04, detected $VERSION_ID"
+		if [[ ${VERSION_ID} != "24.04" ]]; then
+			log_warning "This script is designed for Ubuntu 24.04, detected ${VERSION_ID}"
 			log_warning "Continuing anyway, but you may encounter issues..."
 		fi
 	fi
 
 	# Check if running as non-root
-	if [ "$EUID" -eq 0 ]; then
+	if [[ ${EUID} -eq 0 ]]; then
 		log_error "Please run this script as a regular user (not root)"
 		log_error "The script will use sudo when needed"
 		exit 1
@@ -135,14 +136,14 @@ install_docker() {
 	# Check if Docker is already installed
 	if command_exists docker; then
 		DOCKER_VERSION=$(docker --version | awk '{print $3}' | tr -d ',')
-		log_info "Docker is already installed (version: $DOCKER_VERSION)"
+		log_info "Docker is already installed (version: ${DOCKER_VERSION})"
 
 		# Check if user is in docker group
 		if groups | grep -q docker; then
 			log_info "User already in docker group"
 		else
 			log_info "Adding user to docker group..."
-			sudo usermod -aG docker "$USER"
+			sudo usermod -aG docker "${USER}"
 			log_success "User added to docker group (logout/login required for effect)"
 		fi
 
@@ -186,11 +187,11 @@ install_docker() {
 
 	# Add user to docker group
 	log_info "Adding user to docker group..."
-	sudo usermod -aG docker "$USER"
+	sudo usermod -aG docker "${USER}"
 
 	# Verify installation
 	DOCKER_VERSION=$(docker --version | awk '{print $3}' | tr -d ',')
-	log_success "Docker installed successfully (version: $DOCKER_VERSION)"
+	log_success "Docker installed successfully (version: ${DOCKER_VERSION})"
 	log_info "Note: Logout/login required for docker group membership to take effect"
 }
 
@@ -207,32 +208,32 @@ configure_docker_storage() {
 	AVAILABLE_SPACE=$(df -BG /mnt | tail -1 | awk '{print $4}' | tr -d 'G')
 	log_info "Available space on /mnt: ${AVAILABLE_SPACE}GB"
 
-	if [ "$AVAILABLE_SPACE" -lt 50 ]; then
+	if [[ ${AVAILABLE_SPACE} -lt 50 ]]; then
 		log_warning "Less than 50GB available on /mnt, Docker may run out of space"
 	fi
 
 	# Create Docker data directory on /mnt
-	if [ ! -d "$DOCKER_DATA_ROOT" ]; then
-		log_info "Creating Docker data directory: $DOCKER_DATA_ROOT"
-		sudo mkdir -p "$DOCKER_DATA_ROOT"
-		sudo chown -R "$USER:$USER" "$DOCKER_DATA_ROOT"
+	if [[ ! -d ${DOCKER_DATA_ROOT} ]]; then
+		log_info "Creating Docker data directory: ${DOCKER_DATA_ROOT}"
+		sudo mkdir -p "${DOCKER_DATA_ROOT}"
+		sudo chown -R "${USER}:${USER}" "${DOCKER_DATA_ROOT}"
 	else
-		log_info "Docker data directory already exists: $DOCKER_DATA_ROOT"
+		log_info "Docker data directory already exists: ${DOCKER_DATA_ROOT}"
 	fi
 
 	# Configure Docker daemon
-	log_info "Configuring Docker daemon to use $DOCKER_DATA_ROOT"
+	log_info "Configuring Docker daemon to use ${DOCKER_DATA_ROOT}"
 
 	DAEMON_JSON="/etc/docker/daemon.json"
-	if [ -f "$DAEMON_JSON" ]; then
+	if [[ -f ${DAEMON_JSON} ]]; then
 		log_info "Backing up existing daemon.json..."
-		sudo cp "$DAEMON_JSON" "${DAEMON_JSON}.backup"
+		sudo cp "${DAEMON_JSON}" "${DAEMON_JSON}.backup"
 	fi
 
 	# Create daemon.json with data-root configuration
-	sudo tee "$DAEMON_JSON" >/dev/null <<EOF
+	sudo tee "${DAEMON_JSON}" >/dev/null <<EOF
 {
-  "data-root": "$DOCKER_DATA_ROOT",
+  "data-root": "${DOCKER_DATA_ROOT}",
   "log-driver": "json-file",
   "log-opts": {
     "max-size": "10m",
@@ -247,11 +248,11 @@ EOF
 
 	# Verify configuration
 	ACTUAL_DATA_ROOT=$(sudo docker info 2>/dev/null | grep "Docker Root Dir" | awk '{print $4}')
-	if [ "$ACTUAL_DATA_ROOT" = "$DOCKER_DATA_ROOT" ]; then
-		log_success "Docker configured to use temp storage: $DOCKER_DATA_ROOT"
+	if [[ ${ACTUAL_DATA_ROOT} == "${DOCKER_DATA_ROOT}" ]]; then
+		log_success "Docker configured to use temp storage: ${DOCKER_DATA_ROOT}"
 	else
 		log_warning "Docker data root verification failed"
-		log_warning "Expected: $DOCKER_DATA_ROOT, Got: $ACTUAL_DATA_ROOT"
+		log_warning "Expected: ${DOCKER_DATA_ROOT}, Got: ${ACTUAL_DATA_ROOT}"
 	fi
 }
 
@@ -265,7 +266,7 @@ install_nvidia_drivers() {
 		# Try to get driver version (may fail if not loaded yet)
 		if nvidia-smi &>/dev/null; then
 			DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo "unknown")
-			log_info "Current NVIDIA driver version: $DRIVER_VER"
+			log_info "Current NVIDIA driver version: ${DRIVER_VER}"
 			log_info "Skipping driver installation (already installed)"
 			return 0
 		else
@@ -274,7 +275,7 @@ install_nvidia_drivers() {
 		fi
 	fi
 
-	log_info "Installing NVIDIA driver $NVIDIA_DRIVER_VERSION for Tesla T4..."
+	log_info "Installing NVIDIA driver ${NVIDIA_DRIVER_VERSION} for Tesla T4..."
 	log_warning "Using pre-built kernel modules (faster, more reliable than DKMS)"
 
 	# Disable Azure automatic NVIDIA driver installation (can conflict)
@@ -286,21 +287,21 @@ install_nvidia_drivers() {
 	fi
 
 	# Install linux-headers for current kernel
-	log_info "Installing kernel headers for $KERNEL_VERSION..."
-	if ! package_installed "linux-headers-$KERNEL_VERSION"; then
-		sudo apt-get install -y -qq "linux-headers-$KERNEL_VERSION"
+	log_info "Installing kernel headers for ${KERNEL_VERSION}..."
+	if ! package_installed "linux-headers-${KERNEL_VERSION}"; then
+		sudo apt-get install -y -qq "linux-headers-${KERNEL_VERSION}"
 	else
 		log_info "Kernel headers already installed"
 	fi
 
 	# Install pre-built NVIDIA kernel modules for current kernel
 	# This is critical for Azure VMs which use -azure kernel variant
-	log_info "Installing pre-built NVIDIA modules for kernel $KERNEL_VERSION..."
+	log_info "Installing pre-built NVIDIA modules for kernel ${KERNEL_VERSION}..."
 	NVIDIA_MODULE_PACKAGE="linux-modules-nvidia-${NVIDIA_DRIVER_VERSION}-${KERNEL_VERSION}"
 
-	if ! package_installed "$NVIDIA_MODULE_PACKAGE"; then
-		sudo apt-get install -y -qq "$NVIDIA_MODULE_PACKAGE" || {
-			log_error "Failed to install $NVIDIA_MODULE_PACKAGE"
+	if ! package_installed "${NVIDIA_MODULE_PACKAGE}"; then
+		sudo apt-get install -y -qq "${NVIDIA_MODULE_PACKAGE}" || {
+			log_error "Failed to install ${NVIDIA_MODULE_PACKAGE}"
 			log_error "This may be due to kernel version mismatch"
 			log_info "Available nvidia module packages:"
 			apt-cache search "linux-modules-nvidia-.*-$(uname -r | sed 's/-azure$//')" || true
@@ -314,8 +315,8 @@ install_nvidia_drivers() {
 	log_info "Installing NVIDIA driver stack..."
 	NVIDIA_DRIVER_PACKAGE="nvidia-driver-${NVIDIA_DRIVER_VERSION}"
 
-	if ! package_installed "$NVIDIA_DRIVER_PACKAGE"; then
-		sudo apt-get install -y -qq "$NVIDIA_DRIVER_PACKAGE"
+	if ! package_installed "${NVIDIA_DRIVER_PACKAGE}"; then
+		sudo apt-get install -y -qq "${NVIDIA_DRIVER_PACKAGE}"
 	else
 		log_info "NVIDIA driver package already installed"
 	fi
@@ -376,18 +377,18 @@ install_git() {
 	# Check if Git is already installed
 	if command_exists git; then
 		GIT_VERSION=$(git --version | awk '{print $3}')
-		log_info "Git already installed (version: $GIT_VERSION)"
+		log_info "Git already installed (version: ${GIT_VERSION})"
 	else
 		log_info "Installing Git..."
 		sudo apt-get install -y -qq git
 		GIT_VERSION=$(git --version | awk '{print $3}')
-		log_success "Git installed (version: $GIT_VERSION)"
+		log_success "Git installed (version: ${GIT_VERSION})"
 	fi
 
 	# Check if Git LFS is already installed
 	if command_exists git-lfs; then
 		GIT_LFS_VERSION=$(git lfs version | awk '{print $1}' | cut -d'/' -f2)
-		log_info "Git LFS already installed (version: $GIT_LFS_VERSION)"
+		log_info "Git LFS already installed (version: ${GIT_LFS_VERSION})"
 	else
 		log_info "Installing Git LFS..."
 		sudo apt-get install -y -qq git-lfs
@@ -407,25 +408,25 @@ install_git() {
 create_workspace() {
 	log_step "Step 7/7: Creating Workspace Directory"
 
-	WORKSPACE_DIR="$HOME/aperi-mech"
+	WORKSPACE_DIR="${HOME}/aperi-mech"
 
-	if [ -d "$WORKSPACE_DIR" ]; then
-		log_info "Workspace directory already exists: $WORKSPACE_DIR"
+	if [[ -d ${WORKSPACE_DIR} ]]; then
+		log_info "Workspace directory already exists: ${WORKSPACE_DIR}"
 
 		# Check if it's a git repository
-		if [ -d "$WORKSPACE_DIR/.git" ]; then
+		if [[ -d "${WORKSPACE_DIR}/.git" ]]; then
 			log_info "Repository already cloned in workspace"
 		else
 			log_warning "Directory exists but is not a git repository"
 			log_info "You may need to clone the repository manually"
 		fi
 	else
-		log_info "Creating workspace directory: $WORKSPACE_DIR"
-		mkdir -p "$WORKSPACE_DIR"
+		log_info "Creating workspace directory: ${WORKSPACE_DIR}"
+		mkdir -p "${WORKSPACE_DIR}"
 		log_success "Workspace directory created"
 	fi
 
-	log_info "Workspace ready at: $WORKSPACE_DIR"
+	log_info "Workspace ready at: ${WORKSPACE_DIR}"
 }
 
 print_summary() {
@@ -436,37 +437,37 @@ print_summary() {
 	log_success "Installed Components:"
 	echo "  ✓ Docker $(docker --version 2>/dev/null | awk '{print $3}' | tr -d ',')"
 	echo "  ✓ Docker Compose (plugin)"
-	echo "  ✓ NVIDIA Driver $NVIDIA_DRIVER_VERSION (kernel modules for $KERNEL_VERSION)"
+	echo "  ✓ NVIDIA Driver ${NVIDIA_DRIVER_VERSION} (kernel modules for ${KERNEL_VERSION})"
 	echo "  ✓ NVIDIA Container Toolkit"
 	echo "  ✓ Git $(git --version 2>/dev/null | awk '{print $3}')"
 	echo "  ✓ Git LFS"
 	echo ""
 
 	log_success "Configuration:"
-	if [ -d "$DOCKER_DATA_ROOT" ]; then
-		echo "  ✓ Docker configured to use temp storage: $DOCKER_DATA_ROOT"
+	if [[ -d ${DOCKER_DATA_ROOT} ]]; then
+		echo "  ✓ Docker configured to use temp storage: ${DOCKER_DATA_ROOT}"
 	fi
-	echo "  ✓ Workspace directory: $HOME/aperi-mech"
+	echo "  ✓ Workspace directory: ${HOME}/aperi-mech"
 	echo ""
 
 	log_warning "IMPORTANT - Next Steps:"
 	echo ""
-	echo -e "  ${BLUE}1. REBOOT THE VM${NC} to activate NVIDIA drivers:"
-	echo -e "     ${GREEN}sudo reboot${NC}"
+	printf "  %b1. REBOOT THE VM%b to activate NVIDIA drivers:\n" "${BLUE}" "${NC}"
+	printf "     %bsudo reboot%b\n" "${GREEN}" "${NC}"
 	echo ""
-	echo -e "  ${BLUE}2. After reboot, SSH back in and verify GPU:${NC}"
-	echo -e "     ${GREEN}nvidia-smi${NC}"
-	echo "     Expected: Tesla T4 GPU with driver $NVIDIA_DRIVER_VERSION"
+	printf "  %b2. After reboot, SSH back in and verify GPU:%b\n" "${BLUE}" "${NC}"
+	printf "     %bnvidia-smi%b\n" "${GREEN}" "${NC}"
+	echo "     Expected: Tesla T4 GPU with driver ${NVIDIA_DRIVER_VERSION}"
 	echo ""
-	echo -e "  ${BLUE}3. Test Docker GPU access:${NC}"
-	echo -e "     ${GREEN}docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi${NC}"
+	printf "  %b3. Test Docker GPU access:%b\n" "${BLUE}" "${NC}"
+	printf "     %bdocker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi%b\n" "${GREEN}" "${NC}"
 	echo "     Expected: Same GPU info from within container"
 	echo ""
-	echo -e "  ${BLUE}4. Pull Docker image:${NC}"
-	echo -e "     ${GREEN}time docker pull ghcr.io/aperijake/aperi-mech:cuda-t4${NC}"
+	printf "  %b4. Pull Docker image:%b\n" "${BLUE}" "${NC}"
+	printf "     %btime docker pull ghcr.io/aperijake/aperi-mech:cuda-t4%b\n" "${GREEN}" "${NC}"
 	echo "     Expected: ~2-3 minutes for 15-16GB image"
 	echo ""
-	echo -e "  ${BLUE}Note:${NC} No MOK enrollment needed - Secure Boot is disabled!"
+	printf "  %bNote:%b No MOK enrollment needed - Secure Boot is disabled!\n" "${BLUE}" "${NC}"
 	echo ""
 
 	log_success "After completing these steps, the VM will be ready for CI/CD!"
