@@ -37,6 +37,56 @@ def run_build(
     try:
         runner.connect()
 
+        # For VM pool mode, ensure we have current code in /mnt/aperi-mech-ci
+        if vm_pool:
+            print("Ensuring current repository code on VM...")
+            # Get current git ref from environment (set by GitHub Actions)
+            git_ref = os.environ.get("GITHUB_SHA", "")
+            git_repo = os.environ.get("GITHUB_REPOSITORY", "aperijake/aperi-mech")
+
+            # For local testing, try to get current branch/commit
+            if not git_ref:
+                import subprocess
+                try:
+                    result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                                          capture_output=True, text=True, check=True,
+                                          cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                    git_ref = result.stdout.strip()
+                    if git_ref == "HEAD":  # detached HEAD, get commit
+                        result = subprocess.run(["git", "rev-parse", "HEAD"],
+                                              capture_output=True, text=True, check=True,
+                                              cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                        git_ref = result.stdout.strip()
+                except:
+                    git_ref = "main"  # fallback
+
+            # Ensure /mnt/aperi-mech-ci directory exists (may need sudo for /mnt)
+            _, stdout, stderr = runner.ssh.exec_command("sudo mkdir -p /mnt/aperi-mech-ci && sudo chown -R $USER:$USER /mnt/aperi-mech-ci")
+            stdout.channel.recv_exit_status()
+
+            # Check if repo already exists
+            _, stdout, _ = runner.ssh.exec_command("test -d /mnt/aperi-mech-ci/.git && echo 'exists'")
+            repo_exists = stdout.read().decode().strip() == "exists"
+
+            if repo_exists:
+                print(f"Repository exists, updating to {git_ref}...")
+                # Chain commands together so cd persists
+                update_cmd = f"cd /mnt/aperi-mech-ci && git fetch origin && git checkout {git_ref} && (git pull origin {git_ref} || true)"
+            else:
+                print(f"Cloning repository at {git_ref}...")
+                update_cmd = f"git clone https://github.com/{git_repo}.git /mnt/aperi-mech-ci && cd /mnt/aperi-mech-ci && git checkout {git_ref}"
+
+            _, stdout, stderr = runner.ssh.exec_command(update_cmd)
+            exit_status = stdout.channel.recv_exit_status()
+            if exit_status != 0:
+                stderr_output = stderr.read().decode()
+                # Only fail on critical errors, not on "already up to date" type messages
+                if "fatal" in stderr_output.lower() and "already exists" not in stderr_output.lower():
+                    print(f"Command failed: {update_cmd}")
+                    print(f"Error: {stderr_output}")
+                    sys.exit(1)
+            print("Repository ready.")
+
         # Determine the number of processors
         _, stdout, stderr = runner.ssh.exec_command("nproc")
         stderr_output = stderr.read().decode().strip()
@@ -52,18 +102,26 @@ def run_build(
         # Add protego setup if needed (for VM pool mode only)
         if vm_pool and with_protego:
             commands.extend([
-                "echo 'Configuring git for protego-mech submodule...'",
+                "echo \"Configuring git for protego-mech submodule...\"",
                 'git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "https://github.com/"',
                 'git config --global url."https://${CICD_REPO_SECRET}@github.com/".insteadOf "git@github.com:"',
-                "echo 'Initializing protego-mech submodule...'",
-                "git submodule update --init --recursive protego-mech",
+                "echo \"Updating protego-mech submodule...\"",
+                # If submodule already initialized, just update; otherwise init and update
+                "if [ -d protego-mech/.git ]; then cd protego-mech && git pull && cd ..; else git submodule update --init --recursive protego-mech; fi",
+            ])
+
+        # For protego builds in VM pool mode, remove old symlink if it exists
+        if vm_pool and with_protego:
+            commands.extend([
+                "echo \"Removing old build symlink if it exists...\"",
+                "if [ -L protego-mech/build ]; then rm protego-mech/build; fi",
             ])
 
         # Add build commands
         commands.extend([
-            "echo 'Configuring build...'",
+            "echo \"Configuring build...\"",
             f"./do_configure --build-type {build_type} {config.configure_flags}",
-            "echo 'Building...'",
+            "echo \"Building...\"",
             "cd $BUILD_PATH",
             f"make -j{num_jobs}",
         ])
@@ -71,7 +129,7 @@ def run_build(
         if code_coverage:
             commands.append("make coverage")
 
-        commands.append("echo 'Build complete!'")
+        commands.append("echo \"Build complete!\"")
 
         # Setup environment variables for VM pool mode with protego
         env_vars = {}

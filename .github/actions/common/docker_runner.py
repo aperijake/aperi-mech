@@ -2,6 +2,9 @@
 """
 Unified Docker execution framework for CI/CD actions.
 Supports both docker-compose (old single-VM) and docker run (new VM pool) modes.
+
+Test script generation locally:
+    cd .github/actions/common && python3 test_script_gen.py
 """
 
 import os
@@ -123,13 +126,14 @@ class DockerRunner:
             print("-" * 80)
 
         _, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
-        exit_status = stdout.channel.recv_exit_status()
 
+        # Stream output in real-time instead of waiting for exit first
         if stream_output:
             for line in stdout:
                 print(line.strip())
-            for line in stderr:
-                print(line.strip())
+
+        # Now get exit status after reading output
+        exit_status = stdout.channel.recv_exit_status()
 
         return exit_status
 
@@ -145,9 +149,9 @@ class DockerRunner:
         gpu_flag = "--gpus all" if (config.gpu and not config.code_coverage) else ""
 
         # Setup volume mounts
-        volume_mounts = "-v /mnt/builds:/tmp/aperi-builds"
-        if config.with_protego:
-            volume_mounts += " -v /mnt/builds/protego-builds:/tmp/protego-builds"
+        # Mount the PR code from /mnt/aperi-mech-ci to /source in container
+        # This preserves the container's /home/aperi-mech_docker/aperi-mech (which has venv)
+        volume_mounts = "-v /mnt/aperi-mech-ci:/source"
 
         # Build environment variables
         env_flags = []
@@ -156,15 +160,6 @@ class DockerRunner:
         for key, value in env_vars.items():
             env_flags.append(f'-e {key}="{value}"')
         env_str = " ".join(env_flags)
-
-        # Setup symlinks - must happen BEFORE any commands
-        symlink_setup = """
-    echo "Setting up symlink for main build directory..."
-    ln -sf /tmp/aperi-builds build"""
-        if config.with_protego:
-            symlink_setup += """
-    echo "Setting up symlink for protego-mech build directory..."
-    ln -sf /tmp/protego-builds protego-mech/build"""
 
         # Setup working directory - comes AFTER Spack activation, not before
         # If working_dir is specified, use it; otherwise stay at repo root
@@ -178,32 +173,24 @@ class DockerRunner:
         # Build command list with proper indentation
         commands_indented = "\n    ".join(commands)
 
+        # Build the complete script in one go to avoid quote issues
+        workdir_section = f"\n    {workdir_cmd}" if workdir_cmd else ""
+
         script = f"""
 set -e
-
-mkdir -p /mnt/builds /mnt/builds/protego-builds
 
 docker run --rm {gpu_flag} {volume_mounts} \\
   {env_str} \\
   {docker_image} /bin/bash -c '
     set -e
-    cd /home/aperi-mech_docker/aperi-mech
-
-{symlink_setup}
 
     echo "Setting up Spack environment..."
     source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
     spack env activate aperi-mech
-"""
 
-        # Add working directory change if specified
-        if workdir_cmd:
-            script += f"""
-    {workdir_cmd}
-"""
+    echo "Changing to source directory..."
+    cd /source{workdir_section}
 
-        # Add user commands
-        script += f"""
     {commands_indented}
   ' || {{ echo "Command failed"; exit 1; }}
 """
