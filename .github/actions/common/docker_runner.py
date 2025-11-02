@@ -127,10 +127,11 @@ class DockerRunner:
             debug_print = os.environ.get("DEBUG_PRINT_SCRIPT", "0") == "1"
             if debug_print:
                 # Redact sensitive environment variable values before printing the script
-                sensitive_keys = {"CICD_REPO_SECRET"}
+                # Redact any env var whose key indicates it may be sensitive
                 redacted_env_vars = dict(env_vars)
-                for key in sensitive_keys:
-                    if key in redacted_env_vars:
+                SENSITIVE_PATTERNS = ("SECRET", "TOKEN", "PASSWORD", "KEY")
+                for key in redacted_env_vars:
+                    if any(pat in key.upper() for pat in SENSITIVE_PATTERNS):
                         redacted_env_vars[key] = "<hidden>"
                 if vm_pool:
                     masked_script = self._build_docker_run_script(
