@@ -1,0 +1,79 @@
+name: Run Tests
+description: Run any test type on the VM inside Docker container
+inputs:
+  VM_IP:
+    description: IP address of the VM
+    required: true
+  SSH_PRIVATE_KEY:
+    description: SSH private key for the VM
+    required: true
+  VM_USERNAME:
+    description: Username for the VM
+    required: true
+  build-type:
+    description: Build type (e.g., Release, Debug)
+    required: true
+  gpu:
+    description: Enable GPU
+    required: true
+  with-protego:
+    description: Enable Protego build
+    required: true
+  vm-pool:
+    description: VM pool mode
+    required: false
+    default: "false"
+  test-type:
+    description: Test type (material, unit, utils, regression)
+    required: true
+  # Test-specific inputs
+  num-processes:
+    description: Number of MPI processes (for unit tests)
+    required: false
+    default: "1"
+  parallel:
+    description: Run parallel tests (for regression tests)
+    required: false
+    default: "false"
+  cpu-only:
+    description: Force CPU-only (for regression tests)
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Common SSH Setup
+      uses: ./.github/actions/common-ssh-and-azure-steps
+      with:
+        VM_IP: ${{ inputs.VM_IP }}
+        SSH_PRIVATE_KEY: ${{ inputs.SSH_PRIVATE_KEY }}
+
+    - name: Print inputs for debugging
+      shell: bash
+      run: |
+        echo "build-type: ${{ inputs.build-type }}"
+        echo "gpu: ${{ inputs.gpu }}"
+        echo "with-protego: ${{ inputs.with-protego }}"
+        echo "vm-pool: ${{ inputs.vm-pool }}"
+        echo "test-type: ${{ inputs.test-type }}"
+
+    - name: Run Tests
+      shell: bash
+      run: |
+        python3 ./.github/actions/run-tests-action/run_tests.py \
+          --ip ${{ inputs.VM_IP }} \
+          --username ${{ inputs.VM_USERNAME }} \
+          --build-type ${{ inputs.build-type }} \
+          --gpu ${{ inputs.gpu }} \
+          --protego ${{ inputs.with-protego }} \
+          --vm-pool ${{ inputs.vm-pool }} \
+          --test-type ${{ inputs.test-type }} \
+          --num-processes ${{ inputs.num-processes }} \
+          --parallel ${{ inputs.parallel }} \
+          --cpu-only ${{ inputs.cpu-only }}
+        exit_code=$?
+        if [ $exit_code -ne 0 ]; then
+          echo "Tests failed with exit code $exit_code"
+          exit $exit_code
+        fi

@@ -535,50 +535,55 @@ jobs:
           CICD_REPO_SECRET: ${{ secrets.CICD_REPO_SECRET }}
 
       - name: Run material tests
-        uses: ./.github/actions/run-material-tests
+        uses: ./.github/actions/run-tests-action
         with:
-          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          build-type: ${{ env.BUILD_TYPE }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
           vm-pool: "true"
+          test-type: material
 
       - name: Run utils modules tests
-        uses: ./.github/actions/run-utils-modules-tests
+        uses: ./.github/actions/run-tests-action
         with:
-          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          build-type: ${{ env.BUILD_TYPE }}
           gpu: ${{ env.GPU }}
           with-protego: ${{ env.PROTEGO }}
           vm-pool: "true"
+          test-type: utils
 
       - name: Run unit tests
-        uses: ./.github/actions/run-unit-tests
+        uses: ./.github/actions/run-tests-action
         with:
-          build-type: ${{ env.BUILD_TYPE }}
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          build-type: ${{ env.BUILD_TYPE }}
           gpu: ${{ env.GPU }}
-          num-processes: 1
           with-protego: ${{ env.PROTEGO }}
           vm-pool: "true"
+          test-type: unit
+          num-processes: 1
 
       - name: Run regression tests, serial
-        uses: ./.github/actions/run-regression-tests
+        uses: ./.github/actions/run-tests-action
         with:
           VM_IP: ${{ steps.set-ip.outputs.vm_ip }}
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_CICD_GPU_VM_PRIVATE_KEY }}
           VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          build-type: ${{ env.BUILD_TYPE }}
           gpu: ${{ env.GPU }}
-          parallel: false
-          build: ${{ env.BUILD_TYPE }}
           with-protego: ${{ env.PROTEGO }}
           vm-pool: "true"
+          test-type: regression
+          parallel: false
+          cpu-only: false
 
   #############################################################################
   # Code Coverage (CPU only, on GitHub runner)
