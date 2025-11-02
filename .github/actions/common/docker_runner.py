@@ -122,7 +122,7 @@ class DockerRunner:
             print(script)
             print("-" * 80)
 
-        stdin, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
+        _, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
         exit_status = stdout.channel.recv_exit_status()
 
         if stream_output:
@@ -175,8 +175,8 @@ class DockerRunner:
             # Don't cd to build_path automatically - let the caller's commands do it
             workdir_cmd = ""
 
-        # Build command list
-        commands_str = "\n".join(commands)
+        # Build command list with proper indentation
+        commands_indented = "\n    ".join(commands)
 
         script = f"""
 set -e
@@ -204,7 +204,7 @@ docker run --rm {gpu_flag} {volume_mounts} \\
 
         # Add user commands
         script += f"""
-    {commands_str}
+    {commands_indented}
   ' || {{ echo "Command failed"; exit 1; }}
 """
 
@@ -234,14 +234,16 @@ docker run --rm {gpu_flag} {volume_mounts} \\
 
         workdir_cmd = f"cd {working_dir}" if working_dir else f"cd {build_path}"
 
-        # Build environment variables export
+        # Build environment variables export with proper indentation
         env_exports = ""
         if env_vars:
-            env_exports = "\n".join([f'export {k}="{v}"' for k, v in env_vars.items()])
-            env_exports += "\n"
+            env_exports = "\n    ".join(
+                [f'export {k}="{v}"' for k, v in env_vars.items()]
+            )
+            env_exports += "\n    "
 
-        # Build command list
-        commands_str = "\n".join(commands)
+        # Build command list with proper indentation
+        commands_indented = "\n    ".join(commands)
 
         return f"""
 set -e
@@ -254,6 +256,6 @@ docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
 
     {env_exports}{workdir_cmd}
 
-    {commands_str}
+    {commands_indented}
 ' || {{ echo "Command failed"; exit 1; }}
 """

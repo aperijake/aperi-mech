@@ -30,245 +30,245 @@ jobs:
   # CPU Tests - Run on GitHub-hosted runners (parallel)
   #############################################################################
 
-  build-and-test-cpu:
-    name: Build and Test CPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }})
-    runs-on: ubuntu-latest
+  # build-and-test-cpu:
+  #   name: Build and Test CPU (${{ matrix.config.BUILD_TYPE }}, PROTEGO=${{ matrix.config.PROTEGO }})
+  #   runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      max-parallel: 4 # Run all 4 CPU configs in parallel
-      matrix:
-        config:
-          - { BUILD_TYPE: Debug, PROTEGO: true }
-          - { BUILD_TYPE: Debug, PROTEGO: false }
-          - { BUILD_TYPE: Release, PROTEGO: true }
-          - { BUILD_TYPE: Release, PROTEGO: false }
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 4 # Run all 4 CPU configs in parallel
+  #     matrix:
+  #       config:
+  #         - { BUILD_TYPE: Debug, PROTEGO: true }
+  #         - { BUILD_TYPE: Debug, PROTEGO: false }
+  #         - { BUILD_TYPE: Release, PROTEGO: true }
+  #         - { BUILD_TYPE: Release, PROTEGO: false }
 
-    container:
-      image: ghcr.io/aperijake/aperi-mech:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root
+  #   container:
+  #     image: ghcr.io/aperijake/aperi-mech:latest
+  #     credentials:
+  #       username: ${{ github.actor }}
+  #       password: ${{ secrets.GITHUB_TOKEN }}
+  #     options: --user root
 
-    env:
-      BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
-      PROTEGO: ${{ matrix.config.PROTEGO }}
-      # MPI Configuration for Docker Containers:
-      # - OMPI_ALLOW_RUN_AS_ROOT: Required because GitHub Actions containers run as root user
-      OMPI_ALLOW_RUN_AS_ROOT: 1
-      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      # - PRTE_MCA_rmaps: Allow oversubscription since container reports only 1 slot despite having 4 cores
-      PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
-      # - OMPI_MCA_btl: Disable shared memory transport to avoid container restrictions, use TCP loopback instead
-      OMPI_MCA_btl: ^sm
-      OMPI_MCA_btl_base_warn_component_unused: 0
+  #   env:
+  #     BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
+  #     PROTEGO: ${{ matrix.config.PROTEGO }}
+  #     # MPI Configuration for Docker Containers:
+  #     # - OMPI_ALLOW_RUN_AS_ROOT: Required because GitHub Actions containers run as root user
+  #     OMPI_ALLOW_RUN_AS_ROOT: 1
+  #     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+  #     # - PRTE_MCA_rmaps: Allow oversubscription since container reports only 1 slot despite having 4 cores
+  #     PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
+  #     # - OMPI_MCA_btl: Disable shared memory transport to avoid container restrictions, use TCP loopback instead
+  #     OMPI_MCA_btl: ^sm
+  #     OMPI_MCA_btl_base_warn_component_unused: 0
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-          submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         lfs: true
+  #         submodules: ${{ matrix.config.PROTEGO == true && 'recursive' || 'false' }}
+  #         ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Fix git ownership
-        shell: bash
-        run: |
-          # Fix git ownership warning (Actions checks out as different user)
-          git config --global --add safe.directory $GITHUB_WORKSPACE
+  #     - name: Fix git ownership
+  #       shell: bash
+  #       run: |
+  #         # Fix git ownership warning (Actions checks out as different user)
+  #         git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Configure and build
-        shell: bash
-        run: |
-          set -e
+  #     - name: Configure and build
+  #       shell: bash
+  #       run: |
+  #         set -e
 
-          # GitHub Actions checks out code to $GITHUB_WORKSPACE
-          # We need to work from there, not the container's $APERI_MECH_ROOT
-          cd $GITHUB_WORKSPACE
+  #         # GitHub Actions checks out code to $GITHUB_WORKSPACE
+  #         # We need to work from there, not the container's $APERI_MECH_ROOT
+  #         cd $GITHUB_WORKSPACE
 
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          # Determine build path and flags
-          BUILD_ROOT="build"
-          CONFIGURE_FLAGS=""
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_ROOT="protego-mech/build"
-            CONFIGURE_FLAGS="--protego-mech"
-          fi
-          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+  #         # Determine build path and flags
+  #         BUILD_ROOT="build"
+  #         CONFIGURE_FLAGS=""
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_ROOT="protego-mech/build"
+  #           CONFIGURE_FLAGS="--protego-mech"
+  #         fi
+  #         BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          # Debug info
-          echo "============================================"
-          echo "Build Environment Info:"
-          echo "  CPU cores (nproc): $(nproc)"
-          echo "  CPU cores (nproc --all): $(nproc --all)"
-          echo "  Memory: $(free -h | grep Mem | awk '{print $2}')"
-          echo "  Build path: ${BUILD_PATH}"
-          echo "  Configure flags: ${CONFIGURE_FLAGS}"
-          echo "============================================"
+  #         # Debug info
+  #         echo "============================================"
+  #         echo "Build Environment Info:"
+  #         echo "  CPU cores (nproc): $(nproc)"
+  #         echo "  CPU cores (nproc --all): $(nproc --all)"
+  #         echo "  Memory: $(free -h | grep Mem | awk '{print $2}')"
+  #         echo "  Build path: ${BUILD_PATH}"
+  #         echo "  Configure flags: ${CONFIGURE_FLAGS}"
+  #         echo "============================================"
 
-          # Configure
-          ./do_configure --build-type ${BUILD_TYPE} ${CONFIGURE_FLAGS}
+  #         # Configure
+  #         ./do_configure --build-type ${BUILD_TYPE} ${CONFIGURE_FLAGS}
 
-          # Build using all available cores
-          # Note: Use 'nproc --all' instead of 'nproc' because containers may report limited quota
-          # but actually have access to all host cores for build parallelism
-          echo "Building with $(nproc --all) parallel jobs"
-          cd ${BUILD_PATH}
-          make -j$(nproc --all)
+  #         # Build using all available cores
+  #         # Note: Use 'nproc --all' instead of 'nproc' because containers may report limited quota
+  #         # but actually have access to all host cores for build parallelism
+  #         echo "Building with $(nproc --all) parallel jobs"
+  #         cd ${BUILD_PATH}
+  #         make -j$(nproc --all)
 
-      - name: Run material tests
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run material tests
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          BUILD_ROOT="build"
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_ROOT="protego-mech/build"
-          fi
-          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+  #         BUILD_ROOT="build"
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_ROOT="protego-mech/build"
+  #         fi
+  #         BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          cd ${BUILD_PATH}
-          echo "Running material tests..."
-          make run_material_tests
+  #         cd ${BUILD_PATH}
+  #         echo "Running material tests..."
+  #         make run_material_tests
 
-      - name: Run utils modules tests
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run utils modules tests
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          BUILD_ROOT="build"
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_ROOT="protego-mech/build"
-          fi
-          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+  #         BUILD_ROOT="build"
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_ROOT="protego-mech/build"
+  #         fi
+  #         BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          cd ${BUILD_PATH}
+  #         cd ${BUILD_PATH}
 
-          # Add aperi-mech build directory to PATH (needed for utils tests to find aperi-mech executable)
-          export PATH=${GITHUB_WORKSPACE}/${BUILD_PATH}:$PATH
+  #         # Add aperi-mech build directory to PATH (needed for utils tests to find aperi-mech executable)
+  #         export PATH=${GITHUB_WORKSPACE}/${BUILD_PATH}:$PATH
 
-          echo "Running utils modules tests..."
-          echo "aperi-mech location: $(which aperi-mech || echo 'NOT FOUND')"
-          echo "exodiff location: $(which exodiff || echo 'NOT FOUND')"
-          make run_utils_modules_tests
+  #         echo "Running utils modules tests..."
+  #         echo "aperi-mech location: $(which aperi-mech || echo 'NOT FOUND')"
+  #         echo "exodiff location: $(which exodiff || echo 'NOT FOUND')"
+  #         make run_utils_modules_tests
 
-      - name: Run unit tests (serial)
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run unit tests (serial)
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          BUILD_ROOT="build"
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_ROOT="protego-mech/build"
-          fi
-          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+  #         BUILD_ROOT="build"
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_ROOT="protego-mech/build"
+  #         fi
+  #         BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          cd ${BUILD_PATH}
-          # Check if unit_tests executable exists
-          if [ ! -f "./unit_tests" ]; then
-            echo "unit_tests executable not found, skipping..."
-            exit 0
-          fi
-          mpirun --allow-run-as-root -n 1 ./unit_tests
+  #         cd ${BUILD_PATH}
+  #         # Check if unit_tests executable exists
+  #         if [ ! -f "./unit_tests" ]; then
+  #           echo "unit_tests executable not found, skipping..."
+  #           exit 0
+  #         fi
+  #         mpirun --allow-run-as-root -n 1 ./unit_tests
 
-      - name: Run unit tests (parallel)
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run unit tests (parallel)
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          BUILD_ROOT="build"
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_ROOT="protego-mech/build"
-          fi
-          BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
+  #         BUILD_ROOT="build"
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_ROOT="protego-mech/build"
+  #         fi
+  #         BUILD_PATH="${BUILD_ROOT}/${BUILD_TYPE}"
 
-          cd ${BUILD_PATH}
-          # Check if unit_tests executable exists
-          if [ ! -f "./unit_tests" ]; then
-            echo "unit_tests executable not found, skipping..."
-            exit 0
-          fi
-          mpirun --allow-run-as-root -n 3 ./unit_tests
+  #         cd ${BUILD_PATH}
+  #         # Check if unit_tests executable exists
+  #         if [ ! -f "./unit_tests" ]; then
+  #           echo "unit_tests executable not found, skipping..."
+  #           exit 0
+  #         fi
+  #         mpirun --allow-run-as-root -n 3 ./unit_tests
 
-      - name: Run regression tests (serial)
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run regression tests (serial)
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          # Determine build directory and test selection file
-          BUILD_DIR="build"
-          BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
-          CPU_FLAG="--cpu"  # GitHub runners don't have GPU
-          TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
+  #         # Determine build directory and test selection file
+  #         BUILD_DIR="build"
+  #         BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
+  #         CPU_FLAG="--cpu"  # GitHub runners don't have GPU
+  #         TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
 
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_DIR="protego-mech/build"
-            TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
-          fi
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_DIR="protego-mech/build"
+  #           TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
+  #         fi
 
-          echo "Running regression tests (serial)..."
-          python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG} --serial
+  #         echo "Running regression tests (serial)..."
+  #         python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG} --serial
 
-      - name: Run regression tests (parallel)
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Run regression tests (parallel)
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          # Determine build directory and test selection file
-          BUILD_DIR="build"
-          BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
-          CPU_FLAG="--cpu"  # GitHub runners don't have GPU
-          TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
+  #         # Determine build directory and test selection file
+  #         BUILD_DIR="build"
+  #         BUILD_FLAG="--${BUILD_TYPE,,}"  # Convert to lowercase for flag
+  #         CPU_FLAG="--cpu"  # GitHub runners don't have GPU
+  #         TEST_PATHS_FILE="test/regression_tests/regression_test_paths.yaml"
 
-          if [ "$PROTEGO" = "true" ]; then
-            BUILD_DIR="protego-mech/build"
-            TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
-          fi
+  #         if [ "$PROTEGO" = "true" ]; then
+  #           BUILD_DIR="protego-mech/build"
+  #           TEST_PATHS_FILE="protego-mech/test/regression_tests/regression_test_paths.yaml"
+  #         fi
 
-          echo "Running regression tests (parallel)..."
-          python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG} --parallel
+  #         echo "Running regression tests (parallel)..."
+  #         python3 test/run_regression_tests.py --build-dir ${BUILD_DIR} --directory-file ${TEST_PATHS_FILE} ${BUILD_FLAG} ${CPU_FLAG} --parallel
 
-      - name: Run GUI tests
-        if: env.PROTEGO == 'true'
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE/protego-mech/gui
+  #     - name: Run GUI tests
+  #       if: env.PROTEGO == 'true'
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE/protego-mech/gui
 
-          # Use the container's existing Python virtual environment (has all GUI dependencies)
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         # Use the container's existing Python virtual environment (has all GUI dependencies)
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
 
-          # Install test dependencies
-          pip install -q pytest pytest-cov
+  #         # Install test dependencies
+  #         pip install -q pytest pytest-cov
 
-          # Add gui package to Python path for imports
-          # Note: We don't use setup.py/setup_linux.py as they're for AppImage building, not pip installation
-          export PYTHONPATH=$GITHUB_WORKSPACE/protego-mech/gui:$PYTHONPATH
+  #         # Add gui package to Python path for imports
+  #         # Note: We don't use setup.py/setup_linux.py as they're for AppImage building, not pip installation
+  #         export PYTHONPATH=$GITHUB_WORKSPACE/protego-mech/gui:$PYTHONPATH
 
-          # Run tests
-          cd test
-          pytest -v test_image_segmenter.py test_meshing.py test_simulation.py
+  #         # Run tests
+  #         cd test
+  #         pytest -v test_image_segmenter.py test_meshing.py test_simulation.py
 
   #############################################################################
   # GPU Tests - Run on Azure VM Pool (parallel across 3 VMs)
@@ -589,72 +589,72 @@ jobs:
   # Code Coverage (CPU only, on GitHub runner)
   #############################################################################
 
-  code-coverage:
-    name: Build Debug, Code Coverage
-    runs-on: ubuntu-latest
-    needs: [build-and-test-cpu]
+  # code-coverage:
+  #   name: Build Debug, Code Coverage
+  #   runs-on: ubuntu-latest
+  #   needs: [build-and-test-cpu]
 
-    container:
-      image: ghcr.io/aperijake/aperi-mech:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root
+  #   container:
+  #     image: ghcr.io/aperijake/aperi-mech:latest
+  #     credentials:
+  #       username: ${{ github.actor }}
+  #       password: ${{ secrets.GITHUB_TOKEN }}
+  #     options: --user root
 
-    env:
-      # MPI Configuration for Docker Containers:
-      # - OMPI_ALLOW_RUN_AS_ROOT: Required because GitHub Actions containers run as root user
-      OMPI_ALLOW_RUN_AS_ROOT: 1
-      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      # - PRTE_MCA_rmaps: Allow oversubscription since container reports only 1 slot despite having 4 cores
-      PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
-      # - OMPI_MCA_btl: Disable shared memory transport to avoid container restrictions, use TCP loopback instead
-      OMPI_MCA_btl: ^sm
-      OMPI_MCA_btl_base_warn_component_unused: 0
+  #   env:
+  #     # MPI Configuration for Docker Containers:
+  #     # - OMPI_ALLOW_RUN_AS_ROOT: Required because GitHub Actions containers run as root user
+  #     OMPI_ALLOW_RUN_AS_ROOT: 1
+  #     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+  #     # - PRTE_MCA_rmaps: Allow oversubscription since container reports only 1 slot despite having 4 cores
+  #     PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
+  #     # - OMPI_MCA_btl: Disable shared memory transport to avoid container restrictions, use TCP loopback instead
+  #     OMPI_MCA_btl: ^sm
+  #     OMPI_MCA_btl_base_warn_component_unused: 0
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-          submodules: false
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         lfs: true
+  #         submodules: false
 
-      - name: Fix git ownership
-        shell: bash
-        run: |
-          git config --global --add safe.directory $GITHUB_WORKSPACE
+  #     - name: Fix git ownership
+  #       shell: bash
+  #       run: |
+  #         git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Install lcov
-        shell: bash
-        run: |
-          apt-get update && apt-get install -y lcov
+  #     - name: Install lcov
+  #       shell: bash
+  #       run: |
+  #         apt-get update && apt-get install -y lcov
 
-      - name: Configure and build with coverage
-        shell: bash
-        run: |
-          set -e
-          cd $GITHUB_WORKSPACE
-          source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
-          spack env activate aperi-mech
+  #     - name: Configure and build with coverage
+  #       shell: bash
+  #       run: |
+  #         set -e
+  #         cd $GITHUB_WORKSPACE
+  #         source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+  #         spack env activate aperi-mech
 
-          ./do_configure --build-type Debug --code-coverage
+  #         ./do_configure --build-type Debug --code-coverage
 
-          # Build using all available cores
-          # Note: Use 'nproc --all' instead of 'nproc' because containers may report limited quota
-          # but actually have access to all host cores for build parallelism
-          echo "Building with $(nproc --all) parallel jobs"
-          cd build/Debug_cov
-          make -j$(nproc --all)
-          make coverage
+  #         # Build using all available cores
+  #         # Note: Use 'nproc --all' instead of 'nproc' because containers may report limited quota
+  #         # but actually have access to all host cores for build parallelism
+  #         echo "Building with $(nproc --all) parallel jobs"
+  #         cd build/Debug_cov
+  #         make -j$(nproc --all)
+  #         make coverage
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ${{ github.workspace }}/build/Debug_cov/coverage.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+  #     - name: Upload coverage reports to Codecov
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         files: ${{ github.workspace }}/build/Debug_cov/coverage.info
+  #         flags: unittests
+  #         name: codecov-umbrella
+  #         fail_ci_if_error: false
+  #         token: ${{ secrets.CODECOV_TOKEN }}
 
   #############################################################################
   # Teardown
