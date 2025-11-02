@@ -8,7 +8,6 @@ Test script generation locally:
 """
 
 import os
-import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -123,21 +122,25 @@ class DockerRunner:
 
         if stream_output:
             print("Executing the following commands on the VM:")
-            # Redact sensitive environment variable values before printing the script
-            sensitive_keys = {"CICD_REPO_SECRET"}
-            redacted_env_vars = dict(env_vars)
-            for key in sensitive_keys:
-                if key in redacted_env_vars:
-                    redacted_env_vars[key] = "<hidden>"
-            if vm_pool:
-                masked_script = self._build_docker_run_script(
-                    config, commands, working_dir, redacted_env_vars
-                )
-            else:
-                masked_script = self._build_docker_compose_script(
-                    config, commands, working_dir, redacted_env_vars
-                )
-            print(masked_script)
+            # Note: Script content not printed to avoid potential information disclosure
+            # Set DEBUG_PRINT_SCRIPT=1 environment variable to enable script printing for local debugging
+            debug_print = os.environ.get("DEBUG_PRINT_SCRIPT", "0") == "1"
+            if debug_print:
+                # Redact sensitive environment variable values before printing the script
+                sensitive_keys = {"CICD_REPO_SECRET"}
+                redacted_env_vars = dict(env_vars)
+                for key in sensitive_keys:
+                    if key in redacted_env_vars:
+                        redacted_env_vars[key] = "<hidden>"
+                if vm_pool:
+                    masked_script = self._build_docker_run_script(
+                        config, commands, working_dir, redacted_env_vars
+                    )
+                else:
+                    masked_script = self._build_docker_compose_script(
+                        config, commands, working_dir, redacted_env_vars
+                    )
+                print(masked_script)
             print("-" * 80)
 
         _, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
