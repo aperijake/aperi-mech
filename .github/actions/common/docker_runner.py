@@ -157,21 +157,28 @@ class DockerRunner:
             env_flags.append(f'-e {key}="{value}"')
         env_str = " ".join(env_flags)
 
-        # Setup symlinks
-        symlink_setup = "ln -sf /tmp/aperi-builds build"
+        # Setup symlinks - must happen BEFORE any commands
+        symlink_setup = """
+    echo "Setting up symlink for main build directory..."
+    ln -sf /tmp/aperi-builds build"""
         if config.with_protego:
-            symlink_setup += "\nln -sf /tmp/protego-builds protego-mech/build"
+            symlink_setup += """
+    echo "Setting up symlink for protego-mech build directory..."
+    ln -sf /tmp/protego-builds protego-mech/build"""
 
-        # Setup working directory
+        # Setup working directory - comes AFTER Spack activation, not before
+        # If working_dir is specified, use it; otherwise stay at repo root
+        # (build directory will be created by configure, then we cd into it)
         if working_dir:
             workdir_cmd = f"cd {working_dir}"
         else:
-            workdir_cmd = f"cd $BUILD_PATH"
+            # Don't cd to build_path automatically - let the caller's commands do it
+            workdir_cmd = ""
 
         # Build command list
         commands_str = "\n".join(commands)
 
-        return f"""
+        script = f"""
 set -e
 
 mkdir -p /mnt/builds /mnt/builds/protego-builds
@@ -182,17 +189,26 @@ docker run --rm {gpu_flag} {volume_mounts} \\
     set -e
     cd /home/aperi-mech_docker/aperi-mech
 
-    {symlink_setup}
+{symlink_setup}
 
     echo "Setting up Spack environment..."
     source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
     spack env activate aperi-mech
+"""
 
+        # Add working directory change if specified
+        if workdir_cmd:
+            script += f"""
     {workdir_cmd}
+"""
 
+        # Add user commands
+        script += f"""
     {commands_str}
   ' || {{ echo "Command failed"; exit 1; }}
 """
+
+        return script
 
     def _build_docker_compose_script(
         self,

@@ -64,6 +64,7 @@ def run_build(
             "echo 'Configuring build...'",
             f"./do_configure --build-type {build_type} {config.configure_flags}",
             "echo 'Building...'",
+            f"cd {config.build_path}",
             f"make -j{num_jobs}",
         ])
 

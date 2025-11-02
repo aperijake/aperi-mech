@@ -17,6 +17,7 @@ from docker_runner import BuildConfig, DockerRunner, str_to_bool
 def run_material_tests(runner: DockerRunner, config: BuildConfig, vm_pool: bool) -> int:
     """Run material tests."""
     commands = [
+        f"cd {config.build_path}",
         "echo 'Running material tests...'",
         "make run_material_tests",
     ]
@@ -28,6 +29,7 @@ def run_unit_tests(
 ) -> int:
     """Run unit tests."""
     commands = [
+        f"cd {config.build_path}",
         f"echo 'Running unit tests with {num_processes} processes...'",
         f"mpirun -n {num_processes} ./unit_tests",
     ]
@@ -41,6 +43,7 @@ def run_utils_modules_tests(
     # Need to add build directory to PATH
     path_addition = f"/home/aperi-mech_docker/aperi-mech/{config.build_path}"
     commands = [
+        f"cd {config.build_path}",
         f"export PATH=$PATH:{path_addition}",
         "echo 'Running utils modules tests...'",
         "make run_utils_modules_tests",
