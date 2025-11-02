@@ -120,35 +120,33 @@ class DockerRunner:
                 config, commands, working_dir, env_vars
             )
 
-        if stream_output:
-            print("Executing the following commands on the VM:")
-            # Note: Script content not printed to avoid potential information disclosure
-            # Set DEBUG_PRINT_SCRIPT=1 environment variable to enable script printing for local debugging
-            debug_print = os.environ.get("DEBUG_PRINT_SCRIPT", "0") == "1"
-            if debug_print:
-                # Redact sensitive environment variable values before printing the script
-                # Redact any env var whose key indicates it may be sensitive
-                redacted_env_vars = dict(env_vars)
-                SENSITIVE_PATTERNS = ("SECRET", "TOKEN", "PASSWORD", "KEY")
-                for key in redacted_env_vars:
-                    if any(pat in key.upper() for pat in SENSITIVE_PATTERNS):
-                        redacted_env_vars[key] = "<hidden>"
-                if vm_pool:
-                    masked_script = self._build_docker_run_script(
-                        config, commands, working_dir, redacted_env_vars
-                    )
-                else:
-                    masked_script = self._build_docker_compose_script(
-                        config, commands, working_dir, redacted_env_vars
-                    )
-                print(masked_script)
-            print("-" * 80)
+        # if stream_output:
+        # print("Executing the following commands on the VM:")
+        # Redact sensitive environment variable values before printing the script
+        # Redact any env var whose key indicates it may be sensitive
+        # redacted_env_vars = dict(env_vars)
+        # SENSITIVE_PATTERNS = ("SECRET", "TOKEN", "PASSWORD", "KEY")
+        # for key in redacted_env_vars:
+        #     if any(pat in key.upper() for pat in SENSITIVE_PATTERNS):
+        #         redacted_env_vars[key] = "<hidden>"
+        # if vm_pool:
+        #     masked_script = self._build_docker_run_script(
+        #         config, commands, working_dir, redacted_env_vars
+        #     )
+        # else:
+        #     masked_script = self._build_docker_compose_script(
+        #         config, commands, working_dir, redacted_env_vars
+        #     )
+        # print(masked_script)
+        # print("-" * 80)
 
         _, stdout, stderr = self.ssh.exec_command(script, get_pty=True)
 
         # Stream output in real-time instead of waiting for exit first
         if stream_output:
             for line in stdout:
+                print(line.strip())
+            for line in stderr:
                 print(line.strip())
 
         # Now get exit status after reading output
