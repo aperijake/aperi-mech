@@ -19,38 +19,38 @@ The hybrid CI/CD workflow splits the test workload across different compute reso
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │                     GitHub Actions                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ CPU Tests (Parallel on GitHub Runners)                │ │
-│  ├────────────────────────────────────────────────────────┤ │
-│  │ Runner 1: Debug + PROTEGO=true     ─┐                 │ │
-│  │ Runner 2: Debug + PROTEGO=false    ─┤ ~25 min        │ │
-│  │ Runner 3: Release + PROTEGO=true   ─┤ (parallel)      │ │
-│  │ Runner 4: Release + PROTEGO=false  ─┘                 │ │
-│  │                                                        │ │
-│  │ - Pulls image from GHCR                               │ │
-│  │ - Checks out code including submodules                │ │
-│  │ - Builds project                                      │ │
-│  │ - Runs all tests                                      │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ GPU Tests (Parallel on VM Pool)                       │ │
-│  ├────────────────────────────────────────────────────────┤ │
-│  │ VM 1: Debug+GPU+Protego=true, Release+GPU+Protego=false │
-│  │ VM 2: Debug+GPU+Protego=false         ┐ ~35 min       │ │
-│  │ VM 3: Release+GPU+Protego=true        ┘ (parallel)    │ │
-│  │                                                        │ │
-│  │ - Pool of 3 Azure GPU VMs (auto-started/stopped)     │ │
-│  │ - Uses cached Docker images                           │ │
-│  │ - Runs inside Docker containers via SSH               │ │
-│  │ - Python-based execution framework (no heredocs)      │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ CPU Tests (Parallel on GitHub Runners)                  │ │
+│  ├─────────────────────────────────────────────────────────┤ │
+│  │ Runner 1: Debug + PROTEGO=true     ─┐                   │ │
+│  │ Runner 2: Debug + PROTEGO=false    ─┤ ~25 min           │ │
+│  │ Runner 3: Release + PROTEGO=true   ─┤ (parallel)        │ │
+│  │ Runner 4: Release + PROTEGO=false  ─┘                   │ │
+│  │                                                         │ │
+│  │ - Pulls image from GHCR                                 │ │
+│  │ - Checks out code including submodules                  │ │
+│  │ - Builds project                                        │ │
+│  │ - Runs all tests                                        │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ GPU Tests (Parallel on VM Pool)                         │ │
+│  ├─────────────────────────────────────────────────────────┤ │
+│  │ VM 1: Debug+GPU+Protego=true, Release+GPU+Protego=false | │
+│  │ VM 2: Debug+GPU+Protego=false         ┐ ~35 min         │ │
+│  │ VM 3: Release+GPU+Protego=true        ┘ (parallel)      │ │
+│  │                                                         │ │
+│  │ - Pool of 3 Azure GPU VMs (auto-started/stopped)        │ │
+│  │ - Uses cached Docker images                             │ │
+│  │ - Runs inside Docker containers via SSH                 │ │
+│  │ - Python-based execution framework (no heredocs)        │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Workflow Files
