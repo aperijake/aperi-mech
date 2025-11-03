@@ -6,15 +6,16 @@ This document explains the hybrid CI/CD approach that combines GitHub-hosted run
 
 The hybrid CI/CD workflow splits the test workload across different compute resources to optimize runtime and cost:
 
-**Traditional approach**: All 8 test configurations run serially on a single VM
+**Original approach**: All 8 test configurations run serially on a single VM (8 processors, 1 T4 GPU)
 
 - Runtime: ~145 minutes
 
 **Hybrid approach**: Splits workload by GPU requirements
 
 - **CPU tests** (4 configs): Run in parallel on GitHub-hosted runners → ~25 minutes
-- **GPU tests** (4 configs): Run in parallel on VM pool (3 VMs) → ~35 minutes
-- **Total runtime**: ~35 minutes (75% improvement)
+- **Coverage test** (1 config): Run after CPU tests on GitHub-hosted runners → ~20 minutes
+- **GPU tests** (4 configs): Run in parallel on VM pool (each: 4 VMs, 4 processors, 1 T4 GPU) → ~45 minutes
+- **Total runtime**: ~45 minutes (~70% improvement)
 
 ## Architecture
 
@@ -26,10 +27,10 @@ The hybrid CI/CD workflow splits the test workload across different compute reso
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │ CPU Tests (Parallel on GitHub Runners)                  │ │
 │  ├─────────────────────────────────────────────────────────┤ │
-│  │ Runner 1: Debug + PROTEGO=true     ─┐                   │ │
-│  │ Runner 2: Debug + PROTEGO=false    ─┤ ~25 min           │ │
-│  │ Runner 3: Release + PROTEGO=true   ─┤ (parallel)        │ │
-│  │ Runner 4: Release + PROTEGO=false  ─┘                   │ │
+│  │ Runner 1: Debug + PROTEGO=true    ~25 min ─┐            │ │
+│  │ Runner 2: Debug + PROTEGO=false   ~14 min ─┤ ~25 min    │ │
+│  │ Runner 3: Release + PROTEGO=true  ~14 min ─┤ (parallel) │ │
+│  │ Runner 4: Release + PROTEGO=false ~11 min ─┘            │ │
 │  │                                                         │ │
 │  │ - Pulls image from GHCR                                 │ │
 │  │ - Checks out code including submodules                  │ │
@@ -38,13 +39,25 @@ The hybrid CI/CD workflow splits the test workload across different compute reso
 │  └─────────────────────────────────────────────────────────┘ │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐ │
+│  │ Coverage Test (GitHub Runner)                           │ │
+│  ├─────────────────────────────────────────────────────────┤ │
+│  │ Runner 1: Debug + PROTEGO=false    ~20 min              │ │
+│  │                                                         │ │
+│  │ - After CPU Tests complete                              │ │
+│  │ - Like above but with code coverage flag                │ │
+│  │ - Uploads coverage results to Codecov                   │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
 │  │ GPU Tests (Parallel on VM Pool)                         │ │
 │  ├─────────────────────────────────────────────────────────┤ │
-│  │ VM 1: Debug+GPU+Protego=true, Release+GPU+Protego=false | │
-│  │ VM 2: Debug+GPU+Protego=false         ┐ ~35 min         │ │
-│  │ VM 3: Release+GPU+Protego=true        ┘ (parallel)      │ │
+│  │ VM 1: Debug + Protego=true     ~42 min ─┐               │ │
+│  │ VM 2: Debug + Protego=false    ~27 min ─┤ ~42 min       │ │
+│  │ VM 3: Release + Protego=true   ~37 min ─┤ (parallel)    │ │
+│  │ VM 4: Release + Protego=false  ~28 min ─┘               │ │
 │  │                                                         │ │
-│  │ - Pool of 3 Azure GPU VMs (auto-started/stopped)        │ │
+│  │ - Plus ~2 min of VM start-up and ~1 min shutdown        │ │
+│  │ - Pool of 4 Azure GPU VMs (auto-started/stopped)        │ │
 │  │ - Uses cached Docker images                             │ │
 │  │ - Runs inside Docker containers via SSH                 │ │
 │  │ - Python-based execution framework (no heredocs)        │ │
@@ -57,17 +70,12 @@ The hybrid CI/CD workflow splits the test workload across different compute reso
 
 ### ci-cd-pipeline.yaml (Current - Hybrid Approach with VM Pool)
 
-- **Runtime**: ~35 minutes
+- **Runtime**: ~45 minutes
 - **CPU tests**: Run in parallel on GitHub-hosted runners (4 configs, ~25 min)
-- **GPU tests**: Run in parallel on VM pool (3 VMs, 4 configs, ~35 min)
+- **Coverage test** Run after CPU tests on GitHub-hosted runners → (1 config, ~20 min)
+- **GPU tests**: Run in parallel on VM pool (4 VMs, 4 configs, ~45 min)
 - **Triggered by**: Pull requests and pushes to main branch
-- **VM Pool**: 3× Standard_NC4as_T4_v3 VMs (auto-started/stopped, see [VM_POOL_GUIDE.md](../../scripts/VM_POOL_GUIDE.md))
-
-### ci-cd-pipeline-old.yaml.bak (Legacy - Backup)
-
-- **Runtime**: ~145 minutes
-- **All tests**: Run serially on self-hosted VM (8 configs)
-- **Status**: Kept as backup, will be removed after hybrid workflow proves stable
+- **VM Pool**: 4× Standard_NC4as_T4_v3 VMs (auto-started/stopped, see [VM_POOL_GUIDE.md](../../scripts/VM_POOL_GUIDE.md))
 
 ## Testing the Workflow
 
@@ -90,9 +98,9 @@ Monitor the workflow execution via GitHub Actions tab.
 Verify that:
 
 - ✅ All CPU configs complete in parallel (~25 min)
-- ✅ All GPU configs complete serially (~70 min)
+- ✅ All GPU configs complete in parallel (~45 min)
+- ✅ Code coverage completes and uploads successfully (~20 min)
 - ✅ All test suites pass (material, utils, unit, regression, GUI)
-- ✅ Code coverage uploads successfully
 - ✅ No security violations (no closed-source code exposed)
 
 ## How It Works
@@ -107,7 +115,7 @@ Verify that:
    - Includes submodules based on build configuration
    - Code checked out to `$GITHUB_WORKSPACE`
 
-3. **Build**: Compiles project (~5-7 min)
+3. **Build**: Compiles project (~9 min)
    - Dependencies already in Docker image (reduces build time)
    - Uses all available cores (`nproc --all`)
 
@@ -120,7 +128,7 @@ Verify that:
 
 ### GPU Tests (VM Pool)
 
-Executes on a pool of 3 Azure GPU VMs via SSH from GitHub runners:
+Executes on a pool of 4 Azure GPU VMs via SSH from GitHub runners:
 
 1. **Code Sync**: GitHub runner SSHs to VM and clones/updates PR code to `/mnt/aperi-mech-ci` (~30 sec)
    - If repo exists: `git fetch && git checkout <SHA> && git pull`
@@ -133,17 +141,17 @@ Executes on a pool of 3 Azure GPU VMs via SSH from GitHub runners:
    - Container's built-in `/home/aperi-mech_docker/aperi-mech` provides build environment (venv, Spack)
    - Two-repo architecture: One for environment, one for building
 
-3. **Build**: Compiles from `/source` using container's environment (~10-15 min)
+3. **Build**: Compiles from `/source` using container's environment (~30 min)
    - Sources venv from container's built-in location
    - Configures and builds from `/source` (the PR code)
    - Build artifacts created in `/source/build` or `/source/protego-mech/build`
 
-4. **Test**: Runs all GPU test suites (~15 min)
+4. **Test**: Runs all GPU test suites (~10 min)
    - Material tests, utils modules tests, unit tests (MPI), regression tests
 
 **Key Features**:
 
-- **Parallel execution**: 4 GPU test configs distributed across 3 VMs
+- **Parallel execution**: 4 GPU test configs distributed across 4 VMs
 - **Auto-managed**: VMs automatically started before tests, deallocated after
 - **Python-based framework**: Uses `docker_runner.py` for script generation (no bash heredocs)
 - **Unified actions**: Single `run-tests-action` replaces 4 separate test actions
@@ -152,20 +160,20 @@ Executes on a pool of 3 Azure GPU VMs via SSH from GitHub runners:
 
 ## Cost Analysis
 
-### Traditional Approach
+### Original Approach
 
-- Single self-hosted VM: ~145 min runtime per workflow
-- Monthly cost: ~$15-20 (single VM, ~30 hrs/month)
+- Single self-hosted VM (Standard_NC8as_T4_v3): ~145 min runtime per workflow
+- Monthly cost: ~$25 (single VM, ~30 hrs/month)
 
 ### Hybrid Approach with VM Pool
 
 - GitHub-hosted runners: Free for public repositories
-- VM pool (3 VMs): ~35 min runtime per workflow (75% reduction in time)
-- Monthly cost: ~$20-24 (3 VMs × $7-8/month, ~10-12 hrs/month total)
+- VM pool (4 VMs, Standard_NC4as_T4_v3): ~45 min runtime per workflow (70% reduction in time)
+- Monthly cost: ~$28 (4 VMs × ~$8/month, ~9 hrs/month total)
 - GHCR storage: Free for public packages
 - Data transfer: Free within GitHub infrastructure
 
-**Cost-benefit**: Slightly higher cost (~$5/month) but 75% faster, enabling rapid iteration
+**Cost-benefit**: Slightly higher cost (~$3/month) but 70% faster, enabling rapid iteration
 
 ## Troubleshooting
 
@@ -225,43 +233,22 @@ GitHub provides package metrics:
 - Select the package
 - View activity and download statistics
 
-### Compare Workflow Performance
+### Check Workflow Performance
 
 Use GitHub CLI to analyze workflow runtimes:
 
 ```bash
 # View recent workflow runs
 gh run list --workflow=ci-cd-pipeline.yaml --limit 10
-
-# Compare with old workflow (if backup exists)
-gh run list --workflow=ci-cd-pipeline-old.yaml.bak --limit 10
 ```
-
-## Rollback Procedure
-
-If issues arise with the hybrid workflow:
-
-1. **Using Git revert**:
-
-   ```bash
-   git revert <commit-hash>
-   git push
-   ```
-
-2. **Manual restoration** (if backup exists):
-   - Restore the backup workflow file
-   - Commit and push changes
-
-**Note**: Docker images in GHCR remain available and can be reused when ready to retry the hybrid approach.
 
 ## Future Enhancements
 
-### Expand VM Pool to 4 VMs
+### Expand VM Pool
 
-Adding a 4th VM to achieve true 1:1 parallelization:
+Add VMs if the more test configs or developers are added, causing queue delays
 
-- **Benefit**: All 4 GPU configs run in parallel (~25 min total runtime, matching CPU tests)
-- **Cost**: +$4/month (total ~$24-28/month)
+- **Cost**: +\$7/month (total ~\$35/month)
 - **Implementation**: See "Section G: Scaling to 4+ VMs" in [VM_POOL_GUIDE.md](../../scripts/VM_POOL_GUIDE.md)
 
 ### Larger GitHub Runners
@@ -280,7 +267,7 @@ Implementing aggressive caching strategies:
 - Spack build artifact caching
 - Test data caching for regression tests
 
-**Potential improvement**: Reduce setup time from 5 minutes to ~1 minute
+**Potential improvement**: Reduce setup time from 4 minutes to ~1 minute
 
 ## Implementation Details
 
