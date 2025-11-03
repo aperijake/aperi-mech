@@ -23,6 +23,10 @@ inputs:
     description: Enable Protego build
     required: false
     default: "false"
+  vm-pool:
+    description: VM pool mode (uses docker run instead of docker-compose)
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -33,58 +37,118 @@ runs:
         echo "parallel: ${{ inputs.parallel }}"
         echo "build: ${{ inputs.build }}"
         echo "with-protego: ${{ inputs.with-protego }}"
+        echo "vm-pool: ${{ inputs.vm-pool }}"
 
     - name: Run regression tests
       shell: bash
       run: |
         ssh -T -o ConnectTimeout=10 ${{ inputs.VM_USERNAME }}@${{ inputs.VM_IP }} << 'EOF'
-          set -e # Exit on error
-          cd ~/aperi-mech
+          set -e
 
-          compose_file=docker/docker-compose.yml
-          service_name=aperi-mech-development
-          if [ ${{ inputs.gpu }} == 'true' ]; then
-            compose_file=docker/docker-compose_nvidia.yml
-            service_name=aperi-mech-gpu-development
+          # Build test flags
+          test_flags=""
+          if [ "${{ inputs.gpu }}" == "true" ]; then
+            test_flags="$test_flags --gpu"
+          else
+            test_flags="$test_flags --cpu"
           fi
-          # Debugging
-          echo "On VM, Compose file: $compose_file"
-          echo "On VM, Service name: $service_name"
 
-          docker-compose -f $compose_file run --rm $service_name /bin/bash -c '
-            test_flags=""
-            if [ ${{ inputs.gpu }} == "true" ]; then
-              test_flags="$test_flags --gpu"
-            else
-              test_flags="$test_flags --cpu"
-            fi
-            if [ ${{ inputs.parallel }} == "true" ]; then
-              test_flags="$test_flags --parallel"
-            else
-              test_flags="$test_flags --serial"
-            fi
-            build_type_lower=$(echo "${{ inputs.build }}" | tr "[:upper:]" "[:lower:]")
-            if [ "$build_type_lower" == "release" ]; then
-              test_flags="$test_flags --release"
-            else
-              test_flags="$test_flags --debug"
-            fi
-            # Debugging
-            echo "In container, inputs.gpu: ${{ inputs.gpu }}"
-            echo "In container, inputs.parallel: ${{ inputs.parallel }}"
-            echo "In container, test_flags: $test_flags"
+          if [ "${{ inputs.parallel }}" == "true" ]; then
+            test_flags="$test_flags --parallel"
+          else
+            test_flags="$test_flags --serial"
+          fi
 
-            echo "Setting up Spack environment..."
-            source $APERI_MECH_ROOT/venv/bin/activate
-            spack env activate aperi-mech
+          build_type_lower=$(echo "${{ inputs.build }}" | tr "[:upper:]" "[:lower:]")
+          if [ "$build_type_lower" == "release" ]; then
+            test_flags="$test_flags --release"
+          else
+            test_flags="$test_flags --debug"
+          fi
 
-            echo "Running regression tests..."
-            cd ~/aperi-mech_host/test/
-            if [ ${{ inputs.with-protego }} == "true" ]; then
-              ./run_regression_tests.py --directory-file ~/aperi-mech_host/protego-mech/test/regression_tests/regression_test_paths.yaml --build-dir ~/aperi-mech_host/protego-mech/build/ $test_flags
-            else
-              ./run_regression_tests.py --directory ./regression_tests --build-dir ~/aperi-mech_host/build/ $test_flags
+          echo "Test flags: $test_flags"
+
+          if [ "${{ inputs.vm-pool }}" == "true" ]; then
+            # VM Pool mode: Use docker run
+            docker_image="ghcr.io/aperijake/aperi-mech:cuda-t4"
+            gpu_flag=""
+            if [ "${{ inputs.gpu }}" == "true" ]; then
+              gpu_flag="--gpus all"
             fi
 
-          '  || { echo "Regression test step failed"; exit 1; }
+            volume_mounts="-v /mnt/builds:/tmp/aperi-builds"
+            if [ "${{ inputs.with-protego }}" == "true" ]; then
+              volume_mounts="$volume_mounts -v /mnt/builds/protego-builds:/tmp/protego-builds"
+            fi
+
+            with_protego_flag="${{ inputs.with-protego }}"
+
+            docker run --rm $gpu_flag $volume_mounts \
+              -e TEST_FLAGS="$test_flags" \
+              -e WITH_PROTEGO="$with_protego_flag" \
+              $docker_image /bin/bash -c '
+                set -e
+                cd /home/aperi-mech_docker/aperi-mech
+
+                # Create symlinks to mounted build directories
+                ln -sf /tmp/aperi-builds build
+                if [ "$WITH_PROTEGO" == "true" ]; then
+                  ln -sf /tmp/protego-builds protego-mech/build
+                fi
+
+                echo "Setting up Spack environment..."
+                source /home/aperi-mech_docker/aperi-mech/venv/bin/activate
+                spack env activate aperi-mech
+
+                echo "Running regression tests..."
+                cd /home/aperi-mech_docker/aperi-mech/test/
+
+                if [ "$WITH_PROTEGO" == "true" ]; then
+                  ./run_regression_tests.py \
+                    --directory-file /home/aperi-mech_docker/aperi-mech/protego-mech/test/regression_tests/regression_test_paths.yaml \
+                    --build-dir /home/aperi-mech_docker/aperi-mech/protego-mech/build/ \
+                    $TEST_FLAGS
+                else
+                  ./run_regression_tests.py \
+                    --directory ./regression_tests \
+                    --build-dir /home/aperi-mech_docker/aperi-mech/build/ \
+                    $TEST_FLAGS
+                fi
+              ' || { echo "Regression test step failed"; exit 1; }
+
+          else
+            # Old single-VM mode: Use docker-compose
+            cd ~/aperi-mech
+
+            compose_file=docker/docker-compose.yml
+            service_name=aperi-mech-development
+            if [ "${{ inputs.gpu }}" == "true" ]; then
+              compose_file=docker/docker-compose_nvidia.yml
+              service_name=aperi-mech-gpu-development
+            fi
+
+            echo "Compose file: $compose_file"
+            echo "Service name: $service_name"
+
+            docker-compose -f $compose_file run --rm $service_name /bin/bash -c "
+              echo 'Setting up Spack environment...'
+              source \$APERI_MECH_ROOT/venv/bin/activate
+              spack env activate aperi-mech
+
+              echo 'Running regression tests...'
+              cd ~/aperi-mech_host/test/
+
+              if [ \"${{ inputs.with-protego }}\" == \"true\" ]; then
+                ./run_regression_tests.py \\
+                  --directory-file ~/aperi-mech_host/protego-mech/test/regression_tests/regression_test_paths.yaml \\
+                  --build-dir ~/aperi-mech_host/protego-mech/build/ \\
+                  $test_flags
+              else
+                ./run_regression_tests.py \\
+                  --directory ./regression_tests \\
+                  --build-dir ~/aperi-mech_host/build/ \\
+                  $test_flags
+              fi
+            " || { echo "Regression test step failed"; exit 1; }
+          fi
         EOF
