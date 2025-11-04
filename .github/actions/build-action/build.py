@@ -123,6 +123,7 @@ def run_build(
             "echo \"Configuring build...\"",
             f"./do_configure --build-type {build_type} {config.configure_flags}",
             "echo \"Building...\"",
+            "echo \"Build path: $BUILD_PATH\"",
             "cd $BUILD_PATH",
             f"make -j{num_jobs}",
         ])
