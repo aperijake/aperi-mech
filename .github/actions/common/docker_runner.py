@@ -229,22 +229,26 @@ docker run --rm {gpu_flag} {volume_mounts} \\
             service_name = "aperi-mech-gpu-development"
 
         # Build working directory
-        build_root_path = f"~/aperi-mech_host/{config.build_root}"
+        # The docker-compose working_dir is /home/aperi-mech_docker/aperi-mech_host
+        # Use absolute path to avoid tilde expansion issues
+        build_root_path = f"/home/aperi-mech_docker/aperi-mech_host/{config.build_root}"
         build_path = f"{build_root_path}/{config.build_type}"
         if config.gpu:
             build_path += "_gpu"
         if config.code_coverage:
             build_path += "_cov"
 
-        workdir_cmd = f"cd {working_dir}" if working_dir else f"cd {build_path}"
+        # Don't cd to build directory yet - let do_configure create it first
+        # Only cd if working_dir is explicitly specified
+        workdir_section = f"\n    cd {working_dir}" if working_dir else ""
 
         # Build environment variables export with proper indentation
-        env_exports = ""
+        # Always export BUILD_PATH so scripts can use it
+        env_exports = f'export BUILD_PATH="{build_path}"'
         if env_vars:
-            env_exports = "\n    ".join(
+            env_exports += "\n    " + "\n    ".join(
                 [f'export {k}="{v}"' for k, v in env_vars.items()]
             )
-            env_exports += "\n    "
 
         # Build command list with proper indentation
         commands_indented = "\n    ".join(commands)
@@ -254,11 +258,13 @@ set -e
 cd ~/aperi-mech
 
 docker-compose -f {compose_file} run --rm {service_name} /bin/bash -c '
+    set -e
+
     echo "Setting up Spack environment..."
     source $APERI_MECH_ROOT/venv/bin/activate
     spack env activate aperi-mech
 
-    {env_exports}{workdir_cmd}
+    {env_exports}{workdir_section}
 
     {commands_indented}
 ' || {{ echo "Command failed"; exit 1; }}
