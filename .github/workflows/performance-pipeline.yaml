@@ -106,14 +106,19 @@ jobs:
 
               echo "Checking out appropriate branch..."
               if [ "${{ github.event_name }}" = "pull_request" ]; then
+                echo "Pull request event detected. Checking out PR commit SHA..."
                 git fetch origin ${{ github.sha }}
                 git checkout ${{ github.sha }}
               elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+                echo "Push event detected on main branch. Checking out main branch..."
                 git checkout main
               else
+                echo "Other event detected. Checking out ref ${{ github.ref }}..."
                 git checkout ${{ github.ref }}
               fi
+              echo "Pulling LFS files..."
               git lfs pull # Pull LFS files
+              echo "Cleaning up old build artifacts..."
               rm -rf build # Remove build directory, this prevents some false positives in tests
               rm -rf protego-mech/build # Remove build directory, this prevents some false positives in tests
           EOF
