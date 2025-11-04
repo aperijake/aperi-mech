@@ -169,7 +169,7 @@ Executes on a pool of 4 Azure GPU VMs via SSH from GitHub runners:
 
 - GitHub-hosted runners: Free for public repositories
 - VM pool (4 VMs, Standard_NC4as_T4_v3): ~45 min runtime per workflow (70% reduction in time)
-- Monthly cost: ~$28 (4 VMs × ~$8/month, ~9 hrs/month total)
+- Monthly cost: ~\$28 (4 VMs × ~\$8/month, ~9 hrs/month total)
 - GHCR storage: Free for public packages
 - Data transfer: Free within GitHub infrastructure
 

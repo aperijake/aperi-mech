@@ -271,9 +271,9 @@ jobs:
           pytest -v test_image_segmenter.py test_meshing.py test_simulation.py
 
   #############################################################################
-  # GPU Tests - Run on Azure VM Pool (parallel across 3 VMs)
+  # GPU Tests - Run on Azure VM Pool (parallel across 4 VMs)
   #############################################################################
-  # VM_POOL_CONFIG: Current pool size is 3 VMs
+  # VM_POOL_CONFIG: Current pool size is 4 VMs
   # To scale the pool, search for "VM_POOL_CONFIG" and update all marked sections
   #############################################################################
 
@@ -283,9 +283,9 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 3 # VM_POOL_CONFIG: Start all VMs in parallel (set to pool size)
+      max-parallel: 4 # VM_POOL_CONFIG: Start all VMs in parallel (set to pool size)
       matrix:
-        vm_index: [1, 2, 3] # VM_POOL_CONFIG: Update array when adding/removing VMs
+        vm_index: [1, 2, 3, 4] # VM_POOL_CONFIG: Update array when adding/removing VMs
 
     steps:
       - name: Checkout Code on Runner
@@ -403,6 +403,7 @@ jobs:
             1) VM_IP="${{ steps.get-ip.outputs.vm_ip_1 }}" ;;
             2) VM_IP="${{ steps.get-ip.outputs.vm_ip_2 }}" ;;
             3) VM_IP="${{ steps.get-ip.outputs.vm_ip_3 }}" ;;
+            4) VM_IP="${{ steps.get-ip.outputs.vm_ip_4 }}" ;;
             *) echo "Error: Invalid VM index ${{ matrix.vm_index }}"; exit 1 ;;
           esac
 
@@ -431,6 +432,7 @@ jobs:
       vm_ip_1: ${{ steps.get-ips.outputs.vm_ip_1 }}
       vm_ip_2: ${{ steps.get-ips.outputs.vm_ip_2 }}
       vm_ip_3: ${{ steps.get-ips.outputs.vm_ip_3 }}
+      vm_ip_4: ${{ steps.get-ips.outputs.vm_ip_4 }}
 
     steps:
       - name: Query All VM IPs
@@ -444,7 +446,7 @@ jobs:
             az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
             # VM_POOL_CONFIG: Update loop range to match pool size (e.g., "1 2 3 4" for 4 VMs)
-            for i in 1 2 3; do
+            for i in 1 2 3 4; do
               if [ "$i" = "1" ]; then
                 VM_NAME="${{ secrets.AZURE_CICD_GPU_VM_BASE }}"
               else
@@ -469,7 +471,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 3 # VM_POOL_CONFIG: Set to pool size to run one config per VM
+      max-parallel: 4 # VM_POOL_CONFIG: Set to pool size to run one config per VM
       matrix:
         # VM_POOL_CONFIG: Assign each test config to a VM_INDEX
         # With 3 VMs and 4 configs, VM 1 runs 2 configs sequentially
@@ -478,7 +480,7 @@ jobs:
           - { BUILD_TYPE: Debug, GPU: true, PROTEGO: true, VM_INDEX: 1 }
           - { BUILD_TYPE: Debug, GPU: true, PROTEGO: false, VM_INDEX: 2 }
           - { BUILD_TYPE: Release, GPU: true, PROTEGO: true, VM_INDEX: 3 }
-          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false, VM_INDEX: 1 }
+          - { BUILD_TYPE: Release, GPU: true, PROTEGO: false, VM_INDEX: 4 }
 
     env:
       BUILD_TYPE: ${{ matrix.config.BUILD_TYPE }}
@@ -494,6 +496,7 @@ jobs:
             1) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_1 }}" ;;
             2) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_2 }}" ;;
             3) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_3 }}" ;;
+            4) VM_IP="${{ needs.get-vm-ips.outputs.vm_ip_4 }}" ;;
             *) echo "Error: Invalid VM index ${{ matrix.config.VM_INDEX }}"; exit 1 ;;
           esac
           echo "VM_IP=$VM_IP" >> $GITHUB_ENV
@@ -668,9 +671,9 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 3 # VM_POOL_CONFIG: Deallocate all VMs in parallel (set to pool size)
+      max-parallel: 4 # VM_POOL_CONFIG: Deallocate all VMs in parallel (set to pool size)
       matrix:
-        vm_index: [1, 2, 3] # VM_POOL_CONFIG: Update array to match setup-gpu matrix
+        vm_index: [1, 2, 3, 4] # VM_POOL_CONFIG: Update array to match setup-gpu matrix
 
     steps:
       - name: Deallocate Azure VM

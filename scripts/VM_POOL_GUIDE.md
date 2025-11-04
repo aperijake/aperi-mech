@@ -1,14 +1,14 @@
 # Azure GPU VM Pool Guide
 
-Complete guide for setting up and managing a pool of 3 Azure GPU VMs for parallel CI/CD testing.
+Complete guide for setting up and managing a pool of 4 Azure GPU VMs for parallel CI/CD testing.
 
 ## Quick Reference
 
-**Current Setup**: 3× Standard_NC4as_T4_v3 VMs (4 vCPUs, 28GB RAM, 1× NVIDIA T4 GPU each)
+**Current Setup**: 4× Standard_NC4as_T4_v3 VMs (4 vCPUs, 28GB RAM, 1× NVIDIA T4 GPU each)
 
-**Cost**: ~\$20-24/month (includes \$7.20/month for persistent OS disks)
+**Cost**: ~\$28/month (includes \$2.40/month/VM for persistent OS disks)
 
-**Performance**: ~25-35 min runtime (50% faster than single VM)
+**Performance**: ~45 min runtime (70% faster than single VM)
 
 ### Common Commands
 
@@ -35,20 +35,21 @@ ssh -i ~/.ssh/AperiAzureGPU2_key.pem azureuser@$VM_IP
 
 ### How the VM Pool Works
 
-The CI/CD workflow distributes GPU tests across 3 VMs running in parallel:
+The CI/CD workflow distributes GPU tests across 4 VMs running in parallel:
 
-1. **setup-gpu** job: Starts all 3 VMs simultaneously (~3 min)
+1. **setup-gpu** job: Starts all 4 VMs simultaneously (~3 min)
 2. **get-vm-ips** job: Queries dynamic IPs for all running VMs
-3. **build-and-test-gpu** job: Distributes 4 test configurations across 3 VMs:
-   - VM 1: Debug+Protego=true, Release+Protego=false (2 configs, runs serially)
+3. **build-and-test-gpu** job: Distributes 4 test configurations across VMs:
+   - VM 1: Debug+Protego=true (1 config)
    - VM 2: Debug+Protego=false (1 config)
    - VM 3: Release+Protego=true (1 config)
-4. **teardown-gpu** job: Deallocates all 3 VMs to stop billing (~1 min)
+   - VM 4: Release+Protego=false (1 config)
+4. **teardown-gpu** job: Deallocates all 4 VMs to stop billing (~1 min)
 
 ### VM Naming Convention
 
 - Base VM: `CICD-NCasT4v3` (configured in GitHub secret `AZURE_CICD_GPU_VM_BASE`)
-- Additional VMs: `CICD-NCasT4v3-2`, `CICD-NCasT4v3-3`
+- Additional VMs: `CICD-NCasT4v3-2`, `CICD-NCasT4v3-3`, etc.
 - Workflow automatically appends `-2`, `-3` etc. based on the base name
 
 ### Key Design Decisions
@@ -56,14 +57,14 @@ The CI/CD workflow distributes GPU tests across 3 VMs running in parallel:
 #### Persistent OS Disks (32GB Standard SSD)
 
 - **Why**: Drivers/Docker persist across deallocations, no reinstallation needed
-- **Cost**: \$2.40/month per VM (\$7.20/month for 3 VMs) - worth it for simplicity
+- **Cost**: \$2.40/month per VM - worth it for simplicity
 - **vs. Ephemeral**: Ephemeral disks are wiped on deallocation, requiring ~10 min reinstall each time
 
 #### No Data Disks
 
-- Docker images and build artifacts use VM's temp storage (free, ~150GB on Standard_NC4as_T4_v3)
+- Docker images and build artifacts use VM's temp storage (free, ~176GB on Standard_NC4as_T4_v3)
 - Azure ingress bandwidth is FREE, so pulling images from GHCR takes only ~3-4 min
-- Saves \$2.40/month per VM (\$7.20/month for 3 VMs)
+- Saves \$2.40/month per VM (\$9.60/month for 4 VMs)
 
 #### Dynamic Public IPs
 
@@ -103,7 +104,7 @@ az account set --subscription "Your Subscription Name"
 
 ### 2. Check Azure Quotas
 
-**Required**: 12 vCPUs for Standard NCASv3_T4 Family (3 VMs × 4 vCPUs)
+**Required**: 16 vCPUs for Standard NCASv3_T4 Family (4 VMs × 4 vCPUs)
 
 ```bash
 # Check current quota
@@ -112,7 +113,7 @@ az vm list-usage --location westus2 \
   --output table
 ```
 
-If your quota is less than 12 vCPUs:
+If your quota is less than 16 vCPUs:
 
 1. Go to [Azure Portal](https://portal.azure.com) → Subscriptions → Usage + quotas
 2. Search for "Standard NCASv3_T4 Family vCPUs"
@@ -166,7 +167,7 @@ az vm create \
 
 **Command breakdown**:
 
-- `--size Standard_NC4as_T4_v3`: 4 vCPUs, 28GB RAM, 1× NVIDIA T4 GPU, ~150GB temp storage
+- `--size Standard_NC4as_T4_v3`: 4 vCPUs, 28GB RAM, 1× NVIDIA T4 GPU, ~176GB temp storage
 - `--image Ubuntu2404`: Ubuntu 24.04 LTS (supported until 2029)
 - `--os-disk-size-gb 32`: Persistent 32GB SSD ($2.40/month)
 - `--storage-sku StandardSSD_LRS`: Standard SSD (good balance of cost/performance)
@@ -188,7 +189,7 @@ az vm create \
 
 **Duration**: ~1 minute
 
-### Create Additional VMs (VM-2 and VM-3)
+### Create Additional VMs (VM-2, VM-3, etc.)
 
 ```bash
 # Create VM-2
@@ -210,27 +211,11 @@ az vm create \
   --enable-vtpm true \
   --tags purpose=ci-cd pool-member=true
 
-# Create VM-3
-az vm create \
-  --resource-group APERIAZUREGPU_GROUP \
-  --name CICD-NCasT4v3-3 \
-  --location westus2 \
-  --size Standard_NC4as_T4_v3 \
-  --image Ubuntu2404 \
-  --admin-username azureuser \
-  --ssh-key-values "$(cat ~/.ssh/AperiAzureGPU2_key.pem.pub)" \
-  --public-ip-address-allocation dynamic \
-  --public-ip-sku Basic \
-  --os-disk-size-gb 32 \
-  --storage-sku StandardSSD_LRS \
-  --priority Regular \
-  --security-type TrustedLaunch \
-  --enable-secure-boot false \
-  --enable-vtpm true \
-  --tags purpose=ci-cd pool-member=true
+# Create VM-X, where X is 3, 4, etc. Same as above, just change the name:
+  --name CICD-NCasT4v3-X \
 ```
 
-**Total time**: ~3 minutes (1 min per VM)
+**Total time**: ~1 min per VM
 
 ### Verify All VMs Created
 
@@ -244,6 +229,7 @@ az vm list -d --resource-group APERIAZUREGPU_GROUP --output table
 # CICD-NCasT4v3     APERIAZUREGPU_GROUP  VM running    westus2
 # CICD-NCasT4v3-2   APERIAZUREGPU_GROUP  VM running    westus2
 # CICD-NCasT4v3-3   APERIAZUREGPU_GROUP  VM running    westus2
+# ...
 ```
 
 ---
@@ -255,7 +241,7 @@ The `setup-new-vm.sh` script installs Docker, NVIDIA drivers, Git, and configure
 ### For Base VM (CICD-NCasT4v3)
 
 ```bash
-# Get VM's current IP
+# Get VM's current IP (change name accordingly)
 VM_IP=$(az vm show -d --resource-group APERIAZUREGPU_GROUP --name CICD-NCasT4v3 --query publicIps -o tsv)
 echo "VM IP: $VM_IP"
 
@@ -314,7 +300,7 @@ nvidia-smi
 
 ```text
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 570.xx.xx    Driver Version: 570.xx.xx    CUDA Version: 12.x   |
+| NVIDIA-SMI 570.xx.xx    Driver Version: 570.xx.xx    CUDA Version: 12.x     |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 |   0  Tesla T4            Off  | 00000001:00:00.0 Off |                    0 |
@@ -346,7 +332,7 @@ time docker pull ghcr.io/aperijake/aperi-mech:cuda-t4
 
 **Note**: You don't need to clone the repository on the VM. The Docker image contains the code, and the CI/CD workflow will check out the specific commit being tested into `~/aperi-mech` automatically.
 
-### Repeat for VM-2 and VM-3
+### Repeat for VM-2, VM-3, etc.
 
 **Now that you know the process works**, repeat for the other VMs:
 
@@ -361,10 +347,10 @@ chmod +x setup-new-vm.sh
 # Wait 30-60 seconds, SSH back in, verify: nvidia-smi
 # Pull image: docker pull ghcr.io/aperijake/aperi-mech:cuda-t4
 
-# For VM-3 (same process, replace name with CICD-NCasT4v3-3)
+# For VM-3, VM-4, etc. (same process, replace name with CICD-NCasT4v3-{3,4,..}
 ```
 
-**Expected behavior for VM-2 and VM-3**:
+**Expected behavior for VM-2, VM-3, etc.**:
 
 - ✅ Setup script runs without errors (Docker, NVIDIA drivers, Git installed)
 - ✅ You may see the same `nvidia-cdi-refresh.service failed` warning (harmless, ignore it)
@@ -372,7 +358,7 @@ chmod +x setup-new-vm.sh
 - ✅ Docker GPU test works
 - ✅ Docker image pulls in ~3-4 minutes
 
-**Base VM pool setup is now complete!** All 3 VMs are ready for CI/CD.
+**Base VM pool setup is now complete!** All VMs are ready for CI/CD.
 
 ---
 
@@ -384,7 +370,7 @@ Boot diagnostics stores VM console logs and screenshots, useful for debugging bo
 
 ```bash
 # Enable boot diagnostics (managed storage, ~$0.05-0.10/month per VM)
-for i in 1 2 3; do
+for i in 1 2 3; do # change range as needed
   if [ "$i" = "1" ]; then
     VM_NAME="CICD-NCasT4v3"
   else
@@ -398,7 +384,7 @@ for i in 1 2 3; do
 done
 ```
 
-**Cost impact**: ~$0.30/month for all 3 VMs (negligible)
+**Cost impact**: ~$0.10/month for each VMs (negligible)
 
 **Benefits**:
 
@@ -410,9 +396,46 @@ done
 
 ---
 
-## Section D: Testing the VM Pool with CI/CD
+## Section D: Configure Auto-Shutdown (Recommended)
 
-Before setting up VM-2 and VM-3, test that the base VM works with your CI/CD workflow.
+Auto-shutdown ensures VMs are automatically deallocated at a specific time each day to prevent accidental billing if a workflow fails to deallocate them. This provides a safety net against runaway costs.
+
+### Configure via Azure Portal
+
+For each VM in the pool:
+
+1. Go to [Azure Portal](https://portal.azure.com) → Virtual Machines
+2. Select the VM (e.g., `CICD-NCasT4v3`)
+3. In the left sidebar, under **Operations**, click **Auto-shutdown**
+4. Configure the following settings:
+   - **Enabled**: Yes (toggle on)
+   - **Scheduled shutdown**: 12:00 AM (00:00)
+   - **Time zone**: (UTC-07:00) Mountain Time (US & Canada)
+   - **Send notification before auto-shutdown**: Yes
+   - **Webhook URL**: (leave blank)
+   - **Email**: set an appropriate email address
+5. Click **Save** at the top
+
+**Repeat for all VMs** in the pool (CICD-NCasT4v3, CICD-NCasT4v3-2, CICD-NCasT4v3-3, etc.)
+
+### Benefits
+
+- **Cost protection**: VMs automatically deallocate at midnight MT, even if workflow teardown fails
+- **Email notifications**: A warning before shutdown allows manual intervention if needed
+- **Safety net**: Prevents VMs from running all night due to failed workflows or forgotten manual starts
+
+### Notes
+
+- Auto-shutdown only affects **running** VMs; deallocated VMs are unaffected
+- Normal CI/CD workflows will still deallocate VMs immediately after tests complete
+- Auto-shutdown time (12:00 AM MT) should be well after typical workflow completion times
+- If a workflow is still running at midnight, it will be interrupted (adjust time if needed)
+
+---
+
+## Section E: Testing the VM Pool with CI/CD
+
+Before setting up VM-2 and beyond, test that the base VM works with your CI/CD workflow.
 
 ### Deallocate VMs
 
@@ -439,7 +462,7 @@ Check that:
 - ✅ GPU tests run and pass
 - ✅ Teardown GPU VM (1) deallocates the VM
 
-**If this works**: Proceed to set up VM-2 and VM-3!
+**If this works**: Proceed to set up VM-2 and beyond!
 
 **If it fails**: Check troubleshooting section below.
 
@@ -447,7 +470,7 @@ Check that:
 
 ## Section E: Temp Storage Configuration
 
-The Standard_NC4as_T4_v3 VMs come with **~150GB of local temp storage** (mounted at `/mnt`). This storage is:
+The Standard_NC4as_T4_v3 VMs come with **~176GB of local temp storage** (mounted at `/mnt`). This storage is:
 
 - **Free** (included with VM)
 - **Fast** (local SSD)
@@ -471,7 +494,7 @@ df -h /mnt
 
 # Expected output:
 # Filesystem      Size  Used Avail Use% Mounted on
-# /dev/sdb1       147G   XX   XXG  XX%  /mnt
+# /dev/sdb1       173G   XX   XXG  XX%  /mnt
 
 # Check Docker is using temp storage
 docker info | grep "Docker Root Dir"
@@ -493,7 +516,7 @@ When VMs are deallocated (after workflow runs), temp storage is wiped. This mean
 - ✅ No stale data accumulation
 - ✅ Fresh environment every run
 
-Since Azure ingress is FREE and workflow runs take 25-35 min anyway, the 3-4 min pull time is acceptable.
+Since Azure ingress is FREE and workflow runs take ~45 min anyway, the 3-4 min pull time is acceptable.
 
 ---
 
@@ -558,9 +581,9 @@ az consumption usage list \
 
 **Expected monthly cost** (3 VMs):
 
-- Compute: ~\$13-17 (3 VMs × ~10-12 hrs/month × \$0.526/hr)
-- Storage: \$7.20 (3 VMs × \$2.40/month persistent OS disks)
-- **Total: ~$20-24/month**
+- Compute: ~\$19 (4 VMs × ~9 hrs/month × \$0.526/hr)
+- Storage: \$9.60 (4 VMs × \$2.40/month persistent OS disks)
+- **Total: ~$28/month**
 
 ### Updating NVIDIA Drivers
 
@@ -584,9 +607,9 @@ Same process as NVIDIA drivers: update `setup-new-vm.sh`, re-run on all VMs, reb
 
 ---
 
-## Section G: Scaling to 4+ VMs
+## Section G: Scaling to more VMs
 
-To add a 4th VM (or more) to the pool, you need to:
+To add VMs to the pool, you need to:
 
 1. Create the new VM(s)
 2. Run setup script
@@ -595,7 +618,7 @@ To add a 4th VM (or more) to the pool, you need to:
 ### 1. Create New VM
 
 ```bash
-# Create VM-4
+# Example: Create VM-4. Only difference is the name.
 az vm create \
   --resource-group APERIAZUREGPU_GROUP \
   --name CICD-NCasT4v3-4 \
@@ -621,24 +644,24 @@ Follow **Section B** for the new VM (no MOK enrollment needed with Secure Boot d
 
 ### 3. Update GitHub Actions Workflow
 
-The workflow uses `VM_POOL_CONFIG` markers to identify all sections that need updates when scaling.
+The workflow uses `VM_POOL_CONFIG` markers to identify all sections that need updates when scaling. The example below is for extending from 3 to 4 VMs.
 
 **Search for `VM_POOL_CONFIG` in `.github/workflows/ci-cd-pipeline.yaml` and update**:
 
 1. **Line ~286**: `setup-gpu.strategy.max-parallel: 4` (update from 3 to 4)
 2. **Line ~288**: `setup-gpu.matrix.vm_index: [1, 2, 3, 4]` (add 4)
-3. **Line ~392-396**: Add case for `4` in checkout code mapping
-4. **Line ~449-453**: Add `vm_ip_4` output declaration
-5. **Line ~467**: Update loop to `for i in 1 2 3 4`
-6. **Line ~492**: `build-and-test-gpu.strategy.max-parallel: 4` (update from 3 to 4)
-7. **Line ~497-501**: Update test config to VM_INDEX mapping (assign configs to VM 4)
-8. **Line ~513-517**: Add case for `4` in Set VM IP mapping
-9. **Line ~681**: `teardown-gpu.strategy.max-parallel: 4` (update from 3 to 4)
-10. **Line ~683**: `teardown-gpu.matrix.vm_index: [1, 2, 3, 4]` (add 4)
+3. **Line ~406**: Add case for `4` in checkout code mapping
+4. **Line ~434**: Add `vm_ip_4` output declaration
+5. **Line ~449**: Update loop to `for i in 1 2 3 4`
+6. **Line ~474**: `build-and-test-gpu.strategy.max-parallel: 4` (update from 3 to 4)
+7. **Line ~483**: Update test config to VM_INDEX mapping (assign configs to VM 4)
+8. **Line ~498**: Add case for `4` in Set VM IP mapping
+9. **Line ~674**: `teardown-gpu.strategy.max-parallel: 4` (update from 3 to 4)
+10. **Line ~676**: `teardown-gpu.matrix.vm_index: [1, 2, 3, 4]` (add 4)
 
-**With 4 VMs**, you can achieve true 1:1 parallelization (4 test configs across 4 VMs), reducing runtime to ~20-25 min.
+**With 4 VMs**, you can achieve true 1:1 parallelization (4 test configs across 4 VMs), reducing runtime to ~45 min.
 
-**Cost impact**: +\$4/month (1 VM × ~\$4/month) = **~$24-28/month total**
+**Cost impact**: +\$4/month (1 VM × ~\$4/month) = **~$28/month total**
 
 ---
 
@@ -828,7 +851,7 @@ mount | grep /mnt
 # Check if disk exists
 lsblk
 
-# Expected to see sdb1 (~150GB)
+# Expected to see sdb1 (~176GB)
 
 # Manual mount (temporary)
 sudo mount /dev/sdb1 /mnt
