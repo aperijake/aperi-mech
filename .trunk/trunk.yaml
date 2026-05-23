@@ -1,0 +1,56 @@
+# This file controls the behavior of Trunk: https://docs.trunk.io/cli
+# To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
+version: 0.1
+cli:
+  version: 1.25.0
+plugins:
+  sources:
+    - id: trunk
+      ref: v1.7.3
+      uri: https://github.com/trunk-io/plugins
+runtimes:
+  enabled:
+    - go@1.21.0
+    - node@22.16.0
+    - python@3.10.8
+lint:
+  enabled:
+    - oxipng@9.1.5
+    - actionlint@1.7.8
+    - hadolint@2.14.0
+    - taplo@0.10.0
+    - bandit@1.8.6
+    - black@25.9.0
+    - isort@7.0.0
+    - ruff@0.14.3
+    - shellcheck@0.11.0
+    - shfmt@3.6.0
+    - pragma-once
+    #    - include-what-you-use@0.20
+    - clang-tidy@16.0.3
+    - clang-format@16.0.3
+    - trivy@0.67.2
+    - yamllint@1.37.1
+    - checkov@3.2.490
+    - git-diff-check
+    - markdownlint@0.45.0
+    - prettier@3.6.2
+    - trufflehog@3.90.12
+  disabled:
+    - include-what-you-use
+  ignore:
+    - linters: [ALL]
+      paths:
+        - .vscode/settings.json
+        - build/**
+        - LICENSE.md
+        - test/utils/scripts/test_files/gh_pages_data.js
+  skip_missing_compile_command: true
+actions:
+  disabled:
+    - trunk-announce
+  enabled:
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+    - git-lfs
+    - trunk-upgrade-available

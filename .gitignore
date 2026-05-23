@@ -1,0 +1,9 @@
+build
+install
+__pycache__
+gh-pages/
+.vscode/
+.DS_Store
+
+build-*
+venv

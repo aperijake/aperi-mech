@@ -1,0 +1,320 @@
+# syntax=docker/dockerfile:1.4
+
+# Dockerfile for building a GPU-enabled environment for the amech project on Ubuntu 24.04
+
+# Base image with CUDA support. Note that cuda 12.8 had ncurses linking issues in Trilinos/SEACAS/Aprepro
+FROM nvidia/cuda:12.6.3-devel-ubuntu24.04
+
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Define a build argument for the CUDA architecture, defaulting to 75 (T4)
+ARG CUDA_ARCH=75
+
+# Define the user and group id
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+# Add build arg for optional Azure mirror
+ARG USE_AZURE_MIRROR=false
+
+# Branch for the source code
+ARG SRC_BRANCH=main
+ARG SPACK_BRANCH=releases/v1.1
+
+# Validate CUDA_ARCH input
+RUN if ! [[ "$CUDA_ARCH" =~ ^[0-9]+$ ]]; then \
+        echo "Error: CUDA_ARCH must be a number, not '${CUDA_ARCH}'" && \
+        exit 1; \
+    fi && \
+    # Check if architecture is supported
+    if [[ ! " 60 61 62 70 72 75 80 86 87 89 90 " =~ " $CUDA_ARCH " ]]; then \
+        echo "Warning: CUDA_ARCH=${CUDA_ARCH} might not be a valid architecture code." && \
+        echo "Common values are:" && \
+        echo "  60, 61, 62 (Pascal: P100, GTX 1080)" && \
+        echo "  70, 72 (Volta: V100)" && \
+        echo "  75 (Turing: T4, RTX 2080)" && \
+        echo "  80, 86 (Ampere: A100, RTX 3080/3090)" && \
+        echo "  87 (Ampere: RTX 3050/3060)" && \
+        echo "  89 (Ada Lovelace: RTX 4090)" && \
+        echo "  90 (Hopper: H100)"; \
+    fi && \
+    echo "CUDA_ARCH set to: ${CUDA_ARCH}"
+# Set CUDA architecture
+ENV CUDA_ARCH=${CUDA_ARCH}
+
+# Verify user and group IDs are numbers
+RUN if ! [[ "$USER_ID" =~ ^[0-9]+$ ]] || ! [[ "$GROUP_ID" =~ ^[0-9]+$ ]]; then \
+        echo "Error: USER_ID and GROUP_ID must be numbers, not '${USER_ID}' and '${GROUP_ID}'" && \
+        exit 1; \
+    fi && \
+    echo "USER_ID set to: ${USER_ID}" && \
+    echo "GROUP_ID set to: ${GROUP_ID}"
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Optionally use Azure mirror for faster apt speeds
+RUN if [ "$USE_AZURE_MIRROR" = "true" ]; then \
+        sed -i 's|URIs: http://.*\.ubuntu\.com/ubuntu/|URIs: http://azure.archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources && \
+        echo "Updated ubuntu.sources:" && cat /etc/apt/sources.list.d/ubuntu.sources; \
+    fi
+
+# Set CUDA environment variables
+ENV CUDA_HOME=/usr/local/cuda
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+
+# Simple verification of CUDA installation
+RUN nvcc --version && \
+    ls -l ${CUDA_HOME}/include/cuda.h && \
+    ls -l ${CUDA_HOME}/lib64/libcudart.so && \
+    echo "CUDA verification complete"
+
+#################### System Packages from apt ####################
+# Install necessary packages
+# trunk-ignore(checkov/CKV2_DOCKER_1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
+    build-essential \
+    ca-certificates \
+    chrpath \
+    cmake \
+    coreutils \
+    curl \
+    desktop-file-utils \
+    environment-modules \
+    file \
+    fuse \
+    gfortran \
+    git \
+    git-lfs \
+    gpg \
+    gpg-agent \
+    htop \
+    lcov \
+    libaec-dev \
+    libbz2-dev \
+    libcurl4-openssl-dev \
+    libfuse2 \
+    libgl1 \
+    libglu1-mesa \
+    libhwloc-dev \
+    liblz4-dev \
+    libncurses-dev \
+    libopenblas-dev \
+    libsnappy-dev \
+    libssl-dev \
+    libtool \
+    libxml2-dev \
+    libzstd-dev \
+    lsb-release \
+    openssh-client \
+    openssl \
+    patchelf \
+    pkgconf \
+    python3 \
+    python3-dev \
+    python3-full \
+    python3-venv \
+    python3-pip \
+    sudo \
+    unzip \
+    vim \
+    xorg \
+    zip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install NVIDIA utilities (nvidia-smi)
+RUN apt-get update && \
+    # Find the latest nvidia-utils-server package compatible with the installed CUDA
+    NVIDIA_UTILS=$(apt-cache search nvidia-utils | grep -o "nvidia-utils-[0-9]*-server" | sort -V | tail -n 1) && \
+    if [ -z "$NVIDIA_UTILS" ]; then \
+        echo "No server version found, falling back to regular version" && \
+        NVIDIA_UTILS=$(apt-cache search nvidia-utils | grep -o "nvidia-utils-[0-9]*" | grep -v "server" | sort -V | tail -n 1); \
+    fi && \
+    echo "Installing $NVIDIA_UTILS" && \
+    apt-get install -y --no-install-recommends $NVIDIA_UTILS && \
+    rm -rf /var/lib/apt/lists/*
+
+#################### AppImage Tools ####################
+# Download and install AppImage tools for bundling
+# Auto-detect architecture and download appropriate binaries
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
+        APPIMAGE_ARCH="aarch64"; \
+    elif [ "$ARCH" = "x86_64" ]; then \
+        APPIMAGE_ARCH="x86_64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    echo "Detected architecture: $ARCH, downloading AppImage tools for: $APPIMAGE_ARCH" && \
+    mkdir -p /opt/appimage-tools && \
+    cd /opt/appimage-tools && \
+    curl -L -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage" && \
+    chmod +x appimagetool && \
+    curl -L -o linuxdeploy "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${APPIMAGE_ARCH}.AppImage" && \
+    chmod +x linuxdeploy && \
+    ln -s /opt/appimage-tools/appimagetool /usr/local/bin/appimagetool && \
+    ln -s /opt/appimage-tools/linuxdeploy /usr/local/bin/linuxdeploy
+
+#################### User Setup ####################
+# Check if UID exists and handle accordingly, modify if exists, create if not. Can be set to match host for easy file sharing
+RUN if getent passwd ${USER_ID} > /dev/null; then \
+      echo "UID ${USER_ID} already exists, modifying existing user" && \
+      existing_user=$(getent passwd ${USER_ID} | cut -d: -f1) && \
+      usermod -l amech_docker $existing_user && \
+      groupmod -n amech_docker $(id -gn $USER_ID) && \
+      usermod -d /home/amech_docker -m amech_docker; \
+    else \
+      # Create the group first if it doesn't exist
+      if ! getent group ${GROUP_ID}; then \
+        groupadd -g ${GROUP_ID} amech_docker; \
+      fi && \
+      useradd -u ${USER_ID} -g ${GROUP_ID} -m amech_docker; \
+    fi
+
+# Switch back to root user
+USER root
+
+# Configure passwordless sudo for the user
+RUN echo "amech_docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Make the working directory
+WORKDIR /home/amech_docker
+
+# Set the HOME environment variable
+ENV HOME=/home/amech_docker
+
+# Set the default command to bash
+CMD ["/bin/bash"]
+
+# Add GitHub to known_hosts BEFORE any git operations to avoid host key verification errors
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+# Clone only the tools/ directory from aperi-mech using sparse checkout
+RUN git clone --filter=blob:none --sparse https://github.com/aperijake/aperi-mech.git ${HOME}/amech && \
+    cd ${HOME}/amech && \
+    git sparse-checkout set tools && \
+    git checkout "$SRC_BRANCH" && \
+    rm -rf .git
+
+# Ensure the amech directory is owned by the amech user
+RUN chown -R amech_docker:amech_docker ${HOME}/amech
+
+# Change to the new user
+USER amech_docker
+
+# Change to the cloned repository directory
+WORKDIR ${HOME}/amech
+
+# Automatically activate the venv for interactive shells
+RUN echo "source ${HOME}/amech/venv/bin/activate" >> ${HOME}/.bashrc
+
+# Set Fortran compiler and amech environment variables globally
+ENV AMECH_ROOT=${HOME}/amech
+ENV FC=/usr/bin/gfortran 
+ENV F77=/usr/bin/gfortran
+
+# Set up Python virtual environment and install required tooling
+# Note: imppy3d is automatically installed from git as specified in pyproject.toml
+RUN python3 -m venv venv && \
+    . ./venv/bin/activate && \
+    echo "export AMECH_ROOT=$AMECH_ROOT" >> $AMECH_ROOT/venv/bin/activate && \
+    cd $AMECH_ROOT/tools/python/amech && \
+    python3 -m pip install -e . && \
+    cd $AMECH_ROOT/tools/python/spackx && \
+    python3 -m pip install -e .
+
+# Install Spack and add it to the virtual environment
+RUN mkdir -p $AMECH_ROOT/venv/src && \
+    cd $AMECH_ROOT/venv/src && \
+    git clone https://github.com/spack/spack.git && \
+    git -C $AMECH_ROOT/venv/src/spack checkout ${SPACK_BRANCH} && \
+    echo "source $AMECH_ROOT/venv/src/spack/share/spack/setup-env.sh" >> $AMECH_ROOT/venv/bin/activate
+
+# Configure the Spack environment
+RUN . ./venv/bin/activate && \
+    spack compiler find && \
+    spack external find && \
+    spack external find hwloc libxml2 pkgconf bzip2 lz4 snappy zstd libaec ncurses openblas autoconf automake libtool
+
+# Patch Spack for Trilinos support
+RUN . ./venv/bin/activate && \
+    spack patch-trilinos
+
+# Manually add CUDA to Spack packages.yaml
+RUN . ./venv/bin/activate && \
+    CUDA_VER=$(nvcc --version | grep "release" | sed 's/.*release //' | awk '{print $1}' | cut -d',' -f1) && \
+    mkdir -p ~/.spack && \
+    echo "  cuda:" >> ~/.spack/packages.yaml && \
+    echo "    externals:" >> ~/.spack/packages.yaml && \
+    echo "    - spec: cuda@${CUDA_VER}" >> ~/.spack/packages.yaml && \
+    echo "      prefix: /usr/local/cuda" >> ~/.spack/packages.yaml && \
+    echo "    buildable: false" >> ~/.spack/packages.yaml
+
+# Create a Spack environment for amech and install it
+RUN . ./venv/bin/activate && \
+    spack env create amech && \
+    spack -e amech develop --path $AMECH_ROOT amech ~openmp +cuda cuda_arch=${CUDA_ARCH} build_type=Release && \
+    spack -e amech add amech ~openmp +cuda cuda_arch=${CUDA_ARCH} build_type=Release && \
+    spack -e amech concretize -f
+
+# Just breaking up and installing the dependencies in a few steps to give a docker build cache
+RUN . ./venv/bin/activate && \
+    spack -e amech install eigen yaml-cpp googletest
+
+RUN . ./venv/bin/activate && \
+    spack -e amech install kokkos kokkos-kernels compadre
+
+RUN . ./venv/bin/activate && \
+    spack -e amech install trilinos
+
+# Set environment variables for amech
+ENV AMECH_ENV="amech"
+ENV AMECH_GPU_ENV="amech"
+
+# Register the local amech Spack repository so the amech repo can be found for future builds
+RUN . ./venv/bin/activate && \
+    spack -e amech repo add $AMECH_ROOT/tools/python/spackx/src/spackx/repos/amech/
+
+# When running the container:
+# To get the build location of amech, you can run:
+#   spack location -i amech build_type=Release
+# Then cd to the bin folder in that directory to run the unit tests
+# Same for the Debug build
+
+# To build amech with build_type=Debug in the same environment, in the container you can run:
+#   spack config edit
+#    change concretizer:unify to false # enables multiple builds in the same environment
+#   spack add amech build_type=Debug
+#   spack install build_type=Debug
+# May get some error about the environment view, but it seems to not be an issue
+
+# Or, you can use the do_configure script to build manually
+
+#################### Level 1: Build-Time Smoke Tests ####################
+# Run basic validation tests during build to catch issues early
+RUN . ./venv/bin/activate && \
+    echo "Running build-time smoke tests..." && \
+    # Test 1: Python environment
+    python3 --version && \
+    python3 -c "import spackx; import amech" && \
+    # Test 2: Spack works
+    spack --version && \
+    spack env list | grep -q amech && \
+    # Test 3: Core tools present
+    which git cmake gcc gfortran && \
+    # Test 4: CUDA toolkit
+    nvcc --version && \
+    [ -d /usr/local/cuda/lib64 ] && [ -f /usr/local/cuda/lib64/libcudart.so ] && \
+    # Test 5: Spack environment can be activated
+    # Test 6: Dependencies findable
+    spack find trilinos kokkos eigen | grep -q trilinos && \
+    echo "✓ All build-time smoke tests passed"
+
+# Generic healthcheck to ensure the container is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD [ "bash", "-c", "echo 'Container is healthy'" ]

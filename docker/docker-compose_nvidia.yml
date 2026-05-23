@@ -1,0 +1,32 @@
+# The main purpose of this container is to run a development environment for
+# the AMech project. It is used in CI/CD pipelines and for local development.
+# To start the container, run the following command:
+#   docker-compose -f docker-compose_nvidia.yml run --service-ports amech-gpu-development /bin/bash
+# This will start the container and open a bash shell.
+
+version: "3.8"
+
+services:
+  amech-gpu-development:
+    image: ghcr.io/aperijake/aperi-mech:ubuntu24.04-cuda12.6-sm75-amd64
+    shm_size: 2gb # Shared memory size
+    network_mode:
+      host
+      # build:
+      #   context: .
+      #   dockerfile: Dockerfile_AMech_Ubuntu2404_Nvidia
+    volumes:
+      - /home/azureuser/amech:/home/amech_docker/amech_host # for using the host's amech directory in CI/CD
+      - /home/azureuser/aperifileshare1:/home/amech_docker/aperifileshare1 # for some performance test files
+    working_dir: /home/amech_docker/amech_host
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility

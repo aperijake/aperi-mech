@@ -1,0 +1,21 @@
+# The main purpose of this container is to run a development environment for
+# the AMech project. It is used in CI/CD pipelines and for local development.
+# To start the container, run the following command:
+#   docker-compose -f docker-compose.yml run --service-ports amech-development /bin/bash
+# This will start the container and open a bash shell.
+
+version: "3.8"
+
+services:
+  amech-development:
+    image: ghcr.io/aperijake/aperi-mech:latest
+    shm_size: 2gb # Shared memory size
+    network_mode:
+      host
+      # build:
+      #   context: .
+      #   dockerfile: Dockerfile_AMech_Ubuntu2204
+    volumes:
+      - /home/azureuser/amech:/home/amech_docker/amech_host # for using the host's amech directory in CI/CD
+      - /home/azureuser/aperifileshare1:/home/amech_docker/aperifileshare1 # for some performance test files
+    working_dir: /home/amech_docker/amech_host

@@ -1,0 +1,81 @@
+# Docker build context ignore file
+# Exclude files that shouldn't be copied into Docker images
+
+# SSL certificates and keys
+ssl/
+*.pem
+*.key
+*.crt
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.so
+*.o
+*.a
+
+# Python virtual environments
+venv/
+env/
+.venv/
+
+# Spack environment (large, not needed in Docker)
+.spack-env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Documentation source
+docs/
+*.md
+
+# Test files
+tests/
+test_*/
+*_test.py
+
+# Large data files
+data/
+datasets/
+*.h5
+*.hdf5
+*.vtk
+*.vtu
+*.stl
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# macOS
+.DS_Store
+
+# Package files (we'll install from source instead)
+packages/
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+.dockerignore

@@ -1,0 +1,27 @@
+diff --git a/var/spack/repos/builtin/packages/trilinos/package.py b/var/spack/repos/builtin/packages/trilinos/package.py
+index d346b5e0a1..3292a8af1c 100644
+--- a/var/spack/repos/builtin/packages/trilinos/package.py
++++ b/var/spack/repos/builtin/packages/trilinos/package.py
+@@ -86,7 +86,7 @@ class Trilinos(CMakePackage, CudaPackage, ROCmPackage):
+     variant("cuda_rdc", default=False, description="Turn on RDC for CUDA build")
+     variant("rocm_rdc", default=False, description="Turn on RDC for ROCm build")
+     variant(
+-        "cxxstd", default="14", description="C++ standard", values=["11", "14", "17"], multi=False
++        "cxxstd", default="14", description="C++ standard", values=["11", "14", "17", "20"], multi=False
+     )
+     variant("debug", default=False, description="Enable runtime safety and debug checks")
+     variant(
+@@ -414,11 +414,11 @@ class Trilinos(CMakePackage, CudaPackage, ROCmPackage):
+         depends_on("kokkos-kernels~shared", when="+cuda_rdc")
+         depends_on("kokkos-kernels~shared", when="+rocm_rdc")
+         depends_on("kokkos~complex_align")
+-        depends_on("kokkos@4.5.01", when="@master:")
++        depends_on("kokkos@4.7:", when="@master:")
+         depends_on("kokkos@4.3.01", when="@16")
+         depends_on("kokkos@4.2.01", when="@15.1:15")
+         depends_on("kokkos@4.1.00", when="@14.4:15.0")
+-        depends_on("kokkos-kernels@4.5.01", when="@master:")
++        depends_on("kokkos-kernels@4.7:", when="@master:")
+         depends_on("kokkos-kernels@4.3.01", when="@16")
+         depends_on("kokkos-kernels@4.2.01", when="@15.1:15")
+         depends_on("kokkos+openmp", when="+openmp")
